@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env*.local
+
+# Vercel
+.vercel/
+
+# Sensitive internal docs
+docs/*.pdf
+
+# OS
+.DS_Store
+Thumbs.db

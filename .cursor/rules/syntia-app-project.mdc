@@ -1,0 +1,26 @@
+---
+description: Convenciones del proyecto syntia-app (arquitectura, contenido, WIP)
+alwaysApply: true
+---
+
+# Syntia App — convenciones
+
+## Arquitectura
+
+- Módulos en `src/modules/<nombre>/` con `domain`, `application`, `infrastructure`, `ui`.
+- UI de páginas: `components/`; rutas en `app/`.
+- Lógica de integración (webhooks, APIs externas) en `infrastructure`, no en componentes.
+
+## Contenido y copy
+
+- Textos del sitio en `content/site.ts` (y archivos de contenido dedicados por feature).
+- Tono: cercano, profesional, sin jerga de gestoría tradicional (ver manual de marca en `.cursor/rules.md`).
+
+## Funcionalidad no lista
+
+- Enlaces o rutas sin implementar → `/proximamente`, no 404/500 como "próximamente".
+
+## Secretos
+
+- Variables de entorno para webhooks/credenciales; nunca en código fuente.
+- Solo UI (sin API): `NEXT_PUBLIC_FORM_SUBMIT_STUB=true` en `.env.local`; quitar en producción.

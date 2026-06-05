@@ -1,0 +1,12 @@
+---
+description: API plan personalizado — validación, rate limit y lead Odoo (referencia futura)
+globs: app/api/plan-customize/**/*,lib/plan-customize/**/*,content/plan-customize-form.ts,src/modules/leads/**/*
+alwaysApply: false
+---
+
+# Plan personalizado — API y wizard
+
+1. **Validación compartida** — `lib/plan-customize/validate-inquiry.ts`; wizard y `POST /api/plan-customize` deben coincidir.
+2. **Descripción del lead** — `format-plan-customize-description.ts`: bloque estructurado + comentario opcional.
+3. **Seguridad** — Misma origen/rate limit que contacto; honeypot `company`; `formStartedAt`.
+4. **Entrega** — Mismo webhook `ODOO_LEAD_WEBHOOK_URL` con `source: "plan_customize"`.

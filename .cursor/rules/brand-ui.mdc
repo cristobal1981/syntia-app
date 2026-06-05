@@ -1,0 +1,19 @@
+---
+description: UI y marca Syntia — paleta, tipografía, superficies
+globs: components/**/*,app/**/*.tsx,app/globals.css,content/**/*
+alwaysApply: false
+---
+
+# Marca y UI (resumen)
+
+Referencia completa: **`.cursor/rules.md`** (paleta, jerarquía tipográfica, checklist).
+
+## Imprescindibles
+
+- **Tipografía:** Host Grotesk (títulos, CTAs) + Archivo (cuerpo) vía `next/font` en `app/layout.tsx`.
+- **Tokens semánticos** en `globals.css`: `surface-dark`, `on-dark`, `surface-light`, `on-light`, `primary` (Verde Syntia), `muted-on-*`. No usar `bg-foreground` como fondo de sección.
+- **CTA primario:** Verde Syntia sobre texto oscuro; hover por opacidad.
+- **`html`:** `scroll-behavior` coherente con GSAP (no `smooth` global si rompe ScrollTrigger).
+- Contraste mínimo AA; degradados y decoración sin sacrificar legibilidad.
+
+Al cambiar estilos, revisar coherencia con secciones vecinas y clases existentes (`input-on-dark`, `badge-on-light`, etc.).

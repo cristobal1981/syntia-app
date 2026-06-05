@@ -1,0 +1,47 @@
+---
+description: Disciplina de desarrollo — pensar antes, simplicidad, cambios quirúrgicos, verificación
+alwaysApply: true
+---
+
+# Disciplina de desarrollo
+
+Bias hacia cautela, no velocidad ciega. En tareas triviales, usa criterio.
+
+## 1. Pensar antes de codificar
+
+- Expón suposiciones. Si hay duda, pregunta.
+- Si hay varias interpretaciones, preséntalas; no elijas en silencio.
+- Si existe enfoque más simple, dilo. Empuja cuando tenga sentido.
+- Si algo no está claro, para y nombra qué falta.
+
+## 2. Simplicidad primero
+
+- Solo lo pedido. Nada especulativo.
+- Sin abstracciones de un solo uso.
+- Sin "flexibilidad" no solicitada.
+- Sin manejo de errores para casos imposibles.
+- Si 200 líneas pueden ser 50, reescribe.
+
+## 3. Cambios quirúrgicos
+
+- No "mejores" código, comentarios o formato adyacente.
+- No refactorices lo que no está roto.
+- Iguala el estilo existente.
+- Código muerto ajeno: menciónalo, no lo borres salvo petición.
+- Limpia imports/vars que **tus** cambios dejen huérfanos.
+
+Cada línea del diff debe trazar al pedido del usuario.
+
+## 4. Ejecución con criterio de éxito
+
+Define cómo comprobar antes de dar por hecho:
+
+| Tarea | Verificación típica en este proyecto |
+| --- | --- |
+| UI / componentes | `pnpm exec tsc --noEmit`; revisar en `pnpm dev` |
+| Formulario / API route | Validación cliente + servidor alineada; probar envío manual |
+| Contenido / copy | Texto en `content/site.ts` (o módulo de contenido acordado) |
+| Refactor local | `tsc` y, si toca build, `pnpm build` |
+
+- No añadir suite de tests salvo que lo pidan.
+- En pasos multi-paso: plan breve con verificación por paso.

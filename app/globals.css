@@ -1,0 +1,243 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * WCAG AA contrast pairs (validated targets):
+ * on-dark #f0f6f6 on surface-dark #041d23 — ~12.5:1
+ * muted-on-dark #b2d0d5 on surface-dark — ~5.2:1
+ * on-light #041d23 on surface-light #f0f6f6 — ~12.5:1
+ * on-light-muted #4a6f6a on surface-light — ~4.6:1
+ * accent-on-light #01635c on surface-light — ~5.8:1
+ * primary-foreground on primary (button) — ~7:1
+ * on-light on brisa #d6f2e8 — ~10:1
+ * muted-on-light on brisa — ~4.5:1
+ * brisa on secondary (agua) — ~5.5:1
+ */
+
+:root {
+  --surface-dark: #041d23;
+  --on-dark: #f0f6f6;
+  --surface-light: #f0f6f6;
+  --on-light: #041d23;
+  --muted-on-dark: #b2d0d5;
+  --muted-on-light: #4a6f6a;
+  --on-light-muted: #5a7571;
+  --accent-on-light: #01635c;
+
+  --background: var(--surface-dark);
+  --foreground: var(--on-dark);
+  --card: #062a33;
+  --card-foreground: var(--on-dark);
+  --popover: #062a33;
+  --popover-foreground: var(--on-dark);
+  --primary: #01dea2;
+  --primary-foreground: #041d23;
+  --secondary: #01635c;
+  --secondary-foreground: var(--on-dark);
+  --muted: #0a3540;
+  --muted-foreground: var(--muted-on-dark);
+  --accent: #01dea2;
+  --accent-foreground: #041d23;
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: var(--on-dark);
+  --border: #0d4a58;
+  --input: #0d4a58;
+  --ring: #01dea2;
+  --brisa: #d6f2e8;
+  --turquesa: #2bc0a9;
+  --agua: #01635c;
+  --chart-1: #01dea2;
+  --chart-2: #02b88a;
+  --chart-3: #039272;
+  --chart-4: #046c5a;
+  --chart-5: #054642;
+  --service-fiscal: #e8b84a;
+  --service-contable: #5bc4e8;
+  --service-laboral: #f08a7a;
+  --service-constitucion: #9b8cf0;
+  --radius: 0.625rem;
+  --sidebar: var(--surface-dark);
+  --sidebar-foreground: var(--on-dark);
+  --sidebar-primary: #01dea2;
+  --sidebar-primary-foreground: #041d23;
+  --sidebar-accent: #0a3540;
+  --sidebar-accent-foreground: var(--on-dark);
+  --sidebar-border: #0d4a58;
+  --sidebar-ring: #01dea2;
+}
+
+.dark {
+  --surface-dark: #041d23;
+  --on-dark: #f0f6f6;
+  --surface-light: #f0f6f6;
+  --on-light: #041d23;
+  --muted-on-dark: #b2d0d5;
+  --muted-on-light: #4a6f6a;
+  --on-light-muted: #5a7571;
+  --accent-on-light: #01635c;
+  --background: var(--surface-dark);
+  --foreground: var(--on-dark);
+  --card: #062a33;
+  --card-foreground: var(--on-dark);
+  --popover: #062a33;
+  --popover-foreground: var(--on-dark);
+  --primary: #01dea2;
+  --primary-foreground: #041d23;
+  --secondary: #01635c;
+  --secondary-foreground: var(--on-dark);
+  --muted: #0a3540;
+  --muted-foreground: var(--muted-on-dark);
+  --accent: #01dea2;
+  --accent-foreground: #041d23;
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: var(--on-dark);
+  --border: #0d4a58;
+  --input: #0d4a58;
+  --ring: #01dea2;
+  --brisa: #d6f2e8;
+  --turquesa: #2bc0a9;
+  --agua: #01635c;
+  --chart-1: #01dea2;
+  --chart-2: #02b88a;
+  --chart-3: #039272;
+  --chart-4: #046c5a;
+  --chart-5: #054642;
+  --service-fiscal: #e8b84a;
+  --service-contable: #5bc4e8;
+  --service-laboral: #f08a7a;
+  --service-constitucion: #9b8cf0;
+  --sidebar: var(--surface-dark);
+  --sidebar-foreground: var(--on-dark);
+  --sidebar-primary: #01dea2;
+  --sidebar-primary-foreground: #041d23;
+  --sidebar-accent: #0a3540;
+  --sidebar-accent-foreground: var(--on-dark);
+  --sidebar-border: #0d4a58;
+  --sidebar-ring: #01dea2;
+}
+
+@theme inline {
+  --font-sans: var(--font-host-grotesk), system-ui, sans-serif;
+  --font-body: var(--font-archivo), system-ui, sans-serif;
+  --color-surface-dark: var(--surface-dark);
+  --color-on-dark: var(--on-dark);
+  --color-surface-light: var(--surface-light);
+  --color-on-light: var(--on-light);
+  --color-muted-on-dark: var(--muted-on-dark);
+  --color-muted-on-light: var(--muted-on-light);
+  --color-on-light-muted: var(--on-light-muted);
+  --color-accent-on-light: var(--accent-on-light);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brisa: var(--brisa);
+  --color-turquesa: var(--turquesa);
+  --color-agua: var(--agua);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-service-fiscal: var(--service-fiscal);
+  --color-service-contable: var(--service-contable);
+  --color-service-laboral: var(--service-laboral);
+  --color-service-constitucion: var(--service-constitucion);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    font-family: var(--font-archivo), system-ui, sans-serif;
+    line-height: 1.625;
+    @apply bg-background text-foreground antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-host-grotesk), system-ui, sans-serif;
+    line-height: 1.2;
+  }
+}
+
+@layer utilities {
+  .bg-hero-gradient {
+    @apply bg-gradient-to-br from-background via-card to-agua;
+  }
+  .bg-section-dark {
+    @apply bg-gradient-to-b from-background to-agua/40;
+  }
+  .badge-on-dark {
+    @apply inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/15 px-3 py-1.5;
+  }
+  .badge-label-on-dark {
+    @apply font-sans text-xs font-medium tracking-wide text-on-dark uppercase;
+  }
+  .badge-on-light {
+    @apply inline-flex items-center gap-2 rounded-full border border-on-light/15 bg-on-light/5 px-3 py-1.5;
+  }
+  .badge-label-on-light {
+    @apply font-sans text-xs font-medium tracking-wide text-on-light uppercase;
+  }
+  .input-on-dark {
+    @apply border-agua/30 bg-on-dark/10 text-on-dark placeholder:text-muted-on-dark focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none;
+  }
+  .prose-width {
+    max-width: 65ch;
+  }
+  .section-cta-brisa {
+    @apply w-full bg-brisa py-16 md:py-20;
+  }
+  .section-cta-brisa-title {
+    @apply text-2xl font-bold text-on-light sm:text-3xl;
+  }
+  .section-cta-brisa-body {
+    @apply text-lg text-muted-on-light;
+  }
+  .section-cta-brisa-btn {
+    @apply font-semibold bg-secondary text-brisa hover:bg-secondary/90;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
