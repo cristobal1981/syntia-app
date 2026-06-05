@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Archivo, Host_Grotesk } from 'next/font/google'
+
+import { ThemeProvider } from '@/components/providers/theme-provider'
 import './globals.css'
 
 const hostGrotesk = Host_Grotesk({
@@ -45,9 +47,12 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${hostGrotesk.variable} ${archivo.variable} bg-background`}
     >
-      <body className={`${archivo.className} antialiased`}>{children}</body>
+      <body className={`${archivo.className} antialiased`}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }
