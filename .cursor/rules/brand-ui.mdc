@@ -10,6 +10,7 @@ Referencia completa: **`.cursor/rules.md`** (paleta, jerarquía tipográfica, ch
 
 ## Imprescindibles
 
+- **Logotipo:** solo assets en `public/brand/` — isotipo (`syntia-isotipo.svg`), horizontal positivo/negativo o vertical. **Nunca** wordmark tipográfico hecho con texto/HTML. Rutas en `content/site.ts` → `site.brand.logoSrc`, `logoHorizontalPositivo`, `logoHorizontalNegativo`. Portal: `PortalBrandMark`; resto: `BrandLogo` con `variant`.
 - **Tipografía:** Host Grotesk (títulos, CTAs) + Archivo (cuerpo) vía `next/font` en `app/layout.tsx`.
 - **Tokens semánticos** en `globals.css`: `surface-dark`, `on-dark`, `surface-light`, `on-light`, `primary` (Verde Syntia), `muted-on-*`. No usar `bg-foreground` como fondo de sección.
 - **CTA primario:** Verde Syntia sobre texto oscuro; hover por opacidad.

@@ -26,24 +26,24 @@
   --on-light-muted: #5a7571;
   --accent-on-light: #01635c;
 
-  --background: var(--surface-dark);
-  --foreground: var(--on-dark);
-  --card: #062a33;
-  --card-foreground: var(--on-dark);
-  --popover: #062a33;
-  --popover-foreground: var(--on-dark);
+  --background: var(--surface-light);
+  --foreground: var(--on-light);
+  --card: #ffffff;
+  --card-foreground: var(--on-light);
+  --popover: #ffffff;
+  --popover-foreground: var(--on-light);
   --primary: #01dea2;
   --primary-foreground: #041d23;
   --secondary: #01635c;
   --secondary-foreground: var(--on-dark);
-  --muted: #0a3540;
-  --muted-foreground: var(--muted-on-dark);
-  --accent: #01dea2;
-  --accent-foreground: #041d23;
+  --muted: #e8f4f2;
+  --muted-foreground: var(--muted-on-light);
+  --accent: #d6f2e8;
+  --accent-foreground: var(--on-light);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: var(--on-dark);
-  --border: #0d4a58;
-  --input: #0d4a58;
+  --destructive-foreground: #ffffff;
+  --border: #d4e8e4;
+  --input: #d4e8e4;
   --ring: #01dea2;
   --brisa: #d6f2e8;
   --turquesa: #2bc0a9;
@@ -56,15 +56,23 @@
   --service-fiscal: #e8b84a;
   --service-contable: #5bc4e8;
   --service-laboral: #f08a7a;
+  --alert-on-dark: #f0b4b4;
+  --alert-on-dark-accent: #dc6060;
+  --alert-on-dark-border: rgba(220, 96, 96, 0.5);
+  --alert-on-dark-bg: rgba(190, 72, 72, 0.14);
+  --alert-on-dark-input-bg: rgba(190, 72, 72, 0.09);
+  --alert-on-dark-ring: rgba(220, 96, 96, 0.32);
   --service-constitucion: #9b8cf0;
   --radius: 0.625rem;
-  --sidebar: var(--surface-dark);
-  --sidebar-foreground: var(--on-dark);
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--on-light);
   --sidebar-primary: #01dea2;
   --sidebar-primary-foreground: #041d23;
-  --sidebar-accent: #0a3540;
-  --sidebar-accent-foreground: var(--on-dark);
-  --sidebar-border: #0d4a58;
+  --sidebar-accent: #eef5f3;
+  --sidebar-accent-foreground: var(--on-light);
+  --sidebar-active: #d6f2e8;
+  --sidebar-active-foreground: #01635c;
+  --sidebar-border: #d4e8e4;
   --sidebar-ring: #01dea2;
 }
 
@@ -107,13 +115,21 @@
   --service-fiscal: #e8b84a;
   --service-contable: #5bc4e8;
   --service-laboral: #f08a7a;
+  --alert-on-dark: #f0b4b4;
+  --alert-on-dark-accent: #dc6060;
+  --alert-on-dark-border: rgba(220, 96, 96, 0.5);
+  --alert-on-dark-bg: rgba(190, 72, 72, 0.14);
+  --alert-on-dark-input-bg: rgba(190, 72, 72, 0.09);
+  --alert-on-dark-ring: rgba(220, 96, 96, 0.32);
   --service-constitucion: #9b8cf0;
-  --sidebar: var(--surface-dark);
+  --sidebar: #062a33;
   --sidebar-foreground: var(--on-dark);
   --sidebar-primary: #01dea2;
   --sidebar-primary-foreground: #041d23;
-  --sidebar-accent: #0a3540;
+  --sidebar-accent: #0a3d4a;
   --sidebar-accent-foreground: var(--on-dark);
+  --sidebar-active: #041d23;
+  --sidebar-active-foreground: #01dea2;
   --sidebar-border: #0d4a58;
   --sidebar-ring: #01dea2;
 }
@@ -159,6 +175,8 @@
   --color-service-fiscal: var(--service-fiscal);
   --color-service-contable: var(--service-contable);
   --color-service-laboral: var(--service-laboral);
+  --color-alert-on-dark: var(--alert-on-dark);
+  --color-alert-on-dark-accent: var(--alert-on-dark-accent);
   --color-service-constitucion: var(--service-constitucion);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -170,6 +188,8 @@
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
@@ -219,6 +239,22 @@
   .input-on-dark {
     @apply border-agua/30 bg-on-dark/10 text-on-dark placeholder:text-muted-on-dark focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none;
   }
+  .input-on-dark[aria-invalid='true'] {
+    @apply ring-0;
+    border-color: var(--alert-on-dark-border);
+    background-color: var(--alert-on-dark-input-bg);
+    box-shadow: 0 0 0 1px var(--alert-on-dark-ring);
+  }
+  .input-on-dark[aria-invalid='true']:focus-visible {
+    border-color: var(--alert-on-dark-accent);
+    box-shadow: 0 0 0 3px var(--alert-on-dark-ring);
+    outline: none;
+  }
+  .alert-on-dark {
+    @apply rounded-lg px-3 py-2 text-sm leading-relaxed text-alert-on-dark;
+    border: 1px solid var(--alert-on-dark-border);
+    background-color: var(--alert-on-dark-bg);
+  }
   .prose-width {
     max-width: 65ch;
   }
@@ -234,10 +270,59 @@
   .section-cta-brisa-btn {
     @apply font-semibold bg-secondary text-brisa hover:bg-secondary/90;
   }
+  .login-tech-mesh {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(1, 222, 162, 0.05), transparent 42%),
+      radial-gradient(circle at 82% 12%, rgba(1, 99, 92, 0.06), transparent 40%),
+      linear-gradient(145deg, #030f12 0%, #041519 45%, #042a32 100%);
+  }
+  .login-tech-grid {
+    background-image:
+      linear-gradient(to right, rgba(1, 222, 162, 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(1, 222, 162, 0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    animation: login-grid-drift 28s linear infinite;
+  }
+  .login-tech-scan {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(1, 222, 162, 0.018) 48%,
+      transparent 100%
+    );
+    background-size: 100% 220%;
+    animation: login-scan-sweep 9s ease-in-out infinite;
+  }
+  .login-tech-dim {
+    background: rgba(3, 12, 15, 0.34);
+  }
+}
+
+@keyframes login-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 56px 56px;
+  }
+}
+
+@keyframes login-scan-sweep {
+  0%,
+  100% {
+    background-position: 0 -120%;
+  }
+  50% {
+    background-position: 0 40%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+  .login-tech-grid,
+  .login-tech-scan {
+    animation: none;
   }
 }
