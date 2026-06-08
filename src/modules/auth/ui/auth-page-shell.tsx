@@ -40,10 +40,10 @@ export function AuthPageShell({
 
   return (
     <LazyMotion features={domAnimation}>
-      <main className="relative min-h-dvh overflow-hidden bg-background">
+      <main className="relative h-dvh overflow-hidden bg-background">
         <LoginAmbientBackdrop />
 
-        <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-10 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-0">
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col px-4 py-10 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-0">
           <m.section
             className="flex flex-1 flex-col justify-center lg:max-w-md lg:py-16"
             {...fadeUp(0)}

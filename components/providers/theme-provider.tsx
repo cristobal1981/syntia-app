@@ -4,6 +4,8 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { Toaster } from '@/components/ui/sonner'
+
 function isAuthPath(pathname: string | null): boolean {
   if (!pathname) return false
   return (
@@ -31,6 +33,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       disableTransitionOnChange
     >
       {children}
+      <Toaster />
     </NextThemesProvider>
   )
 }

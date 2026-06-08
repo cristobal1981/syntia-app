@@ -1,10 +1,12 @@
 'use client'
 
+import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
+import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
@@ -14,6 +16,7 @@ import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalTopBar } from '@/src/modules/portal/ui/portal-top-bar'
 
 const SIDEBAR_STORAGE_KEY = 'syntia-sidebar-collapsed'
+const menuEase = [0.22, 1, 0.36, 1] as const
 
 type PortalShellProps = {
   user: PortalUser
@@ -44,8 +47,8 @@ function NavLink({
         'flex min-h-10 items-center rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
         isActive
-          ? 'bg-sidebar-active font-medium text-sidebar-active-foreground'
-          : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+          ? 'bg-sidebar-active font-medium text-sidebar-active-foreground shadow-sm'
+          : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
       )}
       aria-current={isActive ? 'page' : undefined}
     >
@@ -58,6 +61,7 @@ function NavLink({
 
 export function PortalShell({ user, children }: PortalShellProps) {
   const pathname = usePathname()
+  const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const navItems = getNavForRole(user.role)
@@ -78,10 +82,10 @@ export function PortalShell({ user, children }: PortalShellProps) {
   }
 
   return (
-    <div className="flex min-h-dvh bg-background text-foreground">
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          'hidden shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:flex',
+          'hidden min-h-0 shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:flex',
           sidebarCollapsed ? 'w-[4.5rem]' : 'w-64'
         )}
       >
@@ -96,7 +100,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
 
         <nav
           className={cn(
-            'flex flex-1 flex-col gap-1 py-2',
+            'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto py-2',
             sidebarCollapsed ? 'px-2' : 'px-3'
           )}
           aria-label="Principal"
@@ -123,8 +127,8 @@ export function PortalShell({ user, children }: PortalShellProps) {
             </div>
           ) : (
             <>
-              <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{roleLabel}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</p>
+              <p className="mt-0.5 text-xs text-sidebar-muted-foreground">{roleLabel}</p>
             </>
           )}
           <div className={cn('mt-3', sidebarCollapsed && 'flex justify-center')}>
@@ -133,7 +137,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-background">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <PortalTopBar
           mobileNavOpen={mobileOpen}
           onMobileNavToggle={() => setMobileOpen((open) => !open)}
@@ -141,45 +145,56 @@ export function PortalShell({ user, children }: PortalShellProps) {
           onSidebarToggle={toggleSidebar}
         />
 
-        {mobileOpen ? (
-          <nav
-            id="mobile-nav"
-            className="bg-sidebar px-3 py-3 text-sidebar-foreground lg:hidden"
-            aria-label="Principal"
-          >
-            <div className="mb-4 flex justify-center py-2">
-              <PortalBrandMark className="max-w-[200px]" />
-            </div>
-            <ul className="flex flex-col gap-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.href
-                return (
-                  <li key={item.label}>
-                    <NavLink
-                      href={item.href}
-                      label={item.label}
-                      icon={item.icon}
-                      isActive={isActive}
-                      collapsed={false}
-                      onNavigate={() => setMobileOpen(false)}
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-            <div className="mt-4 px-1 py-2">
-              <p className="px-2 text-sm font-medium text-foreground">{user.name}</p>
-              <p className="mt-0.5 px-2 text-xs text-muted-foreground">{roleLabel}</p>
-              <div className="mt-2 px-1">
-                <SignOutButton />
-              </div>
-            </div>
-          </nav>
-        ) : null}
+        <LazyMotion features={domAnimation}>
+          <AnimatePresence initial={false}>
+            {mobileOpen ? (
+              <m.div
+                key="mobile-nav"
+                className="absolute inset-x-0 top-12 z-40 overflow-hidden lg:hidden"
+                initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={reducedMotion ? undefined : { height: 0, opacity: 0 }}
+                transition={{ duration: reducedMotion ? 0 : 0.28, ease: menuEase }}
+              >
+                <nav
+                  id="mobile-nav"
+                  className="max-h-[calc(100dvh-3rem)] overflow-y-auto bg-sidebar px-3 py-3 text-sidebar-foreground shadow-lg"
+                  aria-label="Principal"
+                >
+                  <div className="mb-4 flex justify-center py-2">
+                    <PortalBrandMark className="max-w-[200px]" />
+                  </div>
+                  <ul className="flex flex-col gap-1">
+                    {navItems.map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <li key={item.label}>
+                          <NavLink
+                            href={item.href}
+                            label={item.label}
+                            icon={item.icon}
+                            isActive={isActive}
+                            collapsed={false}
+                            onNavigate={() => setMobileOpen(false)}
+                          />
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <div className="mt-4 px-1 py-2">
+                    <p className="px-2 text-sm font-medium text-sidebar-foreground">{user.name}</p>
+                    <p className="mt-0.5 px-2 text-xs text-sidebar-muted-foreground">{roleLabel}</p>
+                    <div className="mt-2 px-1">
+                      <SignOutButton />
+                    </div>
+                  </div>
+                </nav>
+              </m.div>
+            ) : null}
+          </AnimatePresence>
+        </LazyMotion>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
       </div>
     </div>
   )

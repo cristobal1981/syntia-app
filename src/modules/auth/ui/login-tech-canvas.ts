@@ -1,8 +1,8 @@
 export type NetworkParticle = {
+  homeX: number
+  homeY: number
   x: number
   y: number
-  vx: number
-  vy: number
   radius: number
   phase: number
 }
@@ -17,7 +17,7 @@ export type NetworkPulse = {
 const PRIMARY = { r: 1, g: 222, b: 162 }
 const TURQUESA = { r: 43, g: 192, b: 169 }
 const LINK_DISTANCE = 148
-const MOUSE_INFLUENCE = 200
+const DRIFT_AMPLITUDE = 16
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
@@ -43,14 +43,19 @@ export function createParticles(
   const area = (width * height) / 10000
   const count = clamp(Math.floor(area * density), 48, 110)
 
-  return Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: (Math.random() - 0.5) * 0.35,
-    vy: (Math.random() - 0.5) * 0.35,
-    radius: Math.random() * 1.2 + 0.8,
-    phase: Math.random() * Math.PI * 2,
-  }))
+  return Array.from({ length: count }, () => {
+    const homeX = Math.random() * width
+    const homeY = Math.random() * height
+
+    return {
+      homeX,
+      homeY,
+      x: homeX,
+      y: homeY,
+      radius: Math.random() * 1.2 + 0.8,
+      phase: Math.random() * Math.PI * 2,
+    }
+  })
 }
 
 export function spawnPulse(particles: NetworkParticle[]): NetworkPulse | null {
@@ -81,49 +86,25 @@ export type DrawNetworkOptions = {
   height: number
   particles: NetworkParticle[]
   pulses: NetworkPulse[]
-  mouse: { x: number; y: number; active: boolean }
   time: number
 }
 
 export function updateNetwork(
   particles: NetworkParticle[],
-  width: number,
-  height: number,
-  mouse: DrawNetworkOptions['mouse'],
   time: number
 ) {
   const t = time * 0.00035
 
   for (const particle of particles) {
-    const flowX = flowNoise(particle.x * 0.0028, particle.y * 0.002, t) * 0.55
-    const flowY = flowNoise(particle.y * 0.0028, particle.x * 0.002 + 42, t + 2) * 0.55
+    const driftX =
+      flowNoise(particle.homeX * 0.0028, particle.homeY * 0.002, t) * DRIFT_AMPLITUDE
+    const driftY =
+      flowNoise(particle.homeY * 0.0028, particle.homeX * 0.002 + 42, t + 2) *
+      DRIFT_AMPLITUDE
 
-    particle.vx = lerp(particle.vx, flowX, 0.04)
-    particle.vy = lerp(particle.vy, flowY, 0.04)
-
-    if (mouse.active) {
-      const dx = particle.x - mouse.x
-      const dy = particle.y - mouse.y
-      const dist = Math.hypot(dx, dy)
-      if (dist < MOUSE_INFLUENCE && dist > 0) {
-        const force = (MOUSE_INFLUENCE - dist) / MOUSE_INFLUENCE
-        particle.vx += (dx / dist) * force * 0.08
-        particle.vy += (dy / dist) * force * 0.08
-      }
-    }
-
-    particle.x += particle.vx
-    particle.y += particle.vy
+    particle.x = particle.homeX + driftX
+    particle.y = particle.homeY + driftY
     particle.phase += 0.02
-
-    if (particle.x < 0 || particle.x > width) {
-      particle.vx *= -1
-      particle.x = clamp(particle.x, 0, width)
-    }
-    if (particle.y < 0 || particle.y > height) {
-      particle.vy *= -1
-      particle.y = clamp(particle.y, 0, height)
-    }
   }
 }
 

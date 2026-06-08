@@ -22,7 +22,7 @@ export function IntegrationBadges({ integrations }: IntegrationBadgesProps) {
       {integrations.map((integration) => (
         <li
           key={integration.name}
-          className="flex items-center gap-2 rounded-lg border border-agua/30 bg-card/60 px-4 py-3"
+          className="portal-home-card flex items-center gap-2 rounded-lg px-4 py-3"
         >
           <span className="font-sans font-medium text-foreground">
             {integration.name}

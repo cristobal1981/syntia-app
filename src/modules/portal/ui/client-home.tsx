@@ -49,7 +49,7 @@ export function ClientHome({ user }: ClientHomeProps) {
             {data.deadlines.map((item) => (
               <li
                 key={item.title}
-                className="flex items-center justify-between gap-4 rounded-xl border border-agua/30 bg-card/60 px-4 py-3"
+                className="portal-home-card flex items-center justify-between gap-4 rounded-xl px-4 py-3"
               >
                 <span className="text-foreground">{item.title}</span>
                 <span className="shrink-0 text-sm text-muted-foreground">{item.date}</span>

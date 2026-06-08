@@ -24,7 +24,7 @@ export function PortalTopBar({
   return (
     <header
       className={cn(
-        'flex h-12 shrink-0 items-center gap-2 bg-sidebar px-3 sm:gap-3 sm:px-4',
+        'portal-menu-corner relative flex h-12 shrink-0 items-center gap-2 bg-sidebar px-3 sm:gap-3 sm:px-4',
         className
       )}
     >
@@ -32,7 +32,7 @@ export function PortalTopBar({
         <button
           type="button"
           onClick={onSidebarToggle}
-          className="hidden size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
+          className="hidden size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
           aria-label={
             sidebarCollapsed
               ? portal.shell.sidebarExpandLabel
@@ -49,7 +49,7 @@ export function PortalTopBar({
         <button
           type="button"
           onClick={onMobileNavToggle}
-          className="flex size-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+          className="flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
           aria-expanded={mobileNavOpen}
           aria-controls="mobile-nav"
           aria-label={mobileNavOpen ? 'Cerrar menú' : 'Abrir menú'}
@@ -64,7 +64,7 @@ export function PortalTopBar({
 
       <div className="relative min-w-0 w-full max-w-md lg:max-w-lg">
         <Search
-          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
         <input
@@ -72,7 +72,7 @@ export function PortalTopBar({
           disabled
           placeholder={portal.shell.searchPlaceholder}
           aria-label={`${portal.shell.searchPlaceholder} (próximamente)`}
-          className="h-8 w-full cursor-not-allowed rounded-md bg-muted pr-3 pl-8 text-sm text-muted-foreground placeholder:text-muted-foreground/70"
+          className="h-8 w-full cursor-not-allowed rounded-md border border-border bg-background pr-3 pl-8 text-sm text-muted-foreground placeholder:text-muted-foreground/80 dark:bg-card dark:text-muted-foreground dark:placeholder:text-muted-foreground/80"
         />
       </div>
 

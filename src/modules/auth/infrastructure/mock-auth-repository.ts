@@ -1,4 +1,4 @@
-import type { AuthCredentials, PortalUser } from '@/src/modules/auth/domain/types'
+import type { AuthCredentials, PortalRole, PortalUser } from '@/src/modules/auth/domain/types'
 
 const DEMO_PASSWORD = 'demo'
 
@@ -37,6 +37,6 @@ export async function authenticateMockUser(
   return user
 }
 
-export function listDemoAccounts(): Pick<PortalUser, 'email' | 'role'>[] {
-  return MOCK_USERS.map(({ email, role }) => ({ email, role }))
+export function getMockUserByRole(role: PortalRole): PortalUser | undefined {
+  return MOCK_USERS.find((entry) => entry.role === role)
 }

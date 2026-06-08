@@ -12,7 +12,12 @@ export const portal = {
     orDivider: 'o',
     forgotPasswordLabel: '¿Olvidaste tu contraseña?',
     backToSiteLabel: 'Volver al sitio',
-    demoTitle: 'Cuentas de prueba',
+    devQuickLogin: {
+      title: 'Acceso rápido',
+      client: 'Cliente',
+      admin: 'Administrador',
+      advisor: 'Gestor',
+    },
     errors: {
       invalid_credentials: 'Correo o contraseña incorrectos.',
       unknown: 'No pudimos iniciar sesión. Inténtalo de nuevo.',
@@ -80,7 +85,7 @@ export const portal = {
       { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
       { label: 'Trámites', href: '/proximamente', implemented: false, icon: 'procedures' },
       { label: 'Mensajes', href: '/proximamente', implemented: false, icon: 'messages' },
-      { label: 'Perfil', href: '/proximamente', implemented: false, icon: 'profile' },
+      { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
     ],
     admin: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },

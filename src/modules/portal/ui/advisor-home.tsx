@@ -64,7 +64,7 @@ export function AdvisorHome({ user }: AdvisorHomeProps) {
             {data.queueItems.map((item) => (
               <li
                 key={item}
-                className="rounded-xl border border-agua/30 bg-card/60 px-4 py-3 text-foreground"
+                className="portal-home-card rounded-xl px-4 py-3 text-foreground"
               >
                 {item}
               </li>
