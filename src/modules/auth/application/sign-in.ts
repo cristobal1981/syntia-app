@@ -9,6 +9,7 @@ import {
   getMockUserByRole,
 } from '@/src/modules/auth/infrastructure/mock-auth-repository'
 import type { PortalRole } from '@/src/modules/auth/domain/types'
+import { isAuthStubEnabled } from '@/src/modules/auth/infrastructure/auth-env'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 
@@ -48,7 +49,7 @@ export async function signInAction(
 }
 
 export async function signInAsDemoRoleAction(role: PortalRole): Promise<void> {
-  if (process.env.NODE_ENV !== 'development' || isSupabaseConfigured()) {
+  if (!isAuthStubEnabled()) {
     return
   }
 
