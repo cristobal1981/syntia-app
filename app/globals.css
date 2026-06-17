@@ -60,6 +60,7 @@
   --chart-4: #046c5a;
   --chart-5: #054642;
   --service-fiscal: #e8b84a;
+  --service-fiscal-on-light: #92690f;
   --service-contable: #5bc4e8;
   --service-laboral: #f08a7a;
   --alert-on-dark: #f0b4b4;
@@ -182,6 +183,7 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-service-fiscal: var(--service-fiscal);
+  --color-service-fiscal-on-light: var(--service-fiscal-on-light);
   --color-service-contable: var(--service-contable);
   --color-service-laboral: var(--service-laboral);
   --color-alert-on-dark: var(--alert-on-dark);

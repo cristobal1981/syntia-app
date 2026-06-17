@@ -89,17 +89,35 @@ export const portal = {
     ],
     admin: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
-      { label: 'Equipo', href: '/proximamente', implemented: false, icon: 'team' },
+      {
+        label: 'Equipo',
+        implemented: true,
+        icon: 'team',
+        children: [
+          {
+            label: 'Gestores',
+            href: '/equipo/gestores',
+            implemented: true,
+            icon: 'team',
+          },
+          {
+            label: 'Clientes',
+            href: '/equipo/clientes',
+            implemented: true,
+            icon: 'clients',
+          },
+        ],
+      },
       { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
       { label: 'Solicitudes', href: '/proximamente', implemented: false, icon: 'requests' },
+      { label: 'Integraciones', href: '/integraciones', implemented: true, icon: 'integrations' },
       { label: 'Configuración', href: '/proximamente', implemented: false, icon: 'settings' },
     ],
     advisor: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
-      { label: 'Clientes', href: '/proximamente', implemented: false, icon: 'clients' },
+      { label: 'Clientes', href: '/clientes', implemented: true, icon: 'clients' },
       { label: 'Tareas', href: '/proximamente', implemented: false, icon: 'tasks' },
       { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
-      { label: 'Integraciones', href: '/proximamente', implemented: false, icon: 'integrations' },
     ],
   },
   home: {
@@ -116,6 +134,7 @@ export const portal = {
     admin: {
       greeting: 'Panel de administración',
       teamTitle: 'Equipo',
+      viewTeamLink: 'Ver gestores',
       requestsTitle: 'Solicitudes abiertas',
       integrationsTitle: 'Integraciones',
     },
@@ -123,6 +142,28 @@ export const portal = {
       greeting: 'Buenos días,',
       clientsTitle: 'Clientes recientes',
       queueTitle: 'Cola de automatización',
+      integrationsTitle: 'Integraciones',
+    },
+  },
+  integrations: {
+    title: 'Integraciones',
+    description:
+      'Estado de conexión con los servicios que alimentan el portal. Odoo y n8n se comprueban en tiempo real.',
+    refreshLabel: 'Comprobar conexión',
+    refreshingLabel: 'Comprobando…',
+    summaryConnected: 'conectadas',
+    summaryPending: 'pendientes',
+    summaryError: 'con errores',
+    items: {
+      odoo: {
+        description: 'ERP, tareas y operaciones de gestoría.',
+      },
+      google: {
+        description: 'Acceso con Google y documentos en Drive.',
+      },
+      n8n: {
+        description: 'Automatizaciones y flujos entre sistemas.',
+      },
     },
   },
 } as const

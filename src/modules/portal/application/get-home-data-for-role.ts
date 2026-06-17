@@ -25,15 +25,6 @@ export function getHomeDataForRole(user: PortalUser): HomeData {
           { label: 'Solicitudes abiertas', value: 4 },
           { label: 'Documentos compartidos', value: 28 },
         ],
-        team: [
-          { name: 'Elena Vidal', role: 'Cliente', status: 'active' },
-          { name: 'Miguel Ortega', role: 'Cliente', status: 'active' },
-          { name: 'Sara Núñez', role: 'Invitada', status: 'invited' },
-        ],
-        integrations: [
-          { name: 'Odoo', status: 'connected' },
-          { name: 'Google Drive', status: 'connected' },
-        ],
       }
     case 'advisor':
       return {
@@ -43,19 +34,10 @@ export function getHomeDataForRole(user: PortalUser): HomeData {
           { label: 'Tareas hoy', value: 7 },
           { label: 'Docs por revisar', value: 11 },
         ],
-        clients: [
-          { name: 'Acme Industrial', company: 'Acme Industrial', pendingTasks: 2 },
-          { name: 'Nova Labs', company: 'Nova Labs S.L.', pendingTasks: 1 },
-          { name: 'Helios Retail', company: 'Helios Retail', pendingTasks: 4 },
-        ],
         queueItems: [
           'Sincronización documentos Drive → Odoo',
           'Recordatorio vencimiento IVA (Acme)',
           'Alta cliente Nova Labs en portal',
-        ],
-        integrations: [
-          { name: 'n8n', status: 'connected' },
-          { name: 'Odoo', status: 'connected' },
         ],
       }
   }

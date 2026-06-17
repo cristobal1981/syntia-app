@@ -1,6 +1,6 @@
 /**
  * Contrato Odoo (ERP/tareas). Implementación real vía env ODOO_URL.
- * Supabase: perfiles; Odoo: operaciones de gestoría.
+ * Supabase: users + profiles; Odoo: operaciones de gestoría.
  */
 
 export type OdooTask = {

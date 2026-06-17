@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { establishPortalSession } from '@/src/modules/auth/application/establish-portal-session'
-import { mapSupabaseUser } from '@/src/modules/auth/application/map-supabase-user'
+import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import {
   authenticateMockUser,
   getMockUserByRole,
@@ -35,7 +35,7 @@ export async function signInAction(
       return { ok: false, error: 'invalid_credentials' }
     }
 
-    await establishPortalSession(mapSupabaseUser(data.user))
+    await establishPortalSession(await resolvePortalUserFromAuth(data.user))
     redirect('/dashboard')
   }
 

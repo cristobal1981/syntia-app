@@ -1,7 +1,12 @@
+import Link from 'next/link'
+
+import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { listClientsAction } from '@/src/modules/directory/application/directory-queries'
 import { getHomeDataForRole } from '@/src/modules/portal/application/get-home-data-for-role'
-import { IntegrationBadges } from '@/src/modules/portal/ui/integration-badges'
+import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
+import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
 import { MockDataTable } from '@/src/modules/portal/ui/mock-data-table'
 import { StatCard } from '@/src/modules/portal/ui/stat-card'
 
@@ -9,9 +14,14 @@ type AdvisorHomeProps = {
   user: PortalUser
 }
 
-export function AdvisorHome({ user }: AdvisorHomeProps) {
+export async function AdvisorHome({ user }: AdvisorHomeProps) {
   const data = getHomeDataForRole(user)
+  const [integrations, clients] = await Promise.all([
+    getIntegrationsStatusForRole(user.role),
+    listClientsAction(),
+  ])
   const copy = portal.home.advisor
+  const previewClients = clients.slice(0, 5)
 
   return (
     <div className="flex flex-col gap-8">
@@ -33,24 +43,38 @@ export function AdvisorHome({ user }: AdvisorHomeProps) {
         </div>
       </section>
 
-      {data.clients ? (
-        <section aria-labelledby="advisor-clients">
+      <section aria-labelledby="advisor-clients">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2
             id="advisor-clients"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
+            className="font-sans text-lg font-semibold text-foreground"
           >
             {copy.clientsTitle}
           </h2>
+          <Link
+            href="/clientes"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            {equipo.clientes.viewAll}
+          </Link>
+        </div>
+        {previewClients.length ? (
           <MockDataTable
-            headers={['Cliente', 'Empresa', 'Tareas pendientes']}
-            rows={data.clients.map((client) => [
+            headers={['Cliente', 'Empresa', 'Estado']}
+            rows={previewClients.map((client) => [
               client.name,
-              client.company,
-              String(client.pendingTasks),
+              client.companyName ?? '—',
+              client.status === 'active'
+                ? equipo.status.active
+                : equipo.status.invited,
             ])}
           />
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {equipo.clientes.emptyDescription}
+          </p>
+        )}
+      </section>
 
       {data.queueItems ? (
         <section aria-labelledby="advisor-queue">
@@ -73,14 +97,13 @@ export function AdvisorHome({ user }: AdvisorHomeProps) {
         </section>
       ) : null}
 
-      {data.integrations ? (
-        <section aria-labelledby="advisor-integrations">
-          <h2 id="advisor-integrations" className="sr-only">
-            Integraciones
-          </h2>
-          <IntegrationBadges integrations={data.integrations} />
-        </section>
-      ) : null}
+      <section aria-labelledby="advisor-integrations">
+        <IntegrationsPanel
+          initialIntegrations={integrations}
+          title={copy.integrationsTitle}
+          showRefresh
+        />
+      </section>
     </div>
   )
 }

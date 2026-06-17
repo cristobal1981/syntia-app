@@ -15,9 +15,10 @@ export type NavIconId =
 
 export type NavItem = {
   label: string
-  href: string
+  href?: string
   implemented: boolean
   icon: NavIconId
+  children?: NavItem[]
 }
 
 export type StatItem = {
@@ -44,9 +45,16 @@ export type ClientSummary = {
   pendingTasks: number
 }
 
+export type IntegrationId = 'odoo' | 'google' | 'n8n'
+
+export type IntegrationConnectionStatus = 'connected' | 'pending' | 'error'
+
 export type IntegrationStatus = {
+  id: IntegrationId
   name: string
-  status: 'connected' | 'pending' | 'error'
+  status: IntegrationConnectionStatus
+  /** Si true, el estado se obtiene con ping en tiempo real (Odoo/n8n). */
+  liveCheck: boolean
 }
 
 export type HomeData = {
@@ -55,6 +63,5 @@ export type HomeData = {
   deadlines?: DeadlineItem[]
   team?: TeamMember[]
   clients?: ClientSummary[]
-  integrations?: IntegrationStatus[]
   queueItems?: string[]
 }

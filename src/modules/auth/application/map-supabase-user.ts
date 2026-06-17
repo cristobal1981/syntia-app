@@ -12,6 +12,8 @@ function resolveRole(metadata: Record<string, unknown> | undefined): PortalRole 
   return 'client'
 }
 
+/** Fallback cuando no hay fila en public.users. El rol canónico vive en public.users. */
+
 export function mapSupabaseUser(user: User): PortalUser {
   const metadata = user.user_metadata ?? {}
 
