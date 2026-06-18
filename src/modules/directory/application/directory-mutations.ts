@@ -16,6 +16,7 @@ import type {
   UpdateGestorInput,
 } from '@/src/modules/directory/domain/types'
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
+import { mapDirectoryEmailError } from '@/src/modules/directory/application/map-directory-email-error'
 
 export type DirectoryUpdateResult =
   | { ok: true; inviteSent?: boolean }
@@ -23,6 +24,22 @@ export type DirectoryUpdateResult =
       ok: false
       error: 'unauthorized' | 'forbidden' | 'validation' | 'unknown'
       fieldErrors?: Record<string, string>
+      message?: string
+    }
+
+export type DirectoryDeleteResult =
+  | { ok: true }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'not_found' | 'unknown'
+      message?: string
+    }
+
+export type ResendClientAccessResult =
+  | { ok: true }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'not_found' | 'unknown'
       message?: string
     }
 
@@ -112,12 +129,12 @@ export async function createClientAction(
         fieldErrors: { email: 'Ya existe un usuario con ese correo.' },
       }
     }
-    if (error instanceof Error && error.message === 'EMAIL_RATE_LIMIT') {
+    const emailError = mapDirectoryEmailError(error)
+    if (!emailError.ok) {
       return {
         ok: false,
-        error: 'unknown',
-        message:
-          'Supabase ha limitado el envío de correos. Espera unos minutos o activa PORTAL_SKIP_CLIENT_INVITE_EMAIL=true en desarrollo.',
+        error: emailError.error === 'not_found' ? 'unknown' : emailError.error,
+        message: emailError.message,
       }
     }
     return {
@@ -206,6 +223,83 @@ export async function updateClientAction(
       error: 'unknown',
       message: error instanceof Error ? error.message : undefined,
     }
+  }
+}
+
+export async function deleteClientAction(
+  clientId: string
+): Promise<DirectoryDeleteResult> {
+  try {
+    await requireDirectorySession()
+    const scope = await buildDirectoryScope()
+    if (scope.role === 'client') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const repository = getDirectoryRepository()
+    const existing = await repository.getClient(clientId)
+
+    if (!existing) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    if (scope.role === 'advisor' && existing.advisorId !== scope.userId) {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    await repository.deleteClient(clientId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      return { ok: false, error: 'not_found' }
+    }
+    if (error instanceof Error && error.message === 'DELETE_AUTH_FAILED') {
+      return {
+        ok: false,
+        error: 'unknown',
+        message:
+          'Se eliminó el cliente del portal, pero no pudimos borrar su cuenta de acceso. Contacta con soporte.',
+      }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function resendClientAccessEmailAction(
+  clientId: string
+): Promise<ResendClientAccessResult> {
+  try {
+    await requireDirectorySession()
+    const scope = await buildDirectoryScope()
+    if (scope.role === 'client') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const repository = getDirectoryRepository()
+    const existing = await repository.getClient(clientId)
+
+    if (!existing) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    if (scope.role === 'advisor' && existing.advisorId !== scope.userId) {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    await repository.resendClientAccessEmail(clientId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return mapDirectoryEmailError(error)
   }
 }
 

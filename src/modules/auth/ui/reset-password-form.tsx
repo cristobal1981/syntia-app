@@ -9,11 +9,31 @@ import { Input } from '@/components/ui/input'
 import { MarketingButton } from '@/components/ui/marketing-button'
 import { finalizeRecoverySessionAction } from '@/src/modules/auth/application/finalize-recovery-session'
 import {
+  parseRecoveryOtpType,
+  verifyRecoveryLink as establishRecoverySessionFromUrl,
+} from '@/src/modules/auth/application/verify-recovery-link'
+import {
   createSupabaseBrowserClient,
   isSupabaseBrowserConfigured,
 } from '@/src/modules/auth/infrastructure/supabase/client'
 
 type ResetStatus = 'loading' | 'ready' | 'invalid' | 'not_configured'
+
+function parseAuthHashParams(): {
+  access_token?: string
+  refresh_token?: string
+  type?: string
+} {
+  if (typeof window === 'undefined') return {}
+  const raw = window.location.hash.replace(/^#/, '')
+  if (!raw) return {}
+  const params = new URLSearchParams(raw)
+  return {
+    access_token: params.get('access_token') ?? undefined,
+    refresh_token: params.get('refresh_token') ?? undefined,
+    type: params.get('type') ?? undefined,
+  }
+}
 
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
@@ -23,35 +43,57 @@ export function ResetPasswordForm() {
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
-    if (!isSupabaseBrowserConfigured()) {
-      if (process.env.NEXT_PUBLIC_AUTH_STUB === 'true') {
-        setStatus('ready')
-        return
-      }
-      setStatus('not_configured')
-      return
-    }
+    let cancelled = false
 
-    const code = searchParams.get('code')
-
-    if (!code) {
-      setStatus('invalid')
-      return
-    }
-
-    const supabase = createSupabaseBrowserClient()
-
-    supabase.auth
-      .exchangeCodeForSession(code)
-      .then(({ error }) => {
-        if (error) {
-          setStatus('invalid')
+    async function bootstrapRecoverySession() {
+      if (!isSupabaseBrowserConfigured()) {
+        if (process.env.NEXT_PUBLIC_AUTH_STUB === 'true') {
+          setStatus('ready')
           return
         }
-        setStatus('ready')
-        router.replace('/login/restablecer')
+        setStatus('not_configured')
+        return
+      }
+
+      const supabase = createSupabaseBrowserClient()
+      const code = searchParams.get('code')
+      const tokenHash = searchParams.get('token_hash')
+      const otpType = parseRecoveryOtpType(searchParams.get('type'))
+      const hash = parseAuthHashParams()
+
+      const verified = await establishRecoverySessionFromUrl(supabase, {
+        tokenHash,
+        otpType,
+        code,
+        accessToken: hash.access_token,
+        refreshToken: hash.refresh_token,
       })
-      .catch(() => setStatus('invalid'))
+
+      if (cancelled) return
+
+      if (verified.ok) {
+        setStatus('ready')
+        if (tokenHash || code || hash.access_token) {
+          router.replace('/login/restablecer')
+        }
+        return
+      }
+
+      if (tokenHash || code || hash.access_token) {
+        setStatus('invalid')
+        return
+      }
+
+      setStatus('invalid')
+    }
+
+    bootstrapRecoverySession().catch(() => {
+      if (!cancelled) setStatus('invalid')
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [searchParams, router])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

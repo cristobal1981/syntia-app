@@ -9,7 +9,13 @@ import type {
   UpdateGestorInput,
 } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
-import { shouldSkipClientInviteEmail } from '@/src/modules/directory/infrastructure/directory-env'
+import {
+  shouldSkipClientInviteEmail,
+  shouldUseResendClientInvite,
+} from '@/src/modules/directory/infrastructure/directory-env'
+import { getSiteUrl } from '@/src/modules/auth/infrastructure/supabase/env'
+import { sendClientInviteEmail } from '@/src/modules/email/application/send-client-invite-email'
+import { isResendConfigured } from '@/src/modules/email/infrastructure/resend-env'
 
 function withDisplayName<T extends PersonNameParts>(record: T): T & { name: string } {
   return {
@@ -153,7 +159,24 @@ export const mockDirectoryRepository: DirectoryRepository = {
       advisorName: resolveAdvisorName(input.advisorId),
     }
     mockClients = [...mockClients, created]
-    return { client: created, inviteSent: !shouldSkipClientInviteEmail() }
+
+    let inviteSent = false
+    if (!shouldSkipClientInviteEmail()) {
+      if (shouldUseResendClientInvite()) {
+        if (!isResendConfigured()) {
+          throw new Error('RESEND_NOT_CONFIGURED')
+        }
+        await sendClientInviteEmail({
+          clientEmail: input.email,
+          inviteLink: `${getSiteUrl()}/login/restablecer`,
+        })
+        inviteSent = true
+      } else {
+        inviteSent = true
+      }
+    }
+
+    return { client: created, inviteSent }
   },
 
   async updateGestor(input) {
@@ -177,6 +200,36 @@ export const mockDirectoryRepository: DirectoryRepository = {
     }
     mockClients[index] = updated
     return updated
+  },
+
+  async deleteClient(id) {
+    const exists = mockClients.some((client) => client.id === id)
+    if (!exists) {
+      throw new Error('NOT_FOUND')
+    }
+    mockClients = mockClients.filter((client) => client.id !== id)
+  },
+
+  async resendClientAccessEmail(clientId) {
+    const client = mockClients.find((entry) => entry.id === clientId)
+    if (!client) {
+      throw new Error('NOT_FOUND')
+    }
+
+    if (shouldSkipClientInviteEmail() && !shouldUseResendClientInvite()) {
+      throw new Error('INVITE_EMAIL_DISABLED')
+    }
+
+    if (shouldUseResendClientInvite()) {
+      if (!isResendConfigured()) {
+        throw new Error('RESEND_NOT_CONFIGURED')
+      }
+      await sendClientInviteEmail({
+        clientEmail: client.email,
+        inviteLink: `${getSiteUrl()}/login/restablecer`,
+      })
+      return
+    }
   },
 
   async listAdvisorOptions() {

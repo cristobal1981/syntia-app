@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,8 @@ import {
   type DirectoryUpdateResult,
 } from '@/src/modules/directory/application/directory-mutations'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
+import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
+import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
 
 type ClientFormProps = {
   mode: 'create' | 'edit'
@@ -20,6 +22,7 @@ type ClientFormProps = {
   canAssignAdvisor: boolean
   onSuccess: () => void
   onCancel: () => void
+  onDeleted?: () => void
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -38,6 +41,7 @@ export function ClientForm({
   canAssignAdvisor,
   onSuccess,
   onCancel,
+  onDeleted,
 }: ClientFormProps) {
   const copy = equipo.form
   const isCreate = mode === 'create'
@@ -46,9 +50,18 @@ export function ClientForm({
     DirectoryUpdateResult | null,
     FormData
   >(action, null)
+  const onSuccessRef = useRef(onSuccess)
+  const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess
+  })
 
   useEffect(() => {
     if (!state) return
+    if (handledStateRef.current === state) return
+    handledStateRef.current = state
+
     if (state.ok) {
       toast.success(
         isCreate
@@ -57,7 +70,7 @@ export function ClientForm({
             : copy.successCreateClient
           : copy.successClient
       )
-      onSuccess()
+      onSuccessRef.current()
       return
     }
     if (state.error === 'forbidden') {
@@ -67,7 +80,7 @@ export function ClientForm({
     if (state.error !== 'validation') {
       toast.error(state.message ?? copy.errors.unknown)
     }
-  }, [state, copy, isCreate, onSuccess])
+  }, [state, copy, isCreate])
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -271,6 +284,13 @@ export function ClientForm({
               : copy.save}
         </Button>
       </div>
+
+      {!isCreate && client && onDeleted ? (
+        <>
+          <ClientAccessSection client={client} />
+          <ClientDangerZone client={client} onDeleted={onDeleted} />
+        </>
+      ) : null}
     </form>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -33,12 +33,21 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
     DirectoryUpdateResult | null,
     FormData
   >(updateGestorAction, null)
+  const onSuccessRef = useRef(onSuccess)
+  const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess
+  })
 
   useEffect(() => {
     if (!state) return
+    if (handledStateRef.current === state) return
+    handledStateRef.current = state
+
     if (state.ok) {
       toast.success(copy.successGestor)
-      onSuccess()
+      onSuccessRef.current()
       return
     }
     if (state.error === 'forbidden') {
@@ -48,7 +57,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
     if (state.error !== 'validation') {
       toast.error(state.message ?? copy.errors.unknown)
     }
-  }, [state, copy, onSuccess])
+  }, [state, copy])
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

@@ -16,5 +16,7 @@ export interface DirectoryRepository {
   createClient(input: CreateClientInput): Promise<CreateClientResult>
   updateGestor(input: UpdateGestorInput): Promise<GestorRecord>
   updateClient(input: UpdateClientInput): Promise<ClientRecord>
+  deleteClient(id: string): Promise<void>
+  resendClientAccessEmail(clientId: string): Promise<void>
   listAdvisorOptions(): Promise<Array<{ id: string; name: string }>>
 }

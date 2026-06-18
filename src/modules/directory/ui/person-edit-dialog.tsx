@@ -67,6 +67,10 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
               onSaved()
               onOpenChange(false)
             }}
+            onDeleted={() => {
+              onSaved()
+              onOpenChange(false)
+            }}
           />
         ) : null}
       </DialogContent>

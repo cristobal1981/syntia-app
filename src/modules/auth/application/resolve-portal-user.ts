@@ -15,6 +15,7 @@ type PortalAccountRow = {
   email: string
   role: string
   auth_user_id: string | null
+  status: string | null
 }
 
 type PortalProfileNameRow = {
@@ -41,7 +42,7 @@ async function fetchPortalAccount(
 
   const { data: byAuth, error: authError } = await supabase
     .from('users')
-    .select('id, email, role, auth_user_id')
+    .select('id, email, role, auth_user_id, status')
     .eq('auth_user_id', authUserId)
     .maybeSingle()
 
@@ -60,7 +61,7 @@ async function fetchPortalAccount(
 
   const { data: byEmail, error: emailError } = await supabase
     .from('users')
-    .select('id, email, role, auth_user_id')
+    .select('id, email, role, auth_user_id, status')
     .eq('email', normalizedEmail)
     .maybeSingle()
 
@@ -77,6 +78,29 @@ async function linkAuthUserId(accountId: string, authUserId: string) {
     .from('users')
     .update({
       auth_user_id: authUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', accountId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+async function activatePortalAccountIfInvited(
+  accountId: string,
+  status: string | null
+): Promise<void> {
+  if (status?.toLowerCase() === 'active') {
+    return
+  }
+
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('users')
+    .update({
+      status: 'active',
+      is_active: true,
       updated_at: new Date().toISOString(),
     })
     .eq('id', accountId)
@@ -120,6 +144,8 @@ export async function resolvePortalUser(
   if (!account.auth_user_id) {
     await linkAuthUserId(account.id, authUserId)
   }
+
+  await activatePortalAccountIfInvited(account.id, account.status)
 
   const profile = await fetchProfileName(account.id)
   const role = parsePortalRole(account.role) ?? fallback.role

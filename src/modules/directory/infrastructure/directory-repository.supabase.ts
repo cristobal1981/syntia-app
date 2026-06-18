@@ -20,9 +20,17 @@ import type {
   UpdateGestorInput,
 } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
-import { shouldSkipClientInviteEmail } from '@/src/modules/directory/infrastructure/directory-env'
+import {
+  deliverClientAccessEmail,
+  getPortalAccessRedirectUrl,
+  sendClientAccessEmailForClient,
+} from '@/src/modules/directory/infrastructure/client-access-link'
+import {
+  shouldSkipClientInviteEmail,
+  shouldUseResendClientInvite,
+} from '@/src/modules/directory/infrastructure/directory-env'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
-import { getSiteUrl } from '@/src/modules/auth/infrastructure/supabase/env'
+import { isResendConfigured } from '@/src/modules/email/infrastructure/resend-env'
 
 async function fetchUserMap(ids?: string[]) {
   const supabase = createSupabaseAdminClient()
@@ -183,14 +191,44 @@ async function createAuthUserWithoutInvite(
   return { authUserId: data.user.id, inviteSent: false }
 }
 
+async function createAuthUserWithResendInvite(
+  email: string
+): Promise<AuthUserCreation> {
+  const supabase = createSupabaseAdminClient()
+
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: { redirectTo: getPortalAccessRedirectUrl() },
+  })
+
+  if (error || !data.user) {
+    if (error && isDuplicateEmailError(error.message)) {
+      throw new Error('DUPLICATE_EMAIL')
+    }
+    throw new Error(error?.message ?? 'No se pudo generar la invitación.')
+  }
+
+  await deliverClientAccessEmail(email, 'invite')
+
+  return { authUserId: data.user.id, inviteSent: true }
+}
+
 async function createAuthUserForClient(email: string): Promise<AuthUserCreation> {
   if (shouldSkipClientInviteEmail()) {
     return createAuthUserWithoutInvite(email)
   }
 
+  if (shouldUseResendClientInvite()) {
+    if (!isResendConfigured()) {
+      throw new Error('RESEND_NOT_CONFIGURED')
+    }
+    return createAuthUserWithResendInvite(email)
+  }
+
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${getSiteUrl()}/login/restablecer`,
+    redirectTo: getPortalAccessRedirectUrl(),
   })
 
   if (!error && data.user) {
@@ -407,6 +445,64 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     const updated = await this.getClient(input.id)
     if (!updated) throw new Error('Cliente no encontrado tras actualizar')
     return updated
+  },
+
+  async deleteClient(id) {
+    const supabase = createSupabaseAdminClient()
+    const { data: userRow, error: fetchError } = await supabase
+      .from('users')
+      .select('id, auth_user_id, role')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (fetchError) {
+      throw new Error(fetchError.message)
+    }
+
+    if (!userRow || userRow.role !== 'client') {
+      throw new Error('NOT_FOUND')
+    }
+
+    const authUserId = userRow.auth_user_id as string | null
+
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      throw new Error(deleteError.message)
+    }
+
+    if (authUserId) {
+      const { error: authError } = await supabase.auth.admin.deleteUser(authUserId)
+      if (authError) {
+        throw new Error('DELETE_AUTH_FAILED')
+      }
+    }
+  },
+
+  async resendClientAccessEmail(clientId) {
+    const supabase = createSupabaseAdminClient()
+    const { data: userRow, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, auth_user_id, role')
+      .eq('id', clientId)
+      .maybeSingle()
+
+    if (fetchError) {
+      throw new Error(fetchError.message)
+    }
+
+    if (!userRow || userRow.role !== 'client') {
+      throw new Error('NOT_FOUND')
+    }
+
+    if (!userRow.auth_user_id) {
+      throw new Error('NO_AUTH_ACCOUNT')
+    }
+
+    await sendClientAccessEmailForClient(String(userRow.email))
   },
 
   async listAdvisorOptions() {
