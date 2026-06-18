@@ -17,14 +17,12 @@ type ClientsPageViewProps = {
   initialClients: ClientRecord[]
   advisorOptions: Array<{ id: string; name: string }>
   canAssignAdvisor: boolean
-  isMock: boolean
 }
 
 export function ClientsPageView({
   initialClients,
   advisorOptions,
   canAssignAdvisor,
-  isMock,
 }: ClientsPageViewProps) {
   const router = useRouter()
   const copy = equipo.clientes
@@ -73,12 +71,6 @@ export function ClientsPageView({
           {copy.createButton}
         </Button>
       </header>
-
-      {isMock ? (
-        <p className="rounded-lg border border-turquesa/30 bg-turquesa/10 px-4 py-3 text-sm text-foreground dark:border-primary/30 dark:bg-primary/10">
-          {equipo.mockBanner}
-        </p>
-      ) : null}
 
       <PersonList
         items={items}

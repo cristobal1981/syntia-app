@@ -2,7 +2,6 @@ import {
   listAdvisorOptionsAction,
   listClientsAction,
 } from '@/src/modules/directory/application/directory-queries'
-import { isUsingDirectoryMock } from '@/src/modules/directory/infrastructure/get-directory-repository'
 import { ClientsPageView } from '@/src/modules/directory/ui/clients-page-view'
 
 type ClientsPageProps = {
@@ -20,7 +19,6 @@ export async function ClientsPage({ canAssignAdvisor }: ClientsPageProps) {
       initialClients={clients}
       advisorOptions={advisorOptions}
       canAssignAdvisor={canAssignAdvisor}
-      isMock={isUsingDirectoryMock()}
     />
   )
 }

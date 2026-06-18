@@ -47,10 +47,6 @@ export function ResetPasswordForm() {
 
     async function bootstrapRecoverySession() {
       if (!isSupabaseBrowserConfigured()) {
-        if (process.env.NEXT_PUBLIC_AUTH_STUB === 'true') {
-          setStatus('ready')
-          return
-        }
         setStatus('not_configured')
         return
       }
@@ -118,11 +114,6 @@ export function ResetPasswordForm() {
     }
 
     if (!isSupabaseBrowserConfigured()) {
-      if (process.env.NEXT_PUBLIC_AUTH_STUB === 'true') {
-        setErrorMessage(portal.reset.errors.not_configured)
-        setPending(false)
-        return
-      }
       setErrorMessage(portal.reset.errors.not_configured)
       setPending(false)
       return

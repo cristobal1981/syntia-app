@@ -12,14 +12,10 @@ export const portal = {
     orDivider: 'o',
     forgotPasswordLabel: '¿Olvidaste tu contraseña?',
     backToSiteLabel: 'Volver al sitio',
-    devQuickLogin: {
-      title: 'Acceso rápido',
-      client: 'Cliente',
-      admin: 'Administrador',
-      advisor: 'Gestor',
-    },
     errors: {
       invalid_credentials: 'Correo o contraseña incorrectos.',
+      not_configured:
+        'El acceso al portal requiere Supabase. Configura las variables de entorno.',
       unknown: 'No pudimos iniciar sesión. Inténtalo de nuevo.',
       oauth_not_configured:
         'El acceso con Google aún no está configurado. Contacta con tu administrador.',
@@ -90,7 +86,7 @@ export const portal = {
     admin: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
       {
-        label: 'Equipo',
+        label: 'Usuarios',
         implemented: true,
         icon: 'team',
         children: [
@@ -133,8 +129,8 @@ export const portal = {
     },
     admin: {
       greeting: 'Panel de administración',
-      teamTitle: 'Equipo',
-      viewTeamLink: 'Ver gestores',
+      teamTitle: 'Gestores',
+      viewTeamLink: 'Ver todos',
       requestsTitle: 'Solicitudes abiertas',
       integrationsTitle: 'Integraciones',
     },

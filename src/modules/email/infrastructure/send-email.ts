@@ -7,7 +7,7 @@ import {
 } from '@/src/modules/email/infrastructure/resend-env'
 
 type SendEmailOptions = {
-  /** Si true, no hace stub silencioso: lanza si falta config. */
+  /** Si true, lanza si falta config de Resend. */
   required?: boolean
 }
 
@@ -20,9 +20,6 @@ export async function sendEmail(
   if (!isResendConfigured()) {
     if (required) {
       throw new Error('RESEND_NOT_CONFIGURED')
-    }
-    if (process.env.NODE_ENV !== 'production') {
-      console.info('[email stub]', input)
     }
     return
   }

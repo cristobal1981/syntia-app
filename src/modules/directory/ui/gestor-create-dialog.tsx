@@ -3,24 +3,20 @@
 import { useCallback } from 'react'
 
 import { equipo } from '@/content/equipo'
-import { ClientForm } from '@/src/modules/directory/ui/client-form'
 import { DirectoryPanel } from '@/src/modules/directory/ui/directory-panel'
+import { GestorForm } from '@/src/modules/directory/ui/gestor-form'
 
-type ClientCreateDialogProps = {
+type GestorCreateDialogProps = {
   open: boolean
-  advisorOptions: Array<{ id: string; name: string }>
-  canAssignAdvisor: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void
 }
 
-export function ClientCreateDialog({
+export function GestorCreateDialog({
   open,
-  advisorOptions,
-  canAssignAdvisor,
   onOpenChange,
   onCreated,
-}: ClientCreateDialogProps) {
+}: GestorCreateDialogProps) {
   const handleSuccess = useCallback(() => {
     onCreated()
     onOpenChange(false)
@@ -30,15 +26,13 @@ export function ClientCreateDialog({
     <DirectoryPanel
       open={open}
       onOpenChange={onOpenChange}
-      title={equipo.form.createClient}
-      description={equipo.clientes.description}
+      title={equipo.form.createGestor}
+      description={equipo.gestores.description}
     >
       {open ? (
-        <ClientForm
-          key="client-create"
+        <GestorForm
+          key="gestor-create"
           mode="create"
-          advisorOptions={advisorOptions}
-          canAssignAdvisor={canAssignAdvisor}
           onCancel={() => onOpenChange(false)}
           onSuccess={handleSuccess}
         />

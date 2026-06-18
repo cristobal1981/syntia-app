@@ -1,9 +1,9 @@
-type MockDataTableProps = {
+type DataTableProps = {
   headers: string[]
   rows: string[][]
 }
 
-export function MockDataTable({ headers, rows }: MockDataTableProps) {
+export function DataTable({ headers, rows }: DataTableProps) {
   return (
     <div className="portal-home-card overflow-x-auto rounded-xl">
       <table className="w-full min-w-[320px] text-left text-sm">

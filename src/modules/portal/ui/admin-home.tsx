@@ -4,18 +4,15 @@ import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { listGestoresAction } from '@/src/modules/directory/application/directory-queries'
-import { getHomeDataForRole } from '@/src/modules/portal/application/get-home-data-for-role'
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
+import { DataTable } from '@/src/modules/portal/ui/data-table'
 import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
-import { MockDataTable } from '@/src/modules/portal/ui/mock-data-table'
-import { StatCard } from '@/src/modules/portal/ui/stat-card'
 
 type AdminHomeProps = {
   user: PortalUser
 }
 
 export async function AdminHome({ user }: AdminHomeProps) {
-  const data = getHomeDataForRole(user)
   const [integrations, gestores] = await Promise.all([
     getIntegrationsStatusForRole(user.role),
     listGestoresAction(),
@@ -31,17 +28,6 @@ export async function AdminHome({ user }: AdminHomeProps) {
           {user.companyName ?? user.name}
         </h1>
       </header>
-
-      <section aria-labelledby="admin-stats">
-        <h2 id="admin-stats" className="sr-only">
-          Resumen
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </div>
-      </section>
 
       <section aria-labelledby="admin-team">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -59,7 +45,7 @@ export async function AdminHome({ user }: AdminHomeProps) {
           </Link>
         </div>
         {previewGestores.length ? (
-          <MockDataTable
+          <DataTable
             headers={['Nombre', 'Rol', 'Estado']}
             rows={previewGestores.map((member) => [
               member.name,

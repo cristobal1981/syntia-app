@@ -3,6 +3,7 @@ import {
   USER_SELECT,
   buildDisplayName,
   isClientDbRole,
+  isGestorDbRole,
   mapDirectorySourceToClient,
   mapDirectorySourceToGestor,
   mapNamePartsToProfileFields,
@@ -140,7 +141,7 @@ async function upsertProfile(userId: string, fields: Partial<ProfileRow>) {
   }
 }
 
-async function rollbackCreatedClient(
+async function rollbackCreatedPortalUser(
   authUserId: string,
   portalUserId?: string
 ) {
@@ -314,6 +315,69 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     return mapDirectorySourceToClient(source, advisorName)
   },
 
+  async createGestor(input) {
+    const supabase = createSupabaseAdminClient()
+    const email = input.email.trim().toLowerCase()
+
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (existingUser) {
+      throw new Error('DUPLICATE_EMAIL')
+    }
+
+    const { authUserId, inviteSent } = await createAuthUserForClient(email)
+    let portalUserId: string | undefined
+
+    try {
+      const profileFields = mapNamePartsToProfileFields({
+        firstName: input.firstName,
+        firstSurname: input.firstSurname,
+        secondSurname: input.secondSurname,
+      })
+
+      const { data: userRow, error: userError } = await supabase
+        .from('users')
+        .insert({
+          auth_user_id: authUserId,
+          email,
+          role: input.role,
+          status: 'invited',
+          is_active: false,
+        })
+        .select('id')
+        .single()
+
+      if (userError || !userRow) {
+        if (userError && isDuplicateEmailError(userError.message)) {
+          throw new Error('DUPLICATE_EMAIL')
+        }
+        throw new Error(userError?.message ?? 'No se pudo crear la cuenta.')
+      }
+
+      portalUserId = userRow.id
+      const newUserId = userRow.id
+
+      await upsertProfile(newUserId, {
+        ...profileFields,
+        phone: input.phone ?? null,
+        company_name: input.companyName ?? null,
+      })
+
+      const created = await this.getGestor(newUserId)
+      if (!created) {
+        throw new Error('Gestor no encontrado tras crear')
+      }
+      return { gestor: created, inviteSent }
+    } catch (error) {
+      await rollbackCreatedPortalUser(authUserId, portalUserId)
+      throw error
+    }
+  },
+
   async createClient(input) {
     const supabase = createSupabaseAdminClient()
     const email = input.email.trim().toLowerCase()
@@ -374,7 +438,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       }
       return { client: created, inviteSent }
     } catch (error) {
-      await rollbackCreatedClient(authUserId, portalUserId)
+      await rollbackCreatedPortalUser(authUserId, portalUserId)
       throw error
     }
   },
@@ -445,6 +509,41 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     const updated = await this.getClient(input.id)
     if (!updated) throw new Error('Cliente no encontrado tras actualizar')
     return updated
+  },
+
+  async deleteGestor(id) {
+    const supabase = createSupabaseAdminClient()
+    const { data: userRow, error: fetchError } = await supabase
+      .from('users')
+      .select('id, auth_user_id, role')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (fetchError) {
+      throw new Error(fetchError.message)
+    }
+
+    if (!userRow || !isGestorDbRole(userRow.role)) {
+      throw new Error('NOT_FOUND')
+    }
+
+    const authUserId = userRow.auth_user_id as string | null
+
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      throw new Error(deleteError.message)
+    }
+
+    if (authUserId) {
+      const { error: authError } = await supabase.auth.admin.deleteUser(authUserId)
+      if (authError) {
+        throw new Error('DELETE_AUTH_FAILED')
+      }
+    }
   },
 
   async deleteClient(id) {

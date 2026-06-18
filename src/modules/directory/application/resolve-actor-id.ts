@@ -1,14 +1,9 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { isDirectoryMockMode } from '@/src/modules/directory/infrastructure/directory-env'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
 export async function resolveDirectoryActorId(
   user: PortalUser
 ): Promise<string> {
-  if (isDirectoryMockMode()) {
-    return user.id
-  }
-
   const supabase = createSupabaseAdminClient()
 
   const { data: byAuth, error: authError } = await supabase

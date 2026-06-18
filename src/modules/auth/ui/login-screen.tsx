@@ -4,18 +4,14 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 
 import { portal } from '@/content/portal'
-import { isAuthStubEnabled } from '@/src/modules/auth/infrastructure/auth-env'
 import { AuthErrorBanner } from '@/src/modules/auth/ui/auth-error-banner'
 import { AuthFormPanel } from '@/src/modules/auth/ui/auth-form-panel'
 import { AuthPageShell } from '@/src/modules/auth/ui/auth-page-shell'
-import { DevQuickLogin } from '@/src/modules/auth/ui/dev-quick-login'
 import { LoginForm } from '@/src/modules/auth/ui/login-form'
 
 const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL ?? '/proximamente'
-const showDevQuickLogin = isAuthStubEnabled()
 
 export function LoginScreen() {
-
   return (
     <AuthPageShell
       title={portal.login.title}
@@ -35,8 +31,6 @@ export function LoginScreen() {
         </Suspense>
         <LoginForm />
       </AuthFormPanel>
-
-      {showDevQuickLogin ? <DevQuickLogin /> : null}
     </AuthPageShell>
   )
 }

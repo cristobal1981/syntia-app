@@ -5,25 +5,26 @@ import { useRouter } from 'next/navigation'
 
 import { equipo } from '@/content/equipo'
 import type { GestorRecord } from '@/src/modules/directory/domain/types'
+import { GestorCreateDialog } from '@/src/modules/directory/ui/gestor-create-dialog'
 import { PersonEditDialog } from '@/src/modules/directory/ui/person-edit-dialog'
 import {
   PersonList,
   type PersonListItem,
 } from '@/src/modules/directory/ui/person-list'
+import { Button } from '@/components/ui/button'
 
 type GestoresPageViewProps = {
   initialGestores: GestorRecord[]
-  isMock: boolean
 }
 
 export function GestoresPageView({
   initialGestores,
-  isMock,
 }: GestoresPageViewProps) {
   const router = useRouter()
   const copy = equipo.gestores
   const [gestores, setGestores] = useState(initialGestores)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   useEffect(() => {
     setGestores(initialGestores)
@@ -51,21 +52,20 @@ export function GestoresPageView({
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-          {copy.title}
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          {gestores.length} {copy.countLabel}
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
+            {copy.title}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {gestores.length} {copy.countLabel}
+          </p>
+        </div>
+        <Button type="button" onClick={() => setCreateOpen(true)}>
+          {copy.createButton}
+        </Button>
       </header>
-
-      {isMock ? (
-        <p className="rounded-lg border border-turquesa/30 bg-turquesa/10 px-4 py-3 text-sm text-foreground dark:border-primary/30 dark:bg-primary/10">
-          {equipo.mockBanner}
-        </p>
-      ) : null}
 
       <PersonList
         items={items}
@@ -84,6 +84,12 @@ export function GestoresPageView({
           if (!open) setSelectedId(null)
         }}
         onSaved={handleSaved}
+      />
+
+      <GestorCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={handleSaved}
       />
     </div>
   )

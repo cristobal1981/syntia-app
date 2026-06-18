@@ -49,6 +49,18 @@ export type CreateClientResult = {
   inviteSent: boolean
 }
 
+export type CreateGestorResult = {
+  gestor: GestorRecord
+  inviteSent: boolean
+}
+
+export type CreateGestorInput = PersonNameParts & {
+  email: string
+  role: Extract<PortalRole, 'advisor' | 'admin'>
+  companyName?: string
+  phone?: string
+}
+
 export type CreateClientInput = PersonNameParts & {
   email: string
   phone?: string

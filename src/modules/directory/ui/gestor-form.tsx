@@ -7,15 +7,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { equipo } from '@/content/equipo'
 import {
+  createGestorAction,
   updateGestorAction,
   type DirectoryUpdateResult,
 } from '@/src/modules/directory/application/directory-mutations'
 import type { GestorRecord } from '@/src/modules/directory/domain/types'
+import { GestorDangerZone } from '@/src/modules/directory/ui/gestor-danger-zone'
 
 type GestorFormProps = {
-  gestor: GestorRecord
+  mode: 'create' | 'edit'
+  gestor?: GestorRecord
   onSuccess: () => void
   onCancel: () => void
+  onDeleted?: () => void
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -27,12 +31,20 @@ function FieldError({ message }: { message?: string }) {
   )
 }
 
-export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
+export function GestorForm({
+  mode,
+  gestor,
+  onSuccess,
+  onCancel,
+  onDeleted,
+}: GestorFormProps) {
   const copy = equipo.form
+  const isCreate = mode === 'create'
+  const action = isCreate ? createGestorAction : updateGestorAction
   const [state, formAction, pending] = useActionState<
     DirectoryUpdateResult | null,
     FormData
-  >(updateGestorAction, null)
+  >(action, null)
   const onSuccessRef = useRef(onSuccess)
   const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
 
@@ -46,7 +58,13 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
     handledStateRef.current = state
 
     if (state.ok) {
-      toast.success(copy.successGestor)
+      toast.success(
+        isCreate
+          ? state.inviteSent === false
+            ? copy.successCreateGestorNoInvite
+            : copy.successCreateGestor
+          : copy.successGestor
+      )
       onSuccessRef.current()
       return
     }
@@ -57,11 +75,17 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
     if (state.error !== 'validation') {
       toast.error(state.message ?? copy.errors.unknown)
     }
-  }, [state, copy])
+  }, [state, copy, isCreate])
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <input type="hidden" name="id" value={gestor.id} />
+      {!isCreate && gestor ? (
+        <input type="hidden" name="id" value={gestor.id} />
+      ) : null}
+
+      {isCreate ? (
+        <p className="text-sm text-muted-foreground">{copy.inviteHint}</p>
+      ) : null}
 
       <div className="flex flex-col gap-2">
         <label htmlFor="gestor-first-name" className="text-sm font-medium text-foreground">
@@ -70,7 +94,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
         <Input
           id="gestor-first-name"
           name="firstName"
-          defaultValue={gestor.firstName}
+          defaultValue={gestor?.firstName ?? ''}
           autoComplete="given-name"
           aria-invalid={Boolean(
             state && !state.ok && state.fieldErrors?.firstName
@@ -93,7 +117,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
         <Input
           id="gestor-first-surname"
           name="firstSurname"
-          defaultValue={gestor.firstSurname}
+          defaultValue={gestor?.firstSurname ?? ''}
           autoComplete="family-name"
           aria-invalid={Boolean(
             state && !state.ok && state.fieldErrors?.firstSurname
@@ -116,7 +140,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
         <Input
           id="gestor-second-surname"
           name="secondSurname"
-          defaultValue={gestor.secondSurname ?? ''}
+          defaultValue={gestor?.secondSurname ?? ''}
           autoComplete="additional-name"
           aria-invalid={Boolean(
             state && !state.ok && state.fieldErrors?.secondSurname
@@ -137,7 +161,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
           id="gestor-email"
           name="email"
           type="email"
-          defaultValue={gestor.email}
+          defaultValue={gestor?.email ?? ''}
           autoComplete="email"
           aria-invalid={Boolean(state && !state.ok && state.fieldErrors?.email)}
         />
@@ -154,7 +178,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
           id="gestor-phone"
           name="phone"
           type="tel"
-          defaultValue={gestor.phone ?? ''}
+          defaultValue={gestor?.phone ?? ''}
           autoComplete="tel"
         />
       </div>
@@ -166,11 +190,11 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
         <Input
           id="gestor-company"
           name="companyName"
-          defaultValue={gestor.companyName ?? ''}
+          defaultValue={gestor?.companyName ?? ''}
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={isCreate ? 'flex flex-col gap-2' : 'grid gap-4 sm:grid-cols-2'}>
         <div className="flex flex-col gap-2">
           <label htmlFor="gestor-role" className="text-sm font-medium text-foreground">
             {copy.fields.role}
@@ -178,7 +202,7 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
           <select
             id="gestor-role"
             name="role"
-            defaultValue={gestor.role}
+            defaultValue={gestor?.role ?? 'advisor'}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="advisor">{equipo.roles.advisor}</option>
@@ -186,20 +210,22 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
           </select>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <label htmlFor="gestor-status" className="text-sm font-medium text-foreground">
-            {copy.fields.status}
-          </label>
-          <select
-            id="gestor-status"
-            name="status"
-            defaultValue={gestor.status}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="active">{equipo.status.active}</option>
-            <option value="invited">{equipo.status.invited}</option>
-          </select>
-        </div>
+        {!isCreate ? (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="gestor-status" className="text-sm font-medium text-foreground">
+              {copy.fields.status}
+            </label>
+            <select
+              id="gestor-status"
+              name="status"
+              defaultValue={gestor?.status ?? 'invited'}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="active">{equipo.status.active}</option>
+              <option value="invited">{equipo.status.invited}</option>
+            </select>
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -207,9 +233,19 @@ export function GestorForm({ gestor, onSuccess, onCancel }: GestorFormProps) {
           {copy.cancel}
         </Button>
         <Button type="submit" disabled={pending} aria-busy={pending}>
-          {pending ? copy.saving : copy.save}
+          {pending
+            ? isCreate
+              ? copy.creating
+              : copy.saving
+            : isCreate
+              ? copy.createGestorButton
+              : copy.save}
         </Button>
       </div>
+
+      {!isCreate && gestor && onDeleted ? (
+        <GestorDangerZone gestor={gestor} onDeleted={onDeleted} />
+      ) : null}
     </form>
   )
 }

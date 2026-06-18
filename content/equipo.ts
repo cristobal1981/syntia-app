@@ -1,8 +1,8 @@
 export const equipo = {
-  mockBanner: 'Datos de demostración. Los cambios no se guardan en Supabase.',
   gestores: {
     title: 'Gestores',
     description: 'Personas del equipo que gestionan clientes en el portal.',
+    createButton: 'Nuevo gestor',
     countLabel: 'gestores',
     emptyTitle: 'Sin gestores',
     emptyDescription: 'Cuando haya gestores en la base de datos aparecerán aquí.',
@@ -34,7 +34,7 @@ export const equipo = {
     },
   },
   nav: {
-    team: 'Equipo',
+    users: 'Usuarios',
     gestores: 'Gestores',
     clientes: 'Clientes',
   },
@@ -48,14 +48,20 @@ export const equipo = {
   },
   form: {
     editGestor: 'Editar gestor',
+    createGestor: 'Nuevo gestor',
     editClient: 'Editar cliente',
     createClient: 'Nuevo cliente',
     save: 'Guardar cambios',
     create: 'Crear cliente',
+    createGestorButton: 'Crear gestor',
     creating: 'Creando…',
     saving: 'Guardando…',
     cancel: 'Cancelar',
     successGestor: 'Gestor actualizado.',
+    successCreateGestor:
+      'Gestor creado. Se ha enviado la invitación por correo.',
+    successCreateGestorNoInvite:
+      'Gestor creado. No se envió correo de invitación (modo desarrollo).',
     successClient: 'Cliente actualizado.',
     successCreateClient:
       'Cliente creado. Se ha enviado la invitación por correo.',
@@ -114,6 +120,27 @@ export const equipo = {
       errors: {
         deleteFailed: 'No pudimos eliminar al cliente. Inténtalo de nuevo.',
         notFound: 'Cliente no encontrado.',
+        copyEmailFailed: 'No pudimos copiar el correo. Selecciónalo y cópialo manualmente.',
+      },
+    },
+    gestorDangerZone: {
+      title: 'Zona peligrosa',
+      description:
+        'Eliminar al gestor borra su acceso al portal, su perfil y la cuenta de inicio de sesión.',
+      deleteButton: 'Eliminar gestor',
+      confirmTitle: '¿Eliminar este gestor?',
+      confirmDescription:
+        'Esta acción no se puede deshacer. Se borrarán la cuenta del portal, el perfil y el acceso por correo.',
+      confirmEmailLabel: 'Escribe el correo del gestor para confirmar',
+      confirmPlaceholder: 'correo@ejemplo.com',
+      copyEmail: 'Copiar correo',
+      copyEmailSuccess: 'Correo copiado.',
+      confirmDelete: 'Eliminar definitivamente',
+      deleting: 'Eliminando…',
+      successDelete: 'Gestor eliminado.',
+      errors: {
+        deleteFailed: 'No pudimos eliminar al gestor. Inténtalo de nuevo.',
+        notFound: 'Gestor no encontrado.',
         copyEmailFailed: 'No pudimos copiar el correo. Selecciónalo y cópialo manualmente.',
       },
     },

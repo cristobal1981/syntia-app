@@ -43,7 +43,9 @@ function NavLink({
   isActive,
   collapsed,
   nested = false,
+  isPending = false,
   onNavigate,
+  onNavStart,
 }: {
   href: string
   label: string
@@ -51,22 +53,29 @@ function NavLink({
   isActive: boolean
   collapsed: boolean
   nested?: boolean
+  isPending?: boolean
   onNavigate?: () => void
+  onNavStart?: (href: string) => void
 }) {
   return (
     <Link
       href={href}
       title={collapsed ? label : undefined}
-      onClick={onNavigate}
+      onClick={() => {
+        onNavStart?.(href)
+        onNavigate?.()
+      }}
       className={cn(
         'flex min-h-10 items-center rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
         nested && !collapsed && 'ml-2 pl-4',
+        isPending && 'opacity-70',
         isActive
           ? 'bg-sidebar-active font-medium text-sidebar-active-foreground shadow-sm'
           : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
       )}
       aria-current={isActive ? 'page' : undefined}
+      aria-busy={isPending || undefined}
     >
       <PortalNavIcon icon={icon} className="size-4 shrink-0" />
       {!collapsed ? <span className="truncate">{label}</span> : null}
@@ -79,12 +88,16 @@ function NavGroup({
   item,
   pathname,
   collapsed,
+  pendingHref,
   onNavigate,
+  onNavStart,
 }: {
   item: NavItem
   pathname: string
   collapsed: boolean
+  pendingHref: string | null
   onNavigate?: () => void
+  onNavStart?: (href: string) => void
 }) {
   const children = item.children ?? []
   const groupActive = isNavGroupActive(pathname, item)
@@ -105,8 +118,10 @@ function NavGroup({
               label={child.label}
               icon={child.icon}
               isActive={isNavItemActive(pathname, child.href)}
+              isPending={pendingHref === child.href}
               collapsed
               onNavigate={onNavigate}
+              onNavStart={onNavStart}
             />
           ) : null
         )}
@@ -147,9 +162,11 @@ function NavGroup({
                 label={child.label}
                 icon={child.icon}
                 isActive={isNavItemActive(pathname, child.href)}
+                isPending={pendingHref === child.href}
                 collapsed={false}
                 nested
                 onNavigate={onNavigate}
+                onNavStart={onNavStart}
               />
             ) : null
           )}
@@ -163,7 +180,9 @@ function renderNavItem(
   item: NavItem,
   pathname: string,
   collapsed: boolean,
-  onNavigate?: () => void
+  pendingHref: string | null,
+  onNavigate?: () => void,
+  onNavStart?: (href: string) => void
 ) {
   if (item.children?.length) {
     return (
@@ -172,7 +191,9 @@ function renderNavItem(
         item={item}
         pathname={pathname}
         collapsed={collapsed}
+        pendingHref={pendingHref}
         onNavigate={onNavigate}
+        onNavStart={onNavStart}
       />
     )
   }
@@ -186,8 +207,10 @@ function renderNavItem(
       label={item.label}
       icon={item.icon}
       isActive={isNavItemActive(pathname, item.href)}
+      isPending={pendingHref === item.href}
       collapsed={collapsed}
       onNavigate={onNavigate}
+      onNavStart={onNavStart}
     />
   )
 }
@@ -197,6 +220,8 @@ export function PortalShell({ user, children }: PortalShellProps) {
   const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [navPending, setNavPending] = useState(false)
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = getNavForRole(user.role)
   const roleLabel = portal.roles[user.role]
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
@@ -205,6 +230,18 @@ export function PortalShell({ user, children }: PortalShellProps) {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
     if (stored === 'true') setSidebarCollapsed(true)
   }, [])
+
+  useEffect(() => {
+    setNavPending(false)
+    setPendingHref(null)
+  }, [pathname])
+
+  const handleNavStart = (href: string) => {
+    if (href !== pathname) {
+      setNavPending(true)
+      setPendingHref(href)
+    }
+  }
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -239,7 +276,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
           aria-label="Principal"
         >
           {navItems.map((item) =>
-            renderNavItem(item, pathname, sidebarCollapsed)
+            renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
           )}
         </nav>
 
@@ -276,6 +313,23 @@ export function PortalShell({ user, children }: PortalShellProps) {
         />
 
         <LazyMotion features={domAnimation}>
+        {navPending ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-12 z-30 h-0.5 overflow-hidden bg-primary/15"
+            aria-hidden
+          >
+            <m.div
+              className="h-full w-1/3 bg-primary"
+              initial={reducedMotion ? false : { x: '-100%' }}
+              animate={reducedMotion ? undefined : { x: '400%' }}
+              transition={
+                reducedMotion
+                  ? undefined
+                  : { duration: 1.1, ease: menuEase, repeat: Infinity }
+              }
+            />
+          </div>
+        ) : null}
           <AnimatePresence initial={false}>
             {mobileOpen ? (
               <m.div
@@ -296,8 +350,13 @@ export function PortalShell({ user, children }: PortalShellProps) {
                   </div>
                   <div className="flex flex-col gap-1">
                     {navItems.map((item) =>
-                      renderNavItem(item, pathname, false, () =>
-                        setMobileOpen(false)
+                      renderNavItem(
+                        item,
+                        pathname,
+                        false,
+                        pendingHref,
+                        () => setMobileOpen(false),
+                        handleNavStart
                       )
                     )}
                   </div>

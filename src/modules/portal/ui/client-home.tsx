@@ -2,16 +2,13 @@ import { FileText, MessageSquare, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { getHomeDataForRole } from '@/src/modules/portal/application/get-home-data-for-role'
 import { QuickLinkCard } from '@/src/modules/portal/ui/quick-link-card'
-import { StatCard } from '@/src/modules/portal/ui/stat-card'
 
 type ClientHomeProps = {
   user: PortalUser
 }
 
 export function ClientHome({ user }: ClientHomeProps) {
-  const data = getHomeDataForRole(user)
   const copy = portal.home.client
 
   return (
@@ -25,39 +22,6 @@ export function ClientHome({ user }: ClientHomeProps) {
           ) : null}
         </h1>
       </header>
-
-      <section aria-labelledby="client-stats">
-        <h2 id="client-stats" className="sr-only">
-          Resumen
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </div>
-      </section>
-
-      {data.deadlines ? (
-        <section aria-labelledby="client-deadlines">
-          <h2
-            id="client-deadlines"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
-          >
-            {copy.deadlinesTitle}
-          </h2>
-          <ul className="flex flex-col gap-3">
-            {data.deadlines.map((item) => (
-              <li
-                key={item.title}
-                className="portal-home-card flex items-center justify-between gap-4 rounded-xl px-4 py-3"
-              >
-                <span className="text-foreground">{item.title}</span>
-                <span className="shrink-0 text-sm text-muted-foreground">{item.date}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <section aria-labelledby="client-quick-links">
         <h2

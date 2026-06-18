@@ -58,6 +58,19 @@ function parseGestorForm(formData: FormData): UpdateGestorInput {
   }
 }
 
+function parseCreateGestorForm(formData: FormData) {
+  return {
+    firstName: String(formData.get('firstName') ?? '').trim(),
+    firstSurname: String(formData.get('firstSurname') ?? '').trim(),
+    secondSurname:
+      String(formData.get('secondSurname') ?? '').trim() || undefined,
+    email: String(formData.get('email') ?? '').trim(),
+    phone: String(formData.get('phone') ?? '').trim() || undefined,
+    companyName: String(formData.get('companyName') ?? '').trim() || undefined,
+    role: String(formData.get('role') ?? 'advisor') as 'advisor' | 'admin',
+  }
+}
+
 function parseCreateClientForm(formData: FormData) {
   return {
     firstName: String(formData.get('firstName') ?? '').trim(),
@@ -87,6 +100,53 @@ function parseClientForm(formData: FormData): UpdateClientInput {
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
     status: String(formData.get('status') ?? 'active') as PersonStatus,
+  }
+}
+
+export async function createGestorAction(
+  _prev: DirectoryUpdateResult | null,
+  formData: FormData
+): Promise<DirectoryUpdateResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const input = parseCreateGestorForm(formData)
+    const fieldErrors = validatePersonNameParts(input)
+    const emailError = validatePersonEmail(input.email)
+    if (emailError) fieldErrors.email = emailError
+    if (Object.keys(fieldErrors).length) {
+      return { ok: false, error: 'validation', fieldErrors }
+    }
+
+    const result = await getDirectoryRepository().createGestor(input)
+    return { ok: true, inviteSent: result.inviteSent }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {
+      return {
+        ok: false,
+        error: 'validation',
+        fieldErrors: { email: 'Ya existe un usuario con ese correo.' },
+      }
+    }
+    const emailError = mapDirectoryEmailError(error)
+    if (!emailError.ok) {
+      return {
+        ok: false,
+        error: emailError.error === 'not_found' ? 'unknown' : emailError.error,
+        message: emailError.message,
+      }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
   }
 }
 
@@ -217,6 +277,56 @@ export async function updateClientAction(
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function deleteGestorAction(
+  gestorId: string
+): Promise<DirectoryDeleteResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const scope = await buildDirectoryScope()
+    if (scope.userId === gestorId) {
+      return {
+        ok: false,
+        error: 'forbidden',
+        message: 'No puedes eliminar tu propia cuenta.',
+      }
+    }
+
+    const repository = getDirectoryRepository()
+    const existing = await repository.getGestor(gestorId)
+
+    if (!existing) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    await repository.deleteGestor(gestorId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      return { ok: false, error: 'not_found' }
+    }
+    if (error instanceof Error && error.message === 'DELETE_AUTH_FAILED') {
+      return {
+        ok: false,
+        error: 'unknown',
+        message:
+          'Se eliminó el gestor del portal, pero no pudimos borrar su cuenta de acceso. Contacta con soporte.',
+      }
     }
     return {
       ok: false,
