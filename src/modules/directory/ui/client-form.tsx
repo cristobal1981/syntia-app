@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { useActionState, useEffect, useRef, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -11,18 +11,68 @@ import {
   updateClientAction,
   type DirectoryUpdateResult,
 } from '@/src/modules/directory/application/directory-mutations'
-import type { ClientRecord } from '@/src/modules/directory/domain/types'
-import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
+import { validateClientForm } from '@/src/modules/directory/application/validate-directory'
+import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
+import type {
+  OdooNameSplitMode,
+  OdooPartnerImportOption,
+} from '@/src/modules/directory/domain/odoo-partner-import'
+import { resolveOdooPartnerEmails } from '@/src/modules/directory/domain/odoo-partner-import'
+import type { ClientKind, ClientRecord } from '@/src/modules/directory/domain/types'
 import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
+import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
+import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selector'
+import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
+import { OdooPartnerImportPicker } from '@/src/modules/directory/ui/odoo-partner-import-picker'
+import { RequiredFieldLabel } from '@/src/modules/directory/ui/required-field-label'
+
+function parseClientFormData(formData: FormData) {
+  return {
+    clientKind: parseClientKind(String(formData.get('clientKind') ?? '')),
+    firstName: String(formData.get('firstName') ?? '').trim(),
+    firstSurname: String(formData.get('firstSurname') ?? '').trim(),
+    secondSurname:
+      String(formData.get('secondSurname') ?? '').trim() || undefined,
+    email: String(formData.get('email') ?? '').trim(),
+    companyName: String(formData.get('companyName') ?? '').trim() || undefined,
+    odooPartnerId:
+      String(formData.get('odooPartnerId') ?? '').trim() || undefined,
+    driveFolderId:
+      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+  }
+}
+
+export type ClientImportDraft = {
+  clientKind?: ClientKind
+  firstName?: string
+  firstSurname?: string
+  secondSurname?: string
+  email?: string
+  phone?: string
+  companyName?: string
+  corporateEmail?: string
+  odooPartnerId?: string
+  driveFolderId?: string
+}
 
 type ClientFormProps = {
   mode: 'create' | 'edit'
   client?: ClientRecord
+  clientKind: ClientKind
+  onClientKindChange: (kind: ClientKind) => void
   advisorOptions: Array<{ id: string; name: string }>
   canAssignAdvisor: boolean
   onSuccess: () => void
   onCancel: () => void
   onDeleted?: () => void
+  formInstanceKey?: string
+  importDraft?: ClientImportDraft | null
+  odooPartners?: OdooPartnerImportOption[]
+  odooImportLoadState?: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
+  selectedOdooPartnerId?: number | null
+  onOdooPartnerSelect?: (partner: OdooPartnerImportOption | null) => void
+  odooNameSplitMode?: OdooNameSplitMode
+  onOdooNameSplitModeChange?: (mode: OdooNameSplitMode) => void
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -37,21 +87,101 @@ function FieldError({ message }: { message?: string }) {
 export function ClientForm({
   mode,
   client,
+  clientKind,
+  onClientKindChange,
   advisorOptions,
   canAssignAdvisor,
   onSuccess,
   onCancel,
   onDeleted,
+  formInstanceKey,
+  importDraft,
+  odooPartners = [],
+  odooImportLoadState = 'idle',
+  selectedOdooPartnerId = null,
+  onOdooPartnerSelect,
+  odooNameSplitMode = 'given-first',
+  onOdooNameSplitModeChange,
 }: ClientFormProps) {
   const copy = equipo.form
   const isCreate = mode === 'create'
+  const isCompany = clientKind === 'company'
+  const selectedOdooPartner = odooPartners.find(
+    (partner) => partner.id === selectedOdooPartnerId
+  )
+  const selectedOdooEmails = selectedOdooPartner
+    ? resolveOdooPartnerEmails(selectedOdooPartner)
+    : null
   const action = isCreate ? createClientAction : updateClientAction
+  const [localFieldErrors, setLocalFieldErrors] = useState<Record<string, string>>(
+    {}
+  )
   const [state, formAction, pending] = useActionState<
     DirectoryUpdateResult | null,
     FormData
   >(action, null)
   const onSuccessRef = useRef(onSuccess)
   const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
+
+  const defaults = isCreate
+    ? {
+        firstName: importDraft?.firstName ?? '',
+        firstSurname: importDraft?.firstSurname ?? '',
+        secondSurname: importDraft?.secondSurname ?? '',
+        email: importDraft?.email ?? '',
+        phone: importDraft?.phone ?? '',
+        companyName: importDraft?.companyName ?? '',
+        odooPartnerId: importDraft?.odooPartnerId ?? '',
+        driveFolderId: importDraft?.driveFolderId ?? '',
+        advisorId: '',
+      }
+    : {
+        firstName: client?.firstName ?? '',
+        firstSurname: client?.firstSurname ?? '',
+        secondSurname: client?.secondSurname ?? '',
+        email: client?.email ?? '',
+        phone: client?.phone ?? '',
+        companyName: client?.companyName ?? '',
+        odooPartnerId: client?.odooPartnerId ?? '',
+        driveFolderId: client?.driveFolderId ?? '',
+        advisorId: client?.advisorId ?? '',
+      }
+
+  const corporateEmailHint =
+    isCompany &&
+    selectedOdooEmails?.contactEmail &&
+    selectedOdooEmails?.corporateEmail &&
+    selectedOdooEmails.corporateEmail.toLowerCase() !==
+      selectedOdooEmails.contactEmail.toLowerCase()
+      ? copy.odooImport.corporateEmailHint.replace(
+          '{email}',
+          selectedOdooEmails.corporateEmail
+        )
+      : null
+
+  function getFieldError(field: string): string | undefined {
+    if (localFieldErrors[field]) return localFieldErrors[field]
+    if (state && !state.ok && state.fieldErrors?.[field]) {
+      return state.fieldErrors[field]
+    }
+    return undefined
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const formData = new FormData(form)
+    const fieldErrors = validateClientForm(parseClientFormData(formData))
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setLocalFieldErrors(fieldErrors)
+      toast.error(copy.errors.validation)
+      return
+    }
+
+    setLocalFieldErrors({})
+    formAction(formData)
+  }
 
   useEffect(() => {
     onSuccessRef.current = onSuccess
@@ -63,6 +193,7 @@ export function ClientForm({
     handledStateRef.current = state
 
     if (state.ok) {
+      setLocalFieldErrors({})
       toast.success(
         isCreate
           ? state.inviteSent === false
@@ -79,14 +210,28 @@ export function ClientForm({
     }
     if (state.error !== 'validation') {
       toast.error(state.message ?? copy.errors.unknown)
+      return
+    }
+    if (state.fieldErrors) {
+      setLocalFieldErrors(state.fieldErrors)
     }
   }, [state, copy, isCreate])
 
+  const formKey =
+    formInstanceKey ??
+    (isCreate ? 'client-create-empty' : `client-edit-${client?.id}`)
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form
+      key={formKey}
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4"
+      noValidate
+    >
       {!isCreate && client ? (
         <input type="hidden" name="id" value={client.id} />
       ) : null}
+      <input type="hidden" name="clientKind" value={clientKind} />
       {!canAssignAdvisor && !isCreate && client?.advisorId ? (
         <input type="hidden" name="advisorId" value={client.advisorId} />
       ) : null}
@@ -95,87 +240,142 @@ export function ClientForm({
         <p className="text-sm text-muted-foreground">{copy.inviteHint}</p>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="client-first-name" className="text-sm font-medium text-foreground">
-          {copy.fields.firstName}
-        </label>
-        <Input
-          id="client-first-name"
-          name="firstName"
-          defaultValue={client?.firstName ?? ''}
-          autoComplete="given-name"
-          aria-invalid={Boolean(
-            state && !state.ok && state.fieldErrors?.firstName
-          )}
+      <ClientKindSelector value={clientKind} onChange={onClientKindChange} />
+
+      {isCreate && odooImportLoadState === 'loading' ? (
+        <p className="text-sm text-muted-foreground">{copy.odooImport.loading}</p>
+      ) : null}
+
+      {isCreate && odooImportLoadState === 'unavailable' ? (
+        <p className="text-sm text-muted-foreground">
+          {copy.odooImport.unavailable}
+        </p>
+      ) : null}
+
+      {isCreate && odooImportLoadState === 'error' ? (
+        <p className="text-sm text-destructive" role="alert">
+          {copy.odooImport.error}
+        </p>
+      ) : null}
+
+      {isCreate &&
+      odooImportLoadState === 'ready' &&
+      onOdooPartnerSelect &&
+      odooPartners.length > 0 ? (
+        <OdooPartnerImportPicker
+          partners={odooPartners}
+          selectedId={selectedOdooPartnerId}
+          onSelect={onOdooPartnerSelect}
         />
-        <FieldError
-          message={
-            state && !state.ok ? state.fieldErrors?.firstName : undefined
-          }
+      ) : null}
+
+      {isCreate &&
+      !isCompany &&
+      selectedOdooPartner &&
+      onOdooNameSplitModeChange ? (
+        <OdooNameSplitToolbar
+          odooLabel={selectedOdooPartner.label}
+          mode={odooNameSplitMode}
+          onModeChange={onOdooNameSplitModeChange}
         />
-      </div>
+      ) : null}
+
+      {isCreate && selectedOdooPartnerId ? (
+        <p className="text-xs text-muted-foreground">{copy.odooImport.reviewHint}</p>
+      ) : null}
+
+      {isCompany ? (
+        <div className="flex flex-col gap-2">
+          <RequiredFieldLabel htmlFor="client-company-legal">
+            {copy.fields.companyLegalName}
+          </RequiredFieldLabel>
+          <Input
+            id="client-company-legal"
+            name="companyName"
+            defaultValue={defaults.companyName}
+            required
+            aria-required="true"
+            aria-invalid={Boolean(getFieldError('companyName'))}
+          />
+          <FieldError message={getFieldError('companyName')} />
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col gap-2">
+            <RequiredFieldLabel htmlFor="client-first-name">
+              {copy.fields.firstName}
+            </RequiredFieldLabel>
+            <Input
+              id="client-first-name"
+              name="firstName"
+              defaultValue={defaults.firstName}
+              autoComplete="given-name"
+              required
+              aria-required="true"
+              aria-invalid={Boolean(getFieldError('firstName'))}
+            />
+            <FieldError message={getFieldError('firstName')} />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <RequiredFieldLabel htmlFor="client-first-surname">
+              {copy.fields.firstSurname}
+            </RequiredFieldLabel>
+            <Input
+              id="client-first-surname"
+              name="firstSurname"
+              defaultValue={defaults.firstSurname}
+              autoComplete="family-name"
+              required
+              aria-required="true"
+              aria-invalid={Boolean(getFieldError('firstSurname'))}
+            />
+            <FieldError message={getFieldError('firstSurname')} />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="client-second-surname"
+              className="text-sm font-medium text-foreground"
+            >
+              {copy.fields.secondSurname}
+            </label>
+            <Input
+              id="client-second-surname"
+              name="secondSurname"
+              defaultValue={defaults.secondSurname}
+              autoComplete="additional-name"
+              aria-invalid={Boolean(getFieldError('secondSurname'))}
+            />
+            <FieldError message={getFieldError('secondSurname')} />
+          </div>
+        </>
+      )}
 
       <div className="flex flex-col gap-2">
-        <label
-          htmlFor="client-first-surname"
-          className="text-sm font-medium text-foreground"
-        >
-          {copy.fields.firstSurname}
-        </label>
-        <Input
-          id="client-first-surname"
-          name="firstSurname"
-          defaultValue={client?.firstSurname ?? ''}
-          autoComplete="family-name"
-          aria-invalid={Boolean(
-            state && !state.ok && state.fieldErrors?.firstSurname
-          )}
-        />
-        <FieldError
-          message={
-            state && !state.ok ? state.fieldErrors?.firstSurname : undefined
-          }
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="client-second-surname"
-          className="text-sm font-medium text-foreground"
-        >
-          {copy.fields.secondSurname}
-        </label>
-        <Input
-          id="client-second-surname"
-          name="secondSurname"
-          defaultValue={client?.secondSurname ?? ''}
-          autoComplete="additional-name"
-          aria-invalid={Boolean(
-            state && !state.ok && state.fieldErrors?.secondSurname
-          )}
-        />
-        <FieldError
-          message={
-            state && !state.ok ? state.fieldErrors?.secondSurname : undefined
-          }
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="client-email" className="text-sm font-medium text-foreground">
-          {copy.fields.email}
-        </label>
+        <RequiredFieldLabel htmlFor="client-email">
+          {isCompany ? copy.fields.contactEmail : copy.fields.email}
+        </RequiredFieldLabel>
         <Input
           id="client-email"
           name="email"
           type="email"
-          defaultValue={client?.email ?? ''}
+          defaultValue={defaults.email}
           autoComplete="email"
-          aria-invalid={Boolean(state && !state.ok && state.fieldErrors?.email)}
+          required
+          aria-required="true"
+          aria-describedby={isCompany ? 'client-email-hint' : undefined}
+          aria-invalid={Boolean(getFieldError('email'))}
         />
-        <FieldError
-          message={state && !state.ok ? state.fieldErrors?.email : undefined}
-        />
+        {isCompany ? (
+          <p id="client-email-hint" className="text-xs text-muted-foreground">
+            {copy.fields.contactEmailHint}
+          </p>
+        ) : null}
+        {corporateEmailHint ? (
+          <p className="text-xs text-muted-foreground">{corporateEmailHint}</p>
+        ) : null}
+        <FieldError message={getFieldError('email')} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -186,47 +386,67 @@ export function ClientForm({
           id="client-phone"
           name="phone"
           type="tel"
-          defaultValue={client?.phone ?? ''}
+          defaultValue={defaults.phone}
           autoComplete="tel"
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="client-company" className="text-sm font-medium text-foreground">
-          {copy.fields.company}
-        </label>
-        <Input
-          id="client-company"
-          name="companyName"
-          defaultValue={client?.companyName ?? ''}
-        />
-      </div>
+      {!isCompany ? (
+        <div className="flex flex-col gap-2">
+          <label
+            htmlFor="client-company"
+            className="text-sm font-medium text-foreground"
+          >
+            {copy.fields.companyCommercialName}
+          </label>
+          <Input
+            id="client-company"
+            name="companyName"
+            defaultValue={defaults.companyName}
+            aria-describedby="client-company-hint"
+          />
+          <p id="client-company-hint" className="text-xs text-muted-foreground">
+            {copy.fields.companyCommercialNameHint}
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-2">
-        <label
-          htmlFor="client-odoo"
-          className="text-sm font-medium text-foreground"
-        >
+        <label htmlFor="client-odoo" className="text-sm font-medium text-foreground">
           {copy.fields.odooPartnerId}
         </label>
         <Input
           id="client-odoo"
           name="odooPartnerId"
           inputMode="numeric"
-          defaultValue={client?.odooPartnerId ?? ''}
+          defaultValue={defaults.odooPartnerId}
           aria-describedby="client-odoo-hint"
-          aria-invalid={Boolean(
-            state && !state.ok && state.fieldErrors?.odooPartnerId
-          )}
+          aria-invalid={Boolean(getFieldError('odooPartnerId'))}
         />
         <p id="client-odoo-hint" className="text-xs text-muted-foreground">
           {copy.fields.odooPartnerIdHint}
         </p>
-        <FieldError
-          message={
-            state && !state.ok ? state.fieldErrors?.odooPartnerId : undefined
-          }
+        <FieldError message={getFieldError('odooPartnerId')} />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label
+          htmlFor="client-drive"
+          className="text-sm font-medium text-foreground"
+        >
+          {copy.fields.driveFolderId}
+        </label>
+        <Input
+          id="client-drive"
+          name="driveFolderId"
+          defaultValue={defaults.driveFolderId}
+          aria-describedby="client-drive-hint"
+          aria-invalid={Boolean(getFieldError('driveFolderId'))}
         />
+        <p id="client-drive-hint" className="text-xs text-muted-foreground">
+          {copy.fields.driveFolderIdHint}
+        </p>
+        <FieldError message={getFieldError('driveFolderId')} />
       </div>
 
       {canAssignAdvisor ? (
@@ -240,7 +460,7 @@ export function ClientForm({
           <select
             id="client-advisor"
             name="advisorId"
-            defaultValue={client?.advisorId ?? ''}
+            defaultValue={defaults.advisorId}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">{copy.fields.unassigned}</option>

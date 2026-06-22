@@ -1,15 +1,18 @@
 'use server'
 
+import { updateTag } from 'next/cache'
+
 import { getSession } from '@/src/modules/auth/application/get-session'
 import {
   buildDirectoryScope,
   requireDirectorySession,
 } from '@/src/modules/directory/application/directory-queries'
 import {
-  validateOdooPartnerId,
+  validateClientForm,
   validatePersonEmail,
   validatePersonNameParts,
 } from '@/src/modules/directory/application/validate-directory'
+import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
   PersonStatus,
   UpdateClientInput,
@@ -17,6 +20,9 @@ import type {
 } from '@/src/modules/directory/domain/types'
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
 import { mapDirectoryEmailError } from '@/src/modules/directory/application/map-directory-email-error'
+import { listOdooPartnersForImport } from '@/src/modules/directory/application/list-odoo-partners-for-import'
+import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
+import { ODOO_PARTNER_CATALOG_CACHE_TAG } from '@/src/modules/directory/infrastructure/odoo-partner-env'
 
 export type DirectoryUpdateResult =
   | { ok: true; inviteSent?: boolean }
@@ -41,6 +47,13 @@ export type ResendClientAccessResult =
       ok: false
       error: 'unauthorized' | 'forbidden' | 'not_found' | 'unknown'
       message?: string
+    }
+
+export type ListOdooPartnersForImportActionResult =
+  | { ok: true; partners: OdooPartnerImportOption[] }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
     }
 
 function parseGestorForm(formData: FormData): UpdateGestorInput {
@@ -73,6 +86,7 @@ function parseCreateGestorForm(formData: FormData) {
 
 function parseCreateClientForm(formData: FormData) {
   return {
+    clientKind: parseClientKind(String(formData.get('clientKind') ?? '')),
     firstName: String(formData.get('firstName') ?? '').trim(),
     firstSurname: String(formData.get('firstSurname') ?? '').trim(),
     secondSurname:
@@ -82,6 +96,8 @@ function parseCreateClientForm(formData: FormData) {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
+    driveFolderId:
+      String(formData.get('driveFolderId') ?? '').trim() || undefined,
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
   }
 }
@@ -89,6 +105,7 @@ function parseCreateClientForm(formData: FormData) {
 function parseClientForm(formData: FormData): UpdateClientInput {
   return {
     id: String(formData.get('id') ?? ''),
+    clientKind: parseClientKind(String(formData.get('clientKind') ?? '')),
     firstName: String(formData.get('firstName') ?? '').trim(),
     firstSurname: String(formData.get('firstSurname') ?? '').trim(),
     secondSurname:
@@ -98,6 +115,8 @@ function parseClientForm(formData: FormData): UpdateClientInput {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
+    driveFolderId:
+      String(formData.get('driveFolderId') ?? '').trim() || undefined,
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
     status: String(formData.get('status') ?? 'active') as PersonStatus,
   }
@@ -167,16 +186,13 @@ export async function createClientAction(
       input.advisorId = scope.userId
     }
 
-    const fieldErrors = validatePersonNameParts(input)
-    const emailError = validatePersonEmail(input.email)
-    const odooError = validateOdooPartnerId(input.odooPartnerId ?? '')
-    if (emailError) fieldErrors.email = emailError
-    if (odooError) fieldErrors.odooPartnerId = odooError
+    const fieldErrors = validateClientForm(input)
     if (Object.keys(fieldErrors).length) {
       return { ok: false, error: 'validation', fieldErrors }
     }
 
     const result = await getDirectoryRepository().createClient(input)
+    updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
@@ -263,11 +279,7 @@ export async function updateClientAction(
       input.advisorId = existing.advisorId
     }
 
-    const fieldErrors = validatePersonNameParts(input)
-    const emailError = validatePersonEmail(input.email)
-    const odooError = validateOdooPartnerId(input.odooPartnerId ?? '')
-    if (emailError) fieldErrors.email = emailError
-    if (odooError) fieldErrors.odooPartnerId = odooError
+    const fieldErrors = validateClientForm(input)
     if (Object.keys(fieldErrors).length) {
       return { ok: false, error: 'validation', fieldErrors }
     }
@@ -410,6 +422,27 @@ export async function resendClientAccessEmailAction(
       return { ok: false, error: 'unauthorized' }
     }
     return mapDirectoryEmailError(error)
+  }
+}
+
+export async function listOdooPartnersForImportAction(): Promise<ListOdooPartnersForImportActionResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role === 'client') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const result = await listOdooPartnersForImport()
+    if (!result.ok) {
+      return { ok: false, error: result.error }
+    }
+
+    return { ok: true, partners: result.partners }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    throw error
   }
 }
 

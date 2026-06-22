@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+
 import { equipo } from '@/content/equipo'
 import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
 import { ClientForm } from '@/src/modules/directory/ui/client-form'
@@ -26,6 +28,20 @@ type PersonEditDialogProps =
 
 export function PersonEditDialog(props: PersonEditDialogProps) {
   const { open, onOpenChange, onSaved, kind, record } = props
+  const [clientKind, setClientKind] = useState(
+    kind === 'client' && record ? record.clientKind : 'person'
+  )
+
+  useEffect(() => {
+    if (kind === 'client' && record) {
+      setClientKind(record.clientKind)
+    }
+  }, [kind, record])
+
+  const clientFormKey =
+    kind === 'client' && record
+      ? `client-edit-${record.id}-${clientKind}`
+      : 'client-edit'
 
   return (
     <DirectoryPanel
@@ -52,8 +68,12 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
 
       {record && kind === 'client' ? (
         <ClientForm
+          key={clientFormKey}
           mode="edit"
           client={record}
+          clientKind={clientKind}
+          onClientKindChange={setClientKind}
+          formInstanceKey={clientFormKey}
           advisorOptions={props.advisorOptions}
           canAssignAdvisor={props.canAssignAdvisor}
           onCancel={() => onOpenChange(false)}

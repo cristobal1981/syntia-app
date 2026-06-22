@@ -4,6 +4,10 @@ import type {
   GestorRecord,
   PersonStatus,
 } from '@/src/modules/directory/domain/types'
+import {
+  inferClientKindFromProfile,
+  isProfileCompanyKind,
+} from '@/src/modules/directory/domain/client-kind'
 
 const GESTOR_ROLES = new Set<PortalRole>(['advisor', 'admin'])
 const CLIENT_ROLES = new Set<PortalRole>(['client'])
@@ -17,7 +21,6 @@ export type ProfileRow = {
   phone: string | null
   company_name: string | null
   advisor_id: string | null
-  odoo_partner_id: number | null
   tax_id: string | null
   iban: string | null
   address_line1: string | null
@@ -26,6 +29,12 @@ export type ProfileRow = {
   city: string | null
   province: string | null
   country: string | null
+}
+
+/** Tabla portal `client_integrations` (IDs Odoo/Drive por cliente). */
+export type ClientIntegrationRow = {
+  user_id: string
+  odoo_partner_id: number | null
   drive_folder_id: string | null
 }
 
@@ -40,10 +49,14 @@ export type UserRow = {
 export type DirectoryPersonSource = {
   user: UserRow
   profile?: ProfileRow
+  integration?: ClientIntegrationRow
 }
 
 export const PROFILE_SELECT =
-  'user_id, first_name, first_surname, second_surname, phone, company_name, advisor_id, odoo_partner_id, tax_id, iban, address_line1, address_line2, postal_code, city, province, country, drive_folder_id'
+  'user_id, first_name, first_surname, second_surname, phone, company_name, advisor_id, tax_id, iban, address_line1, address_line2, postal_code, city, province, country'
+
+export const CLIENT_INTEGRATION_SELECT =
+  'user_id, odoo_partner_id, drive_folder_id'
 
 export const USER_SELECT = 'id, email, role, status, is_active'
 
@@ -94,6 +107,17 @@ export function buildDisplayName(
   return parts.join(' ') || 'Sin nombre'
 }
 
+export function resolveClientDisplayName(profile: ProfileRow): string {
+  if (isProfileCompanyKind(profile)) {
+    return profile.company_name?.trim() || 'Sin nombre'
+  }
+  return buildDisplayName(
+    profile.first_name,
+    profile.first_surname,
+    profile.second_surname
+  )
+}
+
 export function mapProfileToNameParts(profile: ProfileRow) {
   return {
     firstName: profile.first_name,
@@ -133,11 +157,7 @@ function resolvePersonFields(source: DirectoryPersonSource) {
   const { user, profile } = source
 
   const name = profile
-    ? buildDisplayName(
-        profile.first_name,
-        profile.first_surname,
-        profile.second_surname
-      )
+    ? resolveClientDisplayName(profile)
     : user.email ?? 'Sin nombre'
 
   const nameParts = profile
@@ -153,6 +173,12 @@ function resolvePersonFields(source: DirectoryPersonSource) {
   const email = user.email ?? ''
 
   return { name, nameParts, phone, companyName, email }
+}
+
+function resolveClientFields(source: DirectoryPersonSource) {
+  const base = resolvePersonFields(source)
+  const clientKind = inferClientKindFromProfile(source.profile)
+  return { ...base, clientKind }
 }
 
 function resolvePersonStatus(source: DirectoryPersonSource): PersonStatus {
@@ -189,16 +215,19 @@ export function mapDirectorySourceToClient(
 ): ClientRecord | null {
   if (!isClientDbRole(source.user.role)) return null
 
-  const { name, nameParts, phone, companyName, email } = resolvePersonFields(source)
+  const { name, nameParts, phone, companyName, email, clientKind } =
+    resolveClientFields(source)
 
   return {
     id: source.user.id,
     name,
     ...nameParts,
     email,
+    clientKind,
     phone,
     companyName,
-    odooPartnerId: formatOdooPartnerId(source.profile?.odoo_partner_id),
+    odooPartnerId: formatOdooPartnerId(source.integration?.odoo_partner_id),
+    driveFolderId: sanitizeNullable(source.integration?.drive_folder_id),
     advisorId: sanitizeNullable(source.profile?.advisor_id ?? undefined),
     advisorName,
     status: resolvePersonStatus(source),

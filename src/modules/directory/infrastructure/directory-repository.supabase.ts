@@ -1,3 +1,4 @@
+import { mapClientProfileFields } from '@/src/modules/directory/domain/client-kind'
 import {
   PROFILE_SELECT,
   USER_SELECT,
@@ -26,6 +27,11 @@ import {
   getPortalAccessRedirectUrl,
   sendClientAccessEmailForClient,
 } from '@/src/modules/directory/infrastructure/client-access-link'
+import {
+  deleteClientIntegration,
+  fetchClientIntegrationMap,
+  upsertClientIntegration,
+} from '@/src/modules/directory/infrastructure/client-integrations.supabase'
 import {
   shouldSkipClientInviteEmail,
   shouldUseResendClientInvite,
@@ -68,9 +74,10 @@ async function fetchProfileMap(ids?: string[]) {
 }
 
 async function buildDirectorySources(ids?: string[]) {
-  const [userMap, profileMap] = await Promise.all([
+  const [userMap, profileMap, integrationMap] = await Promise.all([
     fetchUserMap(ids),
     fetchProfileMap(ids),
+    fetchClientIntegrationMap(ids),
   ])
 
   const allIds = ids?.length ? ids : [...userMap.keys()]
@@ -81,10 +88,12 @@ async function buildDirectorySources(ids?: string[]) {
       if (!user) return null
 
       const profile = profileMap.get(id)
+      const integration = integrationMap.get(id)
 
       return {
         user,
         ...(profile ? { profile } : {}),
+        ...(integration ? { integration } : {}),
       }
     })
     .filter((entry): entry is DirectoryPersonSource => entry !== null)
@@ -148,6 +157,7 @@ async function rollbackCreatedPortalUser(
   const supabase = createSupabaseAdminClient()
 
   if (portalUserId) {
+    await deleteClientIntegration(portalUserId)
     await supabase.from('users').delete().eq('id', portalUserId)
   }
 
@@ -396,10 +406,12 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     let portalUserId: string | undefined
 
     try {
-      const profileFields = mapNamePartsToProfileFields({
+      const profileFields = mapClientProfileFields({
+        clientKind: input.clientKind,
         firstName: input.firstName,
         firstSurname: input.firstSurname,
         secondSurname: input.secondSurname,
+        companyName: input.companyName,
       })
 
       const { data: userRow, error: userError } = await supabase
@@ -427,9 +439,12 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       await upsertProfile(newUserId, {
         ...profileFields,
         phone: input.phone ?? null,
-        company_name: input.companyName ?? null,
-        odoo_partner_id: parseOdooPartnerId(input.odooPartnerId),
         advisor_id: input.advisorId ?? null,
+      })
+
+      await upsertClientIntegration(newUserId, {
+        odoo_partner_id: parseOdooPartnerId(input.odooPartnerId),
+        drive_folder_id: input.driveFolderId?.trim() || null,
       })
 
       const created = await this.getClient(newUserId)
@@ -480,10 +495,12 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
   async updateClient(input) {
     const supabase = createSupabaseAdminClient()
     const status = mapPersonStatusToDb(input.status)
-    const profileFields = mapNamePartsToProfileFields({
+    const profileFields = mapClientProfileFields({
+      clientKind: input.clientKind,
       firstName: input.firstName,
       firstSurname: input.firstSurname,
       secondSurname: input.secondSurname,
+      companyName: input.companyName,
     })
 
     const { error: userError } = await supabase
@@ -501,9 +518,12 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     await upsertProfile(input.id, {
       ...profileFields,
       phone: input.phone ?? null,
-      company_name: input.companyName ?? null,
-      odoo_partner_id: parseOdooPartnerId(input.odooPartnerId),
       advisor_id: input.advisorId ?? null,
+    })
+
+    await upsertClientIntegration(input.id, {
+      odoo_partner_id: parseOdooPartnerId(input.odooPartnerId),
+      drive_folder_id: input.driveFolderId?.trim() || null,
     })
 
     const updated = await this.getClient(input.id)

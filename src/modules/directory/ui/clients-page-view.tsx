@@ -43,7 +43,6 @@ export function ClientsPageView({
         companyName: client.companyName,
         status: client.status,
         meta: client.advisorName,
-        roleLabel: client.odooPartnerId,
       })),
     [clients]
   )

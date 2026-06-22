@@ -38,7 +38,7 @@ export function ClientHome({ user }: ClientHomeProps) {
             icon={FileText}
           />
           <QuickLinkCard
-            href="/proximamente"
+            href="/tramites"
             label="Trámites"
             description="Estado de tus gestiones"
             icon={Scale}

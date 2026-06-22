@@ -29,7 +29,6 @@ export const equipo = {
       email: 'Correo',
       company: 'Empresa',
       advisor: 'Gestor',
-      odoo: 'ID Odoo',
       status: 'Estado',
     },
   },
@@ -69,6 +68,41 @@ export const equipo = {
       'Cliente creado. No se envió correo de invitación (modo desarrollo).',
     inviteHint:
       'Se enviará un correo de invitación para que active su acceso al portal.',
+    clientKind: {
+      title: 'Tipo de cliente',
+      options: {
+        person: 'Autónomo',
+        company: 'Empresa',
+      },
+    },
+    odooImport: {
+      title: 'Importar desde Odoo',
+      description:
+        'Contactos con carpeta Drive en Odoo que aún no están en el portal. Al elegir uno se rellena el formulario con la subcarpeta pública de documentos.',
+      searchPlaceholder: 'Buscar por nombre o correo…',
+      empty: 'No hay contactos de Odoo disponibles para importar.',
+      noResults: 'Ningún contacto coincide con la búsqueda.',
+      clearSelection: 'Quitar selección y rellenar manualmente',
+      loading: 'Cargando contactos desde Odoo…',
+      unavailable:
+        'Odoo no está configurado. Puedes crear el cliente rellenando el formulario.',
+      error: 'No pudimos cargar los contactos de Odoo. Rellena el formulario manualmente.',
+      reviewHint:
+        'Datos importados de Odoo. Revisa y corrige lo necesario antes de crear.',
+      nameSplit: {
+        title: '¿Cómo está el nombre en Odoo?',
+        odooLabel: 'En Odoo:',
+        hint: 'Elige el formato que encaje; los campos de abajo se actualizan solos.',
+        modes: {
+          'given-first': 'Nombre · apellidos',
+          'surname-first': 'Apellidos · nombre',
+          comma: 'Apellidos, nombre',
+        },
+      },
+      corporateEmailHint:
+        'En Odoo también figura el correo corporativo {email}. No se guarda en el portal; el acceso usa el correo de contacto.',
+      corporateEmailLabel: 'Correo corporativo Odoo',
+    },
     accessSection: {
       title: 'Acceso al portal',
       description:
@@ -88,6 +122,12 @@ export const equipo = {
       firstSurname: 'Primer apellido',
       secondSurname: 'Segundo apellido',
       email: 'Correo electrónico',
+      contactEmail: 'Correo de contacto',
+      contactEmailHint:
+        'Para invitaciones al portal, nóminas y comunicaciones con el cliente.',
+      companyLegalName: 'Razón social',
+      companyCommercialName: 'Nombre comercial',
+      companyCommercialNameHint: 'Opcional. Nombre con el que opera el negocio.',
       phone: 'Teléfono',
       company: 'Empresa',
       role: 'Rol',
@@ -95,12 +135,16 @@ export const equipo = {
       advisor: 'Gestor asignado',
       odooPartnerId: 'ID Odoo',
       odooPartnerIdHint: 'Para vincular tareas y tickets en Odoo.',
+      driveFolderId: 'ID carpeta Drive',
+      driveFolderIdHint:
+        'ID de la subcarpeta pública de documentos (no la carpeta padre de Odoo). Solo visible en este formulario.',
       unassigned: 'Sin asignar',
     },
     errors: {
       unknown: 'No pudimos guardar los cambios. Inténtalo de nuevo.',
       forbidden: 'No tienes permiso para editar este registro.',
       duplicateEmail: 'Ya existe un usuario con ese correo.',
+      validation: 'Revisa los campos obligatorios marcados con *.',
     },
     dangerZone: {
       title: 'Zona peligrosa',

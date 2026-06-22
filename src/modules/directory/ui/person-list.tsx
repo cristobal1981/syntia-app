@@ -105,10 +105,7 @@ export function PersonList({
                 {kind === 'gestor' ? gestorColumns.company : clientColumns.company}
               </th>
               {kind === 'client' ? (
-                <>
-                  <th className="px-4 py-3 font-medium">{clientColumns.advisor}</th>
-                  <th className="px-4 py-3 font-medium">{clientColumns.odoo}</th>
-                </>
+                <th className="px-4 py-3 font-medium">{clientColumns.advisor}</th>
               ) : null}
               <th className="px-4 py-3 font-medium">
                 {kind === 'gestor' ? gestorColumns.status : clientColumns.status}
@@ -143,14 +140,9 @@ export function PersonList({
                   {item.companyName ?? '—'}
                 </td>
                 {kind === 'client' ? (
-                  <>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {item.meta ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {item.roleLabel ?? '—'}
-                    </td>
-                  </>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {item.meta ?? '—'}
+                  </td>
                 ) : null}
                 <td className="px-4 py-3">
                   <PersonStatusBadge status={item.status} />

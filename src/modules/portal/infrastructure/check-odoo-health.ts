@@ -1,14 +1,14 @@
 import type { IntegrationConnectionStatus } from '@/src/modules/portal/domain/types'
+import {
+  getOdooApiKey,
+  getOdooBaseUrl,
+} from '@/src/modules/portal/infrastructure/odoo-json-client'
 
 const REQUEST_TIMEOUT_MS = 8_000
 
-function getOdooBaseUrl(): string | undefined {
-  return process.env.ODOO_URL?.replace(/\/$/, '').trim() || undefined
-}
-
 export async function checkOdooHealth(): Promise<IntegrationConnectionStatus> {
   const baseUrl = getOdooBaseUrl()
-  const apiKey = process.env.ODOO_API_KEY?.trim()
+  const apiKey = getOdooApiKey()
 
   if (!baseUrl) {
     return 'pending'

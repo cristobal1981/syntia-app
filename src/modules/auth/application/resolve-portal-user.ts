@@ -2,7 +2,8 @@ import type { User } from '@supabase/supabase-js'
 
 import { mapSupabaseUser } from '@/src/modules/auth/application/map-supabase-user'
 import type { PortalRole, PortalUser } from '@/src/modules/auth/domain/types'
-import { buildDisplayName } from '@/src/modules/directory/domain/map-directory-row'
+import { resolveClientDisplayName } from '@/src/modules/directory/domain/map-directory-row'
+import type { ProfileRow } from '@/src/modules/directory/domain/map-directory-row'
 import {
   createSupabaseAdminClient,
   isSupabaseServiceRoleConfigured,
@@ -154,11 +155,7 @@ export async function resolvePortalUser(
     id: authUserId,
     email: account.email ?? fallback.email,
     name: profile
-      ? buildDisplayName(
-          profile.first_name,
-          profile.first_surname,
-          profile.second_surname
-        )
+      ? resolveClientDisplayName(profile as ProfileRow)
       : fallback.name,
     role,
     companyName: profile?.company_name?.trim() || fallback.companyName,

@@ -208,6 +208,8 @@
 
 [data-sonner-toaster] {
   font-family: var(--font-archivo), system-ui, sans-serif;
+  z-index: 100;
+  pointer-events: none;
   --normal-bg: var(--surface-light);
   --normal-text: var(--on-light);
   --normal-border: var(--border);
@@ -223,6 +225,11 @@
   background: var(--surface-light) !important;
   color: var(--on-light) !important;
   border-color: var(--border) !important;
+  pointer-events: auto;
+}
+
+[data-sonner-toast] [data-close-button] {
+  pointer-events: auto;
 }
 
 [data-sonner-toast] [data-title] {
