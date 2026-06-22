@@ -1,22 +1,22 @@
 export type TramiteTask = {
   id: number
   name: string
-  stageName?: string
-  dateDeadline?: string
-  projectName?: string
+  state?: string
+  stateLabel?: string
+  attachmentCount: number
+  isClosed: boolean
 }
 
 export type TramiteTicket = {
   id: number
   name: string
-  stageName?: string
-  createDate?: string
+  attachmentCount: number
+  isClosed: boolean
 }
 
 export type TramitesSnapshot = {
   tasks: TramiteTask[]
   tickets: TramiteTicket[]
-  odooPartnerId: number | null
   tagFilterActive: boolean
 }
 

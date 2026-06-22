@@ -1,35 +1,67 @@
 export const tramites = {
   title: 'Trámites',
   description:
-    'Consulta el estado de tus gestiones en curso: tareas del proyecto y tickets de soporte.',
+    'Gestiones generales, incidencias de soporte y documentación asociada. Por defecto ves solo lo que está en curso.',
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
-  tasks: {
-    title: 'Tareas del proyecto',
+  pagination: {
+    previous: 'Anterior',
+    next: 'Siguiente',
+    pageLabel: 'Página',
+    ofLabel: 'de',
+  },
+  filters: {
+    searchLabel: 'Buscar trámites',
+    searchPlaceholder: 'Buscar por nombre…',
+    includeClosed: 'Incluir cerrados',
+    includeClosedHint:
+      'En «Todos» muestra abiertos y cerrados. Con otros filtros activos, marca Hecho y Cancelado.',
+    views: {
+      label: 'Filtrar trámites',
+      all: 'Todos',
+      tramites: 'Trámites',
+      incidencias: 'Incidencias',
+      inProgress: 'En curso',
+      done: 'Hecho',
+      canceled: 'Cancelado',
+      withDocuments: 'Con documentos',
+    },
+    noResultsTitle: 'Sin resultados',
+    noResultsDescription:
+      'No hay trámites que coincidan con los filtros actuales. Prueba otra búsqueda, cambia el filtro o activa «Incluir cerrados».',
+  },
+  list: {
+    title: 'Tus trámites',
     description:
-      'Gestiones activas en tu proyecto de Odoo vinculadas a tu cuenta.',
+      'Trámites de proyecto e incidencias de soporte en un solo listado.',
     tagFilterNote:
-      'Mostramos solo las tareas con la etiqueta configurada para el portal.',
-    emptyTitle: 'Sin tareas',
-    emptyDescription:
-      'No hay tareas en tu proyecto que coincidan con los criterios actuales.',
+      'Las tareas de proyecto se filtran por la etiqueta configurada en Odoo.',
+    emptyTitle: 'Sin trámites',
+    emptyDescription: 'No hay trámites en curso en tu cuenta en este momento.',
     columns: {
       name: 'Trámite',
-      project: 'Proyecto',
-      stage: 'Estado',
-      deadline: 'Vencimiento',
+      type: 'Tipo',
+      state: 'Estado',
+      documents: 'Documentos',
+      actions: 'Detalle',
+    },
+    viewItem: 'Ver trámite',
+    downloadZip: 'Descargar todo',
+    types: {
+      tramite: 'Trámite',
+      incidencia: 'Incidencia',
     },
   },
-  tickets: {
-    title: 'Tickets de soporte',
-    description: 'Solicitudes y consultas registradas a tu nombre en Odoo.',
-    emptyTitle: 'Sin tickets',
-    emptyDescription: 'No tienes tickets de soporte abiertos o recientes.',
-    columns: {
-      name: 'Asunto',
-      stage: 'Estado',
-      created: 'Fecha',
-    },
+  tasks: {
+    downloadZip: 'Descargar todo',
+  },
+  taskStates: {
+    inProgress: 'En curso',
+    changesRequested: 'Cambios solicitados',
+    approved: 'Aprobado',
+    waiting: 'En espera',
+    done: 'Hecho',
+    canceled: 'Cancelado',
   },
   states: {
     notLinked: {

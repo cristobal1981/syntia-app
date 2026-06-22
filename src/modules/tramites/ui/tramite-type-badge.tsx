@@ -1,0 +1,31 @@
+import { cn } from '@/lib/utils'
+import { tramites } from '@/content/tramites'
+import type { TramiteListKind } from '@/src/modules/tramites/domain/merge-tramites-list'
+
+const kindClasses: Record<TramiteListKind, string> = {
+  tramite: 'bg-sky-100 text-sky-900 dark:bg-sky-950/80 dark:text-sky-200',
+  incidencia:
+    'bg-violet-100 text-violet-900 dark:bg-violet-950/80 dark:text-violet-200',
+}
+
+type TramiteTypeBadgeProps = {
+  kind: TramiteListKind
+}
+
+export function TramiteTypeBadge({ kind }: TramiteTypeBadgeProps) {
+  const label =
+    kind === 'tramite'
+      ? tramites.list.types.tramite
+      : tramites.list.types.incidencia
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        kindClasses[kind]
+      )}
+    >
+      {label}
+    </span>
+  )
+}

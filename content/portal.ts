@@ -79,6 +79,12 @@ export const portal = {
     client: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
       { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
+      {
+        label: 'Obligaciones',
+        href: '/obligaciones',
+        implemented: true,
+        icon: 'obligations',
+      },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
       { label: 'Mensajes', href: '/proximamente', implemented: false, icon: 'messages' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },

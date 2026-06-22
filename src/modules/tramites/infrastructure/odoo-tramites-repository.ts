@@ -3,13 +3,17 @@ import type {
   TramiteTicket,
   TramitesSnapshot,
 } from '@/src/modules/tramites/domain/types'
+import { isTaskClosed, mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
+import { collectObligacionTaskIds } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
 import {
   getOdooTicketsModel,
+  getTicketClosedField,
   getTramitesTaskTagName,
+  TRAMITES_FETCH_LIMIT,
 } from '@/src/modules/tramites/infrastructure/tramites-env'
+import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
-  mapOdooMany2OneLabel,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
@@ -26,36 +30,49 @@ type OdooTagRow = {
 type OdooTaskRow = {
   id: number
   name: string
-  date_deadline?: string | false | null
-  stage_id?: [number, string] | false | null
-  project_id?: [number, string] | false | null
+  state?: string | false | null
 }
 
 type OdooTicketRow = {
   id: number
   name: string
-  stage_id?: [number, string] | false | null
-  create_date?: string | false | null
+  close_date?: string | false | null
+  [key: string]: unknown
 }
 
-function mapTask(row: OdooTaskRow): TramiteTask {
+function mapTask(
+  row: OdooTaskRow,
+  attachmentCounts: Map<number, number>
+): TramiteTask {
+  const state =
+    typeof row.state === 'string' && row.state ? row.state : undefined
+
   return {
     id: row.id,
     name: row.name,
-    stageName: mapOdooMany2OneLabel(row.stage_id),
-    dateDeadline:
-      typeof row.date_deadline === 'string' ? row.date_deadline : undefined,
-    projectName: mapOdooMany2OneLabel(row.project_id),
+    state,
+    stateLabel: mapTaskStateLabel(state),
+    attachmentCount: attachmentCounts.get(row.id) ?? 0,
+    isClosed: isTaskClosed(state),
   }
 }
 
-function mapTicket(row: OdooTicketRow): TramiteTicket {
+function mapTicket(
+  row: OdooTicketRow,
+  attachmentCounts: Map<number, number>,
+  closedField: string
+): TramiteTicket {
+  const closedValue = row[closedField]
+  const isClosed =
+    typeof closedValue === 'string'
+      ? closedValue.length > 0
+      : closedValue === true
+
   return {
     id: row.id,
     name: row.name,
-    stageName: mapOdooMany2OneLabel(row.stage_id),
-    createDate:
-      typeof row.create_date === 'string' ? row.create_date : undefined,
+    attachmentCount: attachmentCounts.get(row.id) ?? 0,
+    isClosed,
   }
 }
 
@@ -80,7 +97,8 @@ async function resolveTaskTagId(tagName: string): Promise<number | null> {
 
 async function listProjectTasks(
   projectIds: number[],
-  tagId: number | null
+  tagId: number | null,
+  excludedTaskIds: Set<number>
 ): Promise<TramiteTask[]> {
   const domain: unknown[] = [['project_id', 'in', projectIds]]
   if (tagId) {
@@ -89,24 +107,36 @@ async function listProjectTasks(
 
   const rows = await odooSearchRead<OdooTaskRow>('project.task', {
     domain,
-    fields: ['name', 'date_deadline', 'stage_id', 'project_id'],
-    order: 'date_deadline asc, id desc',
-    limit: 100,
+    fields: ['name', 'state'],
+    order: 'write_date desc, id desc',
+    limit: TRAMITES_FETCH_LIMIT,
   })
 
-  return rows.map(mapTask)
+  const filteredRows = rows.filter((row) => !excludedTaskIds.has(row.id))
+  const attachmentCounts = await countAttachmentsByRecordIds(
+    'project.task',
+    filteredRows.map((row) => row.id)
+  )
+
+  return filteredRows.map((row) => mapTask(row, attachmentCounts))
 }
 
 async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
   const model = getOdooTicketsModel()
+  const closedField = getTicketClosedField()
   const rows = await odooSearchRead<OdooTicketRow>(model, {
     domain: [['partner_id', '=', partnerId]],
-    fields: ['name', 'stage_id', 'create_date'],
+    fields: ['name', closedField],
     order: 'create_date desc, id desc',
-    limit: 100,
+    limit: TRAMITES_FETCH_LIMIT,
   })
 
-  return rows.map(mapTicket)
+  const attachmentCounts = await countAttachmentsByRecordIds(
+    model,
+    rows.map((row) => row.id)
+  )
+
+  return rows.map((row) => mapTicket(row, attachmentCounts, closedField))
 }
 
 export async function fetchTramitesFromOdoo(
@@ -117,6 +147,7 @@ export async function fetchTramitesFromOdoo(
   }
 
   const tagName = getTramitesTaskTagName()
+  const excludedTaskIds = await collectObligacionTaskIds(partnerId)
   const projects = await listClientProjects(partnerId)
   const projectIds = projects.map((project) => project.id)
 
@@ -127,7 +158,7 @@ export async function fetchTramitesFromOdoo(
     const tagId = tagName ? await resolveTaskTagId(tagName) : null
     tagFilterActive = Boolean(tagName && tagId)
     if (!tagName || tagId) {
-      tasks = await listProjectTasks(projectIds, tagId)
+      tasks = await listProjectTasks(projectIds, tagId, excludedTaskIds)
     }
   }
 
@@ -136,7 +167,6 @@ export async function fetchTramitesFromOdoo(
   return {
     tasks,
     tickets,
-    odooPartnerId: partnerId,
     tagFilterActive,
   }
 }

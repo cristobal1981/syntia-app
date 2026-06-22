@@ -6,6 +6,7 @@ import {
   ListChecks,
   MessageSquare,
   Plug,
+  Scale,
   Settings,
   UserCircle,
   Users,
@@ -18,6 +19,7 @@ import type { NavIconId } from '@/src/modules/portal/domain/types'
 const navIcons: Record<NavIconId, LucideIcon> = {
   home: LayoutDashboard,
   documents: FileText,
+  obligations: Scale,
   procedures: ClipboardList,
   messages: MessageSquare,
   profile: UserCircle,

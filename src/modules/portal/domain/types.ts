@@ -1,6 +1,7 @@
 export type NavIconId =
   | 'home'
   | 'documents'
+  | 'obligations'
   | 'procedures'
   | 'messages'
   | 'profile'

@@ -1,4 +1,4 @@
-import { FileText, MessageSquare, Scale } from 'lucide-react'
+import { ClipboardList, FileText, MessageSquare, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
@@ -30,7 +30,7 @@ export function ClientHome({ user }: ClientHomeProps) {
         >
           {copy.quickLinksTitle}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickLinkCard
             href="/proximamente"
             label="Documentos"
@@ -38,10 +38,16 @@ export function ClientHome({ user }: ClientHomeProps) {
             icon={FileText}
           />
           <QuickLinkCard
+            href="/obligaciones"
+            label="Obligaciones"
+            description="Modelos tributarios por periodo"
+            icon={Scale}
+          />
+          <QuickLinkCard
             href="/tramites"
             label="Trámites"
-            description="Estado de tus gestiones"
-            icon={Scale}
+            description="Gestiones y soporte"
+            icon={ClipboardList}
           />
           <QuickLinkCard
             href="/proximamente"
