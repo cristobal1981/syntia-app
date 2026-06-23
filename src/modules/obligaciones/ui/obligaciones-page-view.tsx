@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { obligaciones } from '@/content/obligaciones'
 import { cn } from '@/lib/utils'
 import { collectClientObligacionModels } from '@/src/modules/obligaciones/domain/collect-client-obligacion-models'
@@ -23,6 +21,7 @@ import { ObligacionDetailDrawer } from '@/src/modules/obligaciones/ui/obligacion
 import { ObligacionModelGroupsList } from '@/src/modules/obligaciones/ui/obligacion-model-groups-list'
 import { ObligacionesModelsOverview } from '@/src/modules/obligaciones/ui/obligaciones-models-overview'
 import { ObligacionesSearchToolbar } from '@/src/modules/obligaciones/ui/obligaciones-search-toolbar'
+import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 
 function yearHeading(year: ObligacionYear): string {
   if (year.year > 0) return String(year.year)
@@ -104,8 +103,6 @@ type ObligacionesPageViewProps = {
 }
 
 export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
   const [selectedTask, setSelectedTask] = useState<ObligacionTask | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -141,19 +138,10 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
             {obligaciones.description}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          aria-busy={pending}
-          onClick={() => {
-            startTransition(() => {
-              router.refresh()
-            })
-          }}
-        >
-          {pending ? obligaciones.refreshing : obligaciones.refreshButton}
-        </Button>
+        <PortalRefreshButton
+          label={obligaciones.refreshButton}
+          refreshingLabel={obligaciones.refreshing}
+        />
       </header>
 
       {hasAnyData ? (

@@ -15,6 +15,7 @@ import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
+import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { PortalTopBar } from '@/src/modules/portal/ui/portal-top-bar'
 
 const SIDEBAR_STORAGE_KEY = 'syntia-sidebar-collapsed'
@@ -252,6 +253,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
   }
 
   return (
+    <PortalShortcutOverlayProvider>
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
@@ -380,5 +382,6 @@ export function PortalShell({ user, children }: PortalShellProps) {
         <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
       </div>
     </div>
+    </PortalShortcutOverlayProvider>
   )
 }

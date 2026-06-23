@@ -70,6 +70,16 @@ export const portal = {
       system: 'Sistema',
     },
   },
+  shortcuts: {
+    overlayHint: 'Mantén Alt · Pulsa la tecla resaltada en cada botón',
+    refresh: {
+      label: 'Alt+R',
+      buttonHintIdle: '{action}. Mantén Alt para ver atajos.',
+      buttonHintActive: '{action} (Alt+R)',
+      description:
+        'Actualiza los datos de esta página sin recargarla por completo.',
+    },
+  },
   roles: {
     advisor: 'Gestor Syntia',
     admin: 'Administrador',

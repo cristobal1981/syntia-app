@@ -21,6 +21,23 @@ export const fiscalModelsGuide = {
     'No encontramos modelos relacionados con ese término. Prueba con otra palabra.',
   models: [
     {
+      code: '100',
+      label: 'Modelo 100',
+      title: 'Declaración anual del IRPF',
+      description:
+        'Declaración del Impuesto sobre la Renta de las Personas Físicas: resume ingresos, deducciones y resultado de la campaña de la renta.',
+      tags: ['renta', 'anual', 'irpf'],
+      keywords: [
+        'renta',
+        'irpf',
+        'declaración',
+        'anual',
+        'campaña',
+        'personas físicas',
+        'declaración de la renta',
+      ],
+    },
+    {
       code: '111',
       label: 'Modelo 111',
       title: 'Retenciones e ingresos a cuenta del IRPF',
@@ -123,6 +140,40 @@ export const fiscalModelsGuide = {
       ],
     },
     {
+      code: '182',
+      label: 'Modelo 182',
+      title: 'Donativos, donaciones y aportaciones recibidas',
+      description:
+        'Declaración informativa anual de donativos, donaciones y aportaciones recibidas por entidades beneficiarias.',
+      tags: ['donaciones', 'fundaciones', 'anual'],
+      keywords: [
+        'donativos',
+        'donaciones',
+        'aportaciones',
+        'fundaciones',
+        'ong',
+        'entidades sin ánimo de lucro',
+        'informativa',
+      ],
+    },
+    {
+      code: '184',
+      label: 'Modelo 184',
+      title: 'Entidades en régimen de atribución de rentas',
+      description:
+        'Declaración informativa anual de las entidades en régimen de atribución de rentas (comunidades de bienes, UTE, etc.).',
+      tags: ['atribución', 'comunidades', 'anual'],
+      keywords: [
+        'atribución de rentas',
+        'comunidades de bienes',
+        'ute',
+        'cb',
+        'entidades',
+        'informativa',
+        'anual',
+      ],
+    },
+    {
       code: '190',
       label: 'Modelo 190',
       title: 'Resumen anual de retenciones del IRPF',
@@ -190,6 +241,22 @@ export const fiscalModelsGuide = {
       ],
     },
     {
+      code: '216',
+      label: 'Modelo 216',
+      title: 'Retenciones del IRNR (sin establecimiento permanente)',
+      description:
+        'Declaración-documento de ingreso de retenciones e ingresos a cuenta del IRNR sobre rentas obtenidas sin establecimiento permanente.',
+      tags: ['no residentes', 'retenciones', 'irnr'],
+      keywords: [
+        'irnr',
+        'no residentes',
+        'retenciones',
+        'extranjeros',
+        'sin establecimiento permanente',
+        'ingresos a cuenta',
+      ],
+    },
+    {
       code: '233',
       label: 'Modelo 233',
       title: 'Impuesto sobre el Patrimonio',
@@ -197,6 +264,23 @@ export const fiscalModelsGuide = {
         'Declaración anual del Impuesto sobre el Patrimonio para personas y entidades obligadas.',
       tags: ['patrimonio', 'anual', 'bienes'],
       keywords: ['patrimonio', 'anual', 'bienes', 'activos'],
+    },
+    {
+      code: '296',
+      label: 'Modelo 296',
+      title: 'Resumen anual de retenciones del IRNR',
+      description:
+        'Resumen anual de retenciones e ingresos a cuenta del IRNR practicados a no residentes sin establecimiento permanente.',
+      tags: ['no residentes', 'anual', 'irnr'],
+      keywords: [
+        'irnr',
+        'no residentes',
+        'anual',
+        'resumen',
+        'retenciones',
+        'extranjeros',
+        'informativa',
+      ],
     },
     {
       code: '303',
@@ -212,6 +296,41 @@ export const fiscalModelsGuide = {
         'autoliquidacion',
         'impuesto valor añadido',
         'deducible',
+      ],
+    },
+    {
+      code: '309',
+      label: 'Modelo 309',
+      title: 'Autoliquidación no periódica del IVA',
+      description:
+        'Liquidación puntual del IVA en supuestos especiales: adquisiciones intracomunitarias, inversión del sujeto pasivo u operaciones concretas sin declaración periódica del 303.',
+      tags: ['iva', 'intracomunitarias', 'especial'],
+      keywords: [
+        'iva',
+        'no periódico',
+        'intracomunitarias',
+        'recargo equivalencia',
+        'agricultura',
+        'inversión sujeto pasivo',
+        'autoliquidación',
+      ],
+    },
+    {
+      code: '340',
+      label: 'Modelo 340',
+      title: 'Operaciones incluidas en los libros registro',
+      description:
+        'Declaración informativa del detalle de operaciones anotadas en los libros registro de IVA o IGIC (facturas, intracomunitarias, bienes de inversión).',
+      tags: ['libros registro', 'informativa', 'facturas'],
+      keywords: [
+        'libros registro',
+        'facturas',
+        'informativa',
+        'redeeme',
+        'igic',
+        'mensual',
+        'intracomunitarias',
+        'bienes de inversión',
       ],
     },
     {
@@ -247,6 +366,24 @@ export const fiscalModelsGuide = {
       ],
     },
     {
+      code: '369',
+      label: 'Modelo 369',
+      title: 'Regímenes especiales de ventanilla única (IVA)',
+      description:
+        'Declaración-liquidación periódica de los regímenes OSS/IOSS: ventas a distancia y servicios a consumidores finales en la UE.',
+      tags: ['ecommerce', 'ventanilla única', 'iva'],
+      keywords: [
+        'oss',
+        'ioss',
+        'ventanilla única',
+        'comercio electrónico',
+        'ventas a distancia',
+        'ue',
+        'europa',
+        'servicios',
+      ],
+    },
+    {
       code: '390',
       label: 'Modelo 390',
       title: 'Resumen anual del IVA',
@@ -254,6 +391,89 @@ export const fiscalModelsGuide = {
         'Resumen anual del IVA con el total de las autoliquidaciones presentadas durante el ejercicio.',
       tags: ['iva', 'anual', 'resumen'],
       keywords: ['iva', 'anual', 'resumen', 'autoliquidación', 'autoliquidacion'],
+    },
+    {
+      code: '415',
+      label: 'Modelo 415',
+      title: 'Operaciones con terceros (IGIC · Canarias)',
+      description:
+        'Declaración informativa anual de operaciones con clientes y proveedores sujetas al IGIC en Canarias por importes superiores al umbral legal.',
+      tags: ['igic', 'canarias', 'terceros'],
+      keywords: [
+        'igic',
+        'canarias',
+        'terceros',
+        'operaciones',
+        'clientes',
+        'proveedores',
+        'anual',
+        'informativa',
+      ],
+    },
+    {
+      code: '417',
+      label: 'Modelo 417',
+      title: 'Autoliquidación del IGIC con SII (Canarias)',
+      description:
+        'Autoliquidación del IGIC para sujetos pasivos obligados o acogidos al Suministro Inmediato de Información en Canarias.',
+      tags: ['igic', 'canarias', 'sii'],
+      keywords: [
+        'igic',
+        'canarias',
+        'sii',
+        'suministro inmediato',
+        'autoliquidación',
+        'atc',
+      ],
+    },
+    {
+      code: '420',
+      label: 'Modelo 420',
+      title: 'Autoliquidación trimestral del IGIC (Canarias)',
+      description:
+        'Declaración-liquidación trimestral del IGIC en régimen general para sujetos pasivos en Canarias.',
+      tags: ['igic', 'canarias', 'trimestral'],
+      keywords: [
+        'igic',
+        'canarias',
+        'trimestral',
+        'régimen general',
+        'autoliquidación',
+        'atc',
+      ],
+    },
+    {
+      code: '421',
+      label: 'Modelo 421',
+      title: 'IGIC en régimen simplificado (Canarias)',
+      description:
+        'Autoliquidación trimestral del IGIC para sujetos pasivos acogidos al régimen especial simplificado en Canarias.',
+      tags: ['igic', 'canarias', 'simplificado'],
+      keywords: [
+        'igic',
+        'canarias',
+        'simplificado',
+        'autónomos',
+        'trimestral',
+        'autoliquidación',
+        'atc',
+      ],
+    },
+    {
+      code: '425',
+      label: 'Modelo 425',
+      title: 'Resumen anual del IGIC (Canarias)',
+      description:
+        'Resumen anual del IGIC con el total de las autoliquidaciones presentadas durante el ejercicio en Canarias.',
+      tags: ['igic', 'canarias', 'anual'],
+      keywords: [
+        'igic',
+        'canarias',
+        'anual',
+        'resumen',
+        'autoliquidación',
+        'atc',
+      ],
     },
   ] satisfies FiscalModelGuideEntry[],
 } as const

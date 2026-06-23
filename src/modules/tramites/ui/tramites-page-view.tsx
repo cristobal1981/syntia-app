@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { tramites } from '@/content/tramites'
@@ -22,6 +21,7 @@ import {
 import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
 import { PORTAL_LIST_PAGE_SIZE } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
+import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
@@ -166,8 +166,6 @@ type TramitesPageViewProps = {
 }
 
 export function TramitesPageView({ data }: TramitesPageViewProps) {
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
   const [filters, setFilters] = useState<TramitesListFilters>(
     defaultTramitesListFilters
   )
@@ -193,19 +191,10 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">{tramites.description}</p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          aria-busy={pending}
-          onClick={() => {
-            startTransition(() => {
-              router.refresh()
-            })
-          }}
-        >
-          {pending ? tramites.refreshing : tramites.refreshButton}
-        </Button>
+        <PortalRefreshButton
+          label={tramites.refreshButton}
+          refreshingLabel={tramites.refreshing}
+        />
       </header>
 
       <TramitesFiltersToolbar
