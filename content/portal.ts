@@ -78,7 +78,6 @@ export const portal = {
   nav: {
     client: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
-      { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
       {
         label: 'Obligaciones',
         href: '/obligaciones',
@@ -86,7 +85,6 @@ export const portal = {
         icon: 'obligations',
       },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
-      { label: 'Mensajes', href: '/proximamente', implemented: false, icon: 'messages' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
     ],
     admin: [
@@ -110,7 +108,6 @@ export const portal = {
           },
         ],
       },
-      { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
       { label: 'Solicitudes', href: '/proximamente', implemented: false, icon: 'requests' },
       { label: 'Integraciones', href: '/integraciones', implemented: true, icon: 'integrations' },
       { label: 'Configuración', href: '/proximamente', implemented: false, icon: 'settings' },
@@ -119,7 +116,6 @@ export const portal = {
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
       { label: 'Clientes', href: '/clientes', implemented: true, icon: 'clients' },
       { label: 'Tareas', href: '/proximamente', implemented: false, icon: 'tasks' },
-      { label: 'Documentos', href: '/proximamente', implemented: false, icon: 'documents' },
     ],
   },
   home: {
@@ -167,5 +163,11 @@ export const portal = {
         description: 'Automatizaciones y flujos entre sistemas.',
       },
     },
+  },
+  pagination: {
+    previous: 'Anterior',
+    next: 'Siguiente',
+    pageLabel: 'Página',
+    ofLabel: 'de',
   },
 } as const

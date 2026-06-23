@@ -4,10 +4,8 @@ import type {
   ObligacionYear,
   ObligacionesSnapshot,
 } from '@/src/modules/obligaciones/domain/types'
-import {
-  getObligacionesParentPrefix,
-  getObligacionesPeriodNames,
-} from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
+import { sortObligacionPeriodRows } from '@/src/modules/obligaciones/domain/sort-obligacion-periods'
+import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
 import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
@@ -26,13 +24,7 @@ type OdooTaskRow = {
   parent_id?: [number, string] | false | null
   date_deadline?: string | false | null
   stage_id?: [number, string] | false | null
-}
-
-function normalizePeriodName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
+  state?: string | false | null
 }
 
 function extractYearFromRootName(name: string): number | null {
@@ -53,9 +45,13 @@ function mapTaskRow(
   row: OdooTaskRow,
   attachmentCounts: Map<number, number>
 ): ObligacionTask {
+  const state =
+    typeof row.state === 'string' && row.state ? row.state : undefined
+
   return {
     id: row.id,
     name: row.name,
+    state,
     stageName: mapOdooMany2OneLabel(row.stage_id),
     dateDeadline:
       typeof row.date_deadline === 'string' ? row.date_deadline : undefined,
@@ -82,6 +78,7 @@ async function listRootObligacionTasks(
     domain: [
       ['project_id', 'in', projectIds],
       ['name', '=like', `${parentPrefix}%`],
+      ['parent_id', '=', false],
     ],
     fields: ['name', 'parent_id'],
     order: 'name desc, id desc',
@@ -94,7 +91,7 @@ async function listChildTasks(parentIds: number[]): Promise<OdooTaskRow[]> {
 
   return odooSearchRead<OdooTaskRow>('project.task', {
     domain: [['parent_id', 'in', parentIds]],
-    fields: ['name', 'parent_id', 'date_deadline', 'stage_id'],
+    fields: ['name', 'parent_id', 'date_deadline', 'stage_id', 'state'],
     order: 'name asc, id asc',
     limit: 200,
   })
@@ -111,10 +108,6 @@ async function buildObligacionTree(
   partnerId: number
 ): Promise<ObligacionTreeParts> {
   const parentPrefix = getObligacionesParentPrefix()
-  const periodNames = getObligacionesPeriodNames()
-  const normalizedPeriodNames = new Set(
-    periodNames.map((name) => normalizePeriodName(name))
-  )
 
   const projects = await listClientProjects(partnerId)
   const projectIds = projects.map((project) => project.id)
@@ -128,9 +121,6 @@ async function buildObligacionTree(
   for (const row of periodRows) {
     const parentId = Array.isArray(row.parent_id) ? row.parent_id[0] : undefined
     if (!parentId) continue
-
-    const label = row.name.trim()
-    if (!normalizedPeriodNames.has(normalizePeriodName(label))) continue
 
     periodIds.push(row.id)
     const siblings = periodsByRoot.get(parentId) ?? []
@@ -158,20 +148,15 @@ async function buildObligacionTree(
   const years: ObligacionYear[] = roots
     .map((root) => {
       const year = extractYearFromRootName(root.name)
-      const periodRowsForRoot = periodsByRoot.get(root.id) ?? []
+      const periodRowsForRoot = sortObligacionPeriodRows(
+        periodsByRoot.get(root.id) ?? []
+      )
 
-      const periods: ObligacionPeriod[] = periodNames.map((periodLabel) => {
-        const periodRow = periodRowsForRoot.find(
-          (row) =>
-            normalizePeriodName(row.name) === normalizePeriodName(periodLabel)
-        )
-
-        return {
-          key: periodRow ? String(periodRow.id) : `${root.id}-${periodLabel}`,
-          label: periodRow?.name ?? periodLabel,
-          tasks: periodRow ? (leavesByPeriod.get(periodRow.id) ?? []) : [],
-        }
-      })
+      const periods: ObligacionPeriod[] = periodRowsForRoot.map((periodRow) => ({
+        key: String(periodRow.id),
+        label: periodRow.name,
+        tasks: leavesByPeriod.get(periodRow.id) ?? [],
+      }))
 
       return {
         year: year ?? 0,

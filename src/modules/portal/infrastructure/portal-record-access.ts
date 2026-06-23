@@ -1,4 +1,4 @@
-import { getOdooTicketsModel } from '@/src/modules/tramites/infrastructure/tramites-env'
+import { getOdooTicketsModel, getTicketClosedField } from '@/src/modules/tramites/infrastructure/tramites-env'
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
 type OdooTaskAccessRow = {
@@ -74,4 +74,35 @@ export async function verifyRecordBelongsToPartner(
 
 export function getOdooModelForRecordKind(kind: 'task' | 'ticket'): string {
   return kind === 'task' ? 'project.task' : getOdooTicketsModel()
+}
+
+export async function canClientReplyOnRecord(
+  kind: 'task' | 'ticket',
+  recordId: number
+): Promise<boolean> {
+  if (kind === 'task') {
+    return true
+  }
+
+  const model = getOdooTicketsModel()
+  const closedField = getTicketClosedField()
+  const tickets = await odooSearchRead<Record<string, unknown>>(model, {
+    domain: [['id', '=', recordId]],
+    fields: [closedField],
+    limit: 1,
+  })
+
+  const ticket = tickets[0]
+  if (!ticket) return false
+
+  const closedValue = ticket[closedField]
+  if (closedValue === false || closedValue === null || closedValue === undefined) {
+    return true
+  }
+
+  if (typeof closedValue === 'string') {
+    return closedValue.trim().length === 0
+  }
+
+  return false
 }

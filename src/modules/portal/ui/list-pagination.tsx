@@ -1,7 +1,9 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { tramites } from '@/content/tramites'
+import { portal } from '@/content/portal'
+
+export const PORTAL_LIST_PAGE_SIZE = 15
 
 type ListPaginationProps = {
   page: number
@@ -19,6 +21,7 @@ export function ListPagination({
   id,
 }: ListPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const copy = portal.pagination
 
   if (totalItems <= pageSize) {
     return null
@@ -30,8 +33,7 @@ export function ListPagination({
       aria-labelledby={id}
     >
       <p id={id} className="text-sm text-muted-foreground tabular-nums">
-        {tramites.pagination.pageLabel} {page} {tramites.pagination.ofLabel}{' '}
-        {totalPages}
+        {copy.pageLabel} {page} {copy.ofLabel} {totalPages}
       </p>
       <div className="flex gap-2">
         <Button
@@ -41,7 +43,7 @@ export function ListPagination({
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
-          {tramites.pagination.previous}
+          {copy.previous}
         </Button>
         <Button
           type="button"
@@ -50,7 +52,7 @@ export function ListPagination({
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >
-          {tramites.pagination.next}
+          {copy.next}
         </Button>
       </div>
     </nav>

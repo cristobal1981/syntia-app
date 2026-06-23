@@ -1,6 +1,7 @@
 export type ObligacionTask = {
   id: number
   name: string
+  state?: string
   stageName?: string
   dateDeadline?: string
   attachmentCount: number

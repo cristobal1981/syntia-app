@@ -16,6 +16,7 @@ import { tramites } from '@/content/tramites'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
 import { downloadAllAttachmentsZipAction } from '@/src/modules/portal/application/portal-document-actions'
 import { RecordAttachmentsPanel } from '@/src/modules/portal/ui/record-attachments-panel'
+import { RecordChatterPanel } from '@/src/modules/portal/ui/record-chatter-panel'
 import { getTramiteListItemStateBadge } from '@/src/modules/tramites/domain/filter-tramites'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { getTramiteListRecordKind } from '@/src/modules/tramites/domain/merge-tramites-list'
@@ -43,6 +44,7 @@ export function TramiteDetailDrawer({
   const stateBadge = getTramiteListItemStateBadge(item)
   const recordKind = getTramiteListRecordKind(item)
   const showZipButton = item.attachmentCount > 1
+  const canReply = !(item.kind === 'incidencia' && item.isClosed)
 
   function handleDownloadZip() {
     if (!item) return
@@ -89,43 +91,58 @@ export function TramiteDetailDrawer({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-          <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4 dark:border-input/50">
-            <h3 className="font-sans text-sm font-semibold text-foreground">
-              {portalDocuments.attachmentsTitle}
-            </h3>
-            {showZipButton ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={zipPending}
-                onClick={handleDownloadZip}
-              >
-                {zipPending ? (
-                  <Loader2
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                ) : (
-                  <Archive className="size-4" aria-hidden />
-                )}
-                <span className="ml-2">{tramites.list.downloadZip}</span>
-              </Button>
-            ) : null}
-          </div>
-
-          {zipError ? (
-            <p className="px-6 py-2 text-sm text-destructive" role="alert">
-              {zipError}
-            </p>
-          ) : null}
-
-          <RecordAttachmentsPanel
+        <div className="flex min-h-0 flex-1 flex-col">
+          <RecordChatterPanel
             kind={recordKind}
             recordId={item.id}
             active={open}
+            canReply={canReply}
           />
+
+          <section
+            aria-labelledby="tramite-documents-heading"
+            className="max-h-[38%] shrink-0 overflow-y-auto overscroll-contain border-t border-border dark:border-input/50"
+          >
+            <div className="flex items-center justify-between gap-3 px-6 py-4">
+              <h3
+                id="tramite-documents-heading"
+                className="font-sans text-sm font-semibold text-foreground"
+              >
+                {portalDocuments.attachmentsTitle}
+              </h3>
+              {showZipButton ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={zipPending}
+                  onClick={handleDownloadZip}
+                >
+                  {zipPending ? (
+                    <Loader2
+                      className="size-4 animate-spin motion-reduce:animate-none"
+                      aria-hidden
+                    />
+                  ) : (
+                    <Archive className="size-4" aria-hidden />
+                  )}
+                  <span className="ml-2">{tramites.list.downloadZip}</span>
+                </Button>
+              ) : null}
+            </div>
+
+            {zipError ? (
+              <p className="px-6 py-2 text-sm text-destructive" role="alert">
+                {zipError}
+              </p>
+            ) : null}
+
+            <RecordAttachmentsPanel
+              kind={recordKind}
+              recordId={item.id}
+              active={open}
+            />
+          </section>
         </div>
       </DialogContent>
     </Dialog>

@@ -12,10 +12,34 @@ export const obligaciones = {
   emptyDescription:
     'Todavía no hay obligaciones fiscales visibles en tu cuenta. Si acabas de incorporarte, tu gestor las activará pronto.',
   columns: {
+    period: 'Periodo',
     name: 'Modelo',
     stage: 'Estado',
     deadline: 'Vencimiento',
     documents: 'Documentos',
+    actions: 'Acciones',
+  },
+  list: {
+    viewDocuments: 'Ver documentos',
+    downloadZip: 'Descargar todo',
+  },
+  filters: {
+    searchLabel: 'Buscar modelos',
+    searchPlaceholder: 'Buscar por modelo, periodo o concepto (ej. alquiler, IVA)…',
+    noResultsTitle: 'Sin resultados',
+    noResultsDescription:
+      'No hay modelos que coincidan con tu búsqueda. Prueba con otro término.',
+  },
+  configOverview: {
+    title: 'Tus modelos tributarios',
+    description:
+      'Modelos que tienes configurados en tus obligaciones fiscales. Pulsa uno para filtrar el listado.',
+    guideLink: '¿Para qué sirve cada modelo?',
+  },
+  taskStates: {
+    inProgress: 'En curso',
+    done: 'Presentado',
+    canceled: 'Cancelado',
   },
   viewDetail: 'Ver detalle',
   states: {

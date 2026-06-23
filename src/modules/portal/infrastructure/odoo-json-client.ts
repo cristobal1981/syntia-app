@@ -26,10 +26,16 @@ export function mapOdooMany2OneLabel(value: OdooMany2One): string | undefined {
   return value[1] || undefined
 }
 
-export async function odooSearchRead<T extends Record<string, unknown>>(
+export function mapOdooMany2OneId(value: OdooMany2One): number | undefined {
+  if (!value || !Array.isArray(value)) return undefined
+  return typeof value[0] === 'number' ? value[0] : undefined
+}
+
+async function odooJsonRequest<T>(
   model: string,
-  options: OdooSearchReadOptions = {}
-): Promise<T[]> {
+  method: string,
+  body: Record<string, unknown>
+): Promise<T> {
   const baseUrl = getOdooBaseUrl()
   const apiKey = getOdooApiKey()
 
@@ -41,18 +47,13 @@ export async function odooSearchRead<T extends Record<string, unknown>>(
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${baseUrl}/json/2/${model}/search_read`, {
+    const response = await fetch(`${baseUrl}/json/2/${model}/${method}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        domain: options.domain ?? [],
-        fields: options.fields ?? [],
-        limit: options.limit ?? 100,
-        ...(options.order ? { order: options.order } : {}),
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
       cache: 'no-store',
     })
@@ -60,29 +61,13 @@ export async function odooSearchRead<T extends Record<string, unknown>>(
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '')
       console.error(
-        `[odoo] ${model}/search_read failed (${response.status}):`,
+        `[odoo] ${model}/${method} failed (${response.status}):`,
         errorBody.slice(0, 500)
       )
       throw new Error('ODOO_REQUEST_FAILED')
     }
 
-    const payload = (await response.json()) as T[] | { error?: unknown; message?: string }
-    if (!Array.isArray(payload)) {
-      const detail =
-        typeof payload === 'object' &&
-        payload !== null &&
-        'message' in payload &&
-        typeof payload.message === 'string'
-          ? payload.message
-          : undefined
-      console.error(
-        `[odoo] ${model}/search_read invalid payload:`,
-        detail ?? payload
-      )
-      throw new Error('ODOO_REQUEST_FAILED')
-    }
-
-    return payload
+    return (await response.json()) as T
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('ODOO_')) {
       throw error
@@ -91,4 +76,42 @@ export async function odooSearchRead<T extends Record<string, unknown>>(
   } finally {
     clearTimeout(timeout)
   }
+}
+
+export async function odooCall<T>(
+  model: string,
+  method: string,
+  body: Record<string, unknown> = {}
+): Promise<T> {
+  return odooJsonRequest<T>(model, method, body)
+}
+
+export async function odooSearchRead<T extends Record<string, unknown>>(
+  model: string,
+  options: OdooSearchReadOptions = {}
+): Promise<T[]> {
+  const payload = await odooJsonRequest<T[] | { error?: unknown; message?: string }>(
+    model,
+    'search_read',
+    {
+      domain: options.domain ?? [],
+      fields: options.fields ?? [],
+      limit: options.limit ?? 100,
+      ...(options.order ? { order: options.order } : {}),
+    }
+  )
+
+  if (!Array.isArray(payload)) {
+    const detail =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'message' in payload &&
+      typeof payload.message === 'string'
+        ? payload.message
+        : undefined
+    console.error(`[odoo] ${model}/search_read invalid payload:`, detail ?? payload)
+    throw new Error('ODOO_REQUEST_FAILED')
+  }
+
+  return payload
 }
