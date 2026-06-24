@@ -14,6 +14,8 @@ import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
+import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { NotificationNavigationOverlay } from '@/src/modules/portal/ui/notification-navigation-overlay'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { PortalTopBar } from '@/src/modules/portal/ui/portal-top-bar'
@@ -254,6 +256,8 @@ export function PortalShell({ user, children }: PortalShellProps) {
 
   return (
     <PortalShortcutOverlayProvider>
+    <ChatterNotificationsProvider enabled={user.role === 'client'}>
+    <NotificationNavigationOverlay />
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
@@ -382,6 +386,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
         <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
       </div>
     </div>
+    </ChatterNotificationsProvider>
     </PortalShortcutOverlayProvider>
   )
 }

@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+
 import { getTramitesForClient } from '@/src/modules/tramites/application/get-tramites-for-client'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import {
@@ -40,5 +42,9 @@ export async function TramitesPage({ user }: TramitesPageProps) {
     )
   }
 
-  return <TramitesPageView data={result.data} />
+  return (
+    <Suspense fallback={null}>
+      <TramitesPageView data={result.data} />
+    </Suspense>
+  )
 }

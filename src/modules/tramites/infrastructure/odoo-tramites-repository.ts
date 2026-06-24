@@ -95,11 +95,11 @@ async function resolveTaskTagId(tagName: string): Promise<number | null> {
   return rows[0]?.id ?? null
 }
 
-async function listProjectTasks(
+async function listProjectTaskRows(
   projectIds: number[],
   tagId: number | null,
   excludedTaskIds: Set<number>
-): Promise<TramiteTask[]> {
+): Promise<OdooTaskRow[]> {
   const domain: unknown[] = [['project_id', 'in', projectIds]]
   if (tagId) {
     domain.push(['tag_ids', 'in', [tagId]])
@@ -112,7 +112,19 @@ async function listProjectTasks(
     limit: TRAMITES_FETCH_LIMIT,
   })
 
-  const filteredRows = rows.filter((row) => !excludedTaskIds.has(row.id))
+  return rows.filter((row) => !excludedTaskIds.has(row.id))
+}
+
+async function listProjectTasks(
+  projectIds: number[],
+  tagId: number | null,
+  excludedTaskIds: Set<number>
+): Promise<TramiteTask[]> {
+  const filteredRows = await listProjectTaskRows(
+    projectIds,
+    tagId,
+    excludedTaskIds
+  )
   const attachmentCounts = await countAttachmentsByRecordIds(
     'project.task',
     filteredRows.map((row) => row.id)
@@ -121,15 +133,21 @@ async function listProjectTasks(
   return filteredRows.map((row) => mapTask(row, attachmentCounts))
 }
 
-async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
+async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]> {
   const model = getOdooTicketsModel()
   const closedField = getTicketClosedField()
-  const rows = await odooSearchRead<OdooTicketRow>(model, {
+  return odooSearchRead<OdooTicketRow>(model, {
     domain: [['partner_id', '=', partnerId]],
     fields: ['name', closedField],
     order: 'create_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })
+}
+
+async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
+  const model = getOdooTicketsModel()
+  const closedField = getTicketClosedField()
+  const rows = await listPartnerTicketRows(partnerId)
 
   const attachmentCounts = await countAttachmentsByRecordIds(
     model,
@@ -137,6 +155,44 @@ async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
   )
 
   return rows.map((row) => mapTicket(row, attachmentCounts, closedField))
+}
+
+export type TramiteRecordRef = {
+  kind: 'task' | 'ticket'
+  recordId: number
+  name: string
+}
+
+export async function listTramiteRecordRefsForPartner(
+  partnerId: number
+): Promise<TramiteRecordRef[]> {
+  if (!isOdooApiConfigured()) {
+    throw new Error('ODOO_NOT_CONFIGURED')
+  }
+
+  const tagName = getTramitesTaskTagName()
+  const excludedTaskIds = await collectObligacionTaskIds(partnerId)
+  const projects = await listClientProjects(partnerId)
+  const projectIds = projects.map((project) => project.id)
+
+  const refs: TramiteRecordRef[] = []
+
+  if (projectIds.length) {
+    const tagId = tagName ? await resolveTaskTagId(tagName) : null
+    if (!tagName || tagId) {
+      const taskRows = await listProjectTaskRows(projectIds, tagId, excludedTaskIds)
+      for (const row of taskRows) {
+        refs.push({ kind: 'task', recordId: row.id, name: row.name })
+      }
+    }
+  }
+
+  const ticketRows = await listPartnerTicketRows(partnerId)
+  for (const row of ticketRows) {
+    refs.push({ kind: 'ticket', recordId: row.id, name: row.name })
+  }
+
+  return refs
 }
 
 export async function fetchTramitesFromOdoo(

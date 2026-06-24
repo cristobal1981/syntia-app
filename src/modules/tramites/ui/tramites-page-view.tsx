@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { tramites } from '@/content/tramites'
@@ -26,21 +27,27 @@ import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-dr
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 import { TramitesFiltersToolbar } from '@/src/modules/tramites/ui/tramites-filters-toolbar'
+import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
 
 type TramitesListSectionProps = {
   items: TramiteListItem[]
   tagFilterActive: boolean
   filteredEmpty: boolean
+  selectedItem: TramiteListItem | null
+  onSelectedItemChange: (item: TramiteListItem | null) => void
+  drawerInitialTab?: 'conversation' | 'documents'
 }
 
 function TramitesListSection({
   items,
   tagFilterActive,
   filteredEmpty,
+  selectedItem,
+  onSelectedItemChange,
+  drawerInitialTab = 'conversation',
 }: TramitesListSectionProps) {
   const copy = tramites.list
   const [page, setPage] = useState(1)
-  const [selectedItem, setSelectedItem] = useState<TramiteListItem | null>(null)
   const paginationId = 'tramites-pagination-label'
 
   useEffect(() => {
@@ -89,7 +96,7 @@ function TramitesListSection({
             size="sm"
             onClick={(event) => {
               event.stopPropagation()
-              setSelectedItem(item)
+              onSelectedItemChange(item)
             }}
             aria-label={`${copy.viewItem}: ${item.name}`}
           >
@@ -98,7 +105,7 @@ function TramitesListSection({
         ),
       },
     ],
-    [copy]
+    [copy, onSelectedItemChange]
   )
 
   if (!items.length) {
@@ -143,7 +150,7 @@ function TramitesListSection({
         columns={columns}
         rows={items}
         rowKey={getTramiteListItemKey}
-        onRowClick={setSelectedItem}
+        onRowClick={onSelectedItemChange}
         page={page}
         pageSize={PORTAL_LIST_PAGE_SIZE}
         onPageChange={setPage}
@@ -153,8 +160,9 @@ function TramitesListSection({
       <TramiteDetailDrawer
         item={selectedItem}
         open={selectedItem !== null}
+        initialTab={drawerInitialTab}
         onOpenChange={(open) => {
-          if (!open) setSelectedItem(null)
+          if (!open) onSelectedItemChange(null)
         }}
       />
     </section>
@@ -166,14 +174,53 @@ type TramitesPageViewProps = {
 }
 
 export function TramitesPageView({ data }: TramitesPageViewProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const notifications = useChatterNotificationsOptional()
   const [filters, setFilters] = useState<TramitesListFilters>(
     defaultTramitesListFilters
   )
+  const [selectedItem, setSelectedItem] = useState<TramiteListItem | null>(null)
+  const [drawerInitialTab, setDrawerInitialTab] = useState<
+    'conversation' | 'documents'
+  >('conversation')
 
   const allItems = useMemo(
     () => mergeTramitesList(data.tasks, data.tickets),
     [data.tasks, data.tickets]
   )
+
+  useEffect(() => {
+    const openParam = searchParams.get('open')
+    if (!openParam) return
+
+    const match = /^(tramite|incidencia)-(\d+)$/.exec(openParam)
+    if (!match) return
+
+    const kind = match[1] as TramiteListItem['kind']
+    const recordId = Number.parseInt(match[2] ?? '', 10)
+    if (!Number.isInteger(recordId) || recordId <= 0) return
+
+    const item = allItems.find(
+      (entry) => entry.kind === kind && entry.id === recordId
+    )
+    if (!item) {
+      notifications?.clearPendingNavigation()
+      return
+    }
+
+    const tabParam = searchParams.get('tab')
+    setDrawerInitialTab(tabParam === 'documents' ? 'documents' : 'conversation')
+    setSelectedItem(item)
+    router.replace('/tramites', { scroll: false })
+  }, [allItems, notifications, router, searchParams])
+
+  const handleSelectItem = (item: TramiteListItem | null) => {
+    if (item) {
+      setDrawerInitialTab('conversation')
+    }
+    setSelectedItem(item)
+  }
 
   const filteredItems = useMemo(
     () => filterTramitesList(allItems, filters),
@@ -207,6 +254,9 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
         items={filteredItems}
         tagFilterActive={data.tagFilterActive}
         filteredEmpty={filtersActive && filteredItems.length === 0}
+        selectedItem={selectedItem}
+        onSelectedItemChange={handleSelectItem}
+        drawerInitialTab={drawerInitialTab}
       />
     </div>
   )

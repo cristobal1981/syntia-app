@@ -2,8 +2,46 @@ import DOMPurify from 'isomorphic-dompurify'
 
 import { mapOdooMany2OneId } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
-const CHATTER_ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li']
+const CHATTER_ALLOWED_TAGS = [
+  'p',
+  'br',
+  'strong',
+  'b',
+  'em',
+  'i',
+  'u',
+  's',
+  'ul',
+  'ol',
+  'li',
+  'a',
+]
 const CHATTER_ALLOWED_ATTR = ['href', 'target', 'rel']
+
+const SAFE_LINK_PROTOCOLS = ['http:', 'https:', 'mailto:']
+
+function sanitizeChatterLinks(html: string): string {
+  return html.replace(
+    /<a\b([^>]*?)href=(["'])(.*?)\2([^>]*)>/gi,
+    (match, before, quote, href, after) => {
+      try {
+        const url = new URL(href, 'https://placeholder.local')
+        if (!SAFE_LINK_PROTOCOLS.includes(url.protocol)) {
+          return ''
+        }
+      } catch {
+        return ''
+      }
+
+      const attrs = `${before}href=${quote}${href}${quote}${after}`.trim()
+      const hasRel = /\brel=/i.test(attrs)
+      const hasTarget = /\btarget=/i.test(attrs)
+      const rel = hasRel ? '' : ' rel="noopener noreferrer"'
+      const target = hasTarget ? '' : ' target="_blank"'
+      return `<a ${attrs}${rel}${target}>`
+    }
+  )
+}
 
 export type OdooMailMessageRow = {
   id: number
@@ -33,7 +71,9 @@ export function formatChatterBodyFromOdoo(body: string): string {
 }
 
 export function sanitizeChatterHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
+  const withSafeLinks = sanitizeChatterLinks(html)
+
+  return DOMPurify.sanitize(withSafeLinks, {
     ALLOWED_TAGS: CHATTER_ALLOWED_TAGS,
     ALLOWED_ATTR: CHATTER_ALLOWED_ATTR,
   })

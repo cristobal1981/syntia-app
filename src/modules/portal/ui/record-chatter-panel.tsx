@@ -23,6 +23,10 @@ import {
   ChatterComposer,
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
+import {
+  ChatterComposerSkeleton,
+  ChatterSkeleton,
+} from '@/src/modules/portal/ui/chatter-skeleton'
 import { cn } from '@/lib/utils'
 
 type RecordChatterPanelProps = {
@@ -30,6 +34,9 @@ type RecordChatterPanelProps = {
   recordId: number
   active: boolean
   canReply: boolean
+  scrollPin?: number
+  markReadOnView?: boolean
+  onConversationViewed?: (latestMessageId: number) => void
 }
 
 function formatMessageDate(value: string): string {
@@ -49,6 +56,9 @@ export function RecordChatterPanel({
   recordId,
   active,
   canReply,
+  scrollPin = 0,
+  markReadOnView = false,
+  onConversationViewed,
 }: RecordChatterPanelProps) {
   const [messages, setMessages] = useState<PortalChatterMessage[]>([])
   const [hasMore, setHasMore] = useState(false)
@@ -65,12 +75,51 @@ export function RecordChatterPanel({
   const composerRef = useRef<ChatterComposerHandle>(null)
   const shouldStickToBottomRef = useRef(true)
   const loadingOlderRef = useRef(false)
+  const lastNotifiedMessageIdRef = useRef(0)
+  const onConversationViewedRef = useRef(onConversationViewed)
+
+  useEffect(() => {
+    onConversationViewedRef.current = onConversationViewed
+  }, [onConversationViewed])
+
+  useEffect(() => {
+    lastNotifiedMessageIdRef.current = 0
+  }, [kind, recordId])
 
   const scrollToBottom = useCallback(() => {
     const node = scrollRef.current
     if (!node) return
     node.scrollTop = node.scrollHeight
   }, [])
+
+  const notifyConversationViewed = useCallback(
+    (nextMessages: PortalChatterMessage[]) => {
+      if (!markReadOnView || !nextMessages.length) return
+      const latestId = nextMessages[nextMessages.length - 1]?.id
+      if (!latestId || latestId <= lastNotifiedMessageIdRef.current) return
+      lastNotifiedMessageIdRef.current = latestId
+      queueMicrotask(() => {
+        onConversationViewedRef.current?.(latestId)
+      })
+    },
+    [markReadOnView]
+  )
+
+  const handleComposerEmptyChange = useCallback(
+    (empty: boolean) => {
+      setComposerEmpty(empty)
+      if (!empty) {
+        shouldStickToBottomRef.current = true
+        scrollToBottom()
+      }
+    },
+    [scrollToBottom]
+  )
+
+  const handleComposerResize = useCallback(() => {
+    if (!shouldStickToBottomRef.current && composerEmpty) return
+    scrollToBottom()
+  }, [composerEmpty, scrollToBottom])
 
   const loadInitial = useCallback(async () => {
     if (recordId <= 0) return
@@ -96,12 +145,18 @@ export function RecordChatterPanel({
 
     setMessages(result.messages)
     setHasMore(result.hasMore)
-  }, [kind, recordId])
+    notifyConversationViewed(result.messages)
+  }, [kind, recordId, notifyConversationViewed])
 
   useEffect(() => {
     if (!active || recordId <= 0) return
     void loadInitial()
   }, [active, recordId, loadInitial])
+
+  useEffect(() => {
+    if (!active || loadingInitial || !markReadOnView || !messages.length) return
+    notifyConversationViewed(messages)
+  }, [active, loadingInitial, markReadOnView, messages.length, notifyConversationViewed])
 
   useLayoutEffect(() => {
     if (!active || loadingInitial) return
@@ -109,6 +164,12 @@ export function RecordChatterPanel({
       scrollToBottom()
     }
   }, [active, loadingInitial, messages, scrollToBottom])
+
+  useLayoutEffect(() => {
+    if (!active || loadingInitial || scrollPin <= 0) return
+    shouldStickToBottomRef.current = true
+    scrollToBottom()
+  }, [active, loadingInitial, scrollPin, scrollToBottom])
 
   const loadOlder = useCallback(async () => {
     if (recordId <= 0 || loadingOlderRef.current || !hasMore || !messages.length) {
@@ -222,14 +283,9 @@ export function RecordChatterPanel({
       aria-labelledby="record-chatter-heading"
       className="flex min-h-0 flex-1 flex-col"
     >
-      <div className="shrink-0 border-b border-border px-6 py-4 dark:border-input/50">
-        <h3
-          id="record-chatter-heading"
-          className="font-sans text-sm font-semibold text-foreground"
-        >
-          {portalChatter.title}
-        </h3>
-      </div>
+      <h3 id="record-chatter-heading" className="sr-only">
+        {portalChatter.title}
+      </h3>
 
       <div
         ref={scrollRef}
@@ -249,13 +305,10 @@ export function RecordChatterPanel({
         ) : null}
 
         {loadingInitial ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2
-              className="size-4 animate-spin motion-reduce:animate-none"
-              aria-hidden
-            />
-            {portalChatter.loading}
-          </p>
+          <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-3">
+            <span className="sr-only">{portalChatter.loading}</span>
+            <ChatterSkeleton />
+          </div>
         ) : null}
 
         {!loadingInitial && error ? (
@@ -301,7 +354,7 @@ export function RecordChatterPanel({
                   </header>
                   <div
                     className={cn(
-                      'break-words [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:m-0 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5',
+                      'break-words [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:m-0 [&_p+p]:mt-2 [&_s]:line-through [&_u]:underline [&_ul]:list-disc [&_ul]:pl-5',
                       message.isFromClient && '[&_a]:text-primary-foreground'
                     )}
                     dangerouslySetInnerHTML={{
@@ -323,17 +376,22 @@ export function RecordChatterPanel({
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <div className="flex items-end gap-2">
-              <ChatterComposer
-                ref={composerRef}
-                disabled={pending}
-                resetToken={composerResetToken}
-                onEmptyChange={setComposerEmpty}
-              />
+              {loadingInitial ? (
+                <ChatterComposerSkeleton />
+              ) : (
+                <ChatterComposer
+                  ref={composerRef}
+                  disabled={pending}
+                  resetToken={composerResetToken}
+                  onEmptyChange={handleComposerEmptyChange}
+                  onResize={handleComposerResize}
+                />
+              )}
               <Button
                 type="submit"
                 size="icon"
                 className="size-10 shrink-0 rounded-full"
-                disabled={pending || composerEmpty}
+                disabled={pending || composerEmpty || loadingInitial}
                 aria-label={pending ? portalChatter.sending : portalChatter.sendButton}
               >
                 {pending ? (

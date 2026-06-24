@@ -28,3 +28,40 @@ export function shouldFilterInternalChatterMessages(): boolean {
 }
 
 export const CHATTER_MESSAGE_MAX_LENGTH = 2000
+
+const DEFAULT_COMMENT_SUBTYPE_ID = 1
+
+export function getChatterCommentSubtypeIdFromEnv(): number | undefined {
+  const raw = process.env.ODOO_CHATTER_COMMENT_SUBTYPE_ID?.trim()
+  if (!raw) return undefined
+
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isInteger(parsed) || parsed <= 0) return undefined
+  return parsed
+}
+
+export function getDefaultChatterCommentSubtypeId(): number {
+  return getChatterCommentSubtypeIdFromEnv() ?? DEFAULT_COMMENT_SUBTYPE_ID
+}
+
+const DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS = 60_000
+
+export function getChatterNotificationsPollIntervalMs(): number {
+  const raw = process.env.ODOO_CHATTER_NOTIFICATIONS_POLL_INTERVAL_MS?.trim()
+  const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS
+  if (!Number.isInteger(parsed) || parsed < 15_000 || parsed > 600_000) {
+    return DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS
+  }
+  return parsed
+}
+
+const DEFAULT_NOTIFICATIONS_BATCH_LIMIT = 300
+
+export function getChatterNotificationsBatchLimit(): number {
+  const raw = process.env.ODOO_CHATTER_NOTIFICATIONS_BATCH_LIMIT?.trim()
+  const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_NOTIFICATIONS_BATCH_LIMIT
+  if (!Number.isInteger(parsed) || parsed < 50 || parsed > 1000) {
+    return DEFAULT_NOTIFICATIONS_BATCH_LIMIT
+  }
+  return parsed
+}

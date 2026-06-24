@@ -4,6 +4,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
+import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
 import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
 
 type PortalTopBarProps = {
@@ -29,6 +30,8 @@ export function PortalTopBar({
       )}
     >
       <div className="flex shrink-0 items-center gap-1">
+        <NotificationBell className="lg:hidden" />
+
         <button
           type="button"
           onClick={onSidebarToggle}
@@ -78,7 +81,10 @@ export function PortalTopBar({
 
       <div className="min-w-2 flex-1" aria-hidden />
 
-      <ThemeToggle className="shrink-0" />
+      <div className="flex shrink-0 items-center gap-2">
+        <NotificationBell className="hidden lg:flex" />
+        <ThemeToggle className="shrink-0" />
+      </div>
     </header>
   )
 }

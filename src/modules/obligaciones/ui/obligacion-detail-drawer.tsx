@@ -5,8 +5,6 @@ import { Archive, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -16,6 +14,7 @@ import { portalDocuments } from '@/content/portal-documents'
 import { downloadAllAttachmentsZipAction } from '@/src/modules/portal/application/portal-document-actions'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
 import { RecordAttachmentsPanel } from '@/src/modules/portal/ui/record-attachments-panel'
+import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import type { ObligacionTask } from '@/src/modules/obligaciones/domain/types'
 import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
 import { getObligacionStateBadge } from '@/src/modules/obligaciones/domain/map-obligacion-state'
@@ -73,8 +72,7 @@ export function ObligacionDetailDrawer({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed inset-y-0 right-0 left-auto flex h-full max-h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0 sm:max-w-md">
+    <PortalSideDrawer open={open} onOpenChange={onOpenChange}>
         <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-input/50">
           <DialogTitle className="text-pretty pr-8">{displayName}</DialogTitle>
           <DialogDescription asChild>
@@ -127,7 +125,6 @@ export function ObligacionDetailDrawer({
 
           <RecordAttachmentsPanel kind="task" recordId={task.id} active={open} />
         </section>
-      </DialogContent>
-    </Dialog>
+    </PortalSideDrawer>
   )
 }

@@ -1,4 +1,6 @@
+import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
+import { chatterReadStateKey } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
   filterOdooMailMessageRows,
   formatChatterBodyFromOdoo,
@@ -8,7 +10,9 @@ import {
 } from '@/src/modules/portal/domain/filter-portal-messages'
 import {
   getChatterExcludedPartnerIds,
+  getChatterNotificationsBatchLimit,
   getChatterPageSize,
+  getDefaultChatterCommentSubtypeId,
   shouldFilterInternalChatterMessages,
 } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import {
@@ -17,6 +21,32 @@ import {
   odooCall,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
+
+type OdooMailMessageBatchRow = OdooMailMessageRow & {
+  res_id?: number | false | null
+}
+
+function buildBatchMessageDomain(
+  resModel: string,
+  recordIds: number[],
+  afterId?: number
+): unknown[] {
+  const domain: unknown[] = [
+    ['model', '=', resModel],
+    ['res_id', 'in', recordIds],
+    ['message_type', 'in', ['comment', 'email']],
+  ]
+
+  if (shouldFilterInternalChatterMessages()) {
+    domain.push(['is_internal', '=', false])
+  }
+
+  if (typeof afterId === 'number' && afterId > 0) {
+    domain.push(['id', '>', afterId])
+  }
+
+  return domain
+}
 
 function buildMessageDomain(
   resModel: string,
@@ -135,6 +165,41 @@ async function readPortalMessageById(
   return mapped
 }
 
+let cachedCommentSubtypeId: number | null = null
+
+async function resolveChatterCommentSubtypeId(): Promise<number> {
+  if (cachedCommentSubtypeId !== null) {
+    return cachedCommentSubtypeId
+  }
+
+  const fromEnv = getDefaultChatterCommentSubtypeId()
+  if (process.env.ODOO_CHATTER_COMMENT_SUBTYPE_ID?.trim()) {
+    cachedCommentSubtypeId = fromEnv
+    return fromEnv
+  }
+
+  const rows = await odooSearchRead<{ id: number; name?: string | false }>(
+    'mail.message.subtype',
+    {
+      domain: [['internal', '=', false], ['default', '=', true]],
+      fields: ['id', 'name'],
+      limit: 1,
+      order: 'id asc',
+    }
+  )
+
+  cachedCommentSubtypeId = rows[0]?.id ?? fromEnv
+  return cachedCommentSubtypeId
+}
+
+function parseOdooCreatedId(result: number | number[] | undefined): number | null {
+  if (typeof result === 'number' && result > 0) return result
+  if (Array.isArray(result) && typeof result[0] === 'number' && result[0] > 0) {
+    return result[0]
+  }
+  return null
+}
+
 export async function postRecordComment(input: {
   resModel: string
   recordId: number
@@ -142,14 +207,135 @@ export async function postRecordComment(input: {
   htmlBody: string
 }): Promise<PortalChatterMessage> {
   const body = sanitizeChatterHtml(input.htmlBody)
+  const subtypeId = await resolveChatterCommentSubtypeId()
 
-  const messageId = await odooCall<number>(input.resModel, 'message_post', {
-    ids: [input.recordId],
-    body,
-    message_type: 'comment',
-    subtype_xmlid: 'mail.mt_comment',
-    author_id: input.clientPartnerId,
+  // mail.message/create conserva HTML; message_post vía JSON/2 escapa el body salvo body_is_html.
+  const created = await odooCall<number | number[]>('mail.message', 'create', {
+    vals_list: [
+      {
+        message_type: 'comment',
+        res_id: input.recordId,
+        body,
+        author_id: input.clientPartnerId,
+        subtype_id: subtypeId,
+        model: input.resModel,
+      },
+    ],
   })
 
+  const messageId = parseOdooCreatedId(created)
+  if (!messageId) {
+    throw new Error('ODOO_MESSAGE_CREATE_FAILED')
+  }
+
   return readPortalMessageById(messageId, input.clientPartnerId)
+}
+
+export type ChatterUnreadCandidate = {
+  recordKind: PortalRecordKind
+  recordId: number
+  latestMessageId: number
+  latestDate: string
+}
+
+export type ChatterReadStateBootstrap = {
+  recordKind: PortalRecordKind
+  recordId: number
+  lastSeenMessageId: number
+}
+
+export async function findUnreadChatterCandidatesForRecords(input: {
+  groups: Array<{
+    resModel: string
+    recordKind: PortalRecordKind
+    records: Array<{ recordId: number }>
+  }>
+  readState: Map<string, number>
+  clientPartnerId: number
+}): Promise<{
+  unread: ChatterUnreadCandidate[]
+  bootstrapUpdates: ChatterReadStateBootstrap[]
+}> {
+  const excludedPartnerIds = getChatterExcludedPartnerIds()
+  const batchLimit = getChatterNotificationsBatchLimit()
+  const unread: ChatterUnreadCandidate[] = []
+  const bootstrapUpdates: ChatterReadStateBootstrap[] = []
+
+  for (const group of input.groups) {
+    const recordIds = group.records.map((record) => record.recordId)
+    if (!recordIds.length) continue
+
+    const knownLastSeen = group.records
+      .map((record) =>
+        input.readState.get(chatterReadStateKey(group.recordKind, record.recordId))
+      )
+      .filter((value): value is number => typeof value === 'number')
+
+    const minKnownLastSeen =
+      knownLastSeen.length > 0 ? Math.min(...knownLastSeen) : undefined
+
+    const rows = await odooSearchRead<OdooMailMessageBatchRow>('mail.message', {
+      domain: buildBatchMessageDomain(group.resModel, recordIds, minKnownLastSeen),
+      fields: ['id', 'res_id', 'body', 'date', 'author_id', 'message_type'],
+      order: 'id desc',
+      limit: batchLimit,
+    })
+
+    const filtered = filterOdooMailMessageRows(rows, {
+      clientPartnerId: input.clientPartnerId,
+      excludedPartnerIds,
+    })
+    const filteredIds = new Set(filtered.map((row) => row.id))
+
+    const rowsByRecord = new Map<number, OdooMailMessageBatchRow[]>()
+    for (const row of rows) {
+      if (!filteredIds.has(row.id)) continue
+      const resId = typeof row.res_id === 'number' ? row.res_id : null
+      if (!resId) continue
+      const bucket = rowsByRecord.get(resId) ?? []
+      bucket.push(row)
+      rowsByRecord.set(resId, bucket)
+    }
+
+    for (const record of group.records) {
+      const key = chatterReadStateKey(group.recordKind, record.recordId)
+      const lastSeen = input.readState.get(key)
+      const recordRows = rowsByRecord.get(record.recordId) ?? []
+
+      if (!recordRows.length) {
+        continue
+      }
+
+      const maxVisibleId = Math.max(...recordRows.map((row) => row.id))
+
+      if (lastSeen === undefined) {
+        bootstrapUpdates.push({
+          recordKind: group.recordKind,
+          recordId: record.recordId,
+          lastSeenMessageId: maxVisibleId,
+        })
+        continue
+      }
+
+      const latestFromGestor = recordRows.find((row) => {
+        if (row.id <= lastSeen) return false
+        const authorId = mapOdooMany2OneId(row.author_id)
+        return !isClientChatterAuthor(authorId, input.clientPartnerId)
+      })
+
+      if (!latestFromGestor) continue
+
+      const latestDate =
+        typeof latestFromGestor.date === 'string' ? latestFromGestor.date : ''
+
+      unread.push({
+        recordKind: group.recordKind,
+        recordId: record.recordId,
+        latestMessageId: latestFromGestor.id,
+        latestDate,
+      })
+    }
+  }
+
+  return { unread, bootstrapUpdates }
 }

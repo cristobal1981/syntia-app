@@ -70,6 +70,16 @@ export const portal = {
       system: 'Sistema',
     },
   },
+  notifications: {
+    label: 'Notificaciones',
+    emptyTitle: 'Sin novedades',
+    emptyDescription: 'Cuando tu gestoría te escriba en un trámite, lo verás aquí.',
+    openConversation: 'Ver conversación',
+    openingConversation: 'Abriendo conversación…',
+    unreadBadge: 'Mensajes sin leer',
+    typeTramite: 'Trámite',
+    typeIncidencia: 'Incidencia',
+  },
   shortcuts: {
     overlayHint: 'Mantén Alt · Pulsa la tecla resaltada en cada botón',
     refresh: {
