@@ -7,13 +7,13 @@ import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramit
 
 export type TramitesFilterChip =
   | 'tramite'
-  | 'incidencia'
+  | 'consulta'
   | 'inProgress'
   | 'done'
   | 'canceled'
   | 'withDocuments'
 
-const TYPE_CHIPS = new Set<TramitesFilterChip>(['tramite', 'incidencia'])
+const TYPE_CHIPS = new Set<TramitesFilterChip>(['tramite', 'consulta'])
 const STATE_CHIPS = new Set<TramitesFilterChip>([
   'inProgress',
   'done',
@@ -52,7 +52,7 @@ export function getTramiteListItemStateBadge(item: TramiteListItem): {
   label: string
   variant: TaskStateBadgeVariant
 } {
-  if (item.kind === 'incidencia') {
+  if (item.kind === 'consulta') {
     if (item.isClosed) {
       return {
         label: tramites.taskStates.done,
@@ -87,7 +87,7 @@ function matchesChip(item: TramiteListItem, chip: TramitesFilterChip): boolean {
     return item.attachmentCount > 0
   }
 
-  if (chip === 'tramite' || chip === 'incidencia') {
+  if (chip === 'tramite' || chip === 'consulta') {
     return item.kind === chip
   }
 

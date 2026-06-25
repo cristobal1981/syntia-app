@@ -21,13 +21,13 @@ import {
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 
-type TramiteCreateIncidenciaDrawerProps = {
+type TramiteCreateConsultaDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (item: TramiteListItem) => void
 }
 
-const copy = tramites.createIncidencia
+const copy = tramites.createConsulta
 const errorCopy = copy.errors
 
 function mapFieldError(key: string): string {
@@ -47,11 +47,11 @@ function mapActionError(
   return errorCopy.odoo_unavailable
 }
 
-export function TramiteCreateIncidenciaDrawer({
+export function TramiteCreateConsultaDrawer({
   open,
   onOpenChange,
   onCreated,
-}: TramiteCreateIncidenciaDrawerProps) {
+}: TramiteCreateConsultaDrawerProps) {
   const router = useRouter()
   const subjectId = useId()
   const [subject, setSubject] = useState('')
@@ -122,7 +122,7 @@ export function TramiteCreateIncidenciaDrawer({
       onCreated({
         id: result.ticketId,
         name: result.name,
-        kind: 'incidencia',
+        kind: 'consulta',
         isClosed: false,
         attachmentCount: 0,
       })

@@ -81,25 +81,25 @@ export const portal = {
     unreadBadge: 'Mensajes sin leer',
     tooltipUnread: '{count} mensajes sin leer',
     typeTramite: 'Trámite',
-    typeIncidencia: 'Incidencia',
+    typeConsulta: 'Consulta',
   },
   confirm: {
     cancel: 'Cancelar',
     confirm: 'Confirmar',
   },
   shortcuts: {
-    overlayHint: 'Mantén Alt · Pulsa la tecla resaltada en cada botón',
+    overlayHint: 'Mantén {modifier} · Pulsa la tecla resaltada en cada botón',
     refresh: {
       label: 'Alt+R',
-      buttonHintIdle: '{action}. Mantén Alt para ver atajos.',
-      buttonHintActive: '{action} (Alt+R)',
+      buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
+      buttonHintActive: '{action} ({shortcut})',
       description:
         'Actualiza los datos de esta página sin recargarla por completo.',
     },
-    createIncidencia: {
+    createConsulta: {
       label: 'Alt+N',
-      buttonHintIdle: '{action}. Mantén Alt para ver atajos.',
-      buttonHintActive: '{action} (Alt+N)',
+      buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
+      buttonHintActive: '{action} ({shortcut})',
     },
   },
   roles: {
@@ -164,8 +164,8 @@ export const portal = {
       unreadViewAll: 'Ver trámites',
       educationTitle: '¿Tienes una consulta nueva?',
       educationDescription:
-        'Abre una incidencia para dudas o soporte. No reutilices conversaciones de trámites antiguos si tu consulta no tiene que ver con ellos.',
-      educationAction: 'Nueva incidencia',
+        'Abre una consulta para dudas o soporte. No reutilices conversaciones de trámites antiguos si tu consulta no tiene que ver con ellos.',
+      educationAction: 'Nueva consulta',
       statsUnavailable:
         'No pudimos cargar el resumen ahora mismo. Puedes seguir usando el menú lateral.',
       quickLinksTitle: 'Accesos rápidos',

@@ -86,7 +86,7 @@ export function TramiteDetailDrawer({
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
   const showZipButton = tramite.attachmentCount > 1
-  const canReply = !(tramite.kind === 'incidencia' && tramite.isClosed)
+  const canReply = !(tramite.kind === 'consulta' && tramite.isClosed)
   const conversationUnread = notifications?.isUnread(recordKind, tramite.id) ?? false
 
   function handleTabChange(tab: TramiteDetailTab) {

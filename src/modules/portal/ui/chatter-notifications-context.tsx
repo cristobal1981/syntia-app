@@ -19,6 +19,7 @@ import {
 import type {
   ChatterReadStateMap,
   ChatterUnreadNotification,
+  TramiteListKindParam,
 } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
   chatterReadStateKey,
@@ -31,7 +32,7 @@ const POLL_INTERVAL_MS = 60_000
 const PENDING_NAVIGATION_TIMEOUT_MS = 20_000
 
 export type ChatterPendingNavigation = {
-  listKind: 'tramite' | 'incidencia'
+  listKind: TramiteListKindParam
   recordId: number
   name: string
 }

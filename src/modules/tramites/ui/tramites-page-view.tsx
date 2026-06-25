@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { MessageCircleWarning } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +27,7 @@ import {
   mergeTramitesList,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { parseTramiteOpenParam } from '@/src/modules/portal/domain/chatter-notifications-types'
 import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
 import { PORTAL_LIST_PAGE_SIZE } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
@@ -69,9 +71,33 @@ function TramitesListSection({
         id: 'name',
         header: copy.columns.name,
         cellClassName: 'max-w-[240px] font-medium text-foreground',
-        render: (item: TramiteListItem) => (
-          <span className="line-clamp-2">{item.name}</span>
-        ),
+        render: (item: TramiteListItem) => {
+          const recordKind = getTramiteListRecordKind(item)
+          const hasUnread =
+            notifications?.isUnread(recordKind, item.id) ?? false
+
+          return (
+            <div className="flex min-w-0 items-start gap-2">
+              {hasUnread ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="mt-0.5 flex shrink-0 items-center justify-center"
+                      aria-label={unreadLabel}
+                    >
+                      <MessageCircleWarning
+                        className="size-4 shrink-0 text-primary"
+                        aria-hidden
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">{unreadLabel}</TooltipContent>
+                </Tooltip>
+              ) : null}
+              <span className="line-clamp-2 min-w-0">{item.name}</span>
+            </div>
+          )
+        },
       },
       {
         id: 'type',
@@ -97,43 +123,23 @@ function TramitesListSection({
       },
       {
         id: 'actions',
-        header: copy.columns.actions,
-        cellClassName: 'text-right',
-        render: (item: TramiteListItem) => {
-          const recordKind = getTramiteListRecordKind(item)
-          const hasUnread =
-            notifications?.isUnread(recordKind, item.id) ?? false
-
-          return (
-            <div className="flex items-center justify-end gap-2">
-              {hasUnread ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="flex size-5 shrink-0 cursor-default items-center justify-center"
-                      aria-label={unreadLabel}
-                    >
-                      <span className="size-3 rounded-full bg-primary ring-2 ring-primary/25" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">{unreadLabel}</TooltipContent>
-                </Tooltip>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onSelectedItemChange(item)
-                }}
-                aria-label={`${copy.viewItem}: ${item.name}`}
-              >
-                {copy.viewItem}
-              </Button>
-            </div>
-          )
-        },
+        header: '',
+        headerClassName: 'w-px px-2',
+        cellClassName: 'w-px whitespace-nowrap px-2 text-right',
+        render: (item: TramiteListItem) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelectedItemChange(item)
+            }}
+            aria-label={`${copy.viewItem}: ${item.name}`}
+          >
+            {copy.viewItem}
+          </Button>
+        ),
       },
     ],
     [copy, notifications, onSelectedItemChange, unreadLabel]
@@ -225,12 +231,10 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
     const openParam = searchParams.get('open')
     if (!openParam) return
 
-    const match = /^(tramite|incidencia)-(\d+)$/.exec(openParam)
-    if (!match) return
+    const parsed = parseTramiteOpenParam(openParam)
+    if (!parsed) return
 
-    const kind = match[1] as TramiteListItem['kind']
-    const recordId = Number.parseInt(match[2] ?? '', 10)
-    if (!Number.isInteger(recordId) || recordId <= 0) return
+    const { kind, recordId } = parsed
 
     const item = allItems.find(
       (entry) => entry.kind === kind && entry.id === recordId

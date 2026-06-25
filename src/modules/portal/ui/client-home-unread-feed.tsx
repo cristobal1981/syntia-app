@@ -56,8 +56,8 @@ export function ClientHomeUnreadFeed() {
                   {item.name}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {item.listKind === 'incidencia'
-                    ? portal.notifications.typeIncidencia
+                  {item.listKind === 'consulta'
+                    ? portal.notifications.typeConsulta
                     : portal.notifications.typeTramite}
                   {item.latestDate ? (
                     <>

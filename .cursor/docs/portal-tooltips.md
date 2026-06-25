@@ -13,7 +13,7 @@ Contexto para desarrollo y agentes. Leer antes de añadir ayuda contextual en co
 
 ## Cuándo usar `PortalActionButton`
 
-- Botones del portal con tooltip, atajo de teclado y/o icono con estado (Actualizar, Nueva incidencia).
+- Botones del portal con tooltip, atajo de teclado y/o icono con estado (Actualizar, Nueva consulta).
 - No duplicar markup: variar con props (`icon`, `iconBehavior`, `variant`, `compact`).
 
 ## Cuándo usar `PortalActionTooltip`
@@ -36,7 +36,7 @@ No usar tooltip como única fuente de nombre accesible: siempre `aria-label` o t
 ## Ejemplos migrados
 
 - [`portal-refresh-button.tsx`](../../src/modules/portal/ui/portal-refresh-button.tsx) — usa `PortalActionButton`; hint Alt+R
-- [`tramite-create-incidencia-button.tsx`](../../src/modules/tramites/ui/tramite-create-incidencia-button.tsx) — usa `PortalActionButton`; hint Alt+N
+- [`tramite-create-consulta-button.tsx`](../../src/modules/tramites/ui/tramite-create-consulta-button.tsx) — usa `PortalActionButton`; hint Alt+N
 - [`theme-toggle.tsx`](../../src/modules/portal/ui/theme-toggle.tsx) — opciones de tema
 - [`sign-out-button.tsx`](../../src/modules/auth/ui/sign-out-button.tsx) — sidebar colapsado
 - [`portal-shell.tsx`](../../src/modules/portal/ui/portal-shell.tsx) — nav colapsado y avatar

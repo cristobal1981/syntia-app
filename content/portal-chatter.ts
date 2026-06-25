@@ -15,7 +15,7 @@ export const portalChatter = {
   sendButton: 'Enviar',
   sending: 'Enviando…',
   readOnlyClosedTicket:
-    'Esta incidencia está cerrada. Puedes leer el historial, pero no enviar mensajes nuevos.',
+    'Esta consulta está cerrada. Puedes leer el historial, pero no enviar mensajes nuevos.',
   youLabel: 'Tú',
   errors: {
     forbidden: 'No tienes permiso para ver esta conversación.',

@@ -1,20 +1,20 @@
 export const tramites = {
   title: 'Trámites',
   description:
-    'Gestiones generales, incidencias de soporte y documentación asociada. Por defecto ves solo lo que está en curso.',
+    'Gestiones generales, consultas de soporte y documentación asociada. Por defecto ves solo lo que está en curso.',
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
-  createIncidencia: {
-    button: 'Nueva incidencia',
+  createConsulta: {
+    button: 'Nueva consulta',
     creating: 'Creando…',
     drawer: {
-      title: 'Nueva incidencia',
+      title: 'Nueva consulta',
       description:
-        'Describe tu consulta o problema. Tu gestoría la recibirá como incidencia de soporte.',
+        'Describe tu duda o problema. Tu gestoría la recibirá como consulta de soporte.',
       subjectLabel: 'Asunto',
       subjectPlaceholder: 'Ej. Duda sobre el modelo 303…',
       bodyLabel: 'Descripción',
-      submit: 'Crear incidencia',
+      submit: 'Crear consulta',
       cancel: 'Cancelar',
       unsavedTitle: '¿Descartar cambios?',
       unsavedDescription:
@@ -27,11 +27,11 @@ export const tramites = {
       subjectTooLong: 'El asunto no puede superar 120 caracteres.',
       bodyRequired: 'La descripción es obligatoria.',
       bodyTooLong: 'La descripción no puede superar 2000 caracteres.',
-      forbidden: 'No tienes permiso para crear incidencias.',
+      forbidden: 'No tienes permiso para crear consultas.',
       not_linked: 'Tu cuenta no está vinculada con Odoo.',
-      odoo_unavailable: 'No pudimos crear la incidencia. Inténtalo de nuevo.',
-      create_failed: 'No pudimos crear la incidencia en Odoo.',
-      unknown: 'No pudimos crear la incidencia. Inténtalo de nuevo.',
+      odoo_unavailable: 'No pudimos crear la consulta. Inténtalo de nuevo.',
+      create_failed: 'No pudimos crear la consulta en Odoo.',
+      unknown: 'No pudimos crear la consulta. Inténtalo de nuevo.',
     },
   },
   pagination: {
@@ -50,7 +50,7 @@ export const tramites = {
       label: 'Filtrar trámites',
       all: 'Todos',
       tramites: 'Trámites',
-      incidencias: 'Incidencias',
+      consultas: 'Consultas',
       inProgress: 'En curso',
       done: 'Hecho',
       canceled: 'Cancelado',
@@ -63,7 +63,7 @@ export const tramites = {
   list: {
     title: 'Tus trámites',
     description:
-      'Trámites de proyecto e incidencias de soporte en un solo listado.',
+      'Trámites de proyecto y consultas de soporte en un solo listado.',
     tagFilterNote:
       'Las tareas de proyecto se filtran por la etiqueta configurada en Odoo.',
     emptyTitle: 'Sin trámites',
@@ -79,7 +79,7 @@ export const tramites = {
     downloadZip: 'Descargar todo',
     types: {
       tramite: 'Trámite',
-      incidencia: 'Incidencia',
+      consulta: 'Consulta',
     },
   },
   tasks: {

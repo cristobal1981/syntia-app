@@ -5,11 +5,11 @@ import { TicketPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { portal } from '@/content/portal'
 import { tramites } from '@/content/tramites'
-import { usePortalCreateIncidenciaOptional } from '@/src/modules/portal/ui/portal-create-incidencia-context'
+import { usePortalCreateConsultaOptional } from '@/src/modules/portal/ui/portal-create-consulta-context'
 
 export function ClientHomeEducationCard() {
   const copy = portal.home.client
-  const createIncidencia = usePortalCreateIncidenciaOptional()
+  const createConsulta = usePortalCreateConsultaOptional()
 
   return (
     <section
@@ -25,18 +25,18 @@ export function ClientHomeEducationCard() {
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
         {copy.educationDescription}
       </p>
-      {createIncidencia?.isAvailable ? (
+      {createConsulta?.isAvailable ? (
         <Button
           type="button"
           className="mt-4"
-          onClick={createIncidencia.openCreateIncidencia}
+          onClick={createConsulta.openCreateConsulta}
         >
           <TicketPlus className="size-4" aria-hidden />
           {copy.educationAction}
         </Button>
       ) : (
         <Button type="button" className="mt-4" asChild>
-          <a href="/tramites">{tramites.createIncidencia.button}</a>
+          <a href="/tramites">{tramites.createConsulta.button}</a>
         </Button>
       )}
     </section>

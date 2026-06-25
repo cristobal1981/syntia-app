@@ -4,7 +4,7 @@ import type { TramiteListKind } from '@/src/modules/tramites/domain/merge-tramit
 
 const kindClasses: Record<TramiteListKind, string> = {
   tramite: 'bg-sky-100 text-sky-900 dark:bg-sky-950/80 dark:text-sky-200',
-  incidencia:
+  consulta:
     'bg-violet-100 text-violet-900 dark:bg-violet-950/80 dark:text-violet-200',
 }
 
@@ -16,7 +16,7 @@ export function TramiteTypeBadge({ kind }: TramiteTypeBadgeProps) {
   const label =
     kind === 'tramite'
       ? tramites.list.types.tramite
-      : tramites.list.types.incidencia
+      : tramites.list.types.consulta
 
   return (
     <span

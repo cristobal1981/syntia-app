@@ -1,3 +1,9 @@
+import {
+  isMacPlatform,
+  portalShortcutPhysicalCode,
+  resolvePortalShortcutModifier,
+} from '@/src/modules/portal/domain/portal-shortcut-platform'
+
 export type PortalShortcutDefinition = {
   id: string
   alt?: boolean
@@ -13,30 +19,32 @@ export const PORTAL_REFRESH_SHORTCUT: PortalShortcutDefinition = {
   key: 'r',
 }
 
-export const PORTAL_CREATE_INCIDENCIA_SHORTCUT: PortalShortcutDefinition = {
-  id: 'create-incidencia',
+export const PORTAL_CREATE_CONSULTA_SHORTCUT: PortalShortcutDefinition = {
+  id: 'create-consulta',
   alt: true,
   key: 'n',
 }
 
 export const PORTAL_SHORTCUTS = {
   refresh: PORTAL_REFRESH_SHORTCUT,
-  createIncidencia: PORTAL_CREATE_INCIDENCIA_SHORTCUT,
+  createConsulta: PORTAL_CREATE_CONSULTA_SHORTCUT,
 } as const
 
 export function getPortalShortcutKeys(
   shortcut: PortalShortcutDefinition
 ): string[] {
   const keys: string[] = []
-  if (shortcut.alt) keys.push('Alt')
+  const modifier = resolvePortalShortcutModifier(shortcut)
+
+  if (modifier === 'alt') keys.push('Alt')
+  if (modifier === 'meta') keys.push('⌘')
   if (shortcut.ctrl) keys.push('Ctrl')
   if (shortcut.shift) keys.push('Shift')
-  if (shortcut.meta) keys.push('⌘')
   keys.push(shortcut.key.toUpperCase())
   return keys
 }
 
-/** Teclas de acción (sin modificadores), para mostrar con Alt ya pulsado. */
+/** Teclas de acción (sin modificadores), para mostrar con el modificador ya pulsado. */
 export function getPortalShortcutActionKeys(
   shortcut: PortalShortcutDefinition
 ): string[] {
@@ -49,19 +57,46 @@ export function formatPortalShortcutLabel(
   return getPortalShortcutKeys(shortcut).join('+')
 }
 
+function matchesPortalShortcutModifiers(
+  event: KeyboardEvent,
+  shortcut: PortalShortcutDefinition
+): boolean {
+  const wantsCtrl = shortcut.ctrl ?? false
+  const wantsShift = shortcut.shift ?? false
+  const modifier = resolvePortalShortcutModifier(shortcut)
+
+  if (event.ctrlKey !== wantsCtrl) return false
+  if (event.shiftKey !== wantsShift) return false
+
+  if (modifier === 'meta') {
+    if (isMacPlatform()) {
+      return event.metaKey || event.altKey
+    }
+    return event.metaKey
+  }
+
+  if (modifier === 'alt') {
+    if (!event.altKey) return false
+    if (event.metaKey) return false
+    return true
+  }
+
+  if (shortcut.meta && !event.metaKey) return false
+  if (!shortcut.meta && event.metaKey) return false
+  if (shortcut.alt && !event.altKey) return false
+  if (!shortcut.alt && event.altKey) return false
+
+  return true
+}
+
 export function matchesPortalShortcut(
   event: KeyboardEvent,
   shortcut: PortalShortcutDefinition
 ): boolean {
-  const wantsAlt = shortcut.alt ?? false
-  const wantsCtrl = shortcut.ctrl ?? false
-  const wantsShift = shortcut.shift ?? false
-  const wantsMeta = shortcut.meta ?? false
+  if (!matchesPortalShortcutModifiers(event, shortcut)) return false
 
-  if (event.altKey !== wantsAlt) return false
-  if (event.ctrlKey !== wantsCtrl) return false
-  if (event.shiftKey !== wantsShift) return false
-  if (event.metaKey !== wantsMeta) return false
+  const physicalCode = portalShortcutPhysicalCode(shortcut.key)
+  if (physicalCode && event.code === physicalCode) return true
 
   return event.key.toLowerCase() === shortcut.key.toLowerCase()
 }

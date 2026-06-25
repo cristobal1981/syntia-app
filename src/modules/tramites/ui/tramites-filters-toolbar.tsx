@@ -28,7 +28,7 @@ const chipOptions: {
 }[] = [
   { value: 'all', label: tramites.filters.views.all },
   { value: 'tramite', label: tramites.filters.views.tramites },
-  { value: 'incidencia', label: tramites.filters.views.incidencias },
+  { value: 'consulta', label: tramites.filters.views.consultas },
   { value: 'inProgress', label: tramites.filters.views.inProgress },
   { value: 'done', label: tramites.filters.views.done },
   { value: 'canceled', label: tramites.filters.views.canceled },

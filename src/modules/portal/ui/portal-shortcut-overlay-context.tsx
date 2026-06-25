@@ -8,17 +8,17 @@ import {
   type ReactNode,
 } from 'react'
 
-import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
+import {
+  getPortalShortcutOverlayHint,
+  isPortalShortcutModifierHeld,
+  isPortalShortcutModifierKeyEvent,
+} from '@/src/modules/portal/domain/portal-shortcut-platform'
 
 const PortalShortcutOverlayContext = createContext(false)
 
 export function usePortalShortcutOverlay(): boolean {
   return useContext(PortalShortcutOverlayContext)
-}
-
-function isAltKey(event: KeyboardEvent): boolean {
-  return event.key === 'Alt' || event.key === 'AltGraph'
 }
 
 type PortalShortcutOverlayProviderProps = {
@@ -35,19 +35,26 @@ export function PortalShortcutOverlayProvider({
     const deactivate = () => setOverlayActive(false)
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isAltKey(event)) {
-        event.preventDefault()
+      if (isPortalShortcutModifierKeyEvent(event)) {
+        if (event.key === 'Alt' || event.key === 'AltGraph') {
+          event.preventDefault()
+        }
         activate()
         return
       }
 
-      if (event.altKey) {
+      if (isPortalShortcutModifierHeld(event)) {
         activate()
       }
     }
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (isAltKey(event) || !event.altKey) {
+      if (isPortalShortcutModifierKeyEvent(event)) {
+        deactivate()
+        return
+      }
+
+      if (!isPortalShortcutModifierHeld(event)) {
         deactivate()
       }
     }
@@ -85,7 +92,7 @@ export function PortalShortcutOverlayProvider({
               'motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150'
             )}
           >
-            {portal.shortcuts.overlayHint}
+            {getPortalShortcutOverlayHint()}
           </p>
         </div>
       ) : null}

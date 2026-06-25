@@ -1,6 +1,6 @@
 import type { TramiteTask, TramiteTicket } from '@/src/modules/tramites/domain/types'
 
-export type TramiteListKind = 'tramite' | 'incidencia'
+export type TramiteListKind = 'tramite' | 'consulta'
 
 export type TramiteListItem = {
   id: number
@@ -27,7 +27,7 @@ export function mergeTramitesList(
   const ticketItems: TramiteListItem[] = tickets.map((ticket) => ({
     id: ticket.id,
     name: ticket.name,
-    kind: 'incidencia',
+    kind: 'consulta',
     isClosed: ticket.isClosed,
     attachmentCount: ticket.attachmentCount,
   }))

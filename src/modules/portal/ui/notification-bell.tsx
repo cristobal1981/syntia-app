@@ -125,8 +125,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
                     </span>
                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>
-                        {item.listKind === 'incidencia'
-                          ? copy.typeIncidencia
+                        {item.listKind === 'consulta'
+                          ? copy.typeConsulta
                           : copy.typeTramite}
                       </span>
                       {item.latestDate ? (

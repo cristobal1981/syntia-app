@@ -1,10 +1,12 @@
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 
+export type TramiteListKindParam = 'tramite' | 'consulta'
+
 export type ChatterUnreadNotification = {
   recordKind: PortalRecordKind
   recordId: number
   name: string
-  listKind: 'tramite' | 'incidencia'
+  listKind: TramiteListKindParam
   latestMessageId: number
   latestDate: string
 }
@@ -35,19 +37,35 @@ export function chatterReadStateKey(
 
 export function listKindFromRecordKind(
   recordKind: PortalRecordKind
-): 'tramite' | 'incidencia' {
-  return recordKind === 'task' ? 'tramite' : 'incidencia'
+): TramiteListKindParam {
+  return recordKind === 'task' ? 'tramite' : 'consulta'
 }
 
 export function recordKindFromListKind(
-  listKind: 'tramite' | 'incidencia'
+  listKind: TramiteListKindParam
 ): PortalRecordKind {
   return listKind === 'tramite' ? 'task' : 'ticket'
 }
 
 export function openParamFromListKind(
-  listKind: 'tramite' | 'incidencia',
+  listKind: TramiteListKindParam,
   recordId: number
 ): string {
   return `${listKind}-${recordId}`
+}
+
+/** Compatibilidad con enlaces antiguos `incidencia-{id}`. */
+export function parseTramiteOpenParam(
+  value: string
+): { kind: TramiteListKindParam; recordId: number } | null {
+  const match = /^(tramite|consulta|incidencia)-(\d+)$/.exec(value)
+  if (!match) return null
+
+  const rawKind = match[1]
+  const kind: TramiteListKindParam =
+    rawKind === 'tramite' ? 'tramite' : 'consulta'
+  const recordId = Number.parseInt(match[2] ?? '', 10)
+  if (!Number.isInteger(recordId) || recordId <= 0) return null
+
+  return { kind, recordId }
 }
