@@ -127,7 +127,7 @@ export function TramiteDetailDrawer({
   }
 
   return (
-    <PortalSideDrawer open={open} onOpenChange={onOpenChange}>
+    <PortalSideDrawer open={open} onOpenChange={onOpenChange} size="wide">
         <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-input/50">
           <DialogTitle className="text-pretty pr-8">{tramite.name}</DialogTitle>
           <DialogDescription asChild>

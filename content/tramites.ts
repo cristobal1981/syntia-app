@@ -4,6 +4,36 @@ export const tramites = {
     'Gestiones generales, incidencias de soporte y documentación asociada. Por defecto ves solo lo que está en curso.',
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
+  createIncidencia: {
+    button: 'Nueva incidencia',
+    creating: 'Creando…',
+    drawer: {
+      title: 'Nueva incidencia',
+      description:
+        'Describe tu consulta o problema. Tu gestoría la recibirá como incidencia de soporte.',
+      subjectLabel: 'Asunto',
+      subjectPlaceholder: 'Ej. Duda sobre el modelo 303…',
+      bodyLabel: 'Descripción',
+      submit: 'Crear incidencia',
+      cancel: 'Cancelar',
+      unsavedTitle: '¿Descartar cambios?',
+      unsavedDescription:
+        'Tienes cambios sin guardar. Si cierras ahora, se perderá lo que has escrito.',
+      discard: 'Descartar',
+      keepEditing: 'Seguir editando',
+    },
+    errors: {
+      subjectRequired: 'El asunto es obligatorio.',
+      subjectTooLong: 'El asunto no puede superar 120 caracteres.',
+      bodyRequired: 'La descripción es obligatoria.',
+      bodyTooLong: 'La descripción no puede superar 2000 caracteres.',
+      forbidden: 'No tienes permiso para crear incidencias.',
+      not_linked: 'Tu cuenta no está vinculada con Odoo.',
+      odoo_unavailable: 'No pudimos crear la incidencia. Inténtalo de nuevo.',
+      create_failed: 'No pudimos crear la incidencia en Odoo.',
+      unknown: 'No pudimos crear la incidencia. Inténtalo de nuevo.',
+    },
+  },
   pagination: {
     previous: 'Anterior',
     next: 'Siguiente',

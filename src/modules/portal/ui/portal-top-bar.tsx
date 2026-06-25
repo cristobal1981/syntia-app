@@ -5,6 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
+import { PortalTopBarCreateIncidencia } from '@/src/modules/portal/ui/portal-top-bar-create-incidencia'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
 
@@ -104,6 +105,7 @@ export function PortalTopBar({
 
       <div className="flex shrink-0 items-center gap-2">
         <NotificationBell className="hidden lg:flex" />
+        <PortalTopBarCreateIncidencia />
         <ThemeToggle className="shrink-0" />
       </div>
     </header>

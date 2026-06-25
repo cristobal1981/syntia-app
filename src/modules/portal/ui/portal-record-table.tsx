@@ -74,6 +74,10 @@ export function PortalRecordTable<T>({
   const paginatedRows =
     onPageChange !== undefined ? paginateItems(rows, page, pageSize) : rows
 
+  const chromeClassName = embedded
+    ? undefined
+    : 'bg-muted/50 dark:bg-muted/20'
+
   function handleSort(column: PortalRecordTableColumn<T>) {
     if (!column.sortable || !onSortChange) return
 
@@ -98,7 +102,7 @@ export function PortalRecordTable<T>({
         className="w-full text-left text-sm"
         style={{ minWidth }}
       >
-        <thead>
+        <thead className={chromeClassName}>
           <tr className="border-b border-border dark:border-input">
             {columns.map((column) => {
               const isSortable = Boolean(column.sortable && onSortChange)
@@ -136,7 +140,7 @@ export function PortalRecordTable<T>({
             })}
           </tr>
         </thead>
-        <tbody>
+        <tbody className={embedded ? undefined : 'bg-card'}>
           {paginatedRows.map((row) => (
             <tr
               key={rowKey(row)}
@@ -165,6 +169,7 @@ export function PortalRecordTable<T>({
           pageSize={pageSize}
           totalItems={rows.length}
           onPageChange={onPageChange}
+          className={chromeClassName}
         />
       ) : null}
     </div>

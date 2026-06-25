@@ -79,8 +79,13 @@ export const portal = {
     openConversation: 'Ver conversación',
     openingConversation: 'Abriendo conversación…',
     unreadBadge: 'Mensajes sin leer',
+    tooltipUnread: '{count} mensajes sin leer',
     typeTramite: 'Trámite',
     typeIncidencia: 'Incidencia',
+  },
+  confirm: {
+    cancel: 'Cancelar',
+    confirm: 'Confirmar',
   },
   shortcuts: {
     overlayHint: 'Mantén Alt · Pulsa la tecla resaltada en cada botón',
@@ -90,6 +95,11 @@ export const portal = {
       buttonHintActive: '{action} (Alt+R)',
       description:
         'Actualiza los datos de esta página sin recargarla por completo.',
+    },
+    createIncidencia: {
+      label: 'Alt+N',
+      buttonHintIdle: '{action}. Mantén Alt para ver atajos.',
+      buttonHintActive: '{action} (Alt+N)',
     },
   },
   roles: {
@@ -143,12 +153,21 @@ export const portal = {
   home: {
     client: {
       greeting: 'Hola,',
+      statsTitle: 'Resumen',
       stats: {
-        pendingDocs: 'Documentos pendientes',
         activeProcedures: 'Trámites activos',
+        obligacionesInProgress: 'Obligaciones en curso',
         unreadMessages: 'Mensajes sin leer',
       },
-      deadlinesTitle: 'Próximos vencimientos',
+      unreadTitle: 'Mensajes sin leer',
+      unreadEmpty: 'No tienes mensajes nuevos de tu gestoría.',
+      unreadViewAll: 'Ver trámites',
+      educationTitle: '¿Tienes una consulta nueva?',
+      educationDescription:
+        'Abre una incidencia para dudas o soporte. No reutilices conversaciones de trámites antiguos si tu consulta no tiene que ver con ellos.',
+      educationAction: 'Nueva incidencia',
+      statsUnavailable:
+        'No pudimos cargar el resumen ahora mismo. Puedes seguir usando el menú lateral.',
       quickLinksTitle: 'Accesos rápidos',
     },
     admin: {

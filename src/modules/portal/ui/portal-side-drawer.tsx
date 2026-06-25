@@ -16,12 +16,14 @@ type PortalSideDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
+  size?: 'default' | 'wide'
 }
 
 export function PortalSideDrawer({
   open,
   onOpenChange,
   children,
+  size = 'default',
 }: PortalSideDrawerProps) {
   const reducedMotion = usePrefersReducedMotion()
 
@@ -33,6 +35,8 @@ export function PortalSideDrawer({
     ? ''
     : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200'
 
+  const widthClass = size === 'wide' ? 'sm:max-w-lg' : 'sm:max-w-md'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
@@ -40,7 +44,8 @@ export function PortalSideDrawer({
         <DialogPrimitive.Content
           data-slot="dialog-content"
           className={cn(
-            'fixed inset-y-0 right-0 left-auto z-50 flex h-full max-h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 bg-card p-0 shadow-lg outline-none sm:max-w-md',
+            'fixed inset-y-0 right-0 left-auto z-50 flex h-full max-h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden overscroll-contain rounded-none border-y-0 border-r-0 bg-card p-0 shadow-lg outline-none',
+            widthClass,
             panelMotionClass
           )}
         >

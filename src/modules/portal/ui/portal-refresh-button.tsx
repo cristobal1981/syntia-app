@@ -2,13 +2,11 @@
 
 import { useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { RefreshCw } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { portal } from '@/content/portal'
-import { cn } from '@/lib/utils'
 import { PORTAL_REFRESH_SHORTCUT } from '@/src/modules/portal/domain/portal-shortcuts'
-import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
-import { PortalShortcutHint } from '@/src/modules/portal/ui/portal-shortcut-hint'
+import { PortalActionButton } from '@/src/modules/portal/ui/portal-action-button'
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
@@ -41,19 +39,18 @@ export function PortalRefreshButton({
     : shortcutCopy.buttonHintIdle.replace('{action}', label)
 
   return (
-    <PortalActionTooltip content={tooltip} disabled={pending}>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending}
-        aria-busy={pending}
-        aria-keyshortcuts={shortcutCopy.label}
-        onClick={refresh}
-        className={cn(overlayActive && !pending && 'ring-2 ring-primary/35')}
-      >
-        <span>{pending ? refreshingLabel : label}</span>
-        {!pending ? <PortalShortcutHint shortcut={PORTAL_REFRESH_SHORTCUT} /> : null}
-      </Button>
-    </PortalActionTooltip>
+    <PortalActionButton
+      label={label}
+      pendingLabel={refreshingLabel}
+      pending={pending}
+      onClick={refresh}
+      variant="outline"
+      icon={RefreshCw}
+      iconBehavior="spinWhenPending"
+      shortcut={PORTAL_REFRESH_SHORTCUT}
+      tooltip={tooltip}
+      ariaKeyshortcuts={shortcutCopy.label}
+      overlayRingClassName="ring-2 ring-primary/35"
+    />
   )
 }

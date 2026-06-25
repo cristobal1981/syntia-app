@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-
+import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { obligaciones } from '@/content/obligaciones'
 import { cn } from '@/lib/utils'
 
@@ -37,12 +36,12 @@ export function ObligacionesModelsOverview({
           </h2>
           <p className="text-sm text-muted-foreground">{copy.description}</p>
         </div>
-        <Link
+        <AppLink
           href="/obligaciones/guia-modelos"
-          className="shrink-0 text-sm font-medium text-agua underline underline-offset-4 decoration-agua/50 hover:decoration-agua dark:text-turquesa dark:decoration-turquesa/50 dark:hover:decoration-turquesa focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn('shrink-0 text-sm', appLinkPortalClassName)}
         >
           {copy.guideLink}
-        </Link>
+        </AppLink>
       </div>
 
       <ul className="mt-4 flex flex-wrap gap-2">

@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { portal } from '@/content/portal'
+import { cn } from '@/lib/utils'
 
 export const PORTAL_LIST_PAGE_SIZE = 15
 
@@ -11,6 +12,7 @@ type ListPaginationProps = {
   totalItems: number
   onPageChange: (page: number) => void
   id: string
+  className?: string
 }
 
 export function ListPagination({
@@ -19,6 +21,7 @@ export function ListPagination({
   totalItems,
   onPageChange,
   id,
+  className,
 }: ListPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
   const copy = portal.pagination
@@ -29,7 +32,10 @@ export function ListPagination({
 
   return (
     <nav
-      className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-input/50"
+      className={cn(
+        'flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-input/50',
+        className
+      )}
       aria-labelledby={id}
     >
       <p id={id} className="text-sm text-muted-foreground tabular-nums">

@@ -101,7 +101,7 @@ export function TramitesFiltersToolbar({
               key={option.value}
               type="button"
               size="sm"
-              variant={active ? 'default' : 'outline'}
+              variant={active ? 'secondary' : 'outline'}
               aria-pressed={active}
               onClick={() => {
                 onChange(toggleTramitesFilterChip(filters, option.value))

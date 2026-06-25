@@ -10,11 +10,19 @@ import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcu
 type PortalShortcutHintProps = {
   shortcut: PortalShortcutDefinition
   className?: string
+  tone?: 'default' | 'onPrimary'
 }
+
+const kbdToneClasses = {
+  default: 'border-primary/30 bg-primary/10 text-primary',
+  onPrimary:
+    'border-primary-foreground bg-primary-foreground text-white shadow-sm',
+} as const
 
 export function PortalShortcutHint({
   shortcut,
   className,
+  tone = 'default',
 }: PortalShortcutHintProps) {
   const overlayActive = usePortalShortcutOverlay()
 
@@ -33,7 +41,10 @@ export function PortalShortcutHint({
       {keys.map((key) => (
         <kbd
           key={key}
-          className="min-w-[1.125rem] rounded border border-primary/30 bg-primary/10 px-1 py-px text-center font-sans text-[10px] font-semibold leading-none text-primary"
+          className={cn(
+            'min-w-[1.125rem] rounded border px-1 py-px text-center font-sans text-[10px] font-semibold leading-none',
+            kbdToneClasses[tone]
+          )}
         >
           {key}
         </kbd>

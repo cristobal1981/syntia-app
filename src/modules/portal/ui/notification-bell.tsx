@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
 
 type NotificationBellProps = {
@@ -59,29 +60,35 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   const { unread, unreadCount, openNotification } = notifications
   const copy = portal.notifications
+  const tooltipContent =
+    unreadCount > 0
+      ? copy.tooltipUnread.replace('{count}', String(unreadCount))
+      : copy.label
 
   return (
     <div className={cn('relative', className)}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="relative flex size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9"
-        aria-label={
-          unreadCount > 0
-            ? `${copy.label}: ${unreadCount} ${copy.unreadBadge.toLowerCase()}`
-            : copy.label
-        }
-        aria-expanded={open}
-        aria-haspopup="true"
-      >
-        <Bell className="size-4 sm:size-[1.125rem]" aria-hidden />
-        {unreadCount > 0 ? (
-          <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        ) : null}
-      </button>
+      <PortalActionTooltip content={tooltipContent} side="bottom" disabled={open}>
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="relative flex size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9"
+          aria-label={
+            unreadCount > 0
+              ? `${copy.label}: ${unreadCount} ${copy.unreadBadge.toLowerCase()}`
+              : copy.label
+          }
+          aria-expanded={open}
+          aria-haspopup="true"
+        >
+          <Bell className="size-4 sm:size-[1.125rem]" aria-hidden />
+          {unreadCount > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          ) : null}
+        </button>
+      </PortalActionTooltip>
 
       {open ? (
         <div

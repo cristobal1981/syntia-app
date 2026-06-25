@@ -13,8 +13,15 @@ export const PORTAL_REFRESH_SHORTCUT: PortalShortcutDefinition = {
   key: 'r',
 }
 
+export const PORTAL_CREATE_INCIDENCIA_SHORTCUT: PortalShortcutDefinition = {
+  id: 'create-incidencia',
+  alt: true,
+  key: 'n',
+}
+
 export const PORTAL_SHORTCUTS = {
   refresh: PORTAL_REFRESH_SHORTCUT,
+  createIncidencia: PORTAL_CREATE_INCIDENCIA_SHORTCUT,
 } as const
 
 export function getPortalShortcutKeys(

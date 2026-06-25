@@ -24,3 +24,8 @@ alwaysApply: true
 
 - Variables de entorno para webhooks/credenciales; nunca en código fuente.
 - Solo UI (sin API): `NEXT_PUBLIC_FORM_SUBMIT_STUB=true` en `.env.local`; quitar en producción.
+
+## UI del portal
+
+- Botones interactivos: `cursor-pointer` (en `Button` y acciones del shell).
+- Acciones con tooltip/atajo/icono: `PortalActionButton`, no duplicar en cada página.

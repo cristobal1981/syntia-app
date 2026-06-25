@@ -39,6 +39,7 @@ type ChatterComposerProps = {
   resetToken?: number
   onEmptyChange?: (empty: boolean) => void
   onResize?: () => void
+  editorMaxHeightClass?: string
 }
 
 type FormatToolbarButtonProps = {
@@ -66,7 +67,10 @@ function FormatToolbarButton({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-8 shrink-0"
+        className={cn(
+          'size-8 shrink-0',
+          active && 'bg-accent text-accent-foreground dark:bg-accent/50'
+        )}
         disabled={disabled}
         aria-label={label}
         aria-pressed={active}
@@ -79,8 +83,18 @@ function FormatToolbarButton({
 }
 
 export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposerProps>(
-  function ChatterComposer({ disabled = false, resetToken = 0, onEmptyChange, onResize }, ref) {
+  function ChatterComposer(
+    {
+      disabled = false,
+      resetToken = 0,
+      onEmptyChange,
+      onResize,
+      editorMaxHeightClass = 'max-h-[120px]',
+    },
+    ref
+  ) {
     const [isEmpty, setIsEmpty] = useState(true)
+    const [, setToolbarRevision] = useState(0)
     const rootRef = useRef<HTMLDivElement>(null)
     const onEmptyChangeRef = useRef(onEmptyChange)
 
@@ -107,14 +121,22 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
       editable: !disabled,
       editorProps: {
         attributes: {
-          class:
-            'min-h-10 max-h-[120px] overflow-y-auto px-4 py-2.5 text-sm leading-5 outline-none [&_p]:m-0 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5',
+          class: cn(
+            'min-h-10 overflow-y-auto px-4 py-2.5 text-sm leading-5 outline-none [&_p]:m-0 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5',
+            editorMaxHeightClass
+          ),
         },
       },
       onUpdate: ({ editor: currentEditor }) => {
         const empty = isChatterHtmlEmpty(currentEditor.getHTML())
         setIsEmpty(empty)
         onEmptyChangeRef.current?.(empty)
+      },
+      onSelectionUpdate: () => {
+        setToolbarRevision((value) => value + 1)
+      },
+      onTransaction: () => {
+        setToolbarRevision((value) => value + 1)
       },
     })
 

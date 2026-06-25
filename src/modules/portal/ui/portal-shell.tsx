@@ -15,6 +15,7 @@ import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { PortalCreateIncidenciaProvider } from '@/src/modules/portal/ui/portal-create-incidencia-context'
 import { NotificationNavigationOverlay } from '@/src/modules/portal/ui/notification-navigation-overlay'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
@@ -269,6 +270,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
     <ChatterNotificationsProvider enabled={user.role === 'client'}>
+    <PortalCreateIncidenciaProvider enabled={user.role === 'client'}>
     <NotificationNavigationOverlay />
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside
@@ -405,6 +407,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
         <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
       </div>
     </div>
+    </PortalCreateIncidenciaProvider>
     </ChatterNotificationsProvider>
     </TooltipProvider>
     </PortalShortcutOverlayProvider>

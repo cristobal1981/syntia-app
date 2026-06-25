@@ -1,7 +1,6 @@
-import Link from 'next/link'
-
 import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
+import { AppLink } from '@/components/ui/app-link'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { listClientsAction } from '@/src/modules/directory/application/directory-queries'
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
@@ -37,12 +36,9 @@ export async function AdvisorHome({ user }: AdvisorHomeProps) {
           >
             {copy.clientsTitle}
           </h2>
-          <Link
-            href="/clientes"
-            className="text-sm font-medium text-primary hover:underline"
-          >
+          <AppLink href="/clientes" className="text-sm">
             {equipo.clientes.viewAll}
-          </Link>
+          </AppLink>
         </div>
         {previewClients.length ? (
           <DataTable

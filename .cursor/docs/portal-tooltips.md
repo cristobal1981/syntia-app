@@ -9,6 +9,12 @@ Contexto para desarrollo y agentes. Leer antes de añadir ayuda contextual en co
 | Primitivo Radix | [`components/ui/tooltip.tsx`](../../components/ui/tooltip.tsx) | Tooltip, trigger, content |
 | Provider global | [`src/modules/portal/ui/portal-shell.tsx`](../../src/modules/portal/ui/portal-shell.tsx) | `TooltipProvider` envuelve el portal |
 | Helper | [`src/modules/portal/ui/portal-action-tooltip.tsx`](../../src/modules/portal/ui/portal-action-tooltip.tsx) | Wrapper para botones/enlaces con soporte `disabled` |
+| Botón de acción | [`src/modules/portal/ui/portal-action-button.tsx`](../../src/modules/portal/ui/portal-action-button.tsx) | Tooltip + atajo + icono opcional + estados (`pending`, `scaleOnHover`, `spinWhenPending`) |
+
+## Cuándo usar `PortalActionButton`
+
+- Botones del portal con tooltip, atajo de teclado y/o icono con estado (Actualizar, Nueva incidencia).
+- No duplicar markup: variar con props (`icon`, `iconBehavior`, `variant`, `compact`).
 
 ## Cuándo usar `PortalActionTooltip`
 
@@ -29,7 +35,8 @@ No usar tooltip como única fuente de nombre accesible: siempre `aria-label` o t
 
 ## Ejemplos migrados
 
-- [`portal-refresh-button.tsx`](../../src/modules/portal/ui/portal-refresh-button.tsx) — hint Alt+R dinámico
+- [`portal-refresh-button.tsx`](../../src/modules/portal/ui/portal-refresh-button.tsx) — usa `PortalActionButton`; hint Alt+R
+- [`tramite-create-incidencia-button.tsx`](../../src/modules/tramites/ui/tramite-create-incidencia-button.tsx) — usa `PortalActionButton`; hint Alt+N
 - [`theme-toggle.tsx`](../../src/modules/portal/ui/theme-toggle.tsx) — opciones de tema
 - [`sign-out-button.tsx`](../../src/modules/auth/ui/sign-out-button.tsx) — sidebar colapsado
 - [`portal-shell.tsx`](../../src/modules/portal/ui/portal-shell.tsx) — nav colapsado y avatar
