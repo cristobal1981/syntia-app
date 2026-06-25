@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { portal } from '@/content/portal'
 import { tramites } from '@/content/tramites'
 import { cn } from '@/lib/utils'
 import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
@@ -16,6 +22,7 @@ import {
 } from '@/src/modules/tramites/domain/filter-tramites'
 import {
   getTramiteListItemKey,
+  getTramiteListRecordKind,
   mergeTramitesList,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
@@ -47,6 +54,8 @@ function TramitesListSection({
   drawerInitialTab = 'conversation',
 }: TramitesListSectionProps) {
   const copy = tramites.list
+  const notifications = useChatterNotificationsOptional()
+  const unreadLabel = portal.notifications.unreadBadge
   const [page, setPage] = useState(1)
   const paginationId = 'tramites-pagination-label'
 
@@ -89,23 +98,45 @@ function TramitesListSection({
       {
         id: 'actions',
         header: copy.columns.actions,
-        render: (item: TramiteListItem) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation()
-              onSelectedItemChange(item)
-            }}
-            aria-label={`${copy.viewItem}: ${item.name}`}
-          >
-            {copy.viewItem}
-          </Button>
-        ),
+        cellClassName: 'text-right',
+        render: (item: TramiteListItem) => {
+          const recordKind = getTramiteListRecordKind(item)
+          const hasUnread =
+            notifications?.isUnread(recordKind, item.id) ?? false
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              {hasUnread ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="flex size-5 shrink-0 cursor-default items-center justify-center"
+                      aria-label={unreadLabel}
+                    >
+                      <span className="size-3 rounded-full bg-primary ring-2 ring-primary/25" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">{unreadLabel}</TooltipContent>
+                </Tooltip>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSelectedItemChange(item)
+                }}
+                aria-label={`${copy.viewItem}: ${item.name}`}
+              >
+                {copy.viewItem}
+              </Button>
+            </div>
+          )
+        },
       },
     ],
-    [copy, onSelectedItemChange]
+    [copy, notifications, onSelectedItemChange, unreadLabel]
   )
 
   if (!items.length) {

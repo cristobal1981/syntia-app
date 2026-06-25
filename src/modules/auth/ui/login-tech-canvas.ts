@@ -81,6 +81,101 @@ export function spawnPulse(particles: NetworkParticle[]): NetworkPulse | null {
   return null
 }
 
+const CURSOR_RADIUS = 132
+const CURSOR_PULL = 0.42
+
+export function applyCursorInfluence(
+  particles: NetworkParticle[],
+  cursor: { x: number; y: number } | null
+) {
+  if (!cursor) return
+
+  for (const particle of particles) {
+    const dx = cursor.x - particle.x
+    const dy = cursor.y - particle.y
+    const dist = Math.hypot(dx, dy)
+    if (dist > CURSOR_RADIUS || dist < 2) continue
+
+    const pull = (1 - dist / CURSOR_RADIUS) * CURSOR_PULL
+    particle.x += dx * pull * 0.12
+    particle.y += dy * pull * 0.12
+  }
+}
+
+export function applyCursorRepel(
+  particles: NetworkParticle[],
+  cursor: { x: number; y: number } | null
+) {
+  if (!cursor) return
+
+  for (const particle of particles) {
+    const dx = particle.x - cursor.x
+    const dy = particle.y - cursor.y
+    const dist = Math.hypot(dx, dy)
+    if (dist > CURSOR_RADIUS || dist < 2) continue
+
+    const push = (1 - dist / CURSOR_RADIUS) * CURSOR_PULL
+    particle.x += (dx / dist) * push * 14
+    particle.y += (dy / dist) * push * 14
+  }
+}
+
+export function applyNetworkGlitch(particles: NetworkParticle[], time: number) {
+  const spike = Math.sin(time * 0.002) * Math.sin(time * 0.0007)
+  if (spike < 0.82) return
+
+  for (const particle of particles) {
+    particle.x += (Math.random() - 0.5) * 6
+    particle.y += (Math.random() - 0.5) * 6
+  }
+}
+
+export function spawnPulsesFromPoint(
+  particles: NetworkParticle[],
+  x: number,
+  y: number,
+  maxPulses = 5
+): NetworkPulse[] {
+  if (particles.length < 2) return []
+
+  const ranked = particles
+    .map((particle, index) => ({
+      index,
+      dist: Math.hypot(particle.x - x, particle.y - y),
+    }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 4)
+
+  const pulses: NetworkPulse[] = []
+  const seen = new Set<string>()
+
+  for (const origin of ranked) {
+    for (let index = 0; index < particles.length; index += 1) {
+      if (index === origin.index) continue
+
+      const target = particles[index]
+      const originParticle = particles[origin.index]
+      const dist = Math.hypot(target.x - originParticle.x, target.y - originParticle.y)
+      if (dist > LINK_DISTANCE) continue
+
+      const key = `${origin.index}-${index}`
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      pulses.push({
+        fromIndex: origin.index,
+        toIndex: index,
+        progress: 0,
+        speed: 0.018 + Math.random() * 0.022,
+      })
+
+      if (pulses.length >= maxPulses) return pulses
+    }
+  }
+
+  return pulses
+}
+
 export type DrawNetworkOptions = {
   width: number
   height: number

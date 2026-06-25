@@ -5,6 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
 
 type PortalTopBarProps = {
@@ -32,37 +33,57 @@ export function PortalTopBar({
       <div className="flex shrink-0 items-center gap-1">
         <NotificationBell className="lg:hidden" />
 
-        <button
-          type="button"
-          onClick={onSidebarToggle}
-          className="hidden size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
-          aria-label={
+        <PortalActionTooltip
+          content={
             sidebarCollapsed
               ? portal.shell.sidebarExpandLabel
               : portal.shell.sidebarCollapseLabel
           }
         >
-          {sidebarCollapsed ? (
-            <PanelLeftOpen className="size-4" aria-hidden />
-          ) : (
-            <PanelLeftClose className="size-4" aria-hidden />
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={onSidebarToggle}
+            className="hidden size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
+            aria-label={
+              sidebarCollapsed
+                ? portal.shell.sidebarExpandLabel
+                : portal.shell.sidebarCollapseLabel
+            }
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="size-4" aria-hidden />
+            ) : (
+              <PanelLeftClose className="size-4" aria-hidden />
+            )}
+          </button>
+        </PortalActionTooltip>
 
-        <button
-          type="button"
-          onClick={onMobileNavToggle}
-          className="flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
-          aria-expanded={mobileNavOpen}
-          aria-controls="mobile-nav"
-          aria-label={mobileNavOpen ? 'Cerrar menú' : 'Abrir menú'}
+        <PortalActionTooltip
+          content={
+            mobileNavOpen
+              ? portal.shell.mobileNavCloseLabel
+              : portal.shell.mobileNavOpenLabel
+          }
         >
-          {mobileNavOpen ? (
-            <X className="size-5" aria-hidden />
-          ) : (
-            <Menu className="size-5" aria-hidden />
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={onMobileNavToggle}
+            className="flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+            aria-expanded={mobileNavOpen}
+            aria-controls="mobile-nav"
+            aria-label={
+              mobileNavOpen
+                ? portal.shell.mobileNavCloseLabel
+                : portal.shell.mobileNavOpenLabel
+            }
+          >
+            {mobileNavOpen ? (
+              <X className="size-5" aria-hidden />
+            ) : (
+              <Menu className="size-5" aria-hidden />
+            )}
+          </button>
+        </PortalActionTooltip>
       </div>
 
       <div className="relative min-w-0 w-full max-w-md lg:max-w-lg">

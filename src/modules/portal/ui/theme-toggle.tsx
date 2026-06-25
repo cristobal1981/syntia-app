@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 
 const options = [
   { value: 'light', label: portal.shell.theme.light, icon: Sun },
@@ -45,23 +46,23 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         const isActive = theme === value
 
         return (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTheme(value)}
-            aria-pressed={isActive}
-            aria-label={label}
-            title={label}
-            className={cn(
-              'flex size-7 items-center justify-center rounded-[5px] transition-colors',
-              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-              isActive
-                ? 'bg-brisa text-agua shadow-sm dark:bg-input dark:text-primary'
-                : 'text-on-light-muted/50 hover:text-on-light-muted/75 dark:text-muted-foreground/50 dark:hover:text-muted-foreground'
-            )}
-          >
-            <Icon className="size-3.5 shrink-0" aria-hidden />
-          </button>
+          <PortalActionTooltip key={value} content={label}>
+            <button
+              type="button"
+              onClick={() => setTheme(value)}
+              aria-pressed={isActive}
+              aria-label={label}
+              className={cn(
+                'flex size-7 items-center justify-center rounded-[5px] transition-colors',
+                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                isActive
+                  ? 'bg-brisa text-agua shadow-sm dark:bg-input dark:text-primary'
+                  : 'text-on-light-muted/50 hover:text-on-light-muted/75 dark:text-muted-foreground/50 dark:hover:text-muted-foreground'
+              )}
+            >
+              <Icon className="size-3.5 shrink-0" aria-hidden />
+            </button>
+          </PortalActionTooltip>
         )
       })}
     </div>

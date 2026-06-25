@@ -16,9 +16,11 @@ import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
 import { NotificationNavigationOverlay } from '@/src/modules/portal/ui/notification-navigation-overlay'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { PortalTopBar } from '@/src/modules/portal/ui/portal-top-bar'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const SIDEBAR_STORAGE_KEY = 'syntia-sidebar-collapsed'
 const menuEase = [0.22, 1, 0.36, 1] as const
@@ -60,10 +62,9 @@ function NavLink({
   onNavigate?: () => void
   onNavStart?: (href: string) => void
 }) {
-  return (
+  const link = (
     <Link
       href={href}
-      title={collapsed ? label : undefined}
       onClick={() => {
         onNavStart?.(href)
         onNavigate?.()
@@ -85,6 +86,16 @@ function NavLink({
       {collapsed ? <span className="sr-only">{label}</span> : null}
     </Link>
   )
+
+  if (collapsed) {
+    return (
+      <PortalActionTooltip content={label} side="right">
+        {link}
+      </PortalActionTooltip>
+    )
+  }
+
+  return link
 }
 
 function NavGroup({
@@ -256,6 +267,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
 
   return (
     <PortalShortcutOverlayProvider>
+    <TooltipProvider>
     <ChatterNotificationsProvider enabled={user.role === 'client'}>
     <NotificationNavigationOverlay />
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
@@ -288,12 +300,19 @@ export function PortalShell({ user, children }: PortalShellProps) {
 
         <div className={cn('py-4', sidebarCollapsed ? 'px-2' : 'px-4')}>
           {sidebarCollapsed ? (
-            <div
-              className="mx-auto flex size-9 items-center justify-center rounded-full bg-sidebar-active text-xs font-semibold text-sidebar-active-foreground"
-              title={`${user.name} · ${roleLabel}`}
+            <PortalActionTooltip
+              content={`${user.name} · ${roleLabel}`}
+              side="right"
             >
-              {userInitial}
-            </div>
+              <span
+                tabIndex={0}
+                className="mx-auto flex size-9 cursor-default items-center justify-center rounded-full bg-sidebar-active text-xs font-semibold text-sidebar-active-foreground"
+                role="img"
+                aria-label={`${user.name} · ${roleLabel}`}
+              >
+                {userInitial}
+              </span>
+            </PortalActionTooltip>
           ) : (
             <>
               <p className="truncate text-sm font-medium text-sidebar-foreground">
@@ -387,6 +406,7 @@ export function PortalShell({ user, children }: PortalShellProps) {
       </div>
     </div>
     </ChatterNotificationsProvider>
+    </TooltipProvider>
     </PortalShortcutOverlayProvider>
   )
 }

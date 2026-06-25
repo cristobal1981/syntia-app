@@ -63,6 +63,8 @@ export const portal = {
     searchPlaceholder: 'Buscar…',
     sidebarExpandLabel: 'Mostrar menú',
     sidebarCollapseLabel: 'Ocultar menú',
+    mobileNavOpenLabel: 'Abrir menú',
+    mobileNavCloseLabel: 'Cerrar menú',
     theme: {
       label: 'Tema',
       light: 'Claro',

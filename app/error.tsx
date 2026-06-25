@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { ErrorScreen } from "@/components/errors/error-screen"
+import { TechErrorScreen } from "@/components/errors/tech-error-screen"
 import { errorPages } from "@/content/errors"
 
 export default function Error({
@@ -18,14 +18,15 @@ export default function Error({
   const page = errorPages[500]
 
   return (
-    <ErrorScreen
+    <TechErrorScreen
       code={page.code}
       title={page.title}
       description={page.description}
-      image={page.image}
-      imageAlt={page.imageAlt}
+      playHint={page.playHint}
       primaryHref={page.primaryHref}
       primaryLabel={page.primaryLabel}
+      retryLabel={page.retryLabel}
+      backdropVariant="overload"
       onRetry={reset}
     />
   )

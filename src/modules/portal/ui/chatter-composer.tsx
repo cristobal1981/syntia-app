@@ -23,8 +23,9 @@ import { Button } from '@/components/ui/button'
 import { portalChatter } from '@/content/portal-chatter'
 import { isChatterHtmlEmpty } from '@/src/modules/portal/domain/filter-portal-messages'
 import {
-  formatChatterShortcutHint,
+  formatChatterShortcut,
 } from '@/src/modules/portal/lib/chatter-shortcuts'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { cn } from '@/lib/utils'
 
 export type ChatterComposerHandle = {
@@ -57,22 +58,23 @@ function FormatToolbarButton({
   onClick,
   children,
 }: FormatToolbarButtonProps) {
-  const hint = formatChatterShortcutHint(label, shortcut)
+  const shortcutLabel = formatChatterShortcut(shortcut)
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="size-8 shrink-0"
-      disabled={disabled}
-      aria-label={hint}
-      aria-pressed={active}
-      title={hint}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
+    <PortalActionTooltip content={shortcutLabel} disabled={disabled}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8 shrink-0"
+        disabled={disabled}
+        aria-label={label}
+        aria-pressed={active}
+        onClick={onClick}
+      >
+        {children}
+      </Button>
+    </PortalActionTooltip>
   )
 }
 

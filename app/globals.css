@@ -402,6 +402,105 @@
   .login-tech-dim {
     background: rgba(3, 12, 15, 0.34);
   }
+  .dvd-bounce-mark {
+    width: 56px;
+    height: 56px;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+    contain: layout style paint;
+  }
+  .error-tech-surface {
+    background: radial-gradient(
+      ellipse 90% 70% at 50% 42%,
+      #072f38 0%,
+      #06252c 55%,
+      #051f27 100%
+    );
+  }
+  .error-tech-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(56px);
+    opacity: 0.92;
+  }
+  .error-tech-blob-a {
+    top: 4%;
+    left: -8%;
+    width: min(58vw, 480px);
+    height: min(58vw, 480px);
+    background: rgba(1, 99, 92, 0.42);
+    animation: error-blob-drift-a 26s ease-in-out infinite;
+  }
+  .error-tech-blob-b {
+    top: 38%;
+    right: -12%;
+    width: min(50vw, 400px);
+    height: min(50vw, 400px);
+    background: rgba(1, 222, 162, 0.28);
+    animation: error-blob-drift-b 32s ease-in-out infinite;
+  }
+  .error-tech-blob-c {
+    bottom: -10%;
+    left: 22%;
+    width: min(52vw, 440px);
+    height: min(40vw, 320px);
+    background: rgba(43, 192, 169, 0.32);
+    filter: blur(64px);
+    animation: error-blob-drift-c 38s ease-in-out infinite;
+  }
+  .error-tech-glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(72px);
+    opacity: 0.85;
+  }
+  .error-tech-glow-a {
+    top: 22%;
+    right: -4%;
+    width: min(72vw, 300px);
+    height: min(72vw, 300px);
+    background: rgba(1, 222, 162, 0.18);
+    animation: error-blob-drift-b 24s ease-in-out infinite;
+  }
+  .error-tech-glow-b {
+    bottom: 8%;
+    left: -10%;
+    width: min(68vw, 280px);
+    height: min(68vw, 280px);
+    background: rgba(1, 99, 92, 0.24);
+    animation: error-blob-drift-a 30s ease-in-out infinite;
+  }
+}
+
+@keyframes error-blob-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, 8%, 0) scale(1.06);
+  }
+}
+
+@keyframes error-blob-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-7%, -5%, 0) scale(1.08);
+  }
+}
+
+@keyframes error-blob-drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(5%, -6%, 0) scale(1.04);
+  }
 }
 
 @keyframes login-grid-drift {
@@ -428,7 +527,12 @@
     scroll-behavior: auto;
   }
   .login-tech-grid,
-  .login-tech-scan {
+  .login-tech-scan,
+  .error-tech-blob-a,
+  .error-tech-blob-b,
+  .error-tech-blob-c,
+  .error-tech-glow-a,
+  .error-tech-glow-b {
     animation: none;
   }
 }
