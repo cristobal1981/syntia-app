@@ -16,7 +16,7 @@ import {
   listRecordMessagesAction,
   postRecordMessageAction,
 } from '@/src/modules/portal/application/portal-chatter-actions'
-import { prepareChatterHtmlForDisplay } from '@/src/modules/portal/domain/filter-portal-messages'
+import { prepareChatterHtmlForDisplay } from '@/src/modules/portal/ui/sanitize-chatter-html.client'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
