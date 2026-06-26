@@ -15,7 +15,7 @@ export function ClientHomeEducationCard() {
     <Button
       type="button"
       className="shrink-0"
-      onClick={createConsulta.openCreateConsulta}
+      onClick={() => createConsulta.openCreateConsulta()}
     >
       <TicketPlus className="size-4" aria-hidden />
       {copy.educationAction}

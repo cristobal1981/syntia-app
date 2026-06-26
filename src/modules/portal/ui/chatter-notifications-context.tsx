@@ -19,6 +19,7 @@ import {
 import type {
   ChatterReadStateMap,
   ChatterUnreadNotification,
+  PortalNotificationReason,
   TramiteListKindParam,
 } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
@@ -41,7 +42,11 @@ type ChatterNotificationsContextValue = {
   unread: ChatterUnreadNotification[]
   unreadCount: number
   pendingNavigation: ChatterPendingNavigation | null
-  isUnread: (recordKind: PortalRecordKind, recordId: number) => boolean
+  hasUnreadChatter: (recordKind: PortalRecordKind, recordId: number) => boolean
+  dismissNewTramiteNotification: (
+    recordKind: PortalRecordKind,
+    recordId: number
+  ) => void
   markConversationSeen: (
     recordKind: PortalRecordKind,
     recordId: number,
@@ -50,6 +55,28 @@ type ChatterNotificationsContextValue = {
   openNotification: (notification: ChatterUnreadNotification) => void
   clearPendingNavigation: () => void
   refreshNotifications: () => Promise<void>
+}
+
+function matchesNotificationRecord(
+  item: ChatterUnreadNotification,
+  recordKind: PortalRecordKind,
+  recordId: number
+): boolean {
+  return item.recordKind === recordKind && item.recordId === recordId
+}
+
+function removeNotificationsByRecord(
+  items: ChatterUnreadNotification[],
+  recordKind: PortalRecordKind,
+  recordId: number,
+  reason?: PortalNotificationReason
+): ChatterUnreadNotification[] {
+  const next = items.filter((item) => {
+    if (!matchesNotificationRecord(item, recordKind, recordId)) return true
+    if (!reason) return false
+    return item.reason !== reason
+  })
+  return next.length === items.length ? items : next
 }
 
 const ChatterNotificationsContext =
@@ -153,6 +180,15 @@ export function ChatterNotificationsProvider({
     }
   }, [enabled, refreshNotifications])
 
+  const dismissNewTramiteNotification = useCallback(
+    (recordKind: PortalRecordKind, recordId: number) => {
+      setUnread((items) =>
+        removeNotificationsByRecord(items, recordKind, recordId, 'new_tramite')
+      )
+    },
+    []
+  )
+
   const markConversationSeen = useCallback(
     async (
       recordKind: PortalRecordKind,
@@ -163,7 +199,9 @@ export function ChatterNotificationsProvider({
 
       const key = chatterReadStateKey(recordKind, recordId)
       const matchingUnread = unreadRef.current.find(
-        (item) => item.recordKind === recordKind && item.recordId === recordId
+        (item) =>
+          item.reason === 'unread_chatter' &&
+          matchesNotificationRecord(item, recordKind, recordId)
       )
       const effectiveLastSeen = Math.max(
         lastSeenMessageId,
@@ -172,16 +210,9 @@ export function ChatterNotificationsProvider({
 
       const current = readStateRef.current[key] ?? 0
       if (effectiveLastSeen <= current) {
-        setUnread((items) => {
-          const hasUnread = items.some(
-            (item) => item.recordKind === recordKind && item.recordId === recordId
-          )
-          if (!hasUnread) return items
-          return items.filter(
-            (item) =>
-              !(item.recordKind === recordKind && item.recordId === recordId)
-          )
-        })
+        setUnread((items) =>
+          removeNotificationsByRecord(items, recordKind, recordId, 'unread_chatter')
+        )
         return
       }
 
@@ -189,16 +220,9 @@ export function ChatterNotificationsProvider({
       markingRef.current.add(key)
 
       queueMicrotask(() => {
-        setUnread((items) => {
-          const hasUnread = items.some(
-            (item) => item.recordKind === recordKind && item.recordId === recordId
-          )
-          if (!hasUnread) return items
-          return items.filter(
-            (item) =>
-              !(item.recordKind === recordKind && item.recordId === recordId)
-          )
-        })
+        setUnread((items) =>
+          removeNotificationsByRecord(items, recordKind, recordId, 'unread_chatter')
+        )
       })
 
       applyReadState({ [key]: effectiveLastSeen })
@@ -236,6 +260,13 @@ export function ChatterNotificationsProvider({
 
   const openNotification = useCallback(
     (notification: ChatterUnreadNotification) => {
+      if (notification.reason === 'new_tramite') {
+        dismissNewTramiteNotification(
+          notification.recordKind,
+          notification.recordId
+        )
+      }
+
       setPendingNavigation({
         listKind: notification.listKind,
         recordId: notification.recordId,
@@ -248,13 +279,15 @@ export function ChatterNotificationsProvider({
       )
       router.push(`/tramites?open=${encodeURIComponent(openParam)}&tab=conversation`)
     },
-    [router]
+    [dismissNewTramiteNotification, router]
   )
 
-  const isUnread = useCallback(
+  const hasUnreadChatter = useCallback(
     (recordKind: PortalRecordKind, recordId: number) =>
       unread.some(
-        (item) => item.recordKind === recordKind && item.recordId === recordId
+        (item) =>
+          item.reason === 'unread_chatter' &&
+          matchesNotificationRecord(item, recordKind, recordId)
       ),
     [unread]
   )
@@ -264,7 +297,8 @@ export function ChatterNotificationsProvider({
       unread,
       unreadCount: unread.length,
       pendingNavigation,
-      isUnread,
+      hasUnreadChatter,
+      dismissNewTramiteNotification,
       markConversationSeen,
       openNotification,
       clearPendingNavigation,
@@ -273,7 +307,8 @@ export function ChatterNotificationsProvider({
     [
       unread,
       pendingNavigation,
-      isUnread,
+      hasUnreadChatter,
+      dismissNewTramiteNotification,
       markConversationSeen,
       openNotification,
       clearPendingNavigation,

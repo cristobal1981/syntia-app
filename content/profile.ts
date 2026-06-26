@@ -1,7 +1,7 @@
 export const profile = {
   pageTitle: 'Perfil',
   pageDescription:
-    'Consulta tus datos de contacto y fiscales. Los cambios se solicitan a tu gestor y no se aplican al instante.',
+    'Consulta tus datos de contacto y fiscales. Los cambios se solicitan a tu asesor y no se aplican al instante.',
   requestModeHint:
     'Modifica solo los datos que necesites. Enviaremos únicamente los campos que hayan cambiado.',
   sections: {
@@ -56,16 +56,16 @@ export const profile = {
   emptyPhone: 'No indicado',
   emptyValue: 'No indicado',
   successToast:
-    'Solicitud enviada. Tu gestoría revisará los cambios y actualizará tu ficha.',
+    'Solicitud enviada. Tu asesoría revisará los cambios y actualizará tu ficha.',
   successTitle: '¡Todo listo por aquí!',
   successMessage:
-    'Tu gestor ya está revisando tu perfil. Te avisaremos en cuanto esté todo actualizado.',
+    'Tu asesor ya está revisando tu perfil. Te avisaremos en cuanto esté todo actualizado.',
   successDismiss: 'Estupendo',
   states: {
     notLinked: {
       title: 'Cuenta sin vincular',
       description:
-        'Tu perfil aún no está vinculado con Odoo. Contacta con tu gestor para activar tus datos en el portal.',
+        'Tu perfil aún no está vinculado con Odoo. Contacta con tu asesor para activar tus datos en el portal.',
     },
     odooUnavailable: {
       title: 'No pudimos cargar tu perfil',
@@ -77,11 +77,11 @@ export const profile = {
     unauthorized: 'Debes iniciar sesión para solicitar cambios.',
     forbidden: 'Esta sección solo está disponible para clientes.',
     not_linked:
-      'Tu cuenta no está vinculada con Odoo. Contacta con tu gestor para activar tus datos.',
+      'Tu cuenta no está vinculada con Odoo. Contacta con tu asesor para activar tus datos.',
     odoo_unavailable:
       'No pudimos consultar tu perfil en este momento. Inténtalo de nuevo en unos minutos.',
     create_failed:
-      'No pudimos registrar tu solicitud en Odoo. Inténtalo de nuevo o contacta con tu gestor.',
+      'No pudimos registrar tu solicitud en Odoo. Inténtalo de nuevo o contacta con tu asesor.',
     no_changes: 'No has modificado ningún dato. Cambia al menos un campo antes de enviar.',
     name: 'El nombre es obligatorio.',
     unknown: 'No pudimos enviar la solicitud. Inténtalo de nuevo.',

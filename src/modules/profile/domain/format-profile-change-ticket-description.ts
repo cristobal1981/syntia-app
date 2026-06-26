@@ -23,7 +23,7 @@ function formatRequestedAt(isoDate: string): string {
   }).format(date)
 }
 
-/** Resumen en helpdesk.ticket.description para el gestor (vistazo rápido). */
+/** Resumen en helpdesk.ticket.description para el asesor (vistazo rápido). */
 export function formatProfileChangeTicketOdooDescription(
   lineItems: ProfileChangeLineItem[]
 ): string {

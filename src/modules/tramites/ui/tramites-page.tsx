@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
 
 import { getTramitesForClient } from '@/src/modules/tramites/application/get-tramites-for-client'
+import { getTramitesListSeenStateForUser } from '@/src/modules/tramites/application/get-tramites-list-seen-state'
+import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import {
   TramitesPageView,
@@ -13,7 +15,13 @@ type TramitesPageProps = {
 }
 
 export async function TramitesPage({ user }: TramitesPageProps) {
-  const result = await getTramitesForClient(user)
+  const actorId = await resolveDirectoryActorId(user)
+  const [tramitesResult, seenState] = await Promise.all([
+    getTramitesForClient(user),
+    getTramitesListSeenStateForUser(actorId),
+  ])
+
+  const result = tramitesResult
 
   if (!result.ok) {
     const stateCopy = tramites.states
@@ -44,7 +52,7 @@ export async function TramitesPage({ user }: TramitesPageProps) {
 
   return (
     <Suspense fallback={null}>
-      <TramitesPageView data={result.data} />
+      <TramitesPageView data={result.data} seenState={seenState} />
     </Suspense>
   )
 }

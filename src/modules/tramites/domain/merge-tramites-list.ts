@@ -1,4 +1,5 @@
 import type { TramiteTask, TramiteTicket } from '@/src/modules/tramites/domain/types'
+import { compareTramiteModifiedAtDesc } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 
 export type TramiteListKind = 'tramite' | 'consulta'
 
@@ -9,6 +10,7 @@ export type TramiteListItem = {
   state?: string
   isClosed: boolean
   attachmentCount: number
+  modifiedAt: string
 }
 
 export function mergeTramitesList(
@@ -22,6 +24,7 @@ export function mergeTramitesList(
     state: task.state,
     isClosed: task.isClosed,
     attachmentCount: task.attachmentCount,
+    modifiedAt: task.modifiedAt,
   }))
 
   const ticketItems: TramiteListItem[] = tickets.map((ticket) => ({
@@ -30,9 +33,12 @@ export function mergeTramitesList(
     kind: 'consulta',
     isClosed: ticket.isClosed,
     attachmentCount: ticket.attachmentCount,
+    modifiedAt: ticket.modifiedAt,
   }))
 
-  return [...taskItems, ...ticketItems]
+  return [...taskItems, ...ticketItems].sort((a, b) =>
+    compareTramiteModifiedAtDesc(a.modifiedAt, b.modifiedAt)
+  )
 }
 
 export function getTramiteListRecordKind(
@@ -41,6 +47,13 @@ export function getTramiteListRecordKind(
   return item.kind === 'tramite' ? 'task' : 'ticket'
 }
 
+export function formatTramiteListItemKey(
+  kind: TramiteListKind,
+  id: number
+): string {
+  return `${kind}-${id}`
+}
+
 export function getTramiteListItemKey(item: TramiteListItem): string {
-  return `${item.kind}-${item.id}`
+  return formatTramiteListItemKey(item.kind, item.id)
 }

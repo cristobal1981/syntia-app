@@ -5,6 +5,7 @@ export type TramiteTask = {
   stateLabel?: string
   attachmentCount: number
   isClosed: boolean
+  modifiedAt: string
 }
 
 export type TramiteTicket = {
@@ -12,6 +13,7 @@ export type TramiteTicket = {
   name: string
   attachmentCount: number
   isClosed: boolean
+  modifiedAt: string
 }
 
 export type TramitesSnapshot = {

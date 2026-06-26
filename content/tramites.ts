@@ -10,11 +10,12 @@ export const tramites = {
     drawer: {
       title: 'Nueva consulta',
       description:
-        'Describe tu duda o problema. Tu gestoría la recibirá como consulta de soporte.',
+        'Describe tu duda o problema. Tu asesoría la recibirá como consulta de soporte.',
       subjectLabel: 'Asunto',
       subjectPlaceholder: 'Ej. Duda sobre el modelo 303…',
       bodyLabel: 'Descripción',
       submit: 'Crear consulta',
+      successToast: 'Consulta creada. Tu asesoría te responderá en el trámite.',
       cancel: 'Cancelar',
       unsavedTitle: '¿Descartar cambios?',
       unsavedDescription:
@@ -76,6 +77,7 @@ export const tramites = {
       actions: 'Detalle',
     },
     viewItem: 'Ver trámite',
+    newItemBadge: 'Nuevo',
     downloadZip: 'Descargar todo',
     types: {
       tramite: 'Trámite',
@@ -97,7 +99,7 @@ export const tramites = {
     notLinked: {
       title: 'Cuenta sin vincular',
       description:
-        'Tu perfil aún no está vinculado con Odoo. Contacta con tu gestor para activar tus trámites en el portal.',
+        'Tu perfil aún no está vinculado con Odoo. Contacta con tu asesor para activar tus trámites en el portal.',
     },
     odooUnavailable: {
       title: 'No pudimos cargar tus trámites',

@@ -112,6 +112,7 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
           heading: false,
           horizontalRule: false,
           strike: false,
+          underline: false,
         }),
         Underline,
         Placeholder.configure({

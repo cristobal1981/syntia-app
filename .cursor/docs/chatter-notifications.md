@@ -52,6 +52,7 @@ create index chatter_read_state_user_id_idx on public.chatter_read_state(user_id
 - Acceso Supabase solo con `createSupabaseAdminClient()` en server actions.
 - Verificación de ownership vía `verifyRecordBelongsToPartner` al marcar leído.
 - El navegador no recibe `odoo_partner_id`.
+- **RLS:** `enable row level security` + `revoke` a `anon`/`authenticated`. Sin políticas → deny-by-default para JWT; `service_role` sin cambios. Script: [`supabase/rls-portal-state-tables.sql`](../../supabase/rls-portal-state-tables.sql).
 
 ## Archivos clave
 

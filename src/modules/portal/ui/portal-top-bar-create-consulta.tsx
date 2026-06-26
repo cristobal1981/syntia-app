@@ -13,7 +13,7 @@ export function PortalTopBarCreateConsulta() {
   return (
     <TramiteCreateConsultaButton
       compact
-      onOpen={createConsulta.openCreateConsulta}
+      onOpen={() => createConsulta.openCreateConsulta()}
       disabled={createConsulta.isOpen}
     />
   )

@@ -337,7 +337,7 @@ export async function deleteGestorAction(
         ok: false,
         error: 'unknown',
         message:
-          'Se eliminó el gestor del portal, pero no pudimos borrar su cuenta de acceso. Contacta con soporte.',
+          'Se eliminó el asesor del portal, pero no pudimos borrar su cuenta de acceso. Contacta con soporte.',
       }
     }
     return {

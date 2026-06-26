@@ -4,6 +4,7 @@ import type {
   TramitesSnapshot,
 } from '@/src/modules/tramites/domain/types'
 import { isTaskClosed, mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
+import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 import { collectObligacionTaskIds } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
 import {
   getOdooTicketsModel,
@@ -31,12 +32,15 @@ type OdooTaskRow = {
   id: number
   name: string
   state?: string | false | null
+  write_date?: string | false | null
 }
 
 type OdooTicketRow = {
   id: number
   name: string
   close_date?: string | false | null
+  write_date?: string | false | null
+  create_date?: string | false | null
   [key: string]: unknown
 }
 
@@ -54,7 +58,14 @@ function mapTask(
     stateLabel: mapTaskStateLabel(state),
     attachmentCount: attachmentCounts.get(row.id) ?? 0,
     isClosed: isTaskClosed(state),
+    modifiedAt: parseOdooDateTime(row.write_date),
   }
+}
+
+function ticketModifiedAt(row: OdooTicketRow): string {
+  return (
+    parseOdooDateTime(row.write_date) || parseOdooDateTime(row.create_date)
+  )
 }
 
 function mapTicket(
@@ -73,6 +84,7 @@ function mapTicket(
     name: row.name,
     attachmentCount: attachmentCounts.get(row.id) ?? 0,
     isClosed,
+    modifiedAt: ticketModifiedAt(row),
   }
 }
 
@@ -107,7 +119,7 @@ async function listProjectTaskRows(
 
   const rows = await odooSearchRead<OdooTaskRow>('project.task', {
     domain,
-    fields: ['name', 'state'],
+    fields: ['name', 'state', 'write_date'],
     order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })
@@ -138,8 +150,8 @@ async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]
   const closedField = getTicketClosedField()
   return odooSearchRead<OdooTicketRow>(model, {
     domain: [['partner_id', '=', partnerId]],
-    fields: ['name', closedField],
-    order: 'create_date desc, id desc',
+    fields: ['name', closedField, 'write_date', 'create_date'],
+    order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })
 }

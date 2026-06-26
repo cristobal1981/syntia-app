@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MessageCircleWarning } from 'lucide-react'
+import { Flame, MessageCircleWarning } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -22,12 +22,17 @@ import {
   type TramitesListFilters,
 } from '@/src/modules/tramites/domain/filter-tramites'
 import {
+  formatTramiteListItemKey,
   getTramiteListItemKey,
   getTramiteListRecordKind,
   mergeTramitesList,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { parseTramiteOpenParam } from '@/src/modules/portal/domain/chatter-notifications-types'
+import {
+  isTramiteListItemNew,
+  type TramitesListSeenState,
+} from '@/src/modules/tramites/domain/tramites-list-seen-state'
 import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
 import { PORTAL_LIST_PAGE_SIZE } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
@@ -37,9 +42,11 @@ import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 import { TramitesFiltersToolbar } from '@/src/modules/tramites/ui/tramites-filters-toolbar'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { useTramitesListNewKeys } from '@/src/modules/tramites/ui/use-tramites-list-new-keys'
 
 type TramitesListSectionProps = {
   items: TramiteListItem[]
+  newItemKeys: readonly string[]
   tagFilterActive: boolean
   filteredEmpty: boolean
   selectedItem: TramiteListItem | null
@@ -49,6 +56,7 @@ type TramitesListSectionProps = {
 
 function TramitesListSection({
   items,
+  newItemKeys,
   tagFilterActive,
   filteredEmpty,
   selectedItem,
@@ -58,6 +66,7 @@ function TramitesListSection({
   const copy = tramites.list
   const notifications = useChatterNotificationsOptional()
   const unreadLabel = portal.notifications.unreadBadge
+  const newItemLabel = copy.newItemBadge
   const [page, setPage] = useState(1)
   const paginationId = 'tramites-pagination-label'
 
@@ -74,10 +83,27 @@ function TramitesListSection({
         render: (item: TramiteListItem) => {
           const recordKind = getTramiteListRecordKind(item)
           const hasUnread =
-            notifications?.isUnread(recordKind, item.id) ?? false
+            notifications?.hasUnreadChatter(recordKind, item.id) ?? false
+          const isNew = isTramiteListItemNew(item, newItemKeys)
 
           return (
             <div className="flex min-w-0 items-start gap-2">
+              {isNew ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="mt-0.5 flex shrink-0 items-center justify-center"
+                      aria-label={newItemLabel}
+                    >
+                      <Flame
+                        className="size-4 shrink-0 text-primary"
+                        aria-hidden
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">{newItemLabel}</TooltipContent>
+                </Tooltip>
+              ) : null}
               {hasUnread ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -142,7 +168,7 @@ function TramitesListSection({
         ),
       },
     ],
-    [copy, notifications, onSelectedItemChange, unreadLabel]
+    [copy, newItemKeys, newItemLabel, notifications, onSelectedItemChange, unreadLabel]
   )
 
   if (!items.length) {
@@ -208,9 +234,10 @@ function TramitesListSection({
 
 type TramitesPageViewProps = {
   data: TramitesSnapshot
+  seenState: TramitesListSeenState | null
 }
 
-export function TramitesPageView({ data }: TramitesPageViewProps) {
+export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const notifications = useChatterNotificationsOptional()
@@ -235,9 +262,50 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
     [data.tasks, data.tickets]
   )
 
+  const { newItemKeys, markItemSeen: markItemSeenBase } = useTramitesListNewKeys(
+    allItems,
+    seenState
+  )
+
+  const notificationNewKeys = useMemo(
+    () =>
+      (notifications?.unread ?? [])
+        .filter((item) => item.reason === 'new_tramite')
+        .map((item) => formatTramiteListItemKey(item.listKind, item.recordId)),
+    [notifications?.unread]
+  )
+
+  const displayNewItemKeys = useMemo(
+    () => [...new Set([...newItemKeys, ...notificationNewKeys])],
+    [newItemKeys, notificationNewKeys]
+  )
+
+  const dismissNewTramiteNotification =
+    notifications?.dismissNewTramiteNotification
+  const refreshNotifications = notifications?.refreshNotifications
+  const clearPendingNavigation = notifications?.clearPendingNavigation
+
+  const markItemSeen = useCallback(
+    (item: TramiteListItem) => {
+      markItemSeenBase(item)
+      if (item.kind === 'tramite') {
+        dismissNewTramiteNotification?.('task', item.id)
+      }
+      void refreshNotifications?.()
+    },
+    [dismissNewTramiteNotification, markItemSeenBase, refreshNotifications]
+  )
+
+  const handledOpenParamRef = useRef<string | null>(null)
+
   useEffect(() => {
     const openParam = searchParams.get('open')
-    if (!openParam) return
+    if (!openParam) {
+      handledOpenParamRef.current = null
+      return
+    }
+
+    if (handledOpenParamRef.current === openParam) return
 
     const parsed = parseTramiteOpenParam(openParam)
     if (!parsed) return
@@ -248,18 +316,27 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
       (entry) => entry.kind === kind && entry.id === recordId
     )
     if (!item) {
-      notifications?.clearPendingNavigation()
+      clearPendingNavigation?.()
       return
     }
 
+    handledOpenParamRef.current = openParam
     const tabParam = searchParams.get('tab')
     setDrawerInitialTab(tabParam === 'documents' ? 'documents' : 'conversation')
+    markItemSeen(item)
     setSelectedItem(item)
     router.replace('/tramites', { scroll: false })
-  }, [allItems, notifications, router, searchParams])
+  }, [
+    allItems,
+    clearPendingNavigation,
+    markItemSeen,
+    router,
+    searchParams,
+  ])
 
   const handleSelectItem = (item: TramiteListItem | null) => {
     if (item) {
+      markItemSeen(item)
       setDrawerInitialTab('conversation')
     }
     setSelectedItem(item)
@@ -295,6 +372,7 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
 
       <TramitesListSection
         items={filteredItems}
+        newItemKeys={displayNewItemKeys}
         tagFilterActive={data.tagFilterActive}
         filteredEmpty={filtersActive && filteredItems.length === 0}
         selectedItem={selectedItem}

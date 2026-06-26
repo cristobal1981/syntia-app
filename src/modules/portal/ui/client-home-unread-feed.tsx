@@ -4,6 +4,7 @@ import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
 
 function formatNotificationDate(value: string): string {
   const date = new Date(value)
@@ -48,26 +49,21 @@ export function ClientHomeUnreadFeed() {
         <div className="portal-home-card overflow-hidden rounded-xl">
           <ul className="divide-y divide-border">
             {unread.map((item) => (
-              <li key={`${item.listKind}-${item.recordId}`}>
+              <li key={`${item.reason}-${item.listKind}-${item.recordId}`}>
                 <button
                   type="button"
-                  className="flex w-full flex-col gap-1 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                  className="flex w-full flex-col gap-1.5 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                   onClick={() => notifications?.openNotification(item)}
                 >
                   <span className="line-clamp-2 text-sm font-medium text-foreground">
                     {item.name}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.listKind === 'consulta'
-                      ? portal.notifications.typeConsulta
-                      : portal.notifications.typeTramite}
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <PortalNotificationItemMeta item={item} />
                     {item.latestDate ? (
-                      <>
-                        <span aria-hidden> · </span>
-                        <time dateTime={item.latestDate}>
-                          {formatNotificationDate(item.latestDate)}
-                        </time>
-                      </>
+                      <time dateTime={item.latestDate}>
+                        {formatNotificationDate(item.latestDate)}
+                      </time>
                     ) : null}
                   </span>
                 </button>

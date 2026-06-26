@@ -2,12 +2,15 @@ import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record
 
 export type TramiteListKindParam = 'tramite' | 'consulta'
 
+export type PortalNotificationReason = 'unread_chatter' | 'new_tramite'
+
 export type ChatterUnreadNotification = {
   recordKind: PortalRecordKind
   recordId: number
   name: string
   listKind: TramiteListKindParam
-  latestMessageId: number
+  reason: PortalNotificationReason
+  latestMessageId?: number
   latestDate: string
 }
 

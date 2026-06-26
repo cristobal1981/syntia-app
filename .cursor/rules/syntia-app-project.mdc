@@ -14,7 +14,8 @@ alwaysApply: true
 ## Contenido y copy
 
 - Textos del sitio en `content/site.ts` (y archivos de contenido dedicados por feature).
-- Tono: cercano, profesional, sin jerga de gestoría tradicional (ver manual de marca en `.cursor/rules.md`).
+- Tono: cercano, profesional, sin jerga de asesoría tradicional (ver manual de marca en `.cursor/rules.md`).
+- En copy de usuario: entidad = **asesoría** (nunca «gestoría»); persona = **asesor** (nunca «gestor»).
 
 ## Funcionalidad no lista
 

@@ -9,14 +9,24 @@ import {
 } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
-import { openParamFromListKind } from '@/src/modules/portal/domain/chatter-notifications-types'
 import { PORTAL_CREATE_CONSULTA_SHORTCUT } from '@/src/modules/portal/domain/portal-shortcuts'
-import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { acknowledgeTramiteListItemSeenAction } from '@/src/modules/tramites/application/tramites-list-seen-actions'
+import {
+  formatTramiteListItemKey,
+  type TramiteListItem,
+} from '@/src/modules/tramites/domain/merge-tramites-list'
+import { dispatchTramitesListItemSeen } from '@/src/modules/tramites/domain/tramites-list-seen-events'
+import type { ProcedureTicketType } from '@/src/modules/tramites/domain/procedure-ticket-types'
 import { TramiteCreateConsultaDrawer } from '@/src/modules/tramites/ui/tramite-create-consulta-drawer'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
+export type OpenCreateConsultaOptions = {
+  procedure?: ProcedureTicketType
+}
+
 type PortalCreateConsultaContextValue = {
-  openCreateConsulta: () => void
+  openCreateConsulta: (options?: OpenCreateConsultaOptions) => void
   isOpen: boolean
   isAvailable: boolean
 }
@@ -49,24 +59,46 @@ export function PortalCreateConsultaProvider({
 }: PortalCreateConsultaProviderProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const notifications = useChatterNotificationsOptional()
   const [open, setOpen] = useState(false)
+  const [initialProcedure, setInitialProcedure] =
+    useState<ProcedureTicketType | null>(null)
 
   const isProfileRoute = pathname === '/perfil' || pathname.startsWith('/perfil/')
   const isAvailable = enabled && !isProfileRoute
 
-  const openCreateConsulta = useCallback(() => {
-    if (!isAvailable) return
-    setOpen(true)
-  }, [isAvailable])
+  const openCreateConsulta = useCallback(
+    (options?: OpenCreateConsultaOptions) => {
+      if (!isAvailable) return
+      setInitialProcedure(options?.procedure ?? null)
+      setOpen(true)
+    },
+    [isAvailable]
+  )
 
-  usePortalShortcut(PORTAL_CREATE_CONSULTA_SHORTCUT, openCreateConsulta, {
-    enabled: isAvailable && !open,
-  })
+  usePortalShortcut(
+    PORTAL_CREATE_CONSULTA_SHORTCUT,
+    () => openCreateConsulta(),
+    {
+      enabled: isAvailable && !open,
+    }
+  )
 
   const handleCreated = (item: TramiteListItem) => {
+    const itemKey = formatTramiteListItemKey(item.kind, item.id)
+    void acknowledgeTramiteListItemSeenAction(itemKey)
+    dispatchTramitesListItemSeen(itemKey)
     setOpen(false)
-    router.push(`/tramites?open=${openParamFromListKind('consulta', item.id)}`)
+    setInitialProcedure(null)
     router.refresh()
+    void notifications?.refreshNotifications()
+  }
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
+      setInitialProcedure(null)
+    }
   }
 
   return (
@@ -77,8 +109,9 @@ export function PortalCreateConsultaProvider({
       {enabled ? (
         <TramiteCreateConsultaDrawer
           open={open}
-          onOpenChange={setOpen}
+          onOpenChange={handleOpenChange}
           onCreated={handleCreated}
+          initialProcedure={initialProcedure}
         />
       ) : null}
     </PortalCreateConsultaContext.Provider>

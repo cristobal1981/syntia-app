@@ -7,10 +7,10 @@ export const obligaciones = {
   yearFallbackLabel: 'Ejercicio fiscal',
   periodEmptyTitle: 'Sin modelos en este periodo',
   periodEmptyDescription:
-    'Aún no hay modelos registrados para este periodo. Tu gestor los irá añadiendo según el calendario fiscal.',
+    'Aún no hay modelos registrados para este periodo. Tu asesor los irá añadiendo según el calendario fiscal.',
   emptyTitle: 'Sin obligaciones registradas',
   emptyDescription:
-    'Todavía no hay obligaciones fiscales visibles en tu cuenta. Si acabas de incorporarte, tu gestor las activará pronto.',
+    'Todavía no hay obligaciones fiscales visibles en tu cuenta. Si acabas de incorporarte, tu asesor las activará pronto.',
   columns: {
     period: 'Periodo',
     name: 'Modelo',
@@ -46,7 +46,7 @@ export const obligaciones = {
     notLinked: {
       title: 'Cuenta sin vincular',
       description:
-        'Tu perfil aún no está vinculado con Odoo. Contacta con tu gestor para activar tus obligaciones en el portal.',
+        'Tu perfil aún no está vinculado con Odoo. Contacta con tu asesor para activar tus obligaciones en el portal.',
     },
     odooUnavailable: {
       title: 'No pudimos cargar tus obligaciones',

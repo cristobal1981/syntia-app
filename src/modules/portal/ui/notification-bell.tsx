@@ -7,6 +7,7 @@ import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
 
 type NotificationBellProps = {
   className?: string
@@ -73,11 +74,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           type="button"
           onClick={() => setOpen((value) => !value)}
           className="relative flex size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9"
-          aria-label={
-            unreadCount > 0
-              ? `${copy.label}: ${unreadCount} ${copy.unreadBadge.toLowerCase()}`
-              : copy.label
-          }
+          aria-label={unreadCount > 0 ? `${copy.label}: ${tooltipContent}` : copy.label}
           aria-expanded={open}
           aria-haspopup="true"
         >
@@ -111,10 +108,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {unread.map((item) => (
-                <li key={`${item.listKind}-${item.recordId}`}>
+                <li key={`${item.reason}-${item.listKind}-${item.recordId}`}>
                   <button
                     type="button"
-                    className="flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                    className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                     onClick={() => {
                       setOpen(false)
                       openNotification(item)
@@ -123,19 +120,12 @@ export function NotificationBell({ className }: NotificationBellProps) {
                     <span className="line-clamp-2 text-sm font-medium text-foreground">
                       {item.name}
                     </span>
-                    <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>
-                        {item.listKind === 'consulta'
-                          ? copy.typeConsulta
-                          : copy.typeTramite}
-                      </span>
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <PortalNotificationItemMeta item={item} />
                       {item.latestDate ? (
-                        <>
-                          <span aria-hidden>·</span>
-                          <time dateTime={item.latestDate}>
-                            {formatNotificationDate(item.latestDate)}
-                          </time>
-                        </>
+                        <time dateTime={item.latestDate}>
+                          {formatNotificationDate(item.latestDate)}
+                        </time>
                       ) : null}
                     </span>
                   </button>

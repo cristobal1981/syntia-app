@@ -119,13 +119,16 @@ export const portal = {
   notifications: {
     label: 'Notificaciones',
     emptyTitle: 'Sin novedades',
-    emptyDescription: 'Cuando tu gestoría te escriba en un trámite, lo verás aquí.',
+    emptyDescription:
+      'Cuando tu asesoría te escriba o se abra un trámite nuevo, lo verás aquí.',
     openConversation: 'Ver conversación',
     openingConversation: 'Abriendo conversación…',
     unreadBadge: 'Mensajes sin leer',
-    tooltipUnread: '{count} mensajes sin leer',
+    tooltipUnread: '{count} novedades',
     typeTramite: 'Trámite',
     typeConsulta: 'Consulta',
+    typeNewTramite: 'Nuevo trámite',
+    typeUnreadMessage: 'Mensaje sin leer',
   },
   confirm: {
     cancel: 'Cancelar',
@@ -147,7 +150,7 @@ export const portal = {
     },
   },
   roles: {
-    advisor: 'Gestor Syntia',
+    advisor: 'Asesor Syntia',
     admin: 'Administrador',
     client: 'Cliente',
   } satisfies Record<PortalRole, string>,
@@ -171,7 +174,7 @@ export const portal = {
         icon: 'team',
         children: [
           {
-            label: 'Gestores',
+            label: 'Asesores',
             href: '/equipo/gestores',
             implemented: true,
             icon: 'team',
@@ -201,12 +204,12 @@ export const portal = {
       stats: {
         activeProcedures: 'Trámites activos',
         obligacionesInProgress: 'Obligaciones en curso',
-        unreadMessages: 'Mensajes sin leer',
+        unreadMessages: 'Novedades',
       },
-      unreadTitle: 'Mensajes sin leer',
-      unreadEmpty: 'No tienes mensajes nuevos de tu gestoría.',
+      unreadTitle: 'Novedades',
+      unreadEmpty: 'No tienes novedades de tu asesoría.',
       unreadViewAll: 'Ver trámites',
-      unreadMore: 'Ver {count} mensajes más',
+      unreadMore: 'Ver {count} novedades más',
       educationTitle: '¿Tienes una consulta nueva?',
       educationDescription:
         'Abre una consulta para dudas o soporte. No reutilices conversaciones de trámites antiguos si tu consulta no tiene que ver con ellos.',
@@ -217,7 +220,7 @@ export const portal = {
     },
     admin: {
       greeting: 'Panel de administración',
-      teamTitle: 'Gestores',
+      teamTitle: 'Asesores',
       viewTeamLink: 'Ver todos',
       requestsTitle: 'Solicitudes abiertas',
       integrationsTitle: 'Integraciones',
@@ -240,7 +243,7 @@ export const portal = {
     summaryError: 'con errores',
     items: {
       odoo: {
-        description: 'ERP, tareas y operaciones de gestoría.',
+        description: 'ERP, tareas y operaciones de asesoría.',
       },
       google: {
         description: 'Acceso con Google y documentos en Drive.',

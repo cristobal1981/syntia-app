@@ -70,6 +70,8 @@ export function TramiteDetailDrawer({
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0
   const markConversationSeen = notifications?.markConversationSeen
+  const dismissNewTramiteNotification =
+    notifications?.dismissNewTramiteNotification
 
   const handleConversationViewed = useCallback(
     (latestMessageId: number) => {
@@ -79,6 +81,11 @@ export function TramiteDetailDrawer({
     [markConversationSeen, recordKind, recordId]
   )
 
+  useEffect(() => {
+    if (!open || !item || item.kind !== 'tramite') return
+    dismissNewTramiteNotification?.(recordKind, item.id)
+  }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
+
   if (!item) {
     return null
   }
@@ -87,7 +94,8 @@ export function TramiteDetailDrawer({
   const stateBadge = getTramiteListItemStateBadge(tramite)
   const showZipButton = tramite.attachmentCount > 1
   const canReply = !(tramite.kind === 'consulta' && tramite.isClosed)
-  const conversationUnread = notifications?.isUnread(recordKind, tramite.id) ?? false
+  const conversationUnread =
+    notifications?.hasUnreadChatter(recordKind, tramite.id) ?? false
 
   function handleTabChange(tab: TramiteDetailTab) {
     setActiveTab(tab)
