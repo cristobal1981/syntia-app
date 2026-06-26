@@ -20,7 +20,13 @@ const options = [
     disabled: !darkThemeEnabled,
     disabledTooltip: portal.shell.theme.darkComingSoon,
   },
-  { value: 'system', label: portal.shell.theme.system, icon: Monitor },
+  {
+    value: 'system',
+    label: portal.shell.theme.system,
+    icon: Monitor,
+    disabled: !darkThemeEnabled,
+    disabledTooltip: portal.shell.theme.darkComingSoon,
+  },
 ] as const
 
 type ThemeToggleProps = {
@@ -34,8 +40,8 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   useEffect(() => setMounted(true), [])
 
   useEffect(() => {
-    if (!mounted || darkThemeEnabled || theme !== 'dark') return
-    setTheme('light')
+    if (!mounted || darkThemeEnabled) return
+    if (theme === 'dark' || theme === 'system') setTheme('light')
   }, [mounted, setTheme, theme])
 
   if (!mounted) {
@@ -59,7 +65,9 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       {options.map(({ value, label, icon: Icon, ...option }) => {
         const isDisabled = 'disabled' in option && option.disabled
         const tooltip = isDisabled ? option.disabledTooltip : label
-        const isActive = theme === value
+        const isActive = darkThemeEnabled
+          ? theme === value
+          : value === 'light'
 
         return (
           <PortalActionTooltip
