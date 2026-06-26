@@ -2,9 +2,9 @@
 
 import { Search } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { tramites } from '@/content/tramites'
+import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import {
   countTramitesForChip,
@@ -97,19 +97,15 @@ export function TramitesFiltersToolbar({
           const active = isTramitesFilterChipActive(filters, option.value)
 
           return (
-            <Button
+            <PortalFilterChip
               key={option.value}
-              type="button"
-              size="sm"
-              variant={active ? 'secondary' : 'outline'}
-              aria-pressed={active}
+              label={option.label}
+              count={count}
+              active={active}
               onClick={() => {
                 onChange(toggleTramitesFilterChip(filters, option.value))
               }}
-            >
-              {option.label}
-              <span className="ml-1.5 tabular-nums opacity-80">({count})</span>
-            </Button>
+            />
           )
         })}
       </div>

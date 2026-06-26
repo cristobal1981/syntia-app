@@ -5,8 +5,10 @@ export const profile = {
   requestModeHint:
     'Modifica solo los datos que necesites. Enviaremos únicamente los campos que hayan cambiado.',
   sections: {
-    personal: 'Datos personales',
+    contact: 'Contacto',
+    fiscal: 'Datos fiscales',
     address: 'Dirección fiscal',
+    personal: 'Datos personales',
   },
   labels: {
     name: 'Nombre',
@@ -24,18 +26,62 @@ export const profile = {
     currentValue: 'Valor actual',
     newValue: 'Nuevo valor',
   },
+  ticketChangeLabels: {
+    name: 'Nombre',
+    email: 'Correo electrónico',
+    phone: 'Teléfono',
+    taxId: 'NIF/CIF',
+    iban: 'IBAN',
+    addressLine1: 'Calle y número',
+    addressLine2: 'Piso, puerta',
+    postalCode: 'C.P.',
+    city: 'Municipio',
+    province: 'Provincia',
+    country: 'País',
+  },
   actions: {
     requestChange: 'Solicitar cambio de datos',
     submitRequest: 'Enviar solicitud',
+    submitting: 'Enviando…',
     cancel: 'Cancelar',
   },
+  drawer: {
+    title: 'Solicitar cambio de datos',
+    unsavedTitle: '¿Descartar cambios?',
+    unsavedDescription:
+      'Tienes cambios sin guardar. Si cierras ahora, se perderá lo que has escrito.',
+    discard: 'Descartar',
+    keepEditing: 'Seguir editando',
+  },
   emptyPhone: 'No indicado',
+  emptyValue: 'No indicado',
+  successToast:
+    'Solicitud enviada. Tu gestoría revisará los cambios y actualizará tu ficha.',
   successTitle: '¡Todo listo por aquí!',
-  successMessage: 'Tu gestor ya está revisando tu perfil. Te avisaremos en cuanto esté todo actualizado. 😉',
+  successMessage:
+    'Tu gestor ya está revisando tu perfil. Te avisaremos en cuanto esté todo actualizado.',
   successDismiss: 'Estupendo',
+  states: {
+    notLinked: {
+      title: 'Cuenta sin vincular',
+      description:
+        'Tu perfil aún no está vinculado con Odoo. Contacta con tu gestor para activar tus datos en el portal.',
+    },
+    odooUnavailable: {
+      title: 'No pudimos cargar tu perfil',
+      description:
+        'El servicio de Odoo no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
+    },
+  },
   errors: {
     unauthorized: 'Debes iniciar sesión para solicitar cambios.',
     forbidden: 'Esta sección solo está disponible para clientes.',
+    not_linked:
+      'Tu cuenta no está vinculada con Odoo. Contacta con tu gestor para activar tus datos.',
+    odoo_unavailable:
+      'No pudimos consultar tu perfil en este momento. Inténtalo de nuevo en unos minutos.',
+    create_failed:
+      'No pudimos registrar tu solicitud en Odoo. Inténtalo de nuevo o contacta con tu gestor.',
     no_changes: 'No has modificado ningún dato. Cambia al menos un campo antes de enviar.',
     name: 'El nombre es obligatorio.',
     unknown: 'No pudimos enviar la solicitud. Inténtalo de nuevo.',

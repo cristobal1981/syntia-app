@@ -37,7 +37,7 @@ export function ObligacionModelGroupsList({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[520px] text-left text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/30 dark:border-input/50">
+          <tr className="border-b border-border bg-muted/30">
             {[
               copy.columns.name,
               copy.columns.period,
@@ -118,13 +118,13 @@ function PeriodRow({
 
   return (
     <tr
-      className="cursor-pointer border-b border-border transition-colors hover:bg-muted/40 dark:border-input/50"
+      className="cursor-pointer border-b border-border transition-colors hover:bg-muted/40"
       onClick={() => onOpenTask(entry)}
     >
       {showModelLabel ? (
         <td
           rowSpan={rowSpan}
-          className="border-r border-border bg-muted/10 px-4 py-3 align-top font-semibold text-foreground dark:border-input/50"
+          className="border-r border-border bg-muted/10 px-4 py-3 align-top font-semibold text-foreground"
         >
           {modelLabel}
         </td>

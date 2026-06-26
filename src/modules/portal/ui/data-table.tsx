@@ -8,7 +8,7 @@ export function DataTable({ headers, rows }: DataTableProps) {
     <div className="portal-home-card overflow-x-auto rounded-xl">
       <table className="w-full min-w-[320px] text-left text-sm">
         <thead>
-          <tr className="border-b border-border dark:border-input">
+          <tr className="border-b border-border">
             {headers.map((header) => (
               <th
                 key={header}
@@ -24,7 +24,7 @@ export function DataTable({ headers, rows }: DataTableProps) {
           {rows.map((row, rowIndex) => (
             <tr
               key={rowIndex}
-              className="border-b border-border last:border-b-0 dark:border-input/50"
+              className="border-b border-border last:border-b-0 dark:border-border"
             >
               {row.map((cell, cellIndex) => (
                 <td key={cellIndex} className="px-4 py-3 text-foreground">

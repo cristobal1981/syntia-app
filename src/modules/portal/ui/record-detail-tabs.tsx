@@ -26,7 +26,7 @@ export function RecordDetailTabs<T extends string>({
       <div
         role="tablist"
         aria-label="Secciones del trámite"
-        className="flex shrink-0 border-b border-border dark:border-input/50"
+        className="flex shrink-0 border-b border-border dark:border-border"
       >
         {tabs.map((tab) => {
           const selected = value === tab.id

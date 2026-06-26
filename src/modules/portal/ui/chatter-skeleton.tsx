@@ -8,7 +8,7 @@ type ChatterSkeletonProps = {
 function IncomingBubbleSkeleton() {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[78%] space-y-2 rounded-2xl rounded-bl-md border border-border bg-muted/40 px-3 py-2.5 dark:border-input/50">
+      <div className="max-w-[78%] space-y-2 rounded-2xl rounded-bl-md border border-border bg-muted/40 px-3 py-2.5">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-3 w-full max-w-[200px]" />
         <Skeleton className="h-3 w-4/5 max-w-[160px]" />
@@ -43,8 +43,8 @@ export function ChatterSkeleton({ className }: ChatterSkeletonProps) {
 export function ChatterComposerSkeleton() {
   return (
     <div className="min-w-0 flex-1" aria-hidden>
-      <div className="overflow-hidden rounded-2xl border border-border dark:border-input/50">
-        <div className="flex gap-1 border-b border-border px-1 py-0.5 dark:border-input/50">
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="flex gap-1 border-b border-border px-1 py-0.5">
           {Array.from({ length: 5 }).map((_, index) => (
             <Skeleton key={index} className="size-8 rounded-md" />
           ))}

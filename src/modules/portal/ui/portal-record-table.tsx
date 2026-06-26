@@ -47,7 +47,7 @@ function SortIndicator({
   sort?: PortalRecordTableSort | null
 }) {
   if (!sort || sort.columnId !== columnId) {
-    return <ArrowUpDown className="size-3.5 opacity-40" aria-hidden />
+    return <ArrowUpDown className="size-3.5 text-subtle-foreground" aria-hidden />
   }
 
   if (sort.direction === 'asc') {
@@ -76,7 +76,7 @@ export function PortalRecordTable<T>({
 
   const chromeClassName = embedded
     ? undefined
-    : 'bg-muted/50 dark:bg-muted/20'
+    : 'bg-muted/50 dark:bg-muted'
 
   function handleSort(column: PortalRecordTableColumn<T>) {
     if (!column.sortable || !onSortChange) return
@@ -103,7 +103,7 @@ export function PortalRecordTable<T>({
         style={{ minWidth }}
       >
         <thead className={chromeClassName}>
-          <tr className="border-b border-border dark:border-input">
+          <tr className="border-b border-border">
             {columns.map((column) => {
               const isSortable = Boolean(column.sortable && onSortChange)
               const ariaSort =
@@ -145,7 +145,7 @@ export function PortalRecordTable<T>({
             <tr
               key={rowKey(row)}
               className={cn(
-                'border-b border-border transition-colors last:border-b-0 dark:border-input/50',
+                'border-b border-border transition-colors last:border-b-0 dark:border-border',
                 onRowClick && 'cursor-pointer hover:bg-muted/40'
               )}
               onClick={onRowClick ? () => onRowClick(row) : undefined}

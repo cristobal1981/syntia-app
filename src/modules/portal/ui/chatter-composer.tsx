@@ -181,11 +181,11 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
       <div ref={rootRef} className="min-w-0 flex-1">
         <div
           className={cn(
-            'overflow-hidden rounded-2xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring dark:border-input/50',
+            'overflow-hidden rounded-2xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring dark:border-border',
             disabled && 'opacity-60'
           )}
         >
-          <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-1 py-0.5 dark:border-input/50">
+          <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-1 py-0.5 dark:border-border">
             <FormatToolbarButton
               label={portalChatter.formatBold}
               shortcut={['Mod', 'B']}

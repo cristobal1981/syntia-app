@@ -6,6 +6,7 @@ import { listClientsAction } from '@/src/modules/directory/application/directory
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
 import { DataTable } from '@/src/modules/portal/ui/data-table'
 import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
+import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 
 type AdvisorHomeProps = {
   user: PortalUser
@@ -65,6 +66,7 @@ export async function AdvisorHome({ user }: AdvisorHomeProps) {
           showRefresh
         />
       </section>
+      <PortalDashboardReady />
     </div>
   )
 }

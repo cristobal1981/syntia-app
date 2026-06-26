@@ -7,12 +7,23 @@ import type { ObligacionListRow } from '@/src/modules/obligaciones/domain/sort-o
 
 export function filterObligacionListRows(
   rows: ObligacionListRow[],
-  query: string
+  query: string,
+  selectedModel?: string | null
 ): ObligacionListRow[] {
-  const normalizedQuery = normalizeGuideSearchText(query.trim())
-  if (!normalizedQuery) return rows
+  let result = rows
 
-  return rows.filter((row) => {
+  const modelFilter = selectedModel?.trim()
+  if (modelFilter) {
+    const target = modelFilter.toLowerCase()
+    result = result.filter(
+      (row) => formatObligacionModelLabel(row.name).toLowerCase() === target
+    )
+  }
+
+  const normalizedQuery = normalizeGuideSearchText(query.trim())
+  if (!normalizedQuery) return result
+
+  return result.filter((row) => {
     const modelLabel = formatObligacionModelLabel(row.name)
     const periodLabel = normalizeGuideSearchText(row.periodLabel)
     const fullName = normalizeGuideSearchText(row.name)
@@ -23,16 +34,4 @@ export function filterObligacionListRows(
       fullName.includes(normalizedQuery)
     )
   })
-}
-
-export function filterObligacionModelLabels(
-  modelLabels: string[],
-  query: string
-): string[] {
-  const normalizedQuery = normalizeGuideSearchText(query.trim())
-  if (!normalizedQuery) return modelLabels
-
-  return modelLabels.filter((modelLabel) =>
-    modelLabelMatchesGuideQuery(modelLabel, query)
-  )
 }

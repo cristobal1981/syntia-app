@@ -336,7 +336,7 @@ export function RecordChatterPanel({
                     'max-w-[88%] rounded-2xl px-3 py-2 text-sm',
                     message.isFromClient
                       ? 'rounded-br-md bg-primary text-primary-foreground'
-                      : 'rounded-bl-md border border-border bg-muted/50 text-foreground dark:border-input/50'
+                      : 'rounded-bl-md border border-border bg-muted/50 text-foreground dark:border-border'
                   )}
                 >
                   <header className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -346,7 +346,12 @@ export function RecordChatterPanel({
                         : message.authorName}
                     </span>
                     <time
-                      className="text-[11px] opacity-80"
+                      className={cn(
+                        'text-[11px]',
+                        message.isFromClient
+                          ? 'text-primary-foreground/80'
+                          : 'text-subtle-foreground'
+                      )}
                       dateTime={message.date}
                     >
                       {formatMessageDate(message.date)}
@@ -368,7 +373,7 @@ export function RecordChatterPanel({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-border px-6 py-4 dark:border-input/50">
+      <div className="shrink-0 border-t border-border px-6 py-4 dark:border-border">
         {!canReply ? (
           <p className="text-sm text-muted-foreground">
             {portalChatter.readOnlyClosedTicket}

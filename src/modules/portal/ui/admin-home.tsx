@@ -6,6 +6,7 @@ import { listGestoresAction } from '@/src/modules/directory/application/director
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
 import { DataTable } from '@/src/modules/portal/ui/data-table'
 import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
+import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 
 type AdminHomeProps = {
   user: PortalUser
@@ -63,6 +64,7 @@ export async function AdminHome({ user }: AdminHomeProps) {
           showRefresh
         />
       </section>
+      <PortalDashboardReady />
     </div>
   )
 }

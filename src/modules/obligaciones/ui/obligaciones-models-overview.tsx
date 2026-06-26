@@ -3,16 +3,17 @@
 import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { obligaciones } from '@/content/obligaciones'
 import { cn } from '@/lib/utils'
+import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 type ObligacionesModelsOverviewProps = {
   models: string[]
-  activeQuery: string
-  onSelectModel: (modelLabel: string) => void
+  selectedModel: string | null
+  onSelectModel: (modelLabel: string | null) => void
 }
 
 export function ObligacionesModelsOverview({
   models,
-  activeQuery,
+  selectedModel,
   onSelectModel,
 }: ObligacionesModelsOverviewProps) {
   const copy = obligaciones.configOverview
@@ -44,30 +45,27 @@ export function ObligacionesModelsOverview({
         </AppLink>
       </div>
 
-      <ul className="mt-4 flex flex-wrap gap-2">
+      <div
+        className="mt-4 flex flex-wrap gap-2"
+        role="group"
+        aria-label={copy.title}
+      >
         {models.map((modelLabel) => {
           const isActive =
-            activeQuery.trim().toLowerCase() === modelLabel.toLowerCase()
+            selectedModel?.trim().toLowerCase() === modelLabel.toLowerCase()
 
           return (
-            <li key={modelLabel}>
-              <button
-                type="button"
-                onClick={() => onSelectModel(isActive ? '' : modelLabel)}
-                aria-pressed={isActive}
-                className={cn(
-                  'inline-flex min-h-9 items-center rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-foreground hover:bg-muted/80'
-                )}
-              >
-                {modelLabel}
-              </button>
-            </li>
+            <PortalFilterChip
+              key={modelLabel}
+              label={modelLabel}
+              active={isActive}
+              onClick={() => {
+                onSelectModel(isActive ? null : modelLabel)
+              }}
+            />
           )
         })}
-      </ul>
+      </div>
     </section>
   )
 }

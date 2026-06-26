@@ -1,8 +1,11 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { PortalRouteLoadingMarker } from '@/src/modules/portal/ui/portal-route-loading-context'
 
 export function ObligacionesSkeleton() {
   return (
-    <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando obligaciones">
+    <>
+      <PortalRouteLoadingMarker />
+      <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando obligaciones">
       <div className="space-y-2">
         <Skeleton className="h-8 w-56 md:h-9" />
         <Skeleton className="h-4 w-full max-w-xl" />
@@ -20,6 +23,7 @@ export function ObligacionesSkeleton() {
           </div>
         </div>
       ))}
-    </div>
+      </div>
+    </>
   )
 }

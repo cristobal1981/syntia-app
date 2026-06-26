@@ -127,7 +127,7 @@ export function RecordAttachmentsPanel({
         return (
           <li
             key={attachment.id}
-            className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 dark:border-input/50"
+            className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
           >
             <FileText
               className="size-4 shrink-0 text-muted-foreground"

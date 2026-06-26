@@ -23,11 +23,11 @@ export const integrationStatusStyles = {
   },
   pending: {
     badge:
-      'bg-service-fiscal/25 text-service-fiscal-on-light dark:bg-service-fiscal/15 dark:text-service-fiscal',
-    dot: 'bg-service-fiscal-on-light dark:bg-service-fiscal',
+      'bg-service-fiscal/25 text-service-fiscal-on-light dark:bg-service-fiscal/15 dark:text-service-fiscal-on-dark',
+    dot: 'bg-service-fiscal-on-light dark:bg-service-fiscal-on-dark',
     ring: 'ring-service-fiscal/30',
     iconBg:
-      'bg-service-fiscal/15 text-service-fiscal-on-light dark:text-service-fiscal',
+      'bg-service-fiscal/15 text-service-fiscal-on-light dark:text-service-fiscal-on-dark',
   },
   error: {
     badge: 'bg-destructive/15 text-destructive',

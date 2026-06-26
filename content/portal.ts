@@ -11,6 +11,8 @@ export const portal = {
     googleLabel: 'Continuar con Google',
     orDivider: 'o',
     forgotPasswordLabel: '¿Olvidaste tu contraseña?',
+    showPasswordLabel: 'Mostrar contraseña',
+    hidePasswordLabel: 'Ocultar contraseña',
     backToSiteLabel: 'Volver al sitio',
     errors: {
       invalid_credentials: 'Correo o contraseña incorrectos.',
@@ -71,6 +73,17 @@ export const portal = {
       dark: 'Oscuro',
       system: 'Sistema',
     },
+  },
+  authLoading: {
+    signOutMessage: '¡Hasta pronto! Vuelve cuando quieras.',
+    signOutMinDisplayMs: 1500,
+    entryMinDisplayMs: 2000,
+    entryPhrases: [
+      'Preparando su portal personalizado',
+      'Cargando tus trámites y documentos',
+      'Sincronizando tu espacio de trabajo',
+      'Casi listo…',
+    ],
   },
   notifications: {
     label: 'Notificaciones',
@@ -162,6 +175,7 @@ export const portal = {
       unreadTitle: 'Mensajes sin leer',
       unreadEmpty: 'No tienes mensajes nuevos de tu gestoría.',
       unreadViewAll: 'Ver trámites',
+      unreadMore: 'Ver {count} mensajes más',
       educationTitle: '¿Tienes una consulta nueva?',
       educationDescription:
         'Abre una consulta para dudas o soporte. No reutilices conversaciones de trámites antiguos si tu consulta no tiene que ver con ellos.',

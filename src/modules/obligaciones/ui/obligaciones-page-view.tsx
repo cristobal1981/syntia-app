@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 import { collectClientObligacionModels } from '@/src/modules/obligaciones/domain/collect-client-obligacion-models'
 import {
   filterObligacionListRows,
-  filterObligacionModelLabels,
 } from '@/src/modules/obligaciones/domain/filter-obligaciones-list'
 import { groupObligacionesByModel } from '@/src/modules/obligaciones/domain/group-obligaciones-by-model'
 import { flattenObligacionesYear } from '@/src/modules/obligaciones/domain/sort-obligaciones-list'
@@ -32,6 +31,7 @@ type YearAccordionProps = {
   year: ObligacionYear
   defaultOpen: boolean
   searchQuery: string
+  selectedModel: string | null
   onOpenTask: (task: ObligacionTask) => void
 }
 
@@ -39,6 +39,7 @@ function YearAccordion({
   year,
   defaultOpen,
   searchQuery,
+  selectedModel,
   onOpenTask,
 }: YearAccordionProps) {
   const [open, setOpen] = useState(defaultOpen)
@@ -46,9 +47,9 @@ function YearAccordion({
 
   const groups = useMemo(() => {
     const rows = flattenObligacionesYear(year)
-    const filteredRows = filterObligacionListRows(rows, searchQuery)
+    const filteredRows = filterObligacionListRows(rows, searchQuery, selectedModel)
     return groupObligacionesByModel(filteredRows)
-  }, [year, searchQuery])
+  }, [year, searchQuery, selectedModel])
 
   useEffect(() => {
     setPage(1)
@@ -84,7 +85,7 @@ function YearAccordion({
       </button>
 
       {open ? (
-        <div className="border-t border-border px-4 py-4 dark:border-input/50">
+        <div className="border-t border-border px-4 py-4 dark:border-border">
           <ObligacionModelGroupsList
             groups={groups}
             page={page}
@@ -105,14 +106,15 @@ type ObligacionesPageViewProps = {
 export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
   const [selectedTask, setSelectedTask] = useState<ObligacionTask | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedModel, setSelectedModel] = useState<string | null>(null)
 
   const hasAnyVisibleYear = useMemo(
     () =>
       data.years.some((year) => {
         const rows = flattenObligacionesYear(year)
-        return filterObligacionListRows(rows, searchQuery).length > 0
+        return filterObligacionListRows(rows, searchQuery, selectedModel).length > 0
       }),
-    [data.years, searchQuery]
+    [data.years, searchQuery, selectedModel]
   )
 
   const hasAnyData = data.years.some((year) => flattenObligacionesYear(year).length > 0)
@@ -120,11 +122,6 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
   const clientModels = useMemo(
     () => collectClientObligacionModels(data),
     [data]
-  )
-
-  const visibleClientModels = useMemo(
-    () => filterObligacionModelLabels(clientModels, searchQuery),
-    [clientModels, searchQuery]
   )
 
   return (
@@ -147,9 +144,9 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
       {hasAnyData ? (
         <div className="flex flex-col gap-6">
           <ObligacionesModelsOverview
-            models={visibleClientModels}
-            activeQuery={searchQuery}
-            onSelectModel={setSearchQuery}
+            models={clientModels}
+            selectedModel={selectedModel}
+            onSelectModel={setSelectedModel}
           />
 
           <ObligacionesSearchToolbar
@@ -165,6 +162,7 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
                   year={year}
                   defaultOpen={index === 0}
                   searchQuery={searchQuery}
+                  selectedModel={selectedModel}
                   onOpenTask={setSelectedTask}
                 />
               ))}

@@ -12,10 +12,10 @@ export const appLinkClassName =
   'group/app-link inline-flex cursor-pointer items-center gap-1 font-medium text-primary underline-offset-4 transition-colors hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 export const appLinkPortalClassName =
-  'text-agua underline decoration-agua/50 hover:decoration-agua dark:text-turquesa dark:decoration-turquesa/50 dark:hover:decoration-turquesa'
+  'text-agua underline decoration-agua/50 hover:decoration-agua dark:text-primary dark:decoration-primary/50 dark:hover:decoration-primary'
 
 export const appLinkArrowClassName =
-  'size-3.5 shrink-0 opacity-80 transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none group-hover/app-link:translate-x-px group-hover/app-link:-translate-y-px group-hover/app-link:opacity-100'
+  'size-3.5 shrink-0 text-subtle-foreground transition-[transform,color] duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none group-hover/app-link:translate-x-px group-hover/app-link:-translate-y-px group-hover/app-link:text-foreground'
 
 type AppLinkProps = {
   href: string

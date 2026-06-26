@@ -32,15 +32,37 @@ export type ProfileFieldChange = {
   requestedValue: string
 }
 
-export type ProfileChangePayload = {
-  ticketTitle: string
-  clientId: string
-  clientName: string
-  clientEmail: string
-  changes: ProfileFieldChange[]
-  requestedAt: string
+export type ProfileChangeLineItem = {
+  label: string
+  currentValue: string
+  requestedValue: string
 }
 
-export type ProfileChangeFormState =
-  | { ok: true }
-  | { ok: false; error: 'unauthorized' | 'forbidden' | 'validation' | 'unknown'; fieldErrors?: Record<string, string> }
+export type ProfileChangeErrorCode =
+  | 'unauthorized'
+  | 'forbidden'
+  | 'not_linked'
+  | 'odoo_unavailable'
+  | 'create_failed'
+  | 'validation'
+  | 'unknown'
+
+export type ProfileChangeResult =
+  | { ok: true; ticketId?: number }
+  | {
+      ok: false
+      error: ProfileChangeErrorCode
+      fieldErrors?: Record<string, string>
+    }
+
+export type ProfileChangeApiResponse = ProfileChangeResult
+
+export type ProfileChangeRequestBody = {
+  website?: string
+  name: string
+  email: string
+  phone: string
+  taxId: string
+  iban: string
+  address: FiscalAddress
+}

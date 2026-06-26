@@ -26,5 +26,7 @@ export async function GET(request: Request) {
   }
 
   await establishPortalSession(await resolvePortalUserFromAuth(data.user))
-  return NextResponse.redirect(new URL(next, origin))
+  const destination = new URL(next, origin)
+  destination.searchParams.set('entering', '1')
+  return NextResponse.redirect(destination)
 }

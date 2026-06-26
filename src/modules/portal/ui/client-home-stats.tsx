@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ClipboardList, MessageSquare, Scale, type LucideIcon } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { ClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
@@ -11,15 +12,21 @@ type ClientHomeStatsProps = {
 type StatCardProps = {
   label: string
   value: number
+  icon: LucideIcon
   href?: string
 }
 
-function StatCard({ label, value, href }: StatCardProps) {
+function StatCard({ label, value, icon: Icon, href }: StatCardProps) {
   const content = (
-    <>
-      <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-    </>
+    <div className="flex items-start gap-4">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+        <Icon className="size-5 text-primary" aria-hidden />
+      </div>
+      <div className="min-w-0">
+        <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+      </div>
+    </div>
   )
 
   if (!href) {
@@ -55,16 +62,19 @@ export function ClientHomeStats({ data, unreadCount = 0 }: ClientHomeStatsProps)
         <StatCard
           label={copy.stats.activeProcedures}
           value={data.activeTramites}
+          icon={ClipboardList}
           href="/tramites"
         />
         <StatCard
           label={copy.stats.obligacionesInProgress}
           value={data.obligacionesInProgress}
+          icon={Scale}
           href="/obligaciones"
         />
         <StatCard
           label={copy.stats.unreadMessages}
           value={unreadCount}
+          icon={MessageSquare}
           href="/tramites"
         />
       </div>

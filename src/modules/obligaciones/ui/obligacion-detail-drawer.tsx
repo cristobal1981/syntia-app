@@ -73,7 +73,7 @@ export function ObligacionDetailDrawer({
 
   return (
     <PortalSideDrawer open={open} onOpenChange={onOpenChange}>
-        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-input/50">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border">
           <DialogTitle className="text-pretty pr-8">{displayName}</DialogTitle>
           <DialogDescription asChild>
             <div className="mt-3">

@@ -27,7 +27,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   if (!mounted) {
     return (
       <div
-        className={cn('size-8 rounded-md bg-background dark:bg-card', className)}
+        className={cn('size-8 rounded-md bg-background dark:bg-sidebar-accent', className)}
         aria-hidden
       />
     )
@@ -38,7 +38,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       role="group"
       aria-label={portal.shell.theme.label}
       className={cn(
-        'inline-flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 dark:bg-card',
+        'inline-flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 dark:border-border dark:bg-sidebar-accent',
         className
       )}
     >
@@ -57,7 +57,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
                 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                 isActive
                   ? 'bg-brisa text-agua shadow-sm dark:bg-input dark:text-primary'
-                  : 'text-on-light-muted/50 hover:text-on-light-muted/75 dark:text-muted-foreground/50 dark:hover:text-muted-foreground'
+                  : 'text-on-light-muted hover:text-on-light-muted dark:text-subtle-foreground dark:hover:text-muted-foreground'
               )}
             >
               <Icon className="size-3.5 shrink-0" aria-hidden />

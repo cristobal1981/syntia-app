@@ -1,9 +1,10 @@
-import { ClipboardList, FileText, MessageSquare, Scale } from 'lucide-react'
+import { ClipboardList, FileText, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { getClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
 import { ClientHomeDashboard } from '@/src/modules/portal/ui/client-home-dashboard'
+import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 import { QuickLinkCard } from '@/src/modules/portal/ui/quick-link-card'
 
 type ClientHomeProps = {
@@ -36,7 +37,7 @@ export async function ClientHome({ user }: ClientHomeProps) {
         >
           {copy.quickLinksTitle}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLinkCard
             href="/proximamente"
             label="Documentos"
@@ -55,14 +56,9 @@ export async function ClientHome({ user }: ClientHomeProps) {
             description="Gestiones y soporte"
             icon={ClipboardList}
           />
-          <QuickLinkCard
-            href="/tramites"
-            label="Mensajes"
-            description="Habla con tu gestor"
-            icon={MessageSquare}
-          />
         </div>
       </section>
+      <PortalDashboardReady />
     </div>
   )
 }

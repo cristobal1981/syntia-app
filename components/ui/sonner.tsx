@@ -33,12 +33,13 @@ export function Toaster({ ...props }: ToasterProps) {
           content: 'flex min-w-0 flex-1 flex-col gap-1',
           icon: 'mt-0.5 shrink-0',
           closeButton:
-            'pointer-events-auto absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+            'pointer-events-auto absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
           error:
             'border-destructive/40 bg-surface-light dark:border-alert-on-dark-accent dark:bg-surface-dark',
           success: 'border-primary/40 bg-surface-light dark:bg-surface-dark',
-          warning: 'border-service-fiscal/50 bg-card',
-          info: 'border-turquesa/40 bg-card',
+          warning:
+            'border-service-fiscal/50 bg-card dark:border-service-fiscal/50 dark:bg-card dark:text-foreground',
+          info: 'border-turquesa/40 bg-card dark:border-turquesa/40 dark:bg-card dark:text-foreground',
         },
       }}
       icons={{

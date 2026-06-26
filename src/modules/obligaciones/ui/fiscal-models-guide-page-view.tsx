@@ -79,7 +79,7 @@ function FiscalModelGuideCard({
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     isActive
                       ? 'border-primary bg-primary text-white'
-                      : 'border-foreground/15 bg-foreground/[0.06] text-foreground dark:border-input dark:bg-input/50 dark:text-foreground'
+                      : 'border-foreground/15 bg-foreground/[0.06] text-foreground dark:border-border dark:bg-input/40 dark:text-foreground'
                   )}
                 >
                   {formatKeywordHashtag(tag)}

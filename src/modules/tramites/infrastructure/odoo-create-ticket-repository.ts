@@ -15,6 +15,7 @@ function parseOdooCreatedId(result: number | number[] | undefined): number | nul
 export async function createPartnerTicket(input: {
   partnerId: number
   subject: string
+  description?: string
 }): Promise<number> {
   const teamId = getOdooTicketTeamId()
   if (!teamId) {
@@ -28,6 +29,7 @@ export async function createPartnerTicket(input: {
         name: input.subject,
         partner_id: input.partnerId,
         team_id: teamId,
+        ...(input.description ? { description: input.description } : {}),
       },
     ],
   })

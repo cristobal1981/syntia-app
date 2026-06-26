@@ -3,9 +3,8 @@ import { tramites } from '@/content/tramites'
 import type { TramiteListKind } from '@/src/modules/tramites/domain/merge-tramites-list'
 
 const kindClasses: Record<TramiteListKind, string> = {
-  tramite: 'bg-sky-100 text-sky-900 dark:bg-sky-950/80 dark:text-sky-200',
-  consulta:
-    'bg-violet-100 text-violet-900 dark:bg-violet-950/80 dark:text-violet-200',
+  tramite: 'badge-type-tramite',
+  consulta: 'badge-type-consulta',
 }
 
 type TramiteTypeBadgeProps = {

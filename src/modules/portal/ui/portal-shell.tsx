@@ -4,7 +4,7 @@ import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
 import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
@@ -16,10 +16,18 @@ import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
+import {
+  PortalEntryLoadingProvider,
+  usePortalEntryLoading,
+} from '@/src/modules/portal/ui/portal-entry-loading-context'
 import { NotificationNavigationOverlay } from '@/src/modules/portal/ui/notification-navigation-overlay'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
+import {
+  PortalRouteLoadingProvider,
+  usePortalContentLoading,
+} from '@/src/modules/portal/ui/portal-route-loading-context'
 import { PortalTopBar } from '@/src/modules/portal/ui/portal-top-bar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -74,7 +82,7 @@ function NavLink({
         'flex min-h-10 items-center rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
         nested && !collapsed && 'ml-2 pl-4',
-        isPending && 'opacity-70',
+        isPending && !isActive && 'text-subtle-foreground',
         isActive
           ? 'bg-sidebar-active font-medium text-sidebar-active-foreground shadow-sm'
           : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
@@ -230,6 +238,38 @@ function renderNavItem(
   )
 }
 
+function PortalContentProgress({
+  navPending,
+  reducedMotion,
+}: {
+  navPending: boolean
+  reducedMotion: boolean
+}) {
+  const entryLoading = usePortalEntryLoading()
+  const contentLoading = usePortalContentLoading(navPending)
+  if (entryLoading || !contentLoading) return null
+
+  return (
+    <div
+      className="portal-content-progress pointer-events-none absolute top-12 right-0 z-30 h-1 overflow-hidden bg-primary/15"
+      aria-hidden
+    >
+      <LazyMotion features={domAnimation}>
+        <m.div
+          className="h-full w-1/3 bg-primary"
+          initial={reducedMotion ? false : { x: '-100%' }}
+          animate={reducedMotion ? undefined : { x: '400%' }}
+          transition={
+            reducedMotion
+              ? undefined
+              : { duration: 1.1, ease: menuEase, repeat: Infinity }
+          }
+        />
+      </LazyMotion>
+    </div>
+  )
+}
+
 export function PortalShell({ user, children }: PortalShellProps) {
   const pathname = usePathname()
   const reducedMotion = usePrefersReducedMotion()
@@ -271,6 +311,9 @@ export function PortalShell({ user, children }: PortalShellProps) {
     <TooltipProvider>
     <ChatterNotificationsProvider enabled={user.role === 'client'}>
     <PortalCreateConsultaProvider enabled={user.role === 'client'}>
+    <PortalRouteLoadingProvider>
+    <Suspense fallback={null}>
+    <PortalEntryLoadingProvider>
     <NotificationNavigationOverlay />
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside
@@ -339,24 +382,12 @@ export function PortalShell({ user, children }: PortalShellProps) {
           onSidebarToggle={toggleSidebar}
         />
 
+        <PortalContentProgress
+          navPending={navPending}
+          reducedMotion={reducedMotion}
+        />
+
         <LazyMotion features={domAnimation}>
-        {navPending ? (
-          <div
-            className="pointer-events-none absolute inset-x-0 top-12 z-30 h-0.5 overflow-hidden bg-primary/15"
-            aria-hidden
-          >
-            <m.div
-              className="h-full w-1/3 bg-primary"
-              initial={reducedMotion ? false : { x: '-100%' }}
-              animate={reducedMotion ? undefined : { x: '400%' }}
-              transition={
-                reducedMotion
-                  ? undefined
-                  : { duration: 1.1, ease: menuEase, repeat: Infinity }
-              }
-            />
-          </div>
-        ) : null}
           <AnimatePresence initial={false}>
             {mobileOpen ? (
               <m.div
@@ -407,6 +438,9 @@ export function PortalShell({ user, children }: PortalShellProps) {
         <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
       </div>
     </div>
+    </PortalEntryLoadingProvider>
+    </Suspense>
+    </PortalRouteLoadingProvider>
     </PortalCreateConsultaProvider>
     </ChatterNotificationsProvider>
     </TooltipProvider>
