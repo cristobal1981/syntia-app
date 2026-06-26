@@ -59,6 +59,36 @@ export const portal = {
       unknown: 'No pudimos actualizar la contraseña. Inténtalo de nuevo.',
     },
   },
+  search: {
+    suggestionsTitle: 'Ir a',
+    resultsTitle: 'Resultados',
+    actionsTitle: 'Buscar en',
+    emptyTitle: 'Sin resultados',
+    emptyDescription:
+      'Prueba con otra palabra o navega desde el menú lateral.',
+    dialogTitle: 'Buscar en el portal',
+    dialogDescription:
+      'Escribe para buscar páginas y acciones del portal.',
+    actionCreateConsulta: 'Nueva consulta',
+    actions: {
+      tramites: 'Buscar trámites: «{query}»',
+      obligaciones: 'Buscar obligaciones: «{query}»',
+    },
+    extras: {
+      client: [
+        {
+          id: 'extra:guia-modelos',
+          label: 'Guía de modelos tributarios',
+          description: 'Para qué sirve cada modelo fiscal',
+          href: '/obligaciones/guia-modelos',
+          icon: 'obligations' as const,
+          keywords: ['modelos', 'iva', 'irpf', 'guía', 'fiscal', 'tributario'],
+        },
+      ],
+      admin: [],
+      advisor: [],
+    },
+  },
   shell: {
     signOutLabel: 'Cerrar sesión',
     dashboardTitle: 'Inicio',
@@ -72,6 +102,7 @@ export const portal = {
       light: 'Claro',
       dark: 'Oscuro',
       system: 'Sistema',
+      darkComingSoon: 'Próximamente',
     },
   },
   authLoading: {

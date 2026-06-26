@@ -25,9 +25,16 @@ export const PORTAL_CREATE_CONSULTA_SHORTCUT: PortalShortcutDefinition = {
   key: 'n',
 }
 
+export const PORTAL_SEARCH_SHORTCUT: PortalShortcutDefinition = {
+  id: 'search',
+  alt: true,
+  key: 'k',
+}
+
 export const PORTAL_SHORTCUTS = {
   refresh: PORTAL_REFRESH_SHORTCUT,
   createConsulta: PORTAL_CREATE_CONSULTA_SHORTCUT,
+  search: PORTAL_SEARCH_SHORTCUT,
 } as const
 
 export function getPortalShortcutKeys(

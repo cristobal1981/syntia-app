@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 
 import { obligaciones } from '@/content/obligaciones'
@@ -104,9 +105,19 @@ type ObligacionesPageViewProps = {
 }
 
 export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [selectedTask, setSelectedTask] = useState<ObligacionTask | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (!q) return
+
+    setSearchQuery(q)
+    router.replace('/obligaciones', { scroll: false })
+  }, [router, searchParams])
 
   const hasAnyVisibleYear = useMemo(
     () =>

@@ -222,6 +222,14 @@ export function TramitesPageView({ data }: TramitesPageViewProps) {
     'conversation' | 'documents'
   >('conversation')
 
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (!q) return
+
+    setFilters((prev) => ({ ...prev, query: q }))
+    router.replace('/tramites', { scroll: false })
+  }, [router, searchParams])
+
   const allItems = useMemo(
     () => mergeTramitesList(data.tasks, data.tickets),
     [data.tasks, data.tickets]

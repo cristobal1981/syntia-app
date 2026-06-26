@@ -1,0 +1,380 @@
+'use client'
+
+import { Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react'
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { portal } from '@/content/portal'
+import { cn } from '@/lib/utils'
+import type { PortalRole } from '@/src/modules/auth/domain/types'
+import {
+  buildPortalSearchActions,
+  buildPortalSearchIndex,
+} from '@/src/modules/portal/application/build-portal-search-index'
+import {
+  filterPortalSearchItems,
+  getPortalSearchSuggestions,
+} from '@/src/modules/portal/application/filter-portal-search'
+import type { PortalSearchItem } from '@/src/modules/portal/domain/portal-search-types'
+import {
+  formatPortalShortcutLabel,
+  PORTAL_SEARCH_SHORTCUT,
+} from '@/src/modules/portal/domain/portal-shortcuts'
+import { usePortalCreateConsultaOptional } from '@/src/modules/portal/ui/portal-create-consulta-context'
+import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
+import { PortalShortcutHint } from '@/src/modules/portal/ui/portal-shortcut-hint'
+import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
+import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
+
+type PortalTopBarSearchProps = {
+  role: PortalRole
+  className?: string
+  onNavigate?: (href: string) => void
+}
+
+function SearchResultsList({
+  listboxId,
+  visibleItems,
+  activeIndex,
+  sectionTitle,
+  showActionsHeading,
+  pageItems,
+  actionItems,
+  onActiveIndexChange,
+  onSelect,
+}: {
+  listboxId: string
+  visibleItems: PortalSearchItem[]
+  activeIndex: number
+  sectionTitle: string
+  showActionsHeading: boolean
+  pageItems: PortalSearchItem[]
+  actionItems: PortalSearchItem[]
+  onActiveIndexChange: (index: number) => void
+  onSelect: (item: PortalSearchItem) => void
+}) {
+  if (visibleItems.length === 0) {
+    return (
+      <div className="px-4 py-10 text-center">
+        <p className="text-sm font-medium text-foreground">
+          {portal.search.emptyTitle}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {portal.search.emptyDescription}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-h-[min(24rem,50dvh)] overflow-y-auto py-2">
+      {pageItems.length > 0 ? (
+        <section>
+          <p className="px-4 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            {sectionTitle}
+          </p>
+          <ul id={listboxId} role="listbox" aria-label={sectionTitle}>
+            {pageItems.map((item) => {
+              const itemIndex = visibleItems.indexOf(item)
+              const active = itemIndex === activeIndex
+
+              return (
+                <li key={item.id} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={cn(
+                      'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none',
+                      active
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-accent/70'
+                    )}
+                    onMouseEnter={() => onActiveIndexChange(itemIndex)}
+                    onClick={() => onSelect(item)}
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                      <PortalNavIcon
+                        icon={item.icon}
+                        className="size-4 text-muted-foreground"
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {item.label}
+                      </span>
+                      {item.description ? (
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {item.description}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {actionItems.length > 0 ? (
+        <section
+          className={
+            pageItems.length > 0 ? 'mt-1 border-t border-border/70 pt-1' : undefined
+          }
+        >
+          {showActionsHeading ? (
+            <p className="px-4 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              {portal.search.actionsTitle}
+            </p>
+          ) : null}
+          <ul role="listbox" aria-label={portal.search.actionsTitle}>
+            {actionItems.map((item) => {
+              const itemIndex = visibleItems.indexOf(item)
+              const active = itemIndex === activeIndex
+
+              return (
+                <li key={item.id} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={cn(
+                      'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors focus-visible:outline-none',
+                      active
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-accent/70'
+                    )}
+                    onMouseEnter={() => onActiveIndexChange(itemIndex)}
+                    onClick={() => onSelect(item)}
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                      <PortalNavIcon
+                        icon={item.icon}
+                        className="size-4 text-muted-foreground"
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {item.label}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  )
+}
+
+export function PortalTopBarSearch({
+  role,
+  className,
+  onNavigate,
+}: PortalTopBarSearchProps) {
+  const router = useRouter()
+  const listboxId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const createConsulta = usePortalCreateConsultaOptional()
+  const overlayActive = usePortalShortcutOverlay()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  const index = useMemo(() => buildPortalSearchIndex(role), [role])
+
+  const createConsultaItem = useMemo<PortalSearchItem | null>(() => {
+    if (role !== 'client' || !createConsulta?.isAvailable) return null
+
+    return {
+      id: 'action:create-consulta',
+      kind: 'action',
+      label: portal.search.actionCreateConsulta,
+      icon: 'procedures',
+      keywords: ['consulta', 'nueva', 'duda', 'soporte'],
+    }
+  }, [createConsulta?.isAvailable, role])
+
+  const visibleItems = useMemo(() => {
+    const trimmed = query.trim()
+    const pages = trimmed
+      ? filterPortalSearchItems(index, trimmed)
+      : getPortalSearchSuggestions(index)
+
+    const queryActions = buildPortalSearchActions(role, query)
+    const quickActions =
+      !trimmed && createConsultaItem ? [createConsultaItem] : queryActions
+
+    return [...pages, ...quickActions]
+  }, [createConsultaItem, index, query, role])
+
+  const openSearch = useCallback(() => setOpen(true), [])
+
+  usePortalShortcut(PORTAL_SEARCH_SHORTCUT, openSearch)
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [query, visibleItems.length])
+
+  useEffect(() => {
+    if (!open) return
+    const frame = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [open])
+
+  const close = useCallback(() => {
+    setOpen(false)
+    setQuery('')
+    setActiveIndex(0)
+  }, [])
+
+  const selectItem = useCallback(
+    (item: PortalSearchItem) => {
+      if (item.id === 'action:create-consulta') {
+        createConsulta?.openCreateConsulta()
+        close()
+        return
+      }
+
+      if (!item.href) return
+
+      onNavigate?.(item.href)
+      router.push(item.href)
+      close()
+    },
+    [close, createConsulta, onNavigate, router]
+  )
+
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      if (!visibleItems.length) return
+      setActiveIndex((value) => (value + 1) % visibleItems.length)
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (!visibleItems.length) return
+      setActiveIndex((value) =>
+        value === 0 ? visibleItems.length - 1 : value - 1
+      )
+      return
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const item = visibleItems[activeIndex]
+      if (item) selectItem(item)
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      close()
+    }
+  }
+
+  const sectionTitle = query.trim()
+    ? portal.search.resultsTitle
+    : portal.search.suggestionsTitle
+  const showActionsHeading =
+    query.trim().length > 0 &&
+    visibleItems.some((item) => item.kind === 'action')
+  const pageItems = visibleItems.filter((item) => item.kind === 'page')
+  const actionItems = visibleItems.filter((item) => item.kind === 'action')
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openSearch}
+        className={cn(
+          'flex h-8 w-full max-w-md cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-sm transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:border-border dark:bg-sidebar-accent lg:max-w-lg',
+          overlayActive && 'ring-2 ring-primary/35',
+          className
+        )}
+        aria-label={portal.search.dialogTitle}
+        aria-keyshortcuts={formatPortalShortcutLabel(PORTAL_SEARCH_SHORTCUT)}
+        aria-haspopup="dialog"
+      >
+        <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">
+          {portal.shell.searchPlaceholder}
+        </span>
+        <PortalShortcutHint shortcut={PORTAL_SEARCH_SHORTCUT} />
+      </button>
+
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) {
+            setOpen(true)
+            return
+          }
+          close()
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="gap-0 overflow-hidden bg-background p-0 sm:max-w-xl"
+        >
+          <DialogTitle className="sr-only">
+            {portal.search.dialogTitle}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {portal.search.dialogDescription}
+          </DialogDescription>
+
+          <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-3">
+            <Search
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={handleInputKeyDown}
+              placeholder={portal.shell.searchPlaceholder}
+              aria-label={portal.shell.searchPlaceholder}
+              aria-controls={listboxId}
+              aria-autocomplete="list"
+              role="combobox"
+              autoComplete="off"
+              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground md:text-sm"
+            />
+          </div>
+
+          <SearchResultsList
+            listboxId={listboxId}
+            visibleItems={visibleItems}
+            activeIndex={activeIndex}
+            sectionTitle={sectionTitle}
+            showActionsHeading={showActionsHeading}
+            pageItems={pageItems}
+            actionItems={actionItems}
+            onActiveIndexChange={setActiveIndex}
+            onSelect={selectItem}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
