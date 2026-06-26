@@ -1,7 +1,6 @@
 'use client'
 
 import type { ClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
-import { ClientHomeEducationCard } from '@/src/modules/portal/ui/client-home-education-card'
 import {
   ClientHomeStats,
   ClientHomeStatsUnavailable,
@@ -25,7 +24,6 @@ export function ClientHomeDashboard({ snapshot }: ClientHomeDashboardProps) {
         <ClientHomeStatsUnavailable />
       )}
       <ClientHomeUnreadFeed />
-      <ClientHomeEducationCard />
     </div>
   )
 }

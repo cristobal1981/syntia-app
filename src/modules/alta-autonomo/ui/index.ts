@@ -1,0 +1,6 @@
+export { AltaAutonomoIntroPage } from '@/src/modules/alta-autonomo/ui/alta-autonomo-intro-page'
+export { AltaAutonomoWizardProvider } from '@/src/modules/alta-autonomo/ui/alta-autonomo-wizard-context'
+export { AltaAutonomoSituacionStepPage } from '@/src/modules/alta-autonomo/ui/steps/alta-autonomo-situacion-step-page'
+export { AltaAutonomoDatosPersonalesStepPage } from '@/src/modules/alta-autonomo/ui/steps/alta-autonomo-datos-personales-step-page'
+export { AltaAutonomoActividadStepPage } from '@/src/modules/alta-autonomo/ui/steps/alta-autonomo-actividad-step-page'
+export { AltaAutonomoResumenStepPage } from '@/src/modules/alta-autonomo/ui/steps/alta-autonomo-resumen-step-page'

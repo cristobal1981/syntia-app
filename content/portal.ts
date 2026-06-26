@@ -210,10 +210,6 @@ export const portal = {
       unreadEmpty: 'No tienes novedades de tu asesoría.',
       unreadViewAll: 'Ver trámites',
       unreadMore: 'Ver {count} novedades más',
-      educationTitle: '¿Tienes una consulta nueva?',
-      educationDescription:
-        'Abre una consulta para dudas o soporte. No reutilices conversaciones de trámites antiguos si tu consulta no tiene que ver con ellos.',
-      educationAction: 'Nueva consulta',
       statsUnavailable:
         'No pudimos cargar el resumen ahora mismo. Puedes seguir usando el menú lateral.',
       quickLinksTitle: 'Accesos rápidos',
