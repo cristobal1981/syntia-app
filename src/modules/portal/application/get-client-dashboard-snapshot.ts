@@ -1,9 +1,8 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { flattenObligacionesYear } from '@/src/modules/obligaciones/domain/sort-obligaciones-list'
-import { getObligacionesForClient } from '@/src/modules/obligaciones/application/get-obligaciones-for-client'
-import { mergeTramitesList } from '@/src/modules/tramites/domain/merge-tramites-list'
-import { isTaskClosed } from '@/src/modules/tramites/domain/map-task-state'
-import { getTramitesForClient } from '@/src/modules/tramites/application/get-tramites-for-client'
+import { countObligacionesInProgressForPartner } from '@/src/modules/obligaciones/infrastructure/count-obligaciones-in-progress-for-partner'
+import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { countActiveTramitesForPartner } from '@/src/modules/tramites/infrastructure/count-active-tramites-for-partner'
+import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 export type ClientDashboardSnapshot = {
   activeTramites: number
@@ -17,43 +16,33 @@ export type ClientDashboardSnapshotResult =
 export async function getClientDashboardSnapshot(
   user: PortalUser
 ): Promise<ClientDashboardSnapshotResult> {
-  const [tramitesResult, obligacionesResult] = await Promise.all([
-    getTramitesForClient(user),
-    getObligacionesForClient(user),
-  ])
-
-  if (!tramitesResult.ok) {
-    if (tramitesResult.error === 'forbidden') {
-      return { ok: false, error: 'forbidden' }
-    }
-    return { ok: false, error: tramitesResult.error }
+  if (user.role !== 'client') {
+    return { ok: false, error: 'forbidden' }
   }
 
-  if (!obligacionesResult.ok) {
-    if (obligacionesResult.error === 'forbidden') {
-      return { ok: false, error: 'forbidden' }
-    }
-    return { ok: false, error: obligacionesResult.error }
+  const partnerId = await resolveClientOdooPartnerId(user)
+  if (!partnerId) {
+    return { ok: false, error: 'not_linked' }
   }
 
-  const items = mergeTramitesList(
-    tramitesResult.data.tasks,
-    tramitesResult.data.tickets
-  )
+  if (!isOdooApiConfigured()) {
+    return { ok: false, error: 'odoo_unavailable' }
+  }
 
-  const activeTramites = items.filter(
-    (item) => item.kind === 'tramite' && !item.isClosed
-  ).length
+  try {
+    const [activeTramites, obligacionesInProgress] = await Promise.all([
+      countActiveTramitesForPartner(partnerId),
+      countObligacionesInProgressForPartner(partnerId),
+    ])
 
-  const obligacionesInProgress = obligacionesResult.data.years
-    .flatMap((year) => flattenObligacionesYear(year))
-    .filter((row) => !isTaskClosed(row.state)).length
-
-  return {
-    ok: true,
-    data: {
-      activeTramites,
-      obligacionesInProgress,
-    },
+    return {
+      ok: true,
+      data: {
+        activeTramites,
+        obligacionesInProgress,
+      },
+    }
+  } catch {
+    return { ok: false, error: 'odoo_unavailable' }
   }
 }

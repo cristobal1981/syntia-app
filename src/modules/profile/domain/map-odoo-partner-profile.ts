@@ -1,4 +1,4 @@
-import { normalizeIban } from '@/lib/profile/validate-profile-change'
+import { normalizeIban } from '@/lib/validation'
 import { resolvePortalEmailFromOdoo } from '@/src/modules/directory/domain/odoo-partner-import'
 import {
   formatOdooCountryLabelForDisplay,
@@ -88,7 +88,7 @@ export function mapOdooPartnerToClientProfile(input: {
     email: resolvePortalEmailFromOdoo(contactEmail || undefined, corporateEmail || undefined),
     phone: sanitizeOdooString(input.partner.phone),
     address: mapOdooAddress(input.partner),
-    taxId: formatOdooVatForDisplay(sanitizeOdooString(input.partner.vat)),
+    vat: formatOdooVatForDisplay(sanitizeOdooString(input.partner.vat)),
     iban: resolveIbanFromBankRows(input.bankRows),
   }
 }

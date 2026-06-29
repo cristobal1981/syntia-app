@@ -140,7 +140,7 @@ export function ProfileChangeDrawer({
     name: initialProfile.name,
     email: initialProfile.email,
     phone: initialProfile.phone,
-    taxId: initialProfile.taxId,
+    vat: initialProfile.vat,
     iban: initialProfile.iban,
     address: { ...initialProfile.address },
   })
@@ -153,7 +153,7 @@ export function ProfileChangeDrawer({
       name: initialProfile.name,
       email: initialProfile.email,
       phone: initialProfile.phone,
-      taxId: initialProfile.taxId,
+      vat: initialProfile.vat,
       iban: initialProfile.iban,
       address: { ...initialProfile.address },
     })
@@ -170,7 +170,7 @@ export function ProfileChangeDrawer({
     formValues.name !== initialProfile.name ||
     formValues.email !== initialProfile.email ||
     formValues.phone !== initialProfile.phone ||
-    formValues.taxId !== initialProfile.taxId ||
+    formValues.vat !== initialProfile.vat ||
     formValues.iban !== initialProfile.iban ||
     formValues.address.line1 !== initialProfile.address.line1 ||
     formValues.address.line2 !== initialProfile.address.line2 ||
@@ -234,7 +234,7 @@ export function ProfileChangeDrawer({
           name: formValues.name,
           email: formValues.email,
           phone: formValues.phone,
-          taxId: formValues.taxId,
+          vat: formValues.vat,
           iban: formValues.iban,
           address: formValues.address,
         }),
@@ -307,12 +307,12 @@ export function ProfileChangeDrawer({
                 />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <DrawerField
-                    id="drawer-taxId"
-                    label={profile.labels.taxId}
-                    name="taxId"
-                    value={formValues.taxId}
-                    error={fieldErrors.taxId}
-                    onChange={(taxId) => setFormValues((current) => ({ ...current, taxId }))}
+                    id="drawer-vat"
+                    label={profile.labels.vat}
+                    name="vat"
+                    value={formValues.vat}
+                    error={fieldErrors.vat}
+                    onChange={(vat) => setFormValues((current) => ({ ...current, vat }))}
                   />
                   <DrawerField
                     id="drawer-phone"

@@ -315,6 +315,11 @@ export function PortalTopBarSearch({
           'action:procedure:',
           ''
         ) as ProcedureTicketType
+        if (procedure === 'alta-trabajador') {
+          router.push('/alta-trabajador')
+          close()
+          return
+        }
         createConsulta?.openCreateConsulta({ procedure })
         close()
         return

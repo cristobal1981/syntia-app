@@ -41,6 +41,7 @@ export type ChatterPendingNavigation = {
 type ChatterNotificationsContextValue = {
   unread: ChatterUnreadNotification[]
   unreadCount: number
+  notificationsLoading: boolean
   pendingNavigation: ChatterPendingNavigation | null
   hasUnreadChatter: (recordKind: PortalRecordKind, recordId: number) => boolean
   dismissNewTramiteNotification: (
@@ -55,6 +56,10 @@ type ChatterNotificationsContextValue = {
   openNotification: (notification: ChatterUnreadNotification) => void
   clearPendingNavigation: () => void
   refreshNotifications: () => Promise<void>
+  initializeNotifications: (payload: {
+    unread: ChatterUnreadNotification[]
+    readState: ChatterReadStateMap
+  }) => void
 }
 
 function matchesNotificationRecord(
@@ -125,12 +130,14 @@ export function ChatterNotificationsProvider({
 }: ChatterNotificationsProviderProps) {
   const router = useRouter()
   const [unread, setUnread] = useState<ChatterUnreadNotification[]>([])
+  const [notificationsLoading, setNotificationsLoading] = useState(enabled)
   const [pendingNavigation, setPendingNavigation] =
     useState<ChatterPendingNavigation | null>(null)
   const unreadRef = useRef<ChatterUnreadNotification[]>([])
   const readStateRef = useRef<ChatterReadStateMap>({})
   const pollingRef = useRef(false)
   const markingRef = useRef<Set<string>>(new Set())
+  const skipInitialFetchRef = useRef(false)
 
   useEffect(() => {
     unreadRef.current = unread
@@ -140,6 +147,24 @@ export function ChatterNotificationsProvider({
     readStateRef.current = mergeReadState(readStateRef.current, readState)
     saveReadStateToStorage(readStateRef.current)
   }, [])
+
+  const initializeNotifications = useCallback(
+    (payload: {
+      unread: ChatterUnreadNotification[]
+      readState: ChatterReadStateMap
+    }) => {
+      if (skipInitialFetchRef.current) return
+      skipInitialFetchRef.current = true
+      readStateRef.current = mergeReadState(
+        loadReadStateFromStorage(),
+        payload.readState
+      )
+      saveReadStateToStorage(readStateRef.current)
+      setUnread(payload.unread)
+      setNotificationsLoading(false)
+    },
+    []
+  )
 
   const refreshNotifications = useCallback(async () => {
     if (!enabled || pollingRef.current) return
@@ -153,14 +178,22 @@ export function ChatterNotificationsProvider({
       setUnread(result.unread)
     } finally {
       pollingRef.current = false
+      setNotificationsLoading(false)
     }
   }, [applyReadState, enabled])
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) {
+      setNotificationsLoading(false)
+      return
+    }
 
     readStateRef.current = loadReadStateFromStorage()
-    void refreshNotifications()
+
+    const timer = window.setTimeout(() => {
+      if (skipInitialFetchRef.current) return
+      void refreshNotifications()
+    }, 0)
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
@@ -175,6 +208,7 @@ export function ChatterNotificationsProvider({
     }, POLL_INTERVAL_MS)
 
     return () => {
+      window.clearTimeout(timer)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.clearInterval(intervalId)
     }
@@ -296,6 +330,7 @@ export function ChatterNotificationsProvider({
     () => ({
       unread,
       unreadCount: unread.length,
+      notificationsLoading,
       pendingNavigation,
       hasUnreadChatter,
       dismissNewTramiteNotification,
@@ -303,9 +338,11 @@ export function ChatterNotificationsProvider({
       openNotification,
       clearPendingNavigation,
       refreshNotifications,
+      initializeNotifications,
     }),
     [
       unread,
+      notificationsLoading,
       pendingNavigation,
       hasUnreadChatter,
       dismissNewTramiteNotification,
@@ -313,6 +350,7 @@ export function ChatterNotificationsProvider({
       openNotification,
       clearPendingNavigation,
       refreshNotifications,
+      initializeNotifications,
     ]
   )
 

@@ -1,4 +1,19 @@
 import type { ProcedureTicketPayload } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  applyFieldRule,
+  isIsoDateBeforeToday,
+  isValidDni,
+  isValidFourDigitYear,
+  isValidIsoDate,
+  isValidPositiveDecimal,
+  isValidPositiveInteger,
+  normalizeDni,
+  requireIsoDate,
+  requireMaxLength,
+  requireSelected,
+  requireTrimmed,
+  trim,
+} from '@/lib/validation'
 
 const FULL_NAME_MAX = 120
 const OBSERVATIONS_MAX = 500
@@ -6,8 +21,8 @@ const OBSERVATIONS_MAX = 500
 export type ProcedureFieldErrorKey =
   | 'fullNameRequired'
   | 'fullNameTooLong'
-  | 'taxIdRequired'
-  | 'taxIdInvalid'
+  | 'dniRequired'
+  | 'dniInvalid'
   | 'dateRequired'
   | 'dateInvalid'
   | 'dateInPast'
@@ -22,90 +37,57 @@ export type ProcedureFieldErrorKey =
   | 'vacationYearInvalid'
   | 'observationsTooLong'
 
-function trim(value: string): string {
-  return value.trim()
-}
-
-export function normalizeTaxId(value: string): string {
-  return trim(value).toUpperCase().replace(/\s/g, '')
-}
-
-export function isValidTaxId(value: string): boolean {
-  const normalized = normalizeTaxId(value)
-  return (
-    /^[0-9]{8}[A-Z]$/.test(normalized) ||
-    /^[XYZ][0-9]{7}[A-Z]$/.test(normalized)
-  )
-}
-
-function isValidIsoDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T12:00:00`)
-  return !Number.isNaN(date.getTime())
-}
-
-/** Fecha local YYYY-MM-DD (para inputs type="date" y validación). */
-export function todayIsoDateLocal(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function isDateBeforeToday(value: string): boolean {
-  if (!isValidIsoDate(value)) return false
-  return value < todayIsoDateLocal()
-}
+export { normalizeDni, todayIsoDateLocal } from '@/lib/validation'
 
 function validateCommonWorkerFields(
   fullName: string,
-  taxId: string,
+  dni: string,
   observations: string,
   fieldErrors: Record<string, ProcedureFieldErrorKey>
 ) {
-  const name = trim(fullName)
-  if (!name) {
-    fieldErrors.fullName = 'fullNameRequired'
-  } else if (name.length > FULL_NAME_MAX) {
-    fieldErrors.fullName = 'fullNameTooLong'
-  }
+  applyFieldRule(
+    fieldErrors,
+    'fullName',
+    requireTrimmed(fullName, 'fullNameRequired')
+  )
+  applyFieldRule(
+    fieldErrors,
+    'fullName',
+    requireMaxLength(fullName, FULL_NAME_MAX, 'fullNameTooLong')
+  )
 
-  const id = trim(taxId)
+  const id = trim(dni)
   if (!id) {
-    fieldErrors.taxId = 'taxIdRequired'
-  } else if (!isValidTaxId(id)) {
-    fieldErrors.taxId = 'taxIdInvalid'
+    fieldErrors.dni = 'dniRequired'
+  } else if (!isValidDni(id)) {
+    fieldErrors.dni = 'dniInvalid'
   }
 
-  if (trim(observations).length > OBSERVATIONS_MAX) {
-    fieldErrors.observations = 'observationsTooLong'
-  }
+  applyFieldRule(
+    fieldErrors,
+    'observations',
+    requireMaxLength(observations, OBSERVATIONS_MAX, 'observationsTooLong')
+  )
 }
 
-function validateRequiredDate(
+function validateRequiredDateField(
   value: string,
   field: string,
   fieldErrors: Record<string, ProcedureFieldErrorKey>
 ) {
-  const date = trim(value)
-  if (!date) {
-    fieldErrors[field] = 'dateRequired'
-    return
-  }
-  if (!isValidIsoDate(date)) {
-    fieldErrors[field] = 'dateInvalid'
-  }
+  applyFieldRule(
+    fieldErrors,
+    field,
+    requireIsoDate(value, 'dateRequired', 'dateInvalid')
+  )
 }
 
-function validateRequiredSelect(
+function validateRequiredSelectField(
   value: string,
   field: string,
   fieldErrors: Record<string, ProcedureFieldErrorKey>
 ) {
-  if (!trim(value)) {
-    fieldErrors[field] = 'selectRequired'
-  }
+  applyFieldRule(fieldErrors, field, requireSelected(value, 'selectRequired'))
 }
 
 export function validateProcedureTicketPayload(
@@ -115,43 +97,45 @@ export function validateProcedureTicketPayload(
 
   validateCommonWorkerFields(
     payload.fullName,
-    payload.taxId,
+    payload.dni,
     payload.observations,
     fieldErrors
   )
 
   if (payload.type === 'alta-trabajador') {
-    validateRequiredDate(payload.startDate, 'startDate', fieldErrors)
+    validateRequiredDateField(payload.startDate, 'startDate', fieldErrors)
     if (
       !fieldErrors.startDate &&
       isValidIsoDate(payload.startDate) &&
-      isDateBeforeToday(payload.startDate)
+      isIsoDateBeforeToday(payload.startDate)
     ) {
       fieldErrors.startDate = 'dateInPast'
     }
-    validateRequiredSelect(payload.contractType, 'contractType', fieldErrors)
-    validateRequiredSelect(payload.workSchedule, 'workSchedule', fieldErrors)
+    validateRequiredSelectField(payload.contractType, 'contractType', fieldErrors)
+    validateRequiredSelectField(payload.workSchedule, 'workSchedule', fieldErrors)
 
-    if (!trim(payload.position)) {
-      fieldErrors.position = 'positionRequired'
-    }
+    applyFieldRule(
+      fieldErrors,
+      'position',
+      requireTrimmed(payload.position, 'positionRequired')
+    )
 
-    const salary = trim(payload.grossSalary).replace(/\./g, '').replace(',', '.')
-    if (!salary) {
+    const salary = trim(payload.grossSalary)
+    if (!trim(salary)) {
       fieldErrors.grossSalary = 'grossSalaryRequired'
-    } else if (!/^\d+(\.\d{1,2})?$/.test(salary)) {
+    } else if (!isValidPositiveDecimal(salary)) {
       fieldErrors.grossSalary = 'grossSalaryInvalid'
     }
   }
 
   if (payload.type === 'baja-trabajador') {
-    validateRequiredDate(payload.endDate, 'endDate', fieldErrors)
-    validateRequiredSelect(payload.reason, 'reason', fieldErrors)
+    validateRequiredDateField(payload.endDate, 'endDate', fieldErrors)
+    validateRequiredSelectField(payload.reason, 'reason', fieldErrors)
   }
 
   if (payload.type === 'carta-vacaciones') {
-    validateRequiredDate(payload.periodStart, 'periodStart', fieldErrors)
-    validateRequiredDate(payload.periodEnd, 'periodEnd', fieldErrors)
+    validateRequiredDateField(payload.periodStart, 'periodStart', fieldErrors)
+    validateRequiredDateField(payload.periodEnd, 'periodEnd', fieldErrors)
 
     if (
       isValidIsoDate(payload.periodStart) &&
@@ -164,14 +148,14 @@ export function validateProcedureTicketPayload(
     const days = trim(payload.days)
     if (!days) {
       fieldErrors.days = 'daysRequired'
-    } else if (!/^\d{1,3}$/.test(days) || Number(days) < 1) {
+    } else if (!isValidPositiveInteger(days, { maxDigits: 3 })) {
       fieldErrors.days = 'daysInvalid'
     }
 
     const year = trim(payload.vacationYear)
     if (!year) {
       fieldErrors.vacationYear = 'vacationYearRequired'
-    } else if (!/^\d{4}$/.test(year)) {
+    } else if (!isValidFourDigitYear(year)) {
       fieldErrors.vacationYear = 'vacationYearInvalid'
     }
   }
@@ -184,7 +168,7 @@ export function normalizeProcedureTicketPayload(
 ): ProcedureTicketPayload {
   const base = {
     fullName: trim(payload.fullName),
-    taxId: normalizeTaxId(payload.taxId),
+    dni: normalizeDni(payload.dni),
     observations: trim(payload.observations),
   }
 
@@ -197,6 +181,12 @@ export function normalizeProcedureTicketPayload(
       workSchedule: trim(payload.workSchedule),
       position: trim(payload.position),
       grossSalary: trim(payload.grossSalary),
+      ...(payload.partialWeeklyHours?.trim()
+        ? { partialWeeklyHours: trim(payload.partialWeeklyHours) }
+        : {}),
+      ...(payload.contractEndDate?.trim()
+        ? { contractEndDate: trim(payload.contractEndDate) }
+        : {}),
     }
   }
 

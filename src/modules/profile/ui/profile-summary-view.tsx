@@ -115,8 +115,8 @@ export function ProfileSummaryView({ initialProfile }: ProfileSummaryViewProps) 
               <div className="grid gap-4 sm:grid-cols-2">
                 <ProfileFieldRow
                   icon={IdCard}
-                  label={profile.labels.taxId}
-                  value={initialProfile.taxId}
+                  label={profile.labels.vat}
+                  value={initialProfile.vat}
                 />
                 <ProfileFieldRow
                   icon={Phone}

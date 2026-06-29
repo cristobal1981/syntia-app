@@ -24,7 +24,7 @@ const FIELD_LABELS: Record<ProfileFieldKey, string> = {
   email: profile.labels.email,
   phone: profile.labels.phone,
   address: profile.sections.address,
-  taxId: profile.labels.taxId,
+  vat: profile.labels.vat,
   iban: profile.labels.iban,
 }
 
@@ -41,7 +41,7 @@ function normalizeRequestBody(body: ProfileChangeRequestBody): Omit<ProfileChang
       province: body.address.province.trim(),
       country: body.address.country.trim() || 'España',
     },
-    taxId: body.taxId.trim(),
+    vat: body.vat.trim(),
     iban: body.iban.trim(),
   }
 }
@@ -56,8 +56,8 @@ function getCurrentValue(key: ProfileFieldKey, currentProfile: ClientProfile): s
       return currentProfile.phone
     case 'address':
       return formatAddress(currentProfile.address)
-    case 'taxId':
-      return currentProfile.taxId
+    case 'vat':
+      return currentProfile.vat
     case 'iban':
       return normalizeIban(currentProfile.iban)
   }
@@ -73,8 +73,8 @@ function getRequestedValue(key: ProfileFieldKey, input: ProfileChangeInput): str
       return input.phone.trim()
     case 'address':
       return formatAddress(input.address)
-    case 'taxId':
-      return input.taxId.trim().toUpperCase()
+    case 'vat':
+      return input.vat.trim().toUpperCase()
     case 'iban':
       return normalizeIban(input.iban)
   }
@@ -195,7 +195,12 @@ export function parseProfileChangeRequestBody(
     name: typeof record.name === 'string' ? record.name : '',
     email: typeof record.email === 'string' ? record.email : '',
     phone: typeof record.phone === 'string' ? record.phone : '',
-    taxId: typeof record.taxId === 'string' ? record.taxId : '',
+    vat:
+      typeof record.vat === 'string'
+        ? record.vat
+        : typeof record.taxId === 'string'
+          ? record.taxId
+          : '',
     iban: typeof record.iban === 'string' ? record.iban : '',
     address: {
       line1: typeof address.line1 === 'string' ? address.line1 : '',

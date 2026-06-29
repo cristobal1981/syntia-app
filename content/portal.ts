@@ -206,6 +206,7 @@ export const portal = {
         obligacionesInProgress: 'Obligaciones en curso',
         unreadMessages: 'Novedades',
       },
+      unreadLoading: 'Comprobando novedades…',
       unreadTitle: 'Novedades',
       unreadEmpty: 'No tienes novedades de tu asesoría.',
       unreadViewAll: 'Ver trámites',

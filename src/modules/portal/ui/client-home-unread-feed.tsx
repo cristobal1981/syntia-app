@@ -1,10 +1,14 @@
 'use client'
 
+import { Loader2 } from 'lucide-react'
+
 import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
+import { Skeleton } from '@/components/ui/skeleton'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
+import type { ChatterUnreadNotification } from '@/src/modules/portal/domain/chatter-notifications-types'
 
 function formatNotificationDate(value: string): string {
   const date = new Date(value)
@@ -18,30 +22,61 @@ function formatNotificationDate(value: string): string {
   }).format(date)
 }
 
-export function ClientHomeUnreadFeed() {
+type ClientHomeUnreadFeedProps = {
+  notificationsLoading?: boolean
+  initialUnread?: ChatterUnreadNotification[]
+}
+
+export function ClientHomeUnreadFeed({
+  notificationsLoading = false,
+  initialUnread,
+}: ClientHomeUnreadFeedProps) {
   const notifications = useChatterNotificationsOptional()
   const copy = portal.home.client
-  const unreadCount = notifications?.unreadCount ?? 0
-  const unread = notifications?.unread.slice(0, 3) ?? []
+  const contextUnread = notifications?.unread ?? []
+  const unreadSource =
+    contextUnread.length > 0 || !initialUnread?.length
+      ? contextUnread
+      : initialUnread
+  const unreadCount = unreadSource.length
+  const unread = unreadSource.slice(0, 3)
   const overflowCount = Math.max(0, unreadCount - 3)
 
   return (
     <section aria-labelledby="client-home-unread">
       <div className="mb-4 flex items-center gap-2">
-          <h2
-            id="client-home-unread"
-            className="font-sans text-lg font-semibold text-foreground"
-          >
-            {copy.unreadTitle}
-          </h2>
-          {unreadCount > 0 ? (
-            <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-2 py-0.5 text-xs font-semibold tabular-nums text-primary-foreground">
-              {unreadCount}
-            </span>
-          ) : null}
-        </div>
+        <h2
+          id="client-home-unread"
+          className="font-sans text-lg font-semibold text-foreground"
+        >
+          {copy.unreadTitle}
+        </h2>
+        {notificationsLoading ? (
+          <Loader2
+            className="size-4 animate-spin text-muted-foreground motion-reduce:animate-none"
+            aria-hidden
+          />
+        ) : unreadCount > 0 ? (
+          <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-2 py-0.5 text-xs font-semibold tabular-nums text-primary-foreground">
+            {unreadCount}
+          </span>
+        ) : null}
+      </div>
 
-      {unread.length === 0 ? (
+      {notificationsLoading ? (
+        <div
+          className="portal-home-card rounded-xl px-5 py-6"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <span className="sr-only">{copy.unreadLoading}</span>
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ) : unread.length === 0 ? (
         <div className="portal-home-card rounded-xl px-5 py-6 text-sm text-muted-foreground">
           {copy.unreadEmpty}
         </div>

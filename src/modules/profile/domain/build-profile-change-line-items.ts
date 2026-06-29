@@ -1,5 +1,5 @@
 import { profile } from '@/content/profile'
-import { normalizeIban } from '@/lib/profile/validate-profile-change'
+import { normalizeIban } from '@/lib/validation'
 import type {
   ClientProfile,
   FiscalAddress,
@@ -54,7 +54,7 @@ export function buildProfileChangeLineItems(
     name: string
     email: string
     phone: string
-    taxId: string
+    vat: string
     iban: string
     address: FiscalAddress
   }
@@ -64,7 +64,7 @@ export function buildProfileChangeLineItems(
   pushIfChanged(items, labels.name, current.name, requested.name)
   pushIfChanged(items, labels.email, current.email, requested.email)
   pushIfChanged(items, labels.phone, current.phone, requested.phone)
-  pushIfChanged(items, labels.taxId, current.taxId, requested.taxId, (value) =>
+  pushIfChanged(items, labels.vat, current.vat, requested.vat, (value) =>
     value.trim().toUpperCase()
   )
   pushIfChanged(items, labels.iban, current.iban, requested.iban, normalizeIban)

@@ -282,7 +282,6 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
 
   const dismissNewTramiteNotification =
     notifications?.dismissNewTramiteNotification
-  const refreshNotifications = notifications?.refreshNotifications
   const clearPendingNavigation = notifications?.clearPendingNavigation
 
   const markItemSeen = useCallback(
@@ -291,9 +290,8 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
       if (item.kind === 'tramite') {
         dismissNewTramiteNotification?.('task', item.id)
       }
-      void refreshNotifications?.()
     },
-    [dismissNewTramiteNotification, markItemSeenBase, refreshNotifications]
+    [dismissNewTramiteNotification, markItemSeenBase]
   )
 
   const handledOpenParamRef = useRef<string | null>(null)

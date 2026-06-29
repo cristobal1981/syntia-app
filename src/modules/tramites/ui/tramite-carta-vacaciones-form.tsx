@@ -7,7 +7,7 @@ import { TramiteDrawerField } from '@/src/modules/tramites/ui/tramite-drawer-fie
 
 export type CartaVacacionesFormValues = {
   fullName: string
-  taxId: string
+  dni: string
   periodStart: string
   periodEnd: string
   days: string
@@ -17,7 +17,7 @@ export type CartaVacacionesFormValues = {
 
 export const EMPTY_CARTA_VACACIONES_FORM: CartaVacacionesFormValues = {
   fullName: '',
-  taxId: '',
+  dni: '',
   periodStart: '',
   periodEnd: '',
   days: '',
@@ -64,14 +64,14 @@ export function TramiteCartaVacacionesForm({
           onChange={(fullName) => patch({ fullName })}
         />
         <TramiteDrawerField
-          id={`${baseId}-taxId`}
-          name="taxId"
-          label={common.fields.taxId.label}
-          placeholder={common.fields.taxId.placeholder}
-          value={values.taxId}
-          error={fieldErrors.taxId}
+          id={`${baseId}-dni`}
+          name="dni"
+          label={common.fields.dni.label}
+          placeholder={common.fields.dni.placeholder}
+          value={values.dni}
+          error={fieldErrors.dni}
           disabled={disabled}
-          onChange={(taxId) => patch({ taxId })}
+          onChange={(dni) => patch({ dni })}
         />
       </fieldset>
 

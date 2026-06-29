@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { ClipboardList, MessageSquare, Scale, type LucideIcon } from 'lucide-react'
 
+import { Skeleton } from '@/components/ui/skeleton'
 import { portal } from '@/content/portal'
 import type { ClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
 
 type ClientHomeStatsProps = {
   data: ClientDashboardSnapshot
   unreadCount?: number
+  notificationsLoading?: boolean
 }
 
 type StatCardProps = {
@@ -14,16 +16,24 @@ type StatCardProps = {
   value: number
   icon: LucideIcon
   href?: string
+  loading?: boolean
 }
 
-function StatCard({ label, value, icon: Icon, href }: StatCardProps) {
-  const content = (
+function StatCard({ label, value, icon: Icon, href, loading = false }: StatCardProps) {
+  const inner = (
     <div className="flex items-start gap-4">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
         <Icon className="size-5 text-primary" aria-hidden />
       </div>
       <div className="min-w-0">
-        <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+        {loading ? (
+          <>
+            <Skeleton className="h-8 w-10" aria-hidden />
+            <span className="sr-only">{portal.home.client.unreadLoading}</span>
+          </>
+        ) : (
+          <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+        )}
         <p className="mt-1 text-sm text-muted-foreground">{label}</p>
       </div>
     </div>
@@ -31,23 +41,38 @@ function StatCard({ label, value, icon: Icon, href }: StatCardProps) {
 
   if (!href) {
     return (
-      <div className="portal-home-card rounded-xl p-4 md:p-5">
-        {content}
+      <div
+        className="portal-home-card rounded-xl p-4 md:p-5"
+        aria-busy={loading || undefined}
+      >
+        {inner}
+      </div>
+    )
+  }
+
+  const className =
+    'portal-home-card rounded-xl p-4 transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:p-5'
+
+  if (loading) {
+    return (
+      <div className={className} aria-busy="true">
+        {inner}
       </div>
     )
   }
 
   return (
-    <Link
-      href={href}
-      className="portal-home-card rounded-xl p-4 transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:p-5"
-    >
-      {content}
+    <Link href={href} className={className}>
+      {inner}
     </Link>
   )
 }
 
-export function ClientHomeStats({ data, unreadCount = 0 }: ClientHomeStatsProps) {
+export function ClientHomeStats({
+  data,
+  unreadCount = 0,
+  notificationsLoading = false,
+}: ClientHomeStatsProps) {
   const copy = portal.home.client
 
   return (
@@ -76,6 +101,7 @@ export function ClientHomeStats({ data, unreadCount = 0 }: ClientHomeStatsProps)
           value={unreadCount}
           icon={MessageSquare}
           href="/tramites"
+          loading={notificationsLoading}
         />
       </div>
     </section>

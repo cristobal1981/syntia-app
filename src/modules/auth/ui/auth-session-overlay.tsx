@@ -67,6 +67,7 @@ function EntryOverlay({
   const [phraseIndex, setPhraseIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [visible, setVisible] = useState(true)
+  const [exiting, setExiting] = useState(false)
   const [startedAt] = useState(() => Date.now())
 
   useEffect(() => {
@@ -93,13 +94,18 @@ function EntryOverlay({
   useEffect(() => {
     if (!ready) return
 
-    let dismissTimer: number | undefined
+    let minTimer: number | undefined
+    let completeTimer: number | undefined
+    let exitTimer: number | undefined
 
     const finish = () => {
       setProgress(100)
-      dismissTimer = window.setTimeout(() => {
-        setVisible(false)
-        onDismiss?.()
+      completeTimer = window.setTimeout(() => {
+        setExiting(true)
+        exitTimer = window.setTimeout(() => {
+          setVisible(false)
+          onDismiss?.()
+        }, 300)
       }, COMPLETE_DELAY_MS)
     }
 
@@ -107,16 +113,15 @@ function EntryOverlay({
     const remaining = portal.authLoading.entryMinDisplayMs - elapsed
 
     if (remaining > 0) {
-      const minTimer = window.setTimeout(finish, remaining)
-      return () => {
-        window.clearTimeout(minTimer)
-        if (dismissTimer !== undefined) window.clearTimeout(dismissTimer)
-      }
+      minTimer = window.setTimeout(finish, remaining)
+    } else {
+      finish()
     }
 
-    finish()
     return () => {
-      if (dismissTimer !== undefined) window.clearTimeout(dismissTimer)
+      if (minTimer !== undefined) window.clearTimeout(minTimer)
+      if (completeTimer !== undefined) window.clearTimeout(completeTimer)
+      if (exitTimer !== undefined) window.clearTimeout(exitTimer)
     }
   }, [ready, onDismiss, startedAt])
 
@@ -126,11 +131,11 @@ function EntryOverlay({
     <div
       className={cn(
         'fixed inset-0 z-[110] flex items-center justify-center bg-background px-6 transition-opacity duration-300',
-        ready && 'opacity-0'
+        exiting && 'opacity-0'
       )}
       role="status"
       aria-live="polite"
-      aria-busy={!ready}
+      aria-busy={!exiting}
     >
       <div className="flex w-full max-w-md flex-col items-center">
         <div className="mb-8 flex justify-center">

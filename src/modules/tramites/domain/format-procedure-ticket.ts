@@ -1,15 +1,15 @@
+import { altaTrabajadorWizard } from '@/content/alta-trabajador-wizard'
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
+import {
+  escapeHtml,
+  formatOdooHtmlChatterList,
+  formatOdooHtmlDocument,
+  type OdooHtmlFieldRow,
+  type OdooHtmlSection,
+} from '@/lib/format/odoo-html'
 import type { ProcedureTicketPayload } from '@/src/modules/tramites/domain/procedure-ticket-types'
 
 const SUBJECT_MAX_LENGTH = 120
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function formatRequestedAt(isoDate: string): string {
   const date = new Date(isoDate)
@@ -35,47 +35,99 @@ function labelForOption(
   return options[value] ?? value
 }
 
-function buildLineItems(payload: ProcedureTicketPayload): string[] {
-  const common = tramiteSolicitudes.common.fields
-  const lines = [
-    `- ${common.fullName.label}: ${payload.fullName}`,
-    `- ${common.taxId.label}: ${payload.taxId}`,
-  ]
+function row(label: string, value: string): OdooHtmlFieldRow {
+  return { label, value }
+}
+
+function optionalRow(label: string, value: string | undefined): OdooHtmlFieldRow | null {
+  if (!value?.trim()) return null
+  return row(label, value)
+}
+
+function workerSection(payload: ProcedureTicketPayload): OdooHtmlSection {
+  const common = tramiteSolicitudes.common
+  return {
+    title: common.sections.worker,
+    rows: [
+      row(common.fields.fullName.label, payload.fullName),
+      row(common.fields.dni.label, payload.dni),
+    ],
+  }
+}
+
+function buildProcedureSections(payload: ProcedureTicketPayload): OdooHtmlSection[] {
+  const common = tramiteSolicitudes.common
+  const sections: OdooHtmlSection[] = [workerSection(payload)]
 
   if (payload.type === 'alta-trabajador') {
     const copy = tramiteSolicitudes.altaTrabajador.fields
-    lines.push(
-      `- ${copy.startDate.label}: ${formatIsoDateEs(payload.startDate)}`,
-      `- ${copy.contractType.label}: ${labelForOption(copy.contractType.options, payload.contractType)}`,
-      `- ${copy.workSchedule.label}: ${labelForOption(copy.workSchedule.options, payload.workSchedule)}`,
-      `- ${copy.position.label}: ${payload.position}`,
-      `- ${copy.grossSalary.label}: ${payload.grossSalary}`
-    )
+    const wizardFields = altaTrabajadorWizard.fields
+    const contractRows: OdooHtmlFieldRow[] = [
+      row(copy.startDate.label, formatIsoDateEs(payload.startDate)),
+      row(
+        copy.contractType.label,
+        labelForOption(copy.contractType.options, payload.contractType)
+      ),
+      optionalRow(
+        wizardFields.contractEndDate.label,
+        payload.contractEndDate
+          ? formatIsoDateEs(payload.contractEndDate)
+          : undefined
+      ),
+      row(
+        copy.workSchedule.label,
+        labelForOption(copy.workSchedule.options, payload.workSchedule)
+      ),
+      optionalRow(
+        wizardFields.partialWeeklyHours.label,
+        payload.partialWeeklyHours
+      ),
+      row(copy.position.label, payload.position),
+      row(copy.grossSalary.label, payload.grossSalary),
+    ].filter((item): item is OdooHtmlFieldRow => item !== null)
+
+    sections.push({
+      title: common.sections.details,
+      rows: contractRows,
+    })
   }
 
   if (payload.type === 'baja-trabajador') {
     const copy = tramiteSolicitudes.bajaTrabajador.fields
-    lines.push(
-      `- ${copy.endDate.label}: ${formatIsoDateEs(payload.endDate)}`,
-      `- ${copy.reason.label}: ${labelForOption(copy.reason.options, payload.reason)}`
-    )
+    sections.push({
+      title: common.sections.details,
+      rows: [
+        row(copy.endDate.label, formatIsoDateEs(payload.endDate)),
+        row(copy.reason.label, labelForOption(copy.reason.options, payload.reason)),
+      ],
+    })
   }
 
   if (payload.type === 'carta-vacaciones') {
     const copy = tramiteSolicitudes.cartaVacaciones.fields
-    lines.push(
-      `- ${copy.periodStart.label}: ${formatIsoDateEs(payload.periodStart)}`,
-      `- ${copy.periodEnd.label}: ${formatIsoDateEs(payload.periodEnd)}`,
-      `- ${copy.days.label}: ${payload.days}`,
-      `- ${copy.vacationYear.label}: ${payload.vacationYear}`
-    )
+    sections.push({
+      title: common.sections.details,
+      rows: [
+        row(copy.periodStart.label, formatIsoDateEs(payload.periodStart)),
+        row(copy.periodEnd.label, formatIsoDateEs(payload.periodEnd)),
+        row(copy.days.label, payload.days),
+        row(copy.vacationYear.label, payload.vacationYear),
+      ],
+    })
   }
 
-  if (payload.observations) {
-    lines.push(`- ${common.observations.label}: ${payload.observations}`)
+  if (payload.observations.trim()) {
+    sections.push({
+      title: common.sections.observations,
+      rows: [row(common.fields.observations.label, payload.observations)],
+    })
   }
 
-  return lines
+  return sections
+}
+
+function flattenSections(sections: OdooHtmlSection[]): OdooHtmlFieldRow[] {
+  return sections.flatMap((section) => section.rows)
 }
 
 function procedureTitle(payload: ProcedureTicketPayload): string {
@@ -104,19 +156,29 @@ export function formatProcedureTicketSubject(payload: ProcedureTicketPayload): s
   return subject.slice(0, SUBJECT_MAX_LENGTH - 1).trimEnd() + '…'
 }
 
-export function formatProcedureTicketOdooDescription(
+export function formatProcedureRecordDescriptionHtml(
   payload: ProcedureTicketPayload
 ): string {
-  return ['SOLICITUD DESDE PORTAL:', ...buildLineItems(payload)].join('\n')
+  return formatOdooHtmlDocument({
+    title: 'Solicitud enviada desde el portal Syntia',
+    sections: buildProcedureSections(payload),
+  })
 }
 
+/** @deprecated Usar formatProcedureRecordDescriptionHtml */
 export function formatProcedureTicketOdooDescriptionHtml(
   payload: ProcedureTicketPayload
 ): string {
-  return formatProcedureTicketOdooDescription(payload)
-    .split('\n')
-    .map((line) => `<p>${escapeHtml(line)}</p>`)
-    .join('')
+  return formatProcedureRecordDescriptionHtml(payload)
+}
+
+export function formatProcedureTicketOdooDescription(
+  payload: ProcedureTicketPayload
+): string {
+  const lines = flattenSections(buildProcedureSections(payload)).map(
+    (field) => `${field.label}: ${field.value.trim() || '—'}`
+  )
+  return [procedureTitle(payload), '', ...lines].join('\n')
 }
 
 export function formatProcedureTicketChatterMessage(input: {
@@ -124,14 +186,24 @@ export function formatProcedureTicketChatterMessage(input: {
   requestedAt: string
 }): string {
   const { payload, requestedAt } = input
-  const items = buildLineItems(payload)
-    .map((line) => `<li>${escapeHtml(line.replace(/^- /, ''))}</li>`)
-    .join('')
+  const sections = buildProcedureSections(payload)
 
   return (
     `<p><strong>${escapeHtml(procedureTitle(payload))}</strong></p>` +
     `<p>Solicitud enviada desde el portal Syntia.</p>` +
-    `<ul>${items}</ul>` +
+    sections
+      .map(
+        (section) =>
+          `<p><strong>${escapeHtml(section.title)}</strong></p>` +
+          formatOdooHtmlChatterList(section.rows)
+      )
+      .join('') +
     `<p><em>Solicitado el ${escapeHtml(formatRequestedAt(requestedAt))}</em></p>`
   )
+}
+
+export function procedureRecordKind(
+  payload: ProcedureTicketPayload
+): 'task' | 'ticket' {
+  return payload.type === 'alta-trabajador' ? 'task' : 'ticket'
 }

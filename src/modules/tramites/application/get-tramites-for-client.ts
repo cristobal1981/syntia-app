@@ -1,7 +1,7 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import type { TramitesResult } from '@/src/modules/tramites/domain/types'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
-import { fetchTramitesFromOdoo } from '@/src/modules/tramites/infrastructure/odoo-tramites-repository'
+import { getCachedTramitesSnapshot } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
 export async function getTramitesForClient(
@@ -21,7 +21,7 @@ export async function getTramitesForClient(
   }
 
   try {
-    const data = await fetchTramitesFromOdoo(partnerId)
+    const data = await getCachedTramitesSnapshot(partnerId)
     return { ok: true, data }
   } catch (error) {
     if (error instanceof Error && error.message === 'ODOO_NOT_CONFIGURED') {

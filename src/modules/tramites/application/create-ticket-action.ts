@@ -1,11 +1,14 @@
 'use server'
 
+import { updateTag } from 'next/cache'
+
 import { validateChatterHtmlBody, stripHtmlToText } from '@/src/modules/portal/domain/filter-portal-messages'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
+import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
 
@@ -88,6 +91,8 @@ export async function createTicketAction(input: {
       clientPartnerId: partnerId,
       htmlBody,
     })
+
+    updateTag(tramitesSnapshotCacheTag(partnerId))
 
     return {
       ok: true,

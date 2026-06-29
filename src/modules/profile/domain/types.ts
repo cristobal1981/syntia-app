@@ -13,7 +13,7 @@ export type ClientProfile = {
   email: string
   phone: string
   address: FiscalAddress
-  taxId: string
+  vat: string
   iban: string
 }
 
@@ -22,7 +22,7 @@ export type ProfileFieldKey =
   | 'email'
   | 'phone'
   | 'address'
-  | 'taxId'
+  | 'vat'
   | 'iban'
 
 export type ProfileFieldChange = {
@@ -62,7 +62,7 @@ export type ProfileChangeRequestBody = {
   name: string
   email: string
   phone: string
-  taxId: string
+  vat: string
   iban: string
   address: FiscalAddress
 }

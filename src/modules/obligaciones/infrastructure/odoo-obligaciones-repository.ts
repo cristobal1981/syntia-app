@@ -6,6 +6,7 @@ import type {
 } from '@/src/modules/obligaciones/domain/types'
 import { sortObligacionPeriodRows } from '@/src/modules/obligaciones/domain/sort-obligacion-periods'
 import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
+import { getCachedObligacionTaskIndex } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
@@ -181,8 +182,8 @@ export async function collectObligacionTaskIds(
     return new Set()
   }
 
-  const tree = await buildObligacionTree(partnerId)
-  return new Set(tree.leafIds)
+  const index = await getCachedObligacionTaskIndex(partnerId)
+  return new Set(index.excludedTaskIds)
 }
 
 export async function fetchObligacionesFromOdoo(

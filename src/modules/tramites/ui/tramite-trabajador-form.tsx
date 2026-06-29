@@ -10,7 +10,7 @@ import {
 
 export type TrabajadorFormValues = {
   fullName: string
-  taxId: string
+  dni: string
   startDate: string
   contractType: string
   workSchedule: string
@@ -23,7 +23,7 @@ export type TrabajadorFormValues = {
 
 export const EMPTY_TRABAJADOR_FORM: TrabajadorFormValues = {
   fullName: '',
-  taxId: '',
+  dni: '',
   startDate: '',
   contractType: '',
   workSchedule: '',
@@ -77,14 +77,14 @@ export function TramiteTrabajadorForm({
           onChange={(fullName) => patch({ fullName })}
         />
         <TramiteDrawerField
-          id={`${baseId}-taxId`}
-          name="taxId"
-          label={common.fields.taxId.label}
-          placeholder={common.fields.taxId.placeholder}
-          value={values.taxId}
-          error={fieldErrors.taxId}
+          id={`${baseId}-dni`}
+          name="dni"
+          label={common.fields.dni.label}
+          placeholder={common.fields.dni.placeholder}
+          value={values.dni}
+          error={fieldErrors.dni}
           disabled={disabled}
-          onChange={(taxId) => patch({ taxId })}
+          onChange={(dni) => patch({ dni })}
         />
       </fieldset>
 

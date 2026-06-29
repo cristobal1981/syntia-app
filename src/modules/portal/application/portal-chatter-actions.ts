@@ -69,21 +69,22 @@ export async function listRecordMessagesAction(
   }
 
   try {
-    const allowed = await verifyRecordBelongsToPartner(
-      input.kind,
-      recordId,
-      access.partnerId
-    )
+    const resModel = getOdooModelForRecordKind(input.kind)
+    const beforeId = parseBeforeId(input.beforeId)
+
+    const [allowed, page] = await Promise.all([
+      verifyRecordBelongsToPartner(input.kind, recordId, access.partnerId),
+      listPortalMessagesPage({
+        resModel,
+        recordId,
+        clientPartnerId: access.partnerId,
+        beforeId,
+      }),
+    ])
+
     if (!allowed) {
       return { ok: false, error: 'not_found' }
     }
-
-    const page = await listPortalMessagesPage({
-      resModel: getOdooModelForRecordKind(input.kind),
-      recordId,
-      clientPartnerId: access.partnerId,
-      beforeId: parseBeforeId(input.beforeId),
-    })
 
     return {
       ok: true,

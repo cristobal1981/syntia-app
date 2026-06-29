@@ -21,7 +21,7 @@ export type ProfileRow = {
   phone: string | null
   company_name: string | null
   advisor_id: string | null
-  tax_id: string | null
+  vat: string | null
   iban: string | null
   address_line1: string | null
   address_line2: string | null
@@ -53,7 +53,7 @@ export type DirectoryPersonSource = {
 }
 
 export const PROFILE_SELECT =
-  'user_id, first_name, first_surname, second_surname, phone, company_name, advisor_id, tax_id, iban, address_line1, address_line2, postal_code, city, province, country'
+  'user_id, first_name, first_surname, second_surname, phone, company_name, advisor_id, vat, iban, address_line1, address_line2, postal_code, city, province, country'
 
 export const CLIENT_INTEGRATION_SELECT =
   'user_id, odoo_partner_id, drive_folder_id'

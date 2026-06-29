@@ -12,7 +12,8 @@ export const tramiteSolicitudes = {
     altaTrabajador: {
       id: 'alta-trabajador' as const,
       label: 'Alta de trabajador',
-      description: 'Contratación, alta en Seguridad Social y datos del puesto.',
+      description:
+        'Formulario guiado por pasos. Contratación, alta en Seguridad Social y datos del puesto.',
     },
     bajaTrabajador: {
       id: 'baja-trabajador' as const,
@@ -40,7 +41,7 @@ export const tramiteSolicitudes = {
         label: 'Nombre y apellidos',
         placeholder: 'Ej. Ana García López',
       },
-      taxId: {
+      dni: {
         label: 'DNI o NIE',
         placeholder: 'Ej. 12345678Z',
       },
@@ -60,7 +61,7 @@ export const tramiteSolicitudes = {
     description:
       'Indica los datos del nuevo trabajador y del contrato. Tu asesoría tramitará el alta.',
     subjectTemplate: 'Alta trabajador — {nombre}',
-    successToast: 'Alta de trabajador enviada. Tu asesoría tramitará el alta.',
+    successToast: 'Alta de trabajador enviada. Aparecerá en tus trámites como tarea.',
     fields: {
       startDate: { label: 'Fecha de alta' },
       contractType: {
@@ -136,8 +137,8 @@ export const tramiteSolicitudes = {
   errors: {
     fullNameRequired: 'El nombre es obligatorio.',
     fullNameTooLong: 'El nombre no puede superar 120 caracteres.',
-    taxIdRequired: 'El DNI o NIE es obligatorio.',
-    taxIdInvalid: 'Introduce un DNI o NIE válido.',
+    dniRequired: 'El DNI o NIE es obligatorio.',
+    dniInvalid: 'Introduce un DNI o NIE válido.',
     dateRequired: 'La fecha es obligatoria.',
     dateInvalid: 'La fecha no es válida.',
     dateInPast: 'La fecha de alta no puede ser anterior a hoy.',

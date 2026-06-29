@@ -59,7 +59,6 @@ const PROCEDURE_FORM_ID = 'tramite-procedure-form'
 
 function successMessageForStep(step: DrawerStep): string {
   if (step === 'general') return generalCopy.drawer.successToast
-  if (step === 'alta-trabajador') return solicitudCopy.altaTrabajador.successToast
   if (step === 'baja-trabajador') return solicitudCopy.bajaTrabajador.successToast
   if (step === 'carta-vacaciones') return solicitudCopy.cartaVacaciones.successToast
   return solicitudCopy.common.successToast
@@ -110,6 +109,7 @@ function mapProcedureActionError(
 function procedureStepFromInitial(
   initialProcedure?: ProcedureTicketType | null
 ): DrawerStep {
+  if (initialProcedure === 'alta-trabajador') return 'picker'
   return initialProcedure ?? 'picker'
 }
 
@@ -178,7 +178,7 @@ export function TramiteCreateConsultaDrawer({
   const hasUnsavedContent =
     subject.trim().length > 0 ||
     !composerEmpty ||
-    trabajadorFormHasContent(trabajadorValues) ||
+    (step === 'baja-trabajador' && trabajadorFormHasContent(trabajadorValues)) ||
     cartaFormHasContent(cartaValues)
 
   const handleOpenChange = (next: boolean) => {
@@ -196,6 +196,11 @@ export function TramiteCreateConsultaDrawer({
   const handlePickerSelect = (id: SolicitudPickerId) => {
     setFieldErrors({})
     setFormError(null)
+    if (id === 'alta-trabajador') {
+      onOpenChange(false)
+      router.push('/alta-trabajador')
+      return
+    }
     setStep(id)
   }
 
@@ -257,31 +262,19 @@ export function TramiteCreateConsultaDrawer({
     setFormError(null)
 
     const payload =
-      step === 'alta-trabajador'
+      step === 'baja-trabajador'
         ? {
-            type: 'alta-trabajador' as const,
+            type: 'baja-trabajador' as const,
             fullName: trabajadorValues.fullName,
-            taxId: trabajadorValues.taxId,
-            startDate: trabajadorValues.startDate,
-            contractType: trabajadorValues.contractType,
-            workSchedule: trabajadorValues.workSchedule,
-            position: trabajadorValues.position,
-            grossSalary: trabajadorValues.grossSalary,
+            dni: trabajadorValues.dni,
+            endDate: trabajadorValues.endDate,
+            reason: trabajadorValues.reason,
             observations: trabajadorValues.observations,
           }
-        : step === 'baja-trabajador'
-          ? {
-              type: 'baja-trabajador' as const,
-              fullName: trabajadorValues.fullName,
-              taxId: trabajadorValues.taxId,
-              endDate: trabajadorValues.endDate,
-              reason: trabajadorValues.reason,
-              observations: trabajadorValues.observations,
-            }
-          : {
+        : {
               type: 'carta-vacaciones' as const,
               fullName: cartaValues.fullName,
-              taxId: cartaValues.taxId,
+              dni: cartaValues.dni,
               periodStart: cartaValues.periodStart,
               periodEnd: cartaValues.periodEnd,
               days: cartaValues.days,
@@ -334,12 +327,6 @@ export function TramiteCreateConsultaDrawer({
       return {
         title: generalCopy.drawer.title,
         description: generalCopy.drawer.description,
-      }
-    }
-    if (step === 'alta-trabajador') {
-      return {
-        title: solicitudCopy.altaTrabajador.title,
-        description: solicitudCopy.altaTrabajador.description,
       }
     }
     if (step === 'baja-trabajador') {
@@ -466,14 +453,14 @@ export function TramiteCreateConsultaDrawer({
               </form>
             ) : null}
 
-            {step === 'alta-trabajador' || step === 'baja-trabajador' ? (
+            {step === 'baja-trabajador' ? (
               <form
                 id={PROCEDURE_FORM_ID}
                 className="flex flex-col gap-5 px-6 py-5"
                 onSubmit={handleProcedureSubmit}
               >
                 <TramiteTrabajadorForm
-                  mode={step === 'alta-trabajador' ? 'alta' : 'baja'}
+                  mode="baja"
                   values={trabajadorValues}
                   fieldErrors={fieldErrors}
                   disabled={pending}
@@ -551,9 +538,7 @@ export function TramiteCreateConsultaDrawer({
             </div>
           ) : null}
 
-          {step === 'alta-trabajador' ||
-          step === 'baja-trabajador' ||
-          step === 'carta-vacaciones' ? (
+          {step === 'baja-trabajador' || step === 'carta-vacaciones' ? (
             <div className="shrink-0 border-t border-border bg-card px-6 pt-4 pb-6">
               <div className="flex flex-wrap justify-end gap-2">
                 <Button

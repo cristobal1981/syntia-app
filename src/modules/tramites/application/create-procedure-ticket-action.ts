@@ -1,13 +1,16 @@
 'use server'
 
+import { updateTag } from 'next/cache'
+
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import {
+  formatProcedureRecordDescriptionHtml,
   formatProcedureTicketChatterMessage,
-  formatProcedureTicketOdooDescriptionHtml,
   formatProcedureTicketSubject,
+  procedureRecordKind,
 } from '@/src/modules/tramites/domain/format-procedure-ticket'
 import type { ProcedureTicketPayload } from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
@@ -16,10 +19,19 @@ import {
   type ProcedureFieldErrorKey,
 } from '@/src/modules/tramites/domain/validate-procedure-ticket'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
+import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
+import { createPartnerTask } from '@/src/modules/tramites/infrastructure/odoo-create-task-repository'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 
 export type CreateProcedureTicketResult =
-  | { ok: true; ticketId: number; name: string }
+  | {
+      ok: true
+      recordId: number
+      name: string
+      recordKind: 'task' | 'ticket'
+      /** @deprecated Usar recordId */
+      ticketId: number
+    }
   | {
       ok: false
       error:
@@ -56,7 +68,8 @@ export async function createProcedureTicketAction(
   }
 
   const subject = formatProcedureTicketSubject(normalized)
-  const description = formatProcedureTicketOdooDescriptionHtml(normalized)
+  const description = formatProcedureRecordDescriptionHtml(normalized)
+  const recordKind = procedureRecordKind(normalized)
   const requestedAt = new Date().toISOString()
   const htmlBody = formatProcedureTicketChatterMessage({
     payload: normalized,
@@ -64,26 +77,47 @@ export async function createProcedureTicketAction(
   })
 
   try {
-    const ticketId = await createPartnerTicket({
-      partnerId,
-      subject,
-      description,
-    })
+    const recordId =
+      recordKind === 'task'
+        ? await createPartnerTask({
+            partnerId,
+            name: subject,
+            description,
+          })
+        : await createPartnerTicket({
+            partnerId,
+            subject,
+            description,
+          })
 
     await postRecordComment({
-      resModel: getOdooModelForRecordKind('ticket'),
-      recordId: ticketId,
+      resModel: getOdooModelForRecordKind(recordKind),
+      recordId,
       clientPartnerId: partnerId,
       htmlBody,
     })
 
-    return { ok: true, ticketId, name: subject }
+    updateTag(tramitesSnapshotCacheTag(partnerId))
+
+    return {
+      ok: true,
+      recordId,
+      ticketId: recordId,
+      name: subject,
+      recordKind,
+    }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'ODOO_TICKET_TEAM_NOT_CONFIGURED') {
         return { ok: false, error: 'odoo_unavailable' }
       }
-      if (error.message === 'ODOO_TICKET_CREATE_FAILED') {
+      if (error.message === 'ODOO_CLIENT_PROJECT_NOT_FOUND') {
+        return { ok: false, error: 'not_linked' }
+      }
+      if (
+        error.message === 'ODOO_TICKET_CREATE_FAILED' ||
+        error.message === 'ODOO_TASK_CREATE_FAILED'
+      ) {
         return { ok: false, error: 'create_failed' }
       }
     }
