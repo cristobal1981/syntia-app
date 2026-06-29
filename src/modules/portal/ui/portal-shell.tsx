@@ -20,7 +20,6 @@ import {
   PortalEntryLoadingProvider,
   usePortalEntryLoading,
 } from '@/src/modules/portal/ui/portal-entry-loading-context'
-import { NotificationNavigationOverlay } from '@/src/modules/portal/ui/notification-navigation-overlay'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
@@ -314,7 +313,6 @@ export function PortalShell({ user, children }: PortalShellProps) {
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
-    <NotificationNavigationOverlay />
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside
         className={cn(

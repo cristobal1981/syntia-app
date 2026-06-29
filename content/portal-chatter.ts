@@ -17,11 +17,15 @@ export const portalChatter = {
   readOnlyClosedTicket:
     'Esta consulta está cerrada. Puedes leer el historial, pero no enviar mensajes nuevos.',
   youLabel: 'Tú',
+  authorAvatarAlt: 'Foto de {name}',
+  authorAvatarLoading: 'Cargando foto de {name}',
   errors: {
     forbidden: 'No tienes permiso para ver esta conversación.',
     not_linked: 'Tu cuenta no está vinculada con Odoo.',
     not_found: 'No encontramos el trámite solicitado.',
     odoo_unavailable: 'No pudimos acceder a la conversación. Inténtalo de nuevo.',
+    odoo_rate_limited:
+      'El servidor está recibiendo mucha demanda. Vuelve a intentarlo en unos minutos.',
     invalid_body: 'El mensaje debe tener entre 1 y 2000 caracteres.',
     read_only: 'No puedes enviar mensajes en este trámite.',
   },

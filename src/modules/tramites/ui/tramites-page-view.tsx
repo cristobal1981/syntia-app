@@ -282,7 +282,6 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
 
   const dismissNewTramiteNotification =
     notifications?.dismissNewTramiteNotification
-  const clearPendingNavigation = notifications?.clearPendingNavigation
 
   const markItemSeen = useCallback(
     (item: TramiteListItem) => {
@@ -295,6 +294,7 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
   )
 
   const handledOpenParamRef = useRef<string | null>(null)
+  const pendingOpenUrlCleanupRef = useRef(false)
 
   useEffect(() => {
     const openParam = searchParams.get('open')
@@ -314,23 +314,35 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
       (entry) => entry.kind === kind && entry.id === recordId
     )
     if (!item) {
-      clearPendingNavigation?.()
       return
     }
 
     handledOpenParamRef.current = openParam
+    pendingOpenUrlCleanupRef.current = true
     const tabParam = searchParams.get('tab')
     setDrawerInitialTab(tabParam === 'documents' ? 'documents' : 'conversation')
     markItemSeen(item)
     setSelectedItem(item)
-    router.replace('/tramites', { scroll: false })
   }, [
     allItems,
-    clearPendingNavigation,
     markItemSeen,
-    router,
     searchParams,
   ])
+
+  useEffect(() => {
+    if (!pendingOpenUrlCleanupRef.current || selectedItem === null) return
+    if (!searchParams.get('open')) {
+      pendingOpenUrlCleanupRef.current = false
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      pendingOpenUrlCleanupRef.current = false
+      router.replace('/tramites', { scroll: false })
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [router, searchParams, selectedItem])
 
   const handleSelectItem = (item: TramiteListItem | null) => {
     if (item) {

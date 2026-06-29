@@ -23,6 +23,7 @@ import {
   ChatterComposer,
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
+import { ChatterAuthorAvatar } from '@/src/modules/portal/ui/chatter-author-avatar'
 import {
   ChatterComposerSkeleton,
   ChatterSkeleton,
@@ -77,6 +78,7 @@ export function RecordChatterPanel({
   const loadingOlderRef = useRef(false)
   const lastNotifiedMessageIdRef = useRef(0)
   const onConversationViewedRef = useRef(onConversationViewed)
+  const loadGenerationRef = useRef(0)
 
   useEffect(() => {
     onConversationViewedRef.current = onConversationViewed
@@ -124,6 +126,8 @@ export function RecordChatterPanel({
   const loadInitial = useCallback(async () => {
     if (recordId <= 0) return
 
+    const generation = ++loadGenerationRef.current
+
     setLoadingInitial(true)
     setError(null)
     setMessages([])
@@ -133,19 +137,29 @@ export function RecordChatterPanel({
     setComposerResetToken((token) => token + 1)
     shouldStickToBottomRef.current = true
 
-    const result = await listRecordMessagesAction({ kind, recordId })
-    setLoadingInitial(false)
+    try {
+      const result = await listRecordMessagesAction({ kind, recordId })
+      if (generation !== loadGenerationRef.current) return
 
-    if (!result.ok) {
-      setError(
-        portalChatter.errors[result.error] ?? portalChatter.errors.odoo_unavailable
-      )
-      return
+      if (!result.ok) {
+        setError(
+          portalChatter.errors[result.error] ??
+            portalChatter.errors.odoo_unavailable
+        )
+        return
+      }
+
+      setMessages(result.messages)
+      setHasMore(result.hasMore)
+      notifyConversationViewed(result.messages)
+    } catch {
+      if (generation !== loadGenerationRef.current) return
+      setError(portalChatter.errors.odoo_unavailable)
+    } finally {
+      if (generation === loadGenerationRef.current) {
+        setLoadingInitial(false)
+      }
     }
-
-    setMessages(result.messages)
-    setHasMore(result.hasMore)
-    notifyConversationViewed(result.messages)
   }, [kind, recordId, notifyConversationViewed])
 
   useEffect(() => {
@@ -327,10 +341,16 @@ export function RecordChatterPanel({
               <li
                 key={message.id}
                 className={cn(
-                  'flex',
+                  'flex items-end gap-2',
                   message.isFromClient ? 'justify-end' : 'justify-start'
                 )}
               >
+                {!message.isFromClient && message.authorPartnerId ? (
+                  <ChatterAuthorAvatar
+                    name={message.authorName}
+                    partnerId={message.authorPartnerId}
+                  />
+                ) : null}
                 <article
                   className={cn(
                     'max-w-[88%] rounded-2xl px-3 py-2 text-sm',

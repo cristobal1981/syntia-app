@@ -116,13 +116,21 @@ export const portal = {
       'Casi listo…',
     ],
   },
+  odoo: {
+    rateLimited: {
+      title: 'Demanda elevada',
+      description:
+        'El servidor está recibiendo mucha demanda en este momento. Vuelve a intentarlo en unos minutos.',
+    },
+    inlineMessage:
+      'El servidor está recibiendo mucha demanda. Vuelve a intentarlo en unos minutos.',
+  },
   notifications: {
     label: 'Notificaciones',
     emptyTitle: 'Sin novedades',
     emptyDescription:
       'Cuando tu asesoría te escriba o se abra un trámite nuevo, lo verás aquí.',
     openConversation: 'Ver conversación',
-    openingConversation: 'Abriendo conversación…',
     unreadBadge: 'Mensajes sin leer',
     tooltipUnread: '{count} novedades',
     typeTramite: 'Trámite',
@@ -213,6 +221,8 @@ export const portal = {
       unreadMore: 'Ver {count} novedades más',
       statsUnavailable:
         'No pudimos cargar el resumen ahora mismo. Puedes seguir usando el menú lateral.',
+      statsRateLimited:
+        'El servidor está recibiendo mucha demanda y no pudimos cargar el resumen. Vuelve a intentarlo en unos minutos.',
       quickLinksTitle: 'Accesos rápidos',
     },
     admin: {

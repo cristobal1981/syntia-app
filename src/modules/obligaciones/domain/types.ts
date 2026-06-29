@@ -27,6 +27,7 @@ export type ObligacionesErrorCode =
   | 'forbidden'
   | 'not_linked'
   | 'odoo_unavailable'
+  | 'odoo_rate_limited'
 
 export type ObligacionesResult =
   | { ok: true; data: ObligacionesSnapshot }

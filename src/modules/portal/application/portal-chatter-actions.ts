@@ -13,7 +13,7 @@ import {
   getOdooModelForRecordKind,
   verifyRecordBelongsToPartner,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
   listPortalMessagesPage,
   postRecordComment,
@@ -91,8 +91,8 @@ export async function listRecordMessagesAction(
       messages: page.messages,
       hasMore: page.hasMore,
     }
-  } catch {
-    return { ok: false, error: 'odoo_unavailable' }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }
 
@@ -137,7 +137,7 @@ export async function postRecordMessageAction(
     })
 
     return { ok: true, message }
-  } catch {
-    return { ok: false, error: 'odoo_unavailable' }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }

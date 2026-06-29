@@ -78,6 +78,7 @@ function mapOdooRowToPortalMessage(
   const date = typeof row.date === 'string' ? row.date : ''
   const authorId = mapOdooMany2OneId(row.author_id)
   const authorName = mapOdooMany2OneLabel(row.author_id) ?? 'Usuario'
+  const isFromClient = isClientChatterAuthor(authorId, clientPartnerId)
 
   if (!body || !date || !row.id) return null
 
@@ -86,7 +87,8 @@ function mapOdooRowToPortalMessage(
     bodyHtml: formatChatterBodyFromOdoo(body),
     date,
     authorName,
-    isFromClient: isClientChatterAuthor(authorId, clientPartnerId),
+    ...(isFromClient || !authorId ? {} : { authorPartnerId: authorId }),
+    isFromClient,
   }
 }
 

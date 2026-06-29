@@ -626,8 +626,6 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
 
   async listAdvisorOptions() {
     const gestores = await this.listGestores()
-    return gestores
-      .filter((gestor) => gestor.role === 'advisor')
-      .map((gestor) => ({ id: gestor.id, name: gestor.name }))
+    return gestores.map((gestor) => ({ id: gestor.id, name: gestor.name }))
   },
 }

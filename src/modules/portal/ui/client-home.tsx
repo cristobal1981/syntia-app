@@ -19,6 +19,7 @@ export async function ClientHome({ user }: ClientHomeProps) {
     getClientChatterNotificationsForUser(user),
   ])
   const snapshot = snapshotResult.ok ? snapshotResult.data : null
+  const snapshotError = snapshotResult.ok ? null : snapshotResult.error
 
   return (
     <div className="flex flex-col gap-8">
@@ -34,6 +35,7 @@ export async function ClientHome({ user }: ClientHomeProps) {
 
       <ClientHomeDashboard
         snapshot={snapshot}
+        snapshotError={snapshotError}
         initialNotifications={initialNotifications}
       />
 

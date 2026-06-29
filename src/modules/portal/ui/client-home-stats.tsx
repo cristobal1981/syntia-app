@@ -4,6 +4,7 @@ import { ClipboardList, MessageSquare, Scale, type LucideIcon } from 'lucide-rea
 import { Skeleton } from '@/components/ui/skeleton'
 import { portal } from '@/content/portal'
 import type { ClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
+import type { ClientDashboardSnapshotResult } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
 
 type ClientHomeStatsProps = {
   data: ClientDashboardSnapshot
@@ -108,13 +109,21 @@ export function ClientHomeStats({
   )
 }
 
-export function ClientHomeStatsUnavailable() {
+export function ClientHomeStatsUnavailable({
+  error = null,
+}: {
+  error?: Extract<ClientDashboardSnapshotResult, { ok: false }>['error'] | null
+}) {
+  const copy = portal.home.client
+  const message =
+    error === 'odoo_rate_limited' ? copy.statsRateLimited : copy.statsUnavailable
+
   return (
     <section
       className="portal-home-card rounded-xl px-5 py-4 text-sm text-muted-foreground"
       aria-live="polite"
     >
-      {portal.home.client.statsUnavailable}
+      {message}
     </section>
   )
 }

@@ -17,7 +17,7 @@ import {
   getOdooModelForRecordKind,
   verifyRecordBelongsToPartner,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 async function resolveClientPartnerId(): Promise<
@@ -71,8 +71,8 @@ export async function getRecordAttachmentsAction(input: {
     )
 
     return { ok: true, attachments }
-  } catch {
-    return { ok: false, error: 'odoo_unavailable' }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }
 
@@ -124,7 +124,7 @@ export async function downloadAttachmentAction(input: {
     if (error instanceof Error && error.message === 'ODOO_ATTACHMENT_NOT_FOUND') {
       return { ok: false, error: 'not_found' }
     }
-    return { ok: false, error: 'odoo_unavailable' }
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }
 
@@ -196,6 +196,6 @@ export async function downloadAllAttachmentsZipAction(input: {
     if (error instanceof Error && error.message === 'ODOO_ATTACHMENT_NOT_FOUND') {
       return { ok: false, error: 'not_found' }
     }
-    return { ok: false, error: 'odoo_unavailable' }
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }

@@ -9,6 +9,15 @@ export const profile = {
     fiscal: 'Datos fiscales',
     address: 'Dirección fiscal',
     personal: 'Datos personales',
+    assignedAdvisor: 'Asesor asignado',
+  },
+  assignedAdvisorHint:
+    'Tu referencia en la asesoría para tus gestiones. En trámites y consultas, quien te responda puede variar; no siempre será tu asesor asignado, pero te atenderán con el mismo nivel de atención.',
+  advisorPresence: {
+    online: 'En línea',
+    away: 'Ausente',
+    busy: 'No molestar',
+    offline: 'Desconectado',
   },
   labels: {
     name: 'Nombre',

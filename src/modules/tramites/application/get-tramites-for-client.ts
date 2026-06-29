@@ -2,7 +2,7 @@ import type { PortalUser } from '@/src/modules/auth/domain/types'
 import type { TramitesResult } from '@/src/modules/tramites/domain/types'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 import { getCachedTramitesSnapshot } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
 export async function getTramitesForClient(
   user: PortalUser
@@ -27,6 +27,6 @@ export async function getTramitesForClient(
     if (error instanceof Error && error.message === 'ODOO_NOT_CONFIGURED') {
       return { ok: false, error: 'odoo_unavailable' }
     }
-    return { ok: false, error: 'odoo_unavailable' }
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }

@@ -5,6 +5,7 @@ export type PortalChatterMessage = {
   bodyHtml: string
   date: string
   authorName: string
+  authorPartnerId?: number
   isFromClient: boolean
 }
 
@@ -12,7 +13,7 @@ export type PortalChatterMessagesPageResult =
   | { ok: true; messages: PortalChatterMessage[]; hasMore: boolean }
   | {
       ok: false
-      error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable'
+      error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable' | 'odoo_rate_limited'
     }
 
 export type PortalChatterPostResult =
@@ -24,6 +25,7 @@ export type PortalChatterPostResult =
         | 'not_linked'
         | 'not_found'
         | 'odoo_unavailable'
+        | 'odoo_rate_limited'
         | 'invalid_body'
         | 'read_only'
     }

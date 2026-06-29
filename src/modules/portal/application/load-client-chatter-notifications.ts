@@ -6,6 +6,7 @@ import {
   chatterReadStateKey,
   listKindFromRecordKind,
 } from '@/src/modules/portal/domain/chatter-notifications-types'
+import { resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { getCachedTramitesSnapshot } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { findUnreadChatterCandidatesForRecords } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
@@ -146,7 +147,7 @@ export async function loadClientChatterNotifications(input: {
       unread: allUnread,
       readState: readStateMapToObject(readState),
     }
-  } catch {
-    return { ok: false, error: 'odoo_unavailable' }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }

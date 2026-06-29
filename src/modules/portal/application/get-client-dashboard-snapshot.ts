@@ -1,6 +1,6 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { countObligacionesInProgressForPartner } from '@/src/modules/obligaciones/infrastructure/count-obligaciones-in-progress-for-partner'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { countActiveTramitesForPartner } from '@/src/modules/tramites/infrastructure/count-active-tramites-for-partner'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
@@ -11,7 +11,7 @@ export type ClientDashboardSnapshot = {
 
 export type ClientDashboardSnapshotResult =
   | { ok: true; data: ClientDashboardSnapshot }
-  | { ok: false; error: 'not_linked' | 'odoo_unavailable' | 'forbidden' }
+  | { ok: false; error: 'not_linked' | 'odoo_unavailable' | 'odoo_rate_limited' | 'forbidden' }
 
 export async function getClientDashboardSnapshot(
   user: PortalUser
@@ -42,7 +42,7 @@ export async function getClientDashboardSnapshot(
         obligacionesInProgress,
       },
     }
-  } catch {
-    return { ok: false, error: 'odoo_unavailable' }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
   }
 }

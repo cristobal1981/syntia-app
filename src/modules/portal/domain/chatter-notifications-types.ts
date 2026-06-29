@@ -22,13 +22,13 @@ export type ChatterNotificationsCheckResult =
       unread: ChatterUnreadNotification[]
       readState: ChatterReadStateMap
     }
-  | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
+  | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' | 'odoo_rate_limited' }
 
 export type ChatterMarkSeenResult =
   | { ok: true; readState: ChatterReadStateMap }
   | {
       ok: false
-      error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable'
+      error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable' | 'odoo_rate_limited'
     }
 
 export function chatterReadStateKey(

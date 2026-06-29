@@ -1,5 +1,20 @@
 const REQUEST_TIMEOUT_MS = 8_000
 
+export const ODOO_ERROR = {
+  NOT_CONFIGURED: 'ODOO_NOT_CONFIGURED',
+  REQUEST_FAILED: 'ODOO_REQUEST_FAILED',
+  RATE_LIMITED: 'ODOO_RATE_LIMITED',
+} as const
+
+export type OdooServiceErrorCode = 'odoo_rate_limited' | 'odoo_unavailable'
+
+export function resolveOdooErrorCode(error: unknown): OdooServiceErrorCode {
+  if (error instanceof Error && error.message === ODOO_ERROR.RATE_LIMITED) {
+    return 'odoo_rate_limited'
+  }
+  return 'odoo_unavailable'
+}
+
 export function getOdooBaseUrl(): string | undefined {
   return process.env.ODOO_URL?.replace(/\/$/, '').trim() || undefined
 }
@@ -40,7 +55,7 @@ async function odooJsonRequest<T>(
   const apiKey = getOdooApiKey()
 
   if (!baseUrl || !apiKey) {
-    throw new Error('ODOO_NOT_CONFIGURED')
+    throw new Error(ODOO_ERROR.NOT_CONFIGURED)
   }
 
   const controller = new AbortController()
@@ -64,7 +79,10 @@ async function odooJsonRequest<T>(
         `[odoo] ${model}/${method} failed (${response.status}):`,
         errorBody.slice(0, 500)
       )
-      throw new Error('ODOO_REQUEST_FAILED')
+      if (response.status === 429) {
+        throw new Error(ODOO_ERROR.RATE_LIMITED)
+      }
+      throw new Error(ODOO_ERROR.REQUEST_FAILED)
     }
 
     return (await response.json()) as T
@@ -72,7 +90,7 @@ async function odooJsonRequest<T>(
     if (error instanceof Error && error.message.startsWith('ODOO_')) {
       throw error
     }
-    throw new Error('ODOO_REQUEST_FAILED')
+    throw new Error(ODOO_ERROR.REQUEST_FAILED)
   } finally {
     clearTimeout(timeout)
   }
@@ -110,7 +128,7 @@ export async function odooSearchRead<T extends Record<string, unknown>>(
         ? payload.message
         : undefined
     console.error(`[odoo] ${model}/search_read invalid payload:`, detail ?? payload)
-    throw new Error('ODOO_REQUEST_FAILED')
+    throw new Error(ODOO_ERROR.REQUEST_FAILED)
   }
 
   return payload

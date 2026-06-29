@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useActionState, useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -120,6 +120,7 @@ export function ClientForm({
     DirectoryUpdateResult | null,
     FormData
   >(action, null)
+  const [, startTransition] = useTransition()
   const onSuccessRef = useRef(onSuccess)
   const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
 
@@ -180,7 +181,9 @@ export function ClientForm({
     }
 
     setLocalFieldErrors({})
-    formAction(formData)
+    startTransition(() => {
+      formAction(formData)
+    })
   }
 
   useEffect(() => {

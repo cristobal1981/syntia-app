@@ -20,7 +20,6 @@ import type {
   ChatterReadStateMap,
   ChatterUnreadNotification,
   PortalNotificationReason,
-  TramiteListKindParam,
 } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
   chatterReadStateKey,
@@ -30,19 +29,11 @@ import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record
 
 const CHATTER_READ_STATE_STORAGE_KEY = 'syntia-chatter-read-state'
 const POLL_INTERVAL_MS = 60_000
-const PENDING_NAVIGATION_TIMEOUT_MS = 20_000
-
-export type ChatterPendingNavigation = {
-  listKind: TramiteListKindParam
-  recordId: number
-  name: string
-}
 
 type ChatterNotificationsContextValue = {
   unread: ChatterUnreadNotification[]
   unreadCount: number
   notificationsLoading: boolean
-  pendingNavigation: ChatterPendingNavigation | null
   hasUnreadChatter: (recordKind: PortalRecordKind, recordId: number) => boolean
   dismissNewTramiteNotification: (
     recordKind: PortalRecordKind,
@@ -54,7 +45,6 @@ type ChatterNotificationsContextValue = {
     lastSeenMessageId: number
   ) => Promise<void>
   openNotification: (notification: ChatterUnreadNotification) => void
-  clearPendingNavigation: () => void
   refreshNotifications: () => Promise<void>
   initializeNotifications: (payload: {
     unread: ChatterUnreadNotification[]
@@ -131,8 +121,6 @@ export function ChatterNotificationsProvider({
   const router = useRouter()
   const [unread, setUnread] = useState<ChatterUnreadNotification[]>([])
   const [notificationsLoading, setNotificationsLoading] = useState(enabled)
-  const [pendingNavigation, setPendingNavigation] =
-    useState<ChatterPendingNavigation | null>(null)
   const unreadRef = useRef<ChatterUnreadNotification[]>([])
   const readStateRef = useRef<ChatterReadStateMap>({})
   const pollingRef = useRef(false)
@@ -278,20 +266,6 @@ export function ChatterNotificationsProvider({
     [applyReadState, enabled]
   )
 
-  const clearPendingNavigation = useCallback(() => {
-    setPendingNavigation(null)
-  }, [])
-
-  useEffect(() => {
-    if (!pendingNavigation) return
-
-    const timeoutId = window.setTimeout(() => {
-      setPendingNavigation(null)
-    }, PENDING_NAVIGATION_TIMEOUT_MS)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [pendingNavigation])
-
   const openNotification = useCallback(
     (notification: ChatterUnreadNotification) => {
       if (notification.reason === 'new_tramite') {
@@ -300,12 +274,6 @@ export function ChatterNotificationsProvider({
           notification.recordId
         )
       }
-
-      setPendingNavigation({
-        listKind: notification.listKind,
-        recordId: notification.recordId,
-        name: notification.name,
-      })
 
       const openParam = openParamFromListKind(
         notification.listKind,
@@ -331,24 +299,20 @@ export function ChatterNotificationsProvider({
       unread,
       unreadCount: unread.length,
       notificationsLoading,
-      pendingNavigation,
       hasUnreadChatter,
       dismissNewTramiteNotification,
       markConversationSeen,
       openNotification,
-      clearPendingNavigation,
       refreshNotifications,
       initializeNotifications,
     }),
     [
       unread,
       notificationsLoading,
-      pendingNavigation,
       hasUnreadChatter,
       dismissNewTramiteNotification,
       markConversationSeen,
       openNotification,
-      clearPendingNavigation,
       refreshNotifications,
       initializeNotifications,
     ]

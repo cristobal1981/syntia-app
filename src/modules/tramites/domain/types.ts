@@ -26,6 +26,7 @@ export type TramitesErrorCode =
   | 'forbidden'
   | 'not_linked'
   | 'odoo_unavailable'
+  | 'odoo_rate_limited'
 
 export type TramitesResult =
   | { ok: true; data: TramitesSnapshot }

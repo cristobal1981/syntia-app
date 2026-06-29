@@ -2,7 +2,10 @@
 
 import { useLayoutEffect } from 'react'
 
-import type { ClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
+import type {
+  ClientDashboardSnapshot,
+  ClientDashboardSnapshotResult,
+} from '@/src/modules/portal/application/get-client-dashboard-snapshot'
 import type { ChatterNotificationsCheckResult } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
   ClientHomeStats,
@@ -13,11 +16,16 @@ import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter
 
 type ClientHomeDashboardProps = {
   snapshot: ClientDashboardSnapshot | null
+  snapshotError?: Extract<
+    ClientDashboardSnapshotResult,
+    { ok: false }
+  >['error'] | null
   initialNotifications: ChatterNotificationsCheckResult | null
 }
 
 export function ClientHomeDashboard({
   snapshot,
+  snapshotError = null,
   initialNotifications,
 }: ClientHomeDashboardProps) {
   const notifications = useChatterNotificationsOptional()
@@ -45,7 +53,7 @@ export function ClientHomeDashboard({
           notificationsLoading={notificationsLoading}
         />
       ) : (
-        <ClientHomeStatsUnavailable />
+        <ClientHomeStatsUnavailable error={snapshotError} />
       )}
       <ClientHomeUnreadFeed
         notificationsLoading={notificationsLoading}

@@ -106,6 +106,11 @@ export const tramites = {
       description:
         'El servicio de Odoo no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
     },
+    odooRateLimited: {
+      title: 'Demanda elevada',
+      description:
+        'El servidor está recibiendo mucha demanda en este momento. Vuelve a intentarlo en unos minutos.',
+    },
     forbidden: {
       title: 'Sin acceso',
       description: 'Esta sección está disponible solo para clientes del portal.',

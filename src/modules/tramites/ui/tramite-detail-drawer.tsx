@@ -53,20 +53,6 @@ export function TramiteDetailDrawer({
     setZipError(null)
   }, [item?.id, initialTab])
 
-  const pendingNavigation = notifications?.pendingNavigation
-  const clearPendingNavigation = notifications?.clearPendingNavigation
-
-  useEffect(() => {
-    if (!open || !item || !pendingNavigation || !clearPendingNavigation) return
-
-    if (
-      pendingNavigation.recordId === item.id &&
-      pendingNavigation.listKind === item.kind
-    ) {
-      clearPendingNavigation()
-    }
-  }, [clearPendingNavigation, item, open, pendingNavigation])
-
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0
   const markConversationSeen = notifications?.markConversationSeen

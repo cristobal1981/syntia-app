@@ -32,6 +32,15 @@ export async function ObligacionesPage({ user }: ObligacionesPageProps) {
         />
       )
     }
+    if (result.error === 'odoo_rate_limited') {
+      return (
+        <ObligacionesStateView
+          title={stateCopy.odooRateLimited.title}
+          description={stateCopy.odooRateLimited.description}
+          variant="destructive"
+        />
+      )
+    }
     return (
       <ObligacionesStateView
         title={stateCopy.forbidden.title}

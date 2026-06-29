@@ -42,6 +42,14 @@ export async function TramitesPage({ user }: TramitesPageProps) {
         />
       )
     }
+    if (result.error === 'odoo_rate_limited') {
+      return (
+        <TramitesStateView
+          title={stateCopy.odooRateLimited.title}
+          description={stateCopy.odooRateLimited.description}
+        />
+      )
+    }
     return (
       <TramitesStateView
         title={stateCopy.odooUnavailable.title}

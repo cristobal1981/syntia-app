@@ -17,6 +17,11 @@ export type ClientProfile = {
   iban: string
 }
 
+export type AssignedAdvisor = {
+  name: string
+  partnerId?: number
+}
+
 export type ProfileFieldKey =
   | 'name'
   | 'email'
