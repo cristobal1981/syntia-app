@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { Archive, Loader2 } from 'lucide-react'
+import { Archive, FileText, Loader2, MessageSquare } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -140,11 +140,13 @@ export function TramiteDetailDrawer({
             {
               id: 'conversation',
               label: portalChatter.tabConversation,
+              icon: MessageSquare,
               badge: conversationUnread ? 1 : undefined,
             },
             {
               id: 'documents',
               label: portalDocuments.tabLabel,
+              icon: FileText,
               badge: tramite.attachmentCount,
             },
           ]}

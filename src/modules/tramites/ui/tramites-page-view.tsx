@@ -133,6 +133,7 @@ function TramitesListSection({
       {
         id: 'state',
         header: copy.columns.state,
+        cellClassName: 'whitespace-nowrap',
         render: (item: TramiteListItem) => {
           const stateBadge = getTramiteListItemStateBadge(item)
           return (

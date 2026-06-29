@@ -1,10 +1,13 @@
 'use client'
 
+import type { LucideIcon } from 'lucide-react'
+
 import { cn } from '@/lib/utils'
 
 export type RecordDetailTab<T extends string = string> = {
   id: T
   label: string
+  icon?: LucideIcon
   badge?: number
 }
 
@@ -31,6 +34,7 @@ export function RecordDetailTabs<T extends string>({
         {tabs.map((tab) => {
           const selected = value === tab.id
           const panelId = `record-detail-tab-${tab.id}`
+          const Icon = tab.icon
 
           return (
             <button
@@ -43,12 +47,15 @@ export function RecordDetailTabs<T extends string>({
               tabIndex={selected ? 0 : -1}
               onClick={() => onChange(tab.id)}
               className={cn(
-                'relative flex min-h-11 flex-1 items-center justify-center gap-2 px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'relative flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                 selected
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
+              {Icon ? (
+                <Icon className="size-4 shrink-0" aria-hidden />
+              ) : null}
               {tab.label}
               {typeof tab.badge === 'number' && tab.badge > 0 ? (
                 <span
