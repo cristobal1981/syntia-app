@@ -17,7 +17,7 @@ export function QuickLinkCard({
   return (
     <Link
       href={href}
-      className="portal-home-card flex min-h-11 items-start gap-3 rounded-xl p-4 transition-colors hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="portal-home-card portal-home-card-interactive flex min-h-11 items-start gap-3 rounded-xl p-4 transition-colors hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:hover:border-transparent"
     >
       <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
       <span>

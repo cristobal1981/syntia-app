@@ -33,7 +33,7 @@ export function ListPagination({
   return (
     <nav
       className={cn(
-        'flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-border',
+        'flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-border/50',
         className
       )}
       aria-labelledby={id}

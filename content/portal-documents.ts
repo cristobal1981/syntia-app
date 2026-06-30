@@ -3,6 +3,20 @@ export const portalDocuments = {
   attachmentsTitle: 'Documentos',
   loadingAttachments: 'Cargando documentos…',
   emptyAttachments: 'No hay documentos adjuntos en este registro.',
+  previewLabel: 'Ver documento',
+  previewAction: 'Previsualizar',
+  previewLoading: 'Cargando vista previa…',
+  previewUnsupported:
+    'No podemos previsualizar este tipo de archivo. Usa Descargar en el listado.',
+  previewTooLarge:
+    'El archivo es demasiado grande para previsualizarlo. Usa Descargar en el listado.',
+  previewFormatBadge: 'El formato puede variar respecto al original',
+  previewXlsxSheetsLabel: 'Hojas del libro Excel',
+  previewXlsxEmptySheet: 'Esta hoja no tiene datos para mostrar.',
+  pdfMobileHint:
+    'En móvil el PDF se abre en una pestaña nueva con el visor de tu dispositivo.',
+  pdfMobileOpen: 'Abrir PDF',
+  closePreview: 'Cerrar vista previa',
   downloadLabel: 'Descargar',
   downloading: 'Descargando…',
   stageLabel: 'Estado',

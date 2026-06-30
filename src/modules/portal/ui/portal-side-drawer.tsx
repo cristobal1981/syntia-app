@@ -44,7 +44,7 @@ export function PortalSideDrawer({
         <DialogPrimitive.Content
           data-slot="dialog-content"
           className={cn(
-            'fixed inset-y-0 right-0 left-auto z-50 flex h-full max-h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden overscroll-contain rounded-none border-y-0 border-r-0 bg-card p-0 shadow-lg outline-none',
+            'fixed inset-y-0 right-0 left-auto z-50 flex h-full max-h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden overscroll-contain rounded-none border-y-0 border-r-0 bg-card p-0 shadow-lg outline-none dark:shadow-none',
             widthClass,
             panelMotionClass
           )}

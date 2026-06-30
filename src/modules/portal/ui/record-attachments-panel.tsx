@@ -1,22 +1,60 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
-import { Download, FileText, Loader2 } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react'
+import { Download, Eye, FileText, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { portalDocuments } from '@/content/portal-documents'
+import { classifyDocumentPreview } from '@/src/modules/portal/domain/classify-document-preview'
 import type { PortalAttachment, PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
   downloadAttachmentAction,
   getRecordAttachmentsAction,
 } from '@/src/modules/portal/application/portal-document-actions'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
+import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
+import { cn } from '@/lib/utils'
 
 function formatFileSize(bytes?: number): string {
   if (!bytes || bytes <= 0) return ''
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function AttachmentFileName({ name }: { name: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [isTruncated, setIsTruncated] = useState(false)
+
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element) return
+
+    const checkTruncation = () => {
+      setIsTruncated(element.scrollWidth > element.clientWidth)
+    }
+
+    checkTruncation()
+
+    const observer = new ResizeObserver(checkTruncation)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [name])
+
+  return (
+    <div className="min-w-0 w-full overflow-hidden">
+      <PortalActionTooltip content={name} open={isTruncated ? undefined : false}>
+        <span
+          ref={ref}
+          className="block w-full min-w-0 truncate text-sm font-semibold text-foreground"
+          tabIndex={isTruncated ? 0 : undefined}
+        >
+          {name}
+        </span>
+      </PortalActionTooltip>
+    </div>
+  )
 }
 
 type RecordAttachmentsPanelProps = {
@@ -33,7 +71,11 @@ export function RecordAttachmentsPanel({
   const [attachments, setAttachments] = useState<PortalAttachment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewAttachment, setPreviewAttachment] =
+    useState<PortalAttachment | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   useEffect(() => {
@@ -43,6 +85,7 @@ export function RecordAttachmentsPanel({
     setLoading(true)
     setError(null)
     setAttachments([])
+    setDownloadError(null)
 
     void getRecordAttachmentsAction({ kind, recordId }).then((result) => {
       if (cancelled) return
@@ -62,10 +105,17 @@ export function RecordAttachmentsPanel({
     }
   }, [active, kind, recordId])
 
+  function handleOpenPreview(attachment: PortalAttachment) {
+    setPreviewAttachment(attachment)
+    setPreviewOpen(true)
+  }
+
   function handleDownload(attachment: PortalAttachment) {
     if (recordId <= 0) return
 
+    setDownloadError(null)
     setDownloadingId(attachment.id)
+
     startTransition(async () => {
       const result = await downloadAttachmentAction({
         kind,
@@ -75,7 +125,7 @@ export function RecordAttachmentsPanel({
       setDownloadingId(null)
 
       if (!result.ok) {
-        setError(
+        setDownloadError(
           portalDocuments.errors[result.error] ??
             portalDocuments.errors.odoo_unavailable
         )
@@ -119,56 +169,93 @@ export function RecordAttachmentsPanel({
   }
 
   return (
-    <ul className="flex flex-col gap-2 px-6 py-4">
-      {attachments.map((attachment) => {
-        const isDownloading = pending && downloadingId === attachment.id
-        const sizeLabel = formatFileSize(attachment.fileSize)
+    <>
+      {downloadError ? (
+        <p className="px-6 pb-2 text-sm text-destructive" role="alert">
+          {downloadError}
+        </p>
+      ) : null}
 
-        return (
-          <li
-            key={attachment.id}
-            className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
-          >
-            <FileText
-              className="size-4 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
-                {attachment.name}
-              </p>
-              {sizeLabel ? (
-                <p className="text-xs text-muted-foreground tabular-nums">
-                  {sizeLabel}
-                </p>
-              ) : null}
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              disabled={isDownloading}
-              onClick={() => handleDownload(attachment)}
-              aria-label={`${portalDocuments.downloadLabel} ${attachment.name}`}
+      <ul className="flex flex-col gap-2 px-6 py-4">
+        {attachments.map((attachment) => {
+          const sizeLabel = formatFileSize(attachment.fileSize)
+          const canPreview = classifyDocumentPreview(attachment).canPreview
+          const isDownloading = pending && downloadingId === attachment.id
+
+          return (
+            <li
+              key={attachment.id}
+              className={cn(
+                'flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-background px-3 py-2.5 shadow-xs',
+                'dark:border-border/80 dark:bg-background'
+              )}
             >
-              {isDownloading ? (
-                <Loader2
-                  className="size-4 animate-spin motion-reduce:animate-none"
+              <div className="flex min-w-0 gap-2.5">
+                <FileText
+                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                   aria-hidden
                 />
-              ) : (
-                <Download className="size-4" aria-hidden />
-              )}
-              <span className="sr-only sm:not-sr-only sm:ml-2">
-                {isDownloading
-                  ? portalDocuments.downloading
-                  : portalDocuments.downloadLabel}
-              </span>
-            </Button>
-          </li>
-        )
-      })}
-    </ul>
+                <div className="min-w-0 flex-1">
+                  <AttachmentFileName name={attachment.name} />
+                  {sizeLabel ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                      {sizeLabel}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  disabled={!canPreview}
+                  onClick={() => handleOpenPreview(attachment)}
+                  aria-label={`${portalDocuments.previewAction}: ${attachment.name}`}
+                >
+                  <Eye className="size-3.5 shrink-0" aria-hidden />
+                  <span>{portalDocuments.previewAction}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  disabled={isDownloading}
+                  onClick={() => handleDownload(attachment)}
+                  aria-label={`${portalDocuments.downloadLabel}: ${attachment.name}`}
+                >
+                  {isDownloading ? (
+                    <Loader2
+                      className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+                      aria-hidden
+                    />
+                  ) : (
+                    <Download className="size-3.5 shrink-0" aria-hidden />
+                  )}
+                  <span>
+                    {isDownloading
+                      ? portalDocuments.downloading
+                      : portalDocuments.downloadLabel}
+                  </span>
+                </Button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      <DocumentPreviewDialog
+        attachment={previewAttachment}
+        kind={kind}
+        recordId={recordId}
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open)
+          if (!open) setPreviewAttachment(null)
+        }}
+      />
+    </>
   )
 }

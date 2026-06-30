@@ -20,7 +20,7 @@ export function AltaTrabajadorConditionalBlock({
   return (
     <div
       className={cn(
-        'rounded-lg border border-primary/20 bg-primary/5 p-4',
+        'rounded-lg border border-primary/20 bg-primary/5 p-4 dark:border-transparent dark:bg-primary/8',
         className
       )}
     >

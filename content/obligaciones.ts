@@ -24,18 +24,15 @@ export const obligaciones = {
     downloadZip: 'Descargar todo',
   },
   filters: {
-    searchLabel: 'Buscar modelos',
-    searchPlaceholder: 'Buscar por modelo, periodo o concepto (ej. alquiler, IVA)…',
+    searchLabel: 'Buscar en obligaciones',
+    searchPlaceholder:
+      'Buscar por modelo, periodo o concepto (ej. alquiler, IVA)…',
+    chipGroupLabel: 'Filtrar por modelo',
     noResultsTitle: 'Sin resultados',
     noResultsDescription:
       'No hay modelos que coincidan con tu búsqueda. Prueba con otro término.',
   },
-  configOverview: {
-    title: 'Tus modelos tributarios',
-    description:
-      'Modelos que tienes configurados en tus obligaciones fiscales. Pulsa uno para filtrar el listado.',
-    guideLink: '¿Para qué sirve cada modelo?',
-  },
+  guideLink: '¿Para qué sirve cada modelo?',
   taskStates: {
     inProgress: 'En curso',
     done: 'Presentado',

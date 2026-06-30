@@ -20,7 +20,7 @@
  * primary on sidebar-active #0a3540 — ~7:1
  * on-light on content #fafcfc — ~12.5:1
  * muted-on-light on content #fafcfc — ~4.6:1
- * dark: muted-on-dark #c8dce0 on card #041d23 (Verde Noche) — ~8:1
+ * dark: muted-on-dark #c8dce0 on card #0c3b46 (raised surface) — ~11:1
  * dark: subtle-foreground #b0cdd2 on background #062a33 — ~5.5:1
  * dark: border #072d36 on card #041d23 — subtle surface step (not accent)
  * dark: primary #01dea2 on sidebar-active #0a3540 — ~7:1 (Verde Syntia, immutable)
@@ -102,12 +102,13 @@
   --muted-on-light: #4a6f6a;
   --on-light-muted: #5a7571;
   --accent-on-light: #01635c;
-  /* Content canvas; cards/popovers on Verde Noche */
+  /* Content canvas; cards/popovers one step above sidebar/canvas */
+  --surface-raised: #0c3b46;
   --background: #062a33;
   --foreground: var(--on-dark);
-  --card: var(--surface-dark);
+  --card: var(--surface-raised);
   --card-foreground: var(--on-dark);
-  --popover: var(--surface-dark);
+  --popover: var(--surface-raised);
   --popover-foreground: var(--on-dark);
   --primary: #01dea2;
   --primary-foreground: #041d23;
@@ -120,6 +121,7 @@
   --destructive: #ff6b6b;
   --destructive-foreground: #041d23;
   --border: #072d36;
+  --border-subtle: color-mix(in oklch, var(--border) 45%, var(--card));
   --input: #0a3540;
   --subtle-foreground: #b0cdd2;
   --icon-muted: #bdd8dd;
@@ -266,21 +268,21 @@
   --error-text: var(--on-dark);
   --warning-text: var(--on-dark);
   --info-text: var(--on-dark);
-  --normal-border: var(--border);
-  --success-border: color-mix(in oklch, var(--primary) 45%, var(--border));
-  --error-border: var(--alert-on-dark-accent);
-  --warning-border: color-mix(in oklch, var(--service-fiscal) 50%, var(--border));
-  --info-border: color-mix(in oklch, var(--turquesa) 40%, var(--border));
+  --normal-border: var(--border-subtle);
+  --success-border: var(--border-subtle);
+  --error-border: var(--border-subtle);
+  --warning-border: var(--border-subtle);
+  --info-border: var(--border-subtle);
 }
 
 .dark [data-sonner-toast] {
   background: var(--card) !important;
   color: var(--on-dark) !important;
-  border-color: var(--border) !important;
+  border-color: var(--border-subtle) !important;
 }
 
 .dark [data-sonner-toast][data-type='error'] {
-  border-color: var(--alert-on-dark-accent) !important;
+  border-color: var(--border-subtle) !important;
 }
 
 .dark [data-sonner-toast] [data-title] {
@@ -358,45 +360,70 @@
   }
 
   .dark .portal-home-card {
-    border-color: var(--border);
+    border-color: transparent;
     background-color: var(--card);
     box-shadow: none;
+  }
+
+  .dark .portal-home-card-interactive:hover {
+    border-color: transparent;
+    background-color: color-mix(in oklch, var(--muted) 30%, var(--card));
+  }
+
+  .dark .portal-surface {
+    background-color: var(--card);
+    border-color: transparent;
+  }
+
+  .dark .portal-divider {
+    border-color: var(--border-subtle);
+  }
+
+  .dark .chatter-advisor-bubble {
+    border: 1px solid color-mix(in oklch, var(--on-dark) 44%, var(--border));
+    background-color: color-mix(in oklch, var(--on-dark) 34%, var(--card));
+    color: var(--foreground);
   }
 
   .badge-status-pending {
     @apply bg-service-fiscal/25 text-service-fiscal-on-light;
   }
   .dark .badge-status-pending {
-    background-color: color-mix(in oklch, var(--service-fiscal) 15%, var(--card));
-    color: var(--service-fiscal-on-dark);
+    background-color: rgba(245, 158, 11, 0.26);
+    color: #fde047;
+    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.48);
   }
   .badge-status-done {
     @apply bg-primary/15 text-accent-on-light;
   }
   .dark .badge-status-done {
-    background-color: color-mix(in oklch, var(--primary) 18%, var(--card));
-    color: var(--primary);
+    background-color: rgba(34, 197, 94, 0.24);
+    color: #86efac;
+    box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.42);
   }
   .badge-status-canceled {
     @apply bg-destructive/15 text-destructive;
   }
   .dark .badge-status-canceled {
-    background-color: color-mix(in oklch, var(--destructive) 15%, var(--card));
-    color: var(--alert-on-dark);
+    background-color: rgba(248, 113, 113, 0.24);
+    color: #fca5a5;
+    box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.45);
   }
   .badge-type-tramite {
     @apply bg-service-contable/20 text-agua;
   }
   .dark .badge-type-tramite {
-    background-color: color-mix(in oklch, var(--service-contable) 22%, var(--card));
-    color: color-mix(in oklch, var(--service-contable) 70%, white);
+    background-color: rgba(167, 139, 250, 0.22);
+    color: #c4b5fd;
+    box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.5);
   }
   .badge-type-consulta {
     @apply bg-service-constitucion/20 text-service-constitucion;
   }
   .dark .badge-type-consulta {
-    background-color: color-mix(in oklch, var(--service-constitucion) 15%, var(--card));
-    color: color-mix(in oklch, var(--service-constitucion) 85%, white);
+    background-color: rgba(56, 189, 248, 0.22);
+    color: #7dd3fc;
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.48);
   }
 
   .bg-hero-gradient {

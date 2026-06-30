@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 
+import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { obligaciones } from '@/content/obligaciones'
 import { cn } from '@/lib/utils'
 import { collectClientObligacionModels } from '@/src/modules/obligaciones/domain/collect-client-obligacion-models'
@@ -20,7 +21,6 @@ import type {
 import { ObligacionDetailDrawer } from '@/src/modules/obligaciones/ui/obligacion-detail-drawer'
 import { ObligacionModelGroupsList } from '@/src/modules/obligaciones/ui/obligacion-model-groups-list'
 import { ObligacionesModelsOverview } from '@/src/modules/obligaciones/ui/obligaciones-models-overview'
-import { ObligacionesSearchToolbar } from '@/src/modules/obligaciones/ui/obligaciones-search-toolbar'
 import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 
 function yearHeading(year: ObligacionYear): string {
@@ -65,7 +65,7 @@ function YearAccordion({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-muted/25"
         aria-expanded={open}
       >
         <div>
@@ -154,15 +154,21 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
 
       {hasAnyData ? (
         <div className="flex flex-col gap-6">
+          <div className="flex justify-end">
+            <AppLink
+              href="/obligaciones/guia-modelos"
+              className={cn('text-sm', appLinkPortalClassName)}
+            >
+              {obligaciones.guideLink}
+            </AppLink>
+          </div>
+
           <ObligacionesModelsOverview
             models={clientModels}
             selectedModel={selectedModel}
             onSelectModel={setSelectedModel}
-          />
-
-          <ObligacionesSearchToolbar
-            query={searchQuery}
-            onQueryChange={setSearchQuery}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
           />
 
           {hasAnyVisibleYear ? (

@@ -28,7 +28,7 @@ export function ProfileAssignedAdvisorCard({
   return (
     <aside
       className={cn(
-        'order-first rounded-xl border border-border bg-card p-5 md:p-6 lg:order-last lg:sticky lg:top-6',
+        'order-first rounded-xl border border-border bg-card p-5 md:p-6 lg:order-last lg:sticky lg:top-6 dark:border-transparent',
         className
       )}
       aria-labelledby="profile-advisor-heading"

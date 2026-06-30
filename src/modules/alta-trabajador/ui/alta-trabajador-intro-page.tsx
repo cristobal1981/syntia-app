@@ -49,7 +49,7 @@ export function AltaTrabajadorIntroPage() {
         <p className="text-sm text-muted-foreground">{copy.durationHint}</p>
       </header>
 
-      <section className="rounded-xl border border-border bg-card p-5 md:p-6">
+      <section className="rounded-xl border border-border bg-card p-5 md:p-6 dark:border-transparent">
         <h2 className="text-sm font-semibold text-foreground">
           {copy.whatYouNeedTitle}
         </h2>
@@ -70,7 +70,7 @@ export function AltaTrabajadorIntroPage() {
       </section>
 
       {resumeStepId ? (
-        <div className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5">
+        <div className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 dark:border-transparent dark:bg-primary/8">
           <p className="text-sm text-muted-foreground">{copy.draftHint}</p>
           <div className="flex flex-wrap gap-3">
             <Button

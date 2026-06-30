@@ -99,8 +99,8 @@ export function ProfileSummaryView({
             assignedAdvisor && 'lg:grid-cols-[minmax(0,1fr)_min(100%,17.5rem)]'
           )}
         >
-          <article className="w-full overflow-hidden rounded-xl border border-border bg-card lg:order-first">
-            <div className="flex items-center gap-4 border-b border-border px-5 py-4 md:px-6 md:py-5">
+          <article className="w-full overflow-hidden rounded-xl border border-border bg-card lg:order-first dark:border-transparent">
+            <div className="flex items-center gap-4 border-b border-border px-5 py-4 md:px-6 md:py-5 dark:border-border/50">
               <div
                 className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/12 font-sans text-lg font-semibold text-primary"
                 aria-hidden
@@ -118,7 +118,7 @@ export function ProfileSummaryView({
             </div>
 
             <section
-              className="border-b border-border px-5 py-4 md:px-6 md:py-5"
+              className="border-b border-border px-5 py-4 md:px-6 md:py-5 dark:border-border/50"
               aria-label={profile.sections.personal}
             >
               <dl className="flex flex-col gap-4">

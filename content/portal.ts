@@ -102,7 +102,6 @@ export const portal = {
       light: 'Claro',
       dark: 'Oscuro',
       system: 'Sistema',
-      darkComingSoon: 'Próximamente',
     },
   },
   authLoading: {
@@ -172,6 +171,7 @@ export const portal = {
         icon: 'obligations',
       },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
+      { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
     ],
     admin: [

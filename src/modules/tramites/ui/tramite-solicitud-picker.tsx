@@ -40,7 +40,7 @@ export function TramiteSolicitudPicker({ onSelect }: TramiteSolicitudPickerProps
           onClick={() => onSelect(option.id)}
           className={cn(
             'flex w-full cursor-pointer items-start gap-3 rounded-lg border border-border bg-card px-4 py-4 text-left transition-colors',
-            'hover:border-primary/40 hover:bg-primary/5',
+            'hover:border-primary/40 hover:bg-primary/5 dark:border-border/60 dark:bg-background dark:hover:border-border dark:hover:bg-muted/40',
             'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
           )}
         >

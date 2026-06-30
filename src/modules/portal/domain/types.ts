@@ -3,6 +3,7 @@ export type NavIconId =
   | 'documents'
   | 'obligations'
   | 'procedures'
+  | 'signatures'
   | 'messages'
   | 'profile'
   | 'team'

@@ -122,7 +122,7 @@ export function TramiteDetailDrawer({
 
   return (
     <PortalSideDrawer open={open} onOpenChange={onOpenChange} size="wide">
-        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border/50">
           <DialogTitle className="text-pretty pr-8">{tramite.name}</DialogTitle>
           <DialogDescription asChild>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -205,7 +205,7 @@ export function TramiteDetailDrawer({
               <RecordAttachmentsPanel
                 kind={recordKind}
                 recordId={tramite.id}
-                active={open}
+                active={open && activeTab === 'documents'}
               />
             </section>
           )}

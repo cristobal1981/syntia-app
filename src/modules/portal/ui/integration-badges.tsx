@@ -28,7 +28,7 @@ export function IntegrationBadges({
           <li
             key={integration.id}
             className={cn(
-              'portal-home-card flex min-w-0 flex-1 items-center gap-4 rounded-xl px-4 py-4 ring-1 ring-inset sm:px-5',
+              'portal-home-card flex min-w-0 flex-1 items-center gap-4 rounded-xl px-4 py-4 ring-1 ring-inset dark:ring-0 sm:px-5',
               styles.ring
             )}
           >

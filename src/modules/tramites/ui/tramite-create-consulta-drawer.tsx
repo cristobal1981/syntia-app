@@ -429,10 +429,17 @@ export function TramiteCreateConsultaDrawer({
                   </span>
                   <ChatterComposer
                     ref={composerRef}
+                    variant="simple"
                     disabled={pending}
                     resetToken={composerResetToken}
                     editorMaxHeightClass="max-h-[200px]"
                     onEmptyChange={setComposerEmpty}
+                    onSubmit={() => {
+                      const form = document.getElementById(
+                        GENERAL_FORM_ID
+                      ) as HTMLFormElement | null
+                      form?.requestSubmit()
+                    }}
                   />
                   {fieldErrors.body ? (
                     <p className="text-sm text-destructive" role="alert">

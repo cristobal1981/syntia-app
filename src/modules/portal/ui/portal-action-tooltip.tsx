@@ -14,6 +14,8 @@ type PortalActionTooltipProps = {
   side?: 'top' | 'right' | 'bottom' | 'left'
   sideOffset?: number
   disabled?: boolean
+  /** Fuerza el tooltip cerrado (p. ej. truncado aún no detectado). */
+  open?: boolean
 }
 
 export function PortalActionTooltip({
@@ -22,6 +24,7 @@ export function PortalActionTooltip({
   side = 'bottom',
   sideOffset,
   disabled = false,
+  open,
 }: PortalActionTooltipProps) {
   const trigger = disabled ? (
     <span className="inline-flex" tabIndex={0}>
@@ -32,7 +35,7 @@ export function PortalActionTooltip({
   )
 
   return (
-    <Tooltip>
+    <Tooltip {...(open === undefined ? {} : { open })}>
       <TooltipTrigger asChild>{trigger}</TooltipTrigger>
       <TooltipContent side={side} sideOffset={sideOffset}>
         {content}

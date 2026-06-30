@@ -145,7 +145,7 @@ function IntegrationCard({ integration }: { integration: IntegrationStatus }) {
   return (
     <li
       className={cn(
-        'portal-home-card flex h-full flex-col rounded-2xl p-5 ring-1 ring-inset',
+        'portal-home-card flex h-full flex-col rounded-2xl p-5 ring-1 ring-inset dark:ring-0',
         styles.ring
       )}
     >

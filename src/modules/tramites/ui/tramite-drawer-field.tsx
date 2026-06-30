@@ -113,7 +113,7 @@ export function TramiteDrawerSelect({
         aria-invalid={Boolean(error)}
         aria-describedby={errorId}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/40"
+        className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border/80"
       >
         <option value="">{placeholder}</option>
         {Object.entries(options).map(([optionValue, optionLabel]) => (

@@ -8,9 +8,8 @@ import {
   useState,
   useTransition,
 } from 'react'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { portalChatter } from '@/content/portal-chatter'
 import {
   listRecordMessagesAction,
@@ -23,6 +22,7 @@ import {
   ChatterComposer,
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
+import { ChatterSendButton } from '@/src/modules/portal/ui/chatter-send-button'
 import { ChatterAuthorAvatar } from '@/src/modules/portal/ui/chatter-author-avatar'
 import {
   ChatterComposerSkeleton,
@@ -259,9 +259,8 @@ export function RecordChatterPanel({
     shouldStickToBottomRef.current = distanceFromBottom < 48
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!canReply || composerEmpty || recordId <= 0) return
+  function submitMessage() {
+    if (!canReply || composerEmpty || recordId <= 0 || pending || loadingInitial) return
 
     const htmlBody = composerRef.current?.getHtml() ?? ''
     if (composerRef.current?.isEmpty()) return
@@ -290,6 +289,11 @@ export function RecordChatterPanel({
         return [...current, result.message]
       })
     })
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    submitMessage()
   }
 
   return (
@@ -356,7 +360,7 @@ export function RecordChatterPanel({
                     'max-w-[88%] rounded-2xl px-3 py-2 text-sm',
                     message.isFromClient
                       ? 'rounded-br-md bg-primary text-primary-foreground'
-                      : 'rounded-bl-md border border-border bg-muted/50 text-foreground dark:border-border'
+                      : 'rounded-bl-md border border-border bg-muted/50 text-foreground dark:chatter-advisor-bubble'
                   )}
                 >
                   <header className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -393,7 +397,7 @@ export function RecordChatterPanel({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-border px-6 py-4 dark:border-border">
+      <div className="shrink-0 border-t border-border px-6 py-4 dark:border-border/50">
         {!canReply ? (
           <p className="text-sm text-muted-foreground">
             {portalChatter.readOnlyClosedTicket}
@@ -410,24 +414,13 @@ export function RecordChatterPanel({
                   resetToken={composerResetToken}
                   onEmptyChange={handleComposerEmptyChange}
                   onResize={handleComposerResize}
+                  onSubmit={submitMessage}
                 />
               )}
-              <Button
-                type="submit"
-                size="icon"
-                className="size-10 shrink-0 rounded-full"
-                disabled={pending || composerEmpty || loadingInitial}
-                aria-label={pending ? portalChatter.sending : portalChatter.sendButton}
-              >
-                {pending ? (
-                  <Loader2
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                ) : (
-                  <Send className="size-4" aria-hidden />
-                )}
-              </Button>
+              <ChatterSendButton
+                pending={pending}
+                disabled={composerEmpty || loadingInitial}
+              />
             </div>
             {sendError ? (
               <p className="text-sm text-destructive" role="alert">

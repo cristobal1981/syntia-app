@@ -1,71 +1,59 @@
 'use client'
 
-import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { obligaciones } from '@/content/obligaciones'
-import { cn } from '@/lib/utils'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
+import { ObligacionesSearchToolbar } from '@/src/modules/obligaciones/ui/obligaciones-search-toolbar'
 
 type ObligacionesModelsOverviewProps = {
   models: string[]
   selectedModel: string | null
   onSelectModel: (modelLabel: string | null) => void
+  searchQuery: string
+  onSearchQueryChange: (query: string) => void
 }
 
 export function ObligacionesModelsOverview({
   models,
   selectedModel,
   onSelectModel,
+  searchQuery,
+  onSearchQueryChange,
 }: ObligacionesModelsOverviewProps) {
-  const copy = obligaciones.configOverview
-
-  if (!models.length) {
-    return null
-  }
+  const copy = obligaciones.filters
 
   return (
     <section
-      aria-labelledby="obligaciones-config-heading"
-      className="portal-home-card rounded-xl px-5 py-5 md:px-6"
+      aria-label={copy.searchLabel}
+      className="portal-home-card flex flex-col gap-4 rounded-xl p-4 md:p-5"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <h2
-            id="obligaciones-config-heading"
-            className="font-sans text-base font-semibold text-foreground"
-          >
-            {copy.title}
-          </h2>
-          <p className="text-sm text-muted-foreground">{copy.description}</p>
-        </div>
-        <AppLink
-          href="/obligaciones/guia-modelos"
-          className={cn('shrink-0 text-sm', appLinkPortalClassName)}
+      <ObligacionesSearchToolbar
+        query={searchQuery}
+        onQueryChange={onSearchQueryChange}
+      />
+
+      {models.length > 0 ? (
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label={copy.chipGroupLabel}
         >
-          {copy.guideLink}
-        </AppLink>
-      </div>
+          {models.map((modelLabel) => {
+            const isActive =
+              selectedModel?.trim().toLowerCase() === modelLabel.toLowerCase()
 
-      <div
-        className="mt-4 flex flex-wrap gap-2"
-        role="group"
-        aria-label={copy.title}
-      >
-        {models.map((modelLabel) => {
-          const isActive =
-            selectedModel?.trim().toLowerCase() === modelLabel.toLowerCase()
-
-          return (
-            <PortalFilterChip
-              key={modelLabel}
-              label={modelLabel}
-              active={isActive}
-              onClick={() => {
-                onSelectModel(isActive ? null : modelLabel)
-              }}
-            />
-          )
-        })}
-      </div>
+            return (
+              <PortalFilterChip
+                key={modelLabel}
+                label={modelLabel}
+                active={isActive}
+                onClick={() => {
+                  onSelectModel(isActive ? null : modelLabel)
+                }}
+              />
+            )
+          })}
+        </div>
+      ) : null}
     </section>
   )
 }

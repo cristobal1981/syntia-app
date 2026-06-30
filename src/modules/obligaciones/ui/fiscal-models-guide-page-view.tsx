@@ -32,10 +32,10 @@ function FiscalModelGuideCard({
   return (
     <article
       className={cn(
-        'portal-home-card group flex h-full flex-col rounded-xl px-5 py-4 md:px-6 md:py-5',
+        'portal-home-card portal-home-card-interactive group flex h-full flex-col rounded-xl px-5 py-4 md:px-6 md:py-5',
         'transition-[transform,box-shadow,border-color,background-color] duration-300 ease-out',
         'hover:-translate-y-1 hover:border-primary/55 hover:bg-primary/[0.04] hover:shadow-lg hover:shadow-primary/15',
-        'dark:hover:border-primary/45 dark:hover:bg-primary/[0.08] dark:hover:shadow-primary/10',
+        'dark:hover:translate-y-0 dark:hover:border-transparent dark:hover:bg-muted/25 dark:hover:shadow-none',
         'motion-reduce:transition-none motion-reduce:hover:translate-y-0'
       )}
     >

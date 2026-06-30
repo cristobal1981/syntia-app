@@ -103,7 +103,7 @@ export function PortalRecordTable<T>({
         style={{ minWidth }}
       >
         <thead className={chromeClassName}>
-          <tr className="border-b border-border">
+          <tr className="border-b border-border dark:border-border/50">
             {columns.map((column) => {
               const isSortable = Boolean(column.sortable && onSortChange)
               const ariaSort =
@@ -145,8 +145,8 @@ export function PortalRecordTable<T>({
             <tr
               key={rowKey(row)}
               className={cn(
-                'border-b border-border transition-colors last:border-b-0 dark:border-border',
-                onRowClick && 'cursor-pointer hover:bg-muted/40'
+                'border-b border-border transition-colors last:border-b-0 dark:border-border/50',
+                onRowClick && 'cursor-pointer hover:bg-muted/40 dark:hover:bg-muted/20'
               )}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >

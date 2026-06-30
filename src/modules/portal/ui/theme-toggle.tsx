@@ -6,27 +6,12 @@ import { useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
-import { isPortalDarkThemeEnabled } from '@/src/modules/portal/domain/portal-theme-flags'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
-
-const darkThemeEnabled = isPortalDarkThemeEnabled()
 
 const options = [
   { value: 'light', label: portal.shell.theme.light, icon: Sun },
-  {
-    value: 'dark',
-    label: portal.shell.theme.dark,
-    icon: Moon,
-    disabled: !darkThemeEnabled,
-    disabledTooltip: portal.shell.theme.darkComingSoon,
-  },
-  {
-    value: 'system',
-    label: portal.shell.theme.system,
-    icon: Monitor,
-    disabled: !darkThemeEnabled,
-    disabledTooltip: portal.shell.theme.darkComingSoon,
-  },
+  { value: 'dark', label: portal.shell.theme.dark, icon: Moon },
+  { value: 'system', label: portal.shell.theme.system, icon: Monitor },
 ] as const
 
 type ThemeToggleProps = {
@@ -38,11 +23,6 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
-
-  useEffect(() => {
-    if (!mounted || darkThemeEnabled) return
-    if (theme === 'dark' || theme === 'system') setTheme('light')
-  }, [mounted, setTheme, theme])
 
   if (!mounted) {
     return (
@@ -62,34 +42,19 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         className
       )}
     >
-      {options.map(({ value, label, icon: Icon, ...option }) => {
-        const isDisabled = 'disabled' in option && option.disabled
-        const tooltip = isDisabled ? option.disabledTooltip : label
-        const isActive = darkThemeEnabled
-          ? theme === value
-          : value === 'light'
+      {options.map(({ value, label, icon: Icon }) => {
+        const isActive = theme === value
 
         return (
-          <PortalActionTooltip
-            key={value}
-            content={tooltip}
-            disabled={isDisabled}
-          >
+          <PortalActionTooltip key={value} content={label}>
             <button
               type="button"
-              onClick={() => {
-                if (isDisabled) return
-                setTheme(value)
-              }}
-              disabled={isDisabled}
+              onClick={() => setTheme(value)}
               aria-pressed={isActive}
               aria-label={label}
-              aria-disabled={isDisabled || undefined}
               className={cn(
-                'flex size-7 items-center justify-center rounded-[5px] transition-colors',
+                'flex size-7 cursor-pointer items-center justify-center rounded-[5px] transition-colors',
                 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                isDisabled &&
-                  'cursor-not-allowed opacity-45 hover:text-on-light-muted dark:hover:text-subtle-foreground',
                 isActive
                   ? 'bg-brisa text-agua shadow-sm dark:bg-input dark:text-primary'
                   : 'text-on-light-muted hover:text-on-light-muted dark:text-subtle-foreground dark:hover:text-muted-foreground'

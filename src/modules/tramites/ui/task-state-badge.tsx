@@ -5,7 +5,7 @@ const variantClasses: Record<TaskStateBadgeVariant, string> = {
   inProgress: 'badge-status-pending',
   done: 'badge-status-done',
   canceled: 'badge-status-canceled',
-  unknown: 'bg-muted text-muted-foreground',
+  unknown: 'bg-muted text-muted-foreground dark:bg-background dark:text-subtle-foreground',
 }
 
 type TaskStateBadgeProps = {

@@ -52,7 +52,7 @@ function StatCard({ label, value, icon: Icon, href, loading = false }: StatCardP
   }
 
   const className =
-    'portal-home-card rounded-xl p-4 transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:p-5'
+    'portal-home-card portal-home-card-interactive rounded-xl p-4 transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:hover:border-transparent md:p-5'
 
   if (loading) {
     return (

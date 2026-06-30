@@ -37,8 +37,10 @@ export type ChatterComposerHandle = {
 type ChatterComposerProps = {
   disabled?: boolean
   resetToken?: number
+  variant?: 'full' | 'simple'
   onEmptyChange?: (empty: boolean) => void
   onResize?: () => void
+  onSubmit?: () => void
   editorMaxHeightClass?: string
 }
 
@@ -87,8 +89,10 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
     {
       disabled = false,
       resetToken = 0,
+      variant = 'full',
       onEmptyChange,
       onResize,
+      onSubmit,
       editorMaxHeightClass = 'max-h-[120px]',
     },
     ref
@@ -96,11 +100,17 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
     const [isEmpty, setIsEmpty] = useState(true)
     const [, setToolbarRevision] = useState(0)
     const rootRef = useRef<HTMLDivElement>(null)
+    const editorRef = useRef<ReturnType<typeof useEditor>>(null)
     const onEmptyChangeRef = useRef(onEmptyChange)
+    const onSubmitRef = useRef(onSubmit)
 
     useEffect(() => {
       onEmptyChangeRef.current = onEmptyChange
     }, [onEmptyChange])
+
+    useEffect(() => {
+      onSubmitRef.current = onSubmit
+    }, [onSubmit])
 
     const editor = useEditor({
       immediatelyRender: false,
@@ -127,6 +137,31 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
             editorMaxHeightClass
           ),
         },
+        handleKeyDown: (_view, event) => {
+          if (event.ctrlKey || event.metaKey) {
+            if (event.shiftKey) {
+              const key = event.key.toLowerCase()
+              if (key === 'l') {
+                event.preventDefault()
+                editorRef.current?.chain().focus().toggleBulletList().run()
+                return true
+              }
+              if (key === 'o') {
+                event.preventDefault()
+                editorRef.current?.chain().focus().toggleOrderedList().run()
+                return true
+              }
+            }
+
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              onSubmitRef.current?.()
+              return true
+            }
+          }
+
+          return false
+        },
       },
       onUpdate: ({ editor: currentEditor }) => {
         const empty = isChatterHtmlEmpty(currentEditor.getHTML())
@@ -140,6 +175,8 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
         setToolbarRevision((value) => value + 1)
       },
     })
+
+    editorRef.current = editor
 
     useImperativeHandle(
       ref,
@@ -182,11 +219,12 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
       <div ref={rootRef} className="min-w-0 flex-1">
         <div
           className={cn(
-            'overflow-hidden rounded-2xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring dark:border-border',
+            'overflow-hidden rounded-2xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring dark:border-border/50',
             disabled && 'opacity-60'
           )}
         >
-          <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-1 py-0.5 dark:border-border">
+          {variant === 'full' ? (
+          <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-1 py-0.5 dark:border-border/50">
             <FormatToolbarButton
               label={portalChatter.formatBold}
               shortcut={['Mod', 'B']}
@@ -216,7 +254,7 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
             </FormatToolbarButton>
             <FormatToolbarButton
               label={portalChatter.formatBulletList}
-              shortcut={['Mod', 'Shift', '8']}
+              shortcut={['Mod', 'Shift', 'L']}
               active={editor?.isActive('bulletList') ?? false}
               disabled={disabled || !editor}
               onClick={() => editor?.chain().focus().toggleBulletList().run()}
@@ -225,7 +263,7 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
             </FormatToolbarButton>
             <FormatToolbarButton
               label={portalChatter.formatOrderedList}
-              shortcut={['Mod', 'Shift', '7']}
+              shortcut={['Mod', 'Shift', 'O']}
               active={editor?.isActive('orderedList') ?? false}
               disabled={disabled || !editor}
               onClick={() => editor?.chain().focus().toggleOrderedList().run()}
@@ -233,6 +271,7 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
               <ListOrdered className="size-4" aria-hidden />
             </FormatToolbarButton>
           </div>
+          ) : null}
           <EditorContent editor={editor} />
         </div>
         <span className="sr-only" aria-live="polite">
