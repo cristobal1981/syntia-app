@@ -2,6 +2,8 @@
 
 import DOMPurify from 'dompurify'
 
+import { normalizeChatterDisplayBody } from '@/src/modules/portal/domain/normalize-chatter-display-body'
+
 const CHATTER_ALLOWED_TAGS = [
   'p',
   'br',
@@ -19,7 +21,7 @@ const CHATTER_ALLOWED_TAGS = [
 const CHATTER_ALLOWED_ATTR = ['href', 'target', 'rel']
 
 export function prepareChatterHtmlForDisplay(body: string): string {
-  const normalized = body
+  const normalized = normalizeChatterDisplayBody(body)
     .replace(/<br\s*\/?>/gi, '<br>')
     .replace(/<\/p>\s*<p[^>]*>/gi, '</p><p>')
 

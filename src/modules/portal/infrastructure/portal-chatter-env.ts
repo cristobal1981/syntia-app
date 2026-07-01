@@ -29,6 +29,27 @@ export function shouldFilterInternalChatterMessages(): boolean {
 
 export const CHATTER_MESSAGE_MAX_LENGTH = 2000
 
+const DEFAULT_MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const DEFAULT_MAX_ATTACHMENTS_PER_MESSAGE = 5
+
+export function getChatterMaxAttachmentBytes(): number {
+  const raw = process.env.ODOO_CHATTER_MAX_ATTACHMENT_BYTES?.trim()
+  const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_MAX_ATTACHMENT_BYTES
+  if (!Number.isInteger(parsed) || parsed < 102_400 || parsed > 50 * 1024 * 1024) {
+    return DEFAULT_MAX_ATTACHMENT_BYTES
+  }
+  return parsed
+}
+
+export function getChatterMaxAttachmentsPerMessage(): number {
+  const raw = process.env.ODOO_CHATTER_MAX_ATTACHMENTS_PER_MESSAGE?.trim()
+  const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_MAX_ATTACHMENTS_PER_MESSAGE
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10) {
+    return DEFAULT_MAX_ATTACHMENTS_PER_MESSAGE
+  }
+  return parsed
+}
+
 const DEFAULT_COMMENT_SUBTYPE_ID = 1
 
 export function getChatterCommentSubtypeIdFromEnv(): number | undefined {
@@ -44,13 +65,25 @@ export function getDefaultChatterCommentSubtypeId(): number {
   return getChatterCommentSubtypeIdFromEnv() ?? DEFAULT_COMMENT_SUBTYPE_ID
 }
 
-const DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS = 60_000
+const DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS = 30_000
+const DEFAULT_NOTIFICATIONS_POLL_MAX_INTERVAL_MS = 300_000
 
 export function getChatterNotificationsPollIntervalMs(): number {
   const raw = process.env.ODOO_CHATTER_NOTIFICATIONS_POLL_INTERVAL_MS?.trim()
   const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS
   if (!Number.isInteger(parsed) || parsed < 15_000 || parsed > 600_000) {
     return DEFAULT_NOTIFICATIONS_POLL_INTERVAL_MS
+  }
+  return parsed
+}
+
+export function getChatterNotificationsPollMaxIntervalMs(): number {
+  const raw = process.env.ODOO_CHATTER_NOTIFICATIONS_POLL_MAX_INTERVAL_MS?.trim()
+  const parsed = raw
+    ? Number.parseInt(raw, 10)
+    : DEFAULT_NOTIFICATIONS_POLL_MAX_INTERVAL_MS
+  if (!Number.isInteger(parsed) || parsed < 60_000 || parsed > 600_000) {
+    return DEFAULT_NOTIFICATIONS_POLL_MAX_INTERVAL_MS
   }
   return parsed
 }

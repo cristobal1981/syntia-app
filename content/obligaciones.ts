@@ -17,7 +17,6 @@ export const obligaciones = {
     stage: 'Estado',
     deadline: 'Vencimiento',
     documents: 'Documentos',
-    actions: 'Acciones',
   },
   list: {
     viewDocuments: 'Ver documentos',

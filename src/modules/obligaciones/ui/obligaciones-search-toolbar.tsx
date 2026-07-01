@@ -32,7 +32,7 @@ export function ObligacionesSearchToolbar({
           placeholder={obligaciones.filters.searchPlaceholder}
           autoComplete="off"
           spellCheck={false}
-          className="pl-9"
+          className="bg-input pl-9"
           onChange={(event) => onQueryChange(event.target.value)}
         />
       </div>

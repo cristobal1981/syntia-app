@@ -6,5 +6,5 @@ export async function countObligacionesInProgressForPartner(
 ): Promise<number> {
   const index = await getCachedObligacionTaskIndex(partnerId)
 
-  return index.leafTasks.filter((leaf) => !isTaskClosed(leaf.state)).length
+  return index.leaves.filter((leaf) => !isTaskClosed(leaf.state)).length
 }

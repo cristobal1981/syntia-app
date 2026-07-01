@@ -3,6 +3,7 @@ import {
   buildOdooSignPublicUrl,
   getOdooSignItemPendingStates,
   getOdooSignRequestActiveStates,
+  getOdooSignRequestDueDateField,
   getOdooSignRequestItemModel,
   getOdooSignRequestModel,
 } from '@/src/modules/firmas/infrastructure/firmas-env'
@@ -16,6 +17,7 @@ type OdooSignRequestItemRow = {
   id: number
   sign_request_id?: [number, string] | false | null
   state?: string | false | null
+  create_date?: string | false | null
 }
 
 type OdooSignRequestRow = {
@@ -24,6 +26,14 @@ type OdooSignRequestRow = {
   access_token?: string | false | null
   create_date?: string | false | null
   state?: string | false | null
+  validity?: string | false | null
+}
+
+function parseOdooDateTime(
+  value: string | false | null | undefined
+): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  return value.trim()
 }
 
 function sanitizeReference(
@@ -40,6 +50,18 @@ function sanitizeReference(
   return `Solicitud ${requestId}`
 }
 
+function readOdooDueDate(
+  row: OdooSignRequestRow,
+  dueDateField: string
+): string | undefined {
+  const value = row[dueDateField as keyof OdooSignRequestRow]
+  return parseOdooDateTime(
+    typeof value === 'string' || value === false || value === null
+      ? value
+      : undefined
+  )
+}
+
 export async function fetchPendingSignaturesFromOdoo(
   partnerId: number
 ): Promise<PendingSignatureRequest[]> {
@@ -49,6 +71,7 @@ export async function fetchPendingSignaturesFromOdoo(
 
   const itemModel = getOdooSignRequestItemModel()
   const requestModel = getOdooSignRequestModel()
+  const dueDateField = getOdooSignRequestDueDateField()
   const itemPendingStates = getOdooSignItemPendingStates()
   const requestActiveStates = getOdooSignRequestActiveStates()
 
@@ -57,7 +80,7 @@ export async function fetchPendingSignaturesFromOdoo(
       ['partner_id', '=', partnerId],
       ['state', 'in', itemPendingStates],
     ],
-    fields: ['sign_request_id', 'state'],
+    fields: ['sign_request_id', 'state', 'create_date'],
     order: 'id desc',
     limit: 50,
   })
@@ -81,12 +104,14 @@ export async function fetchPendingSignaturesFromOdoo(
       ['id', 'in', requestIds],
       ['state', 'in', requestActiveStates],
     ],
-    fields: ['reference', 'access_token', 'create_date', 'state'],
+    fields: ['reference', 'access_token', 'create_date', 'state', dueDateField],
     order: 'create_date desc, id desc',
     limit: 50,
   })
 
   const labelByRequestId = new Map<number, string>()
+  const sentDateByRequestId = new Map<number, string>()
+
   for (const row of itemRows) {
     if (!Array.isArray(row.sign_request_id)) continue
     const [requestId] = row.sign_request_id
@@ -94,6 +119,11 @@ export async function fetchPendingSignaturesFromOdoo(
       requestId,
       mapOdooMany2OneLabel(row.sign_request_id) ?? `Solicitud ${requestId}`
     )
+
+    const itemSentDate = parseOdooDateTime(row.create_date)
+    if (itemSentDate) {
+      sentDateByRequestId.set(requestId, itemSentDate)
+    }
   }
 
   const pending: PendingSignatureRequest[] = []
@@ -104,6 +134,10 @@ export async function fetchPendingSignaturesFromOdoo(
     const signUrl = buildOdooSignPublicUrl(row.id, accessToken)
     if (!signUrl) continue
 
+    const createDate =
+      sentDateByRequestId.get(row.id) ??
+      parseOdooDateTime(row.create_date)
+
     pending.push({
       id: row.id,
       reference: sanitizeReference(
@@ -111,8 +145,8 @@ export async function fetchPendingSignaturesFromOdoo(
         labelByRequestId.get(row.id),
         row.id
       ),
-      createDate:
-        typeof row.create_date === 'string' ? row.create_date : undefined,
+      createDate,
+      dueDate: readOdooDueDate(row, dueDateField),
       signUrl,
     })
   }

@@ -2,6 +2,7 @@ export type PendingSignatureRequest = {
   id: number
   reference: string
   createDate?: string
+  dueDate?: string
   signUrl: string
 }
 

@@ -76,7 +76,7 @@ export const tramites = {
       documents: 'Documentos',
       actions: 'Detalle',
     },
-    viewItem: 'Ver trámite',
+    viewItem: 'Ver detalles',
     newItemBadge: 'Nuevo',
     downloadZip: 'Descargar todo',
     types: {

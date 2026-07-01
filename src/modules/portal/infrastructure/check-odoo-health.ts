@@ -30,6 +30,10 @@ export async function checkOdooHealth(): Promise<IntegrationConnectionStatus> {
         cache: 'no-store',
       })
 
+      if (response.status === 429) {
+        console.warn('[odoo-health] rate limited (429)')
+      }
+
       return response.ok ? 'connected' : 'error'
     }
 

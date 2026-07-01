@@ -1,5 +1,15 @@
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 
+export type PortalChatterAttachmentRef = {
+  id: number
+  name: string
+}
+
+export type PortalChatterParentPreview = {
+  authorName: string
+  snippet: string
+}
+
 export type PortalChatterMessage = {
   id: number
   bodyHtml: string
@@ -7,6 +17,9 @@ export type PortalChatterMessage = {
   authorName: string
   authorPartnerId?: number
   isFromClient: boolean
+  parentId?: number
+  parentPreview?: PortalChatterParentPreview
+  attachments?: PortalChatterAttachmentRef[]
 }
 
 export type PortalChatterMessagesPageResult =
@@ -17,7 +30,7 @@ export type PortalChatterMessagesPageResult =
     }
 
 export type PortalChatterPostResult =
-  | { ok: true; message: PortalChatterMessage }
+  | { ok: true; message: PortalChatterMessage; attachmentCount?: number }
   | {
       ok: false
       error:
@@ -28,7 +41,17 @@ export type PortalChatterPostResult =
         | 'odoo_rate_limited'
         | 'invalid_body'
         | 'read_only'
+        | 'invalid_parent'
+        | 'invalid_attachment'
+        | 'attachment_too_large'
+        | 'too_many_attachments'
     }
+
+export type PortalChatterUploadFile = {
+  name: string
+  mimetype: string
+  dataBase64: string
+}
 
 export type ListRecordMessagesInput = {
   kind: PortalRecordKind
@@ -40,4 +63,6 @@ export type PostRecordMessageInput = {
   kind: PortalRecordKind
   recordId: number
   body: string
+  parentId?: number
+  files?: PortalChatterUploadFile[]
 }

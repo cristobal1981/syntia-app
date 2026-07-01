@@ -1,7 +1,10 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import type { PendingSignaturesResult } from '@/src/modules/firmas/domain/types'
-import { fetchPendingSignaturesFromOdoo } from '@/src/modules/firmas/infrastructure/odoo-sign-repository'
-import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { getCachedPendingSignaturesSnapshot } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
+import {
+  isOdooApiConfigured,
+  resolveOdooErrorCode,
+} from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 export async function getPendingSignaturesForClient(
@@ -21,8 +24,8 @@ export async function getPendingSignaturesForClient(
   }
 
   try {
-    const requests = await fetchPendingSignaturesFromOdoo(partnerId)
-    return { ok: true, data: { requests } }
+    const data = await getCachedPendingSignaturesSnapshot(partnerId)
+    return { ok: true, data }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }
   }

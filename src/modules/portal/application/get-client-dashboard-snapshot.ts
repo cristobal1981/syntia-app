@@ -1,12 +1,14 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { countPendingSignaturesForPartner } from '@/src/modules/firmas/infrastructure/count-pending-signatures-for-partner'
 import { countObligacionesInProgressForPartner } from '@/src/modules/obligaciones/infrastructure/count-obligaciones-in-progress-for-partner'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
-import { countActiveTramitesForPartner } from '@/src/modules/tramites/infrastructure/count-active-tramites-for-partner'
+import { countActiveTramitesAndConsultasForPartner } from '@/src/modules/tramites/infrastructure/count-active-tramites-and-consultas-for-partner'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 export type ClientDashboardSnapshot = {
-  activeTramites: number
+  activeTramitesAndConsultas: number
   obligacionesInProgress: number
+  pendingSignatures: number
 }
 
 export type ClientDashboardSnapshotResult =
@@ -30,16 +32,19 @@ export async function getClientDashboardSnapshot(
   }
 
   try {
-    const [activeTramites, obligacionesInProgress] = await Promise.all([
-      countActiveTramitesForPartner(partnerId),
-      countObligacionesInProgressForPartner(partnerId),
-    ])
+    const [activeTramitesAndConsultas, obligacionesInProgress, pendingSignatures] =
+      await Promise.all([
+        countActiveTramitesAndConsultasForPartner(partnerId),
+        countObligacionesInProgressForPartner(partnerId),
+        countPendingSignaturesForPartner(partnerId),
+      ])
 
     return {
       ok: true,
       data: {
-        activeTramites,
+        activeTramitesAndConsultas,
         obligacionesInProgress,
+        pendingSignatures,
       },
     }
   } catch (error) {

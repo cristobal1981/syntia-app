@@ -1,6 +1,7 @@
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 import {
   isOdooApiConfigured,
+  odooCall,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
@@ -24,6 +25,55 @@ function mapAttachment(row: OdooAttachmentRow): PortalAttachment {
     createDate:
       typeof row.create_date === 'string' ? row.create_date : undefined,
   }
+}
+
+export async function resolveAttachmentNamesByIds(
+  attachmentIds: number[]
+): Promise<Map<number, string>> {
+  const names = new Map<number, string>()
+  if (!attachmentIds.length) return names
+
+  const rows = await odooSearchRead<{ id: number; name: string }>('ir.attachment', {
+    domain: [['id', 'in', attachmentIds]],
+    fields: ['name'],
+    limit: attachmentIds.length,
+  })
+
+  for (const row of rows) {
+    if (row.id && row.name) {
+      names.set(row.id, row.name)
+    }
+  }
+
+  return names
+}
+
+export async function createAttachmentsForRecord(input: {
+  resModel: string
+  resId: number
+  files: Array<{ name: string; mimetype: string; dataBase64: string }>
+}): Promise<number[]> {
+  if (!input.files.length) return []
+
+  const created = await odooCall<number | number[]>('ir.attachment', 'create', {
+    vals_list: input.files.map((file) => ({
+      name: file.name,
+      datas: file.dataBase64,
+      mimetype: file.mimetype,
+      res_model: input.resModel,
+      res_id: input.resId,
+    })),
+  })
+
+  if (typeof created === 'number' && created > 0) {
+    return [created]
+  }
+
+  if (Array.isArray(created)) {
+    return created.filter((id): id is number => typeof id === 'number' && id > 0)
+  }
+
+  return []
 }
 
 export async function listAttachmentsForRecord(

@@ -1,4 +1,6 @@
 const REQUEST_TIMEOUT_MS = 8_000
+const MAX_CONCURRENT_ODOO_REQUESTS = 5
+const RATE_LIMIT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000]
 
 export const ODOO_ERROR = {
   NOT_CONFIGURED: 'ODOO_NOT_CONFIGURED',
@@ -46,11 +48,61 @@ export function mapOdooMany2OneId(value: OdooMany2One): number | undefined {
   return typeof value[0] === 'number' ? value[0] : undefined
 }
 
-async function odooJsonRequest<T>(
+let activeOdooRequests = 0
+const odooRequestQueue: Array<() => void> = []
+
+function acquireOdooRequestSlot(): Promise<void> {
+  if (activeOdooRequests < MAX_CONCURRENT_ODOO_REQUESTS) {
+    activeOdooRequests += 1
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    odooRequestQueue.push(() => {
+      activeOdooRequests += 1
+      resolve()
+    })
+  })
+}
+
+function releaseOdooRequestSlot() {
+  activeOdooRequests = Math.max(0, activeOdooRequests - 1)
+  const next = odooRequestQueue.shift()
+  next?.()
+}
+
+function parseRetryAfterMs(response: Response): number | undefined {
+  const header = response.headers.get('retry-after')?.trim()
+  if (!header) return undefined
+
+  const seconds = Number.parseInt(header, 10)
+  if (Number.isInteger(seconds) && seconds > 0) {
+    return seconds * 1_000
+  }
+
+  const dateMs = Date.parse(header)
+  if (!Number.isNaN(dateMs)) {
+    const delay = dateMs - Date.now()
+    return delay > 0 ? delay : undefined
+  }
+
+  return undefined
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+async function odooJsonRequestOnce<T>(
   model: string,
   method: string,
   body: Record<string, unknown>
-): Promise<T> {
+): Promise<
+  | { ok: true; data: T }
+  | { ok: false; status: number; body: string; retryAfterMs?: number }
+> {
   const baseUrl = getOdooBaseUrl()
   const apiKey = getOdooApiKey()
 
@@ -75,17 +127,16 @@ async function odooJsonRequest<T>(
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '')
-      console.error(
-        `[odoo] ${model}/${method} failed (${response.status}):`,
-        errorBody.slice(0, 500)
-      )
-      if (response.status === 429) {
-        throw new Error(ODOO_ERROR.RATE_LIMITED)
+      return {
+        ok: false,
+        status: response.status,
+        body: errorBody,
+        retryAfterMs: parseRetryAfterMs(response),
       }
-      throw new Error(ODOO_ERROR.REQUEST_FAILED)
     }
 
-    return (await response.json()) as T
+    const data = (await response.json()) as T
+    return { ok: true, data }
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('ODOO_')) {
       throw error
@@ -93,6 +144,49 @@ async function odooJsonRequest<T>(
     throw new Error(ODOO_ERROR.REQUEST_FAILED)
   } finally {
     clearTimeout(timeout)
+  }
+}
+
+async function odooJsonRequest<T>(
+  model: string,
+  method: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  await acquireOdooRequestSlot()
+
+  try {
+    for (let attempt = 0; attempt <= RATE_LIMIT_RETRY_DELAYS_MS.length; attempt += 1) {
+      const result = await odooJsonRequestOnce<T>(model, method, body)
+
+      if (result.ok) {
+        return result.data
+      }
+
+      if (result.status === 429) {
+        if (attempt >= RATE_LIMIT_RETRY_DELAYS_MS.length) {
+          console.error(
+            `[odoo] ${model}/${method} rate limited after retries:`,
+            result.body.slice(0, 500)
+          )
+          throw new Error(ODOO_ERROR.RATE_LIMITED)
+        }
+
+        const delayMs =
+          result.retryAfterMs ?? RATE_LIMIT_RETRY_DELAYS_MS[attempt] ?? 1_000
+        await sleep(delayMs)
+        continue
+      }
+
+      console.error(
+        `[odoo] ${model}/${method} failed (${result.status}):`,
+        result.body.slice(0, 500)
+      )
+      throw new Error(ODOO_ERROR.REQUEST_FAILED)
+    }
+
+    throw new Error(ODOO_ERROR.RATE_LIMITED)
+  } finally {
+    releaseOdooRequestSlot()
   }
 }
 

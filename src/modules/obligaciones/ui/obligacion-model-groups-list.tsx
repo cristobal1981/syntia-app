@@ -43,7 +43,6 @@ export function ObligacionModelGroupsList({
               copy.columns.period,
               copy.columns.stage,
               copy.columns.documents,
-              copy.columns.actions,
             ].map((header) => (
               <th
                 key={header}
@@ -53,6 +52,7 @@ export function ObligacionModelGroupsList({
                 {header}
               </th>
             ))}
+            <th scope="col" className="w-px px-2 py-2.5" />
           </tr>
         </thead>
         <tbody>
@@ -138,7 +138,7 @@ function PeriodRow({
       <td className="px-4 py-3">
         <PortalDocumentsCell count={entry.attachmentCount} />
       </td>
-      <td className="px-4 py-3">
+      <td className="w-px whitespace-nowrap px-4 py-3 text-right">
         <Button
           type="button"
           variant="outline"

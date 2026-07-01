@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 
@@ -12,6 +12,7 @@ import {
   filterObligacionListRows,
 } from '@/src/modules/obligaciones/domain/filter-obligaciones-list'
 import { groupObligacionesByModel } from '@/src/modules/obligaciones/domain/group-obligaciones-by-model'
+import { parseObligacionOpenParam } from '@/src/modules/portal/domain/chatter-notifications-types'
 import { flattenObligacionesYear } from '@/src/modules/obligaciones/domain/sort-obligaciones-list'
 import type {
   ObligacionTask,
@@ -135,6 +136,37 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
     [data]
   )
 
+  const allTasks = useMemo(
+    () => data.years.flatMap((year) => flattenObligacionesYear(year)),
+    [data.years]
+  )
+
+  const handledOpenParamRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const openParam = searchParams.get('open')
+    if (!openParam) {
+      handledOpenParamRef.current = null
+      return
+    }
+
+    if (handledOpenParamRef.current === openParam) return
+
+    const parsed = parseObligacionOpenParam(openParam)
+    if (!parsed) return
+
+    const task = allTasks.find((entry) => entry.id === parsed.recordId)
+    if (!task) return
+
+    handledOpenParamRef.current = openParam
+    setSelectedTask(task)
+    router.replace('/obligaciones', { scroll: false })
+  }, [allTasks, router, searchParams])
+
+  const handleDrawerOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) setSelectedTask(null)
+  }, [])
+
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -209,9 +241,7 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
       <ObligacionDetailDrawer
         task={selectedTask}
         open={selectedTask !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedTask(null)
-        }}
+        onOpenChange={handleDrawerOpenChange}
       />
     </div>
   )

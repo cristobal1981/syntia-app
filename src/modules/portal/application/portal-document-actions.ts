@@ -15,7 +15,7 @@ import {
 } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   getOdooModelForRecordKind,
-  verifyRecordBelongsToPartner,
+  verifyClientRecordAccess,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
@@ -56,7 +56,7 @@ export async function getRecordAttachmentsAction(input: {
   }
 
   try {
-    const allowed = await verifyRecordBelongsToPartner(
+    const allowed = await verifyClientRecordAccess(
       input.kind,
       recordId,
       access.partnerId
@@ -98,7 +98,7 @@ export async function downloadAttachmentAction(input: {
   }
 
   try {
-    const allowed = await verifyRecordBelongsToPartner(
+    const allowed = await verifyClientRecordAccess(
       input.kind,
       recordId,
       access.partnerId
@@ -153,7 +153,7 @@ export async function downloadAllAttachmentsZipAction(input: {
   }
 
   try {
-    const allowed = await verifyRecordBelongsToPartner(
+    const allowed = await verifyClientRecordAccess(
       input.kind,
       recordId,
       access.partnerId

@@ -2,8 +2,7 @@ import { ClipboardList, FileText, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { getClientChatterNotificationsForUser } from '@/src/modules/portal/application/get-client-chatter-notifications'
-import { getClientDashboardSnapshot } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
+import { getClientHomeData } from '@/src/modules/portal/application/get-client-home-data'
 import { ClientHomeDashboard } from '@/src/modules/portal/ui/client-home-dashboard'
 import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 import { QuickLinkCard } from '@/src/modules/portal/ui/quick-link-card'
@@ -14,12 +13,7 @@ type ClientHomeProps = {
 
 export async function ClientHome({ user }: ClientHomeProps) {
   const copy = portal.home.client
-  const [snapshotResult, initialNotifications] = await Promise.all([
-    getClientDashboardSnapshot(user),
-    getClientChatterNotificationsForUser(user),
-  ])
-  const snapshot = snapshotResult.ok ? snapshotResult.data : null
-  const snapshotError = snapshotResult.ok ? null : snapshotResult.error
+  const homeData = await getClientHomeData(user)
 
   return (
     <div className="flex flex-col gap-8">
@@ -34,9 +28,9 @@ export async function ClientHome({ user }: ClientHomeProps) {
       </header>
 
       <ClientHomeDashboard
-        snapshot={snapshot}
-        snapshotError={snapshotError}
-        initialNotifications={initialNotifications}
+        snapshot={homeData.snapshot}
+        snapshotError={homeData.snapshotError}
+        initialNotifications={homeData.notifications}
       />
 
       <section aria-labelledby="client-quick-links">

@@ -108,7 +108,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {unread.map((item) => (
-                <li key={`${item.reason}-${item.listKind}-${item.recordId}`}>
+                <li key={`${item.reason}-${item.scope}-${item.recordId}`}>
                   <button
                     type="button"
                     className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"

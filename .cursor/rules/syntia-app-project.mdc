@@ -30,3 +30,7 @@ alwaysApply: true
 
 - Botones interactivos: `cursor-pointer` (en `Button` y acciones del shell).
 - Acciones con tooltip/atajo/icono: `PortalActionButton`, no duplicar en cada página.
+
+## Odoo
+
+- Presupuesto de peticiones y flujo UI-mock → datos → integración: ver regla `odoo-rate-limit.mdc`.

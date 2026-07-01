@@ -1,3 +1,5 @@
+import { normalizeChatterDisplayBody } from '@/src/modules/portal/domain/normalize-chatter-display-body'
+
 const CHATTER_ALLOWED_TAGS = new Set([
   'p',
   'br',
@@ -73,7 +75,7 @@ export function sanitizeChatterHtml(html: string): string {
 }
 
 export function prepareChatterHtmlForDisplay(body: string): string {
-  const normalized = body
+  const normalized = normalizeChatterDisplayBody(body)
     .replace(/<br\s*\/?>/gi, '<br>')
     .replace(/<\/p>\s*<p[^>]*>/gi, '</p><p>')
 

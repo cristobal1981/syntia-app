@@ -2,15 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Flame, MessageCircleWarning } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { portal } from '@/content/portal'
 import { tramites } from '@/content/tramites'
 import { cn } from '@/lib/utils'
 import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
@@ -24,13 +17,11 @@ import {
 import {
   formatTramiteListItemKey,
   getTramiteListItemKey,
-  getTramiteListRecordKind,
   mergeTramitesList,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { parseTramiteOpenParam } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
-  isTramiteListItemNew,
   type TramitesListSeenState,
 } from '@/src/modules/tramites/domain/tramites-list-seen-state'
 import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
@@ -38,6 +29,7 @@ import { PORTAL_LIST_PAGE_SIZE } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
 import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
+import { TramiteListNotificationIcons } from '@/src/modules/tramites/ui/tramite-list-notification-icons'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 import { TramitesFiltersToolbar } from '@/src/modules/tramites/ui/tramites-filters-toolbar'
@@ -51,6 +43,7 @@ type TramitesListSectionProps = {
   filteredEmpty: boolean
   selectedItem: TramiteListItem | null
   onSelectedItemChange: (item: TramiteListItem | null) => void
+  onAttachmentCountChange?: (item: TramiteListItem, attachmentCount: number) => void
   drawerInitialTab?: 'conversation' | 'documents'
 }
 
@@ -61,12 +54,10 @@ function TramitesListSection({
   filteredEmpty,
   selectedItem,
   onSelectedItemChange,
+  onAttachmentCountChange,
   drawerInitialTab = 'conversation',
 }: TramitesListSectionProps) {
   const copy = tramites.list
-  const notifications = useChatterNotificationsOptional()
-  const unreadLabel = portal.notifications.unreadBadge
-  const newItemLabel = copy.newItemBadge
   const [page, setPage] = useState(1)
   const paginationId = 'tramites-pagination-label'
 
@@ -80,50 +71,12 @@ function TramitesListSection({
         id: 'name',
         header: copy.columns.name,
         cellClassName: 'max-w-[240px] font-medium text-foreground',
-        render: (item: TramiteListItem) => {
-          const recordKind = getTramiteListRecordKind(item)
-          const hasUnread =
-            notifications?.hasUnreadChatter(recordKind, item.id) ?? false
-          const isNew = isTramiteListItemNew(item, newItemKeys)
-
-          return (
-            <div className="flex min-w-0 items-start gap-2">
-              {isNew ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="mt-0.5 flex shrink-0 items-center justify-center"
-                      aria-label={newItemLabel}
-                    >
-                      <Flame
-                        className="size-4 shrink-0 text-primary"
-                        aria-hidden
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">{newItemLabel}</TooltipContent>
-                </Tooltip>
-              ) : null}
-              {hasUnread ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="mt-0.5 flex shrink-0 items-center justify-center"
-                      aria-label={unreadLabel}
-                    >
-                      <MessageCircleWarning
-                        className="size-4 shrink-0 text-primary"
-                        aria-hidden
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">{unreadLabel}</TooltipContent>
-                </Tooltip>
-              ) : null}
-              <span className="line-clamp-2 min-w-0">{item.name}</span>
-            </div>
-          )
-        },
+        render: (item: TramiteListItem) => (
+          <div className="flex min-w-0 items-start gap-2">
+            <TramiteListNotificationIcons item={item} newItemKeys={newItemKeys} />
+            <span className="line-clamp-2 min-w-0">{item.name}</span>
+          </div>
+        ),
       },
       {
         id: 'type',
@@ -169,7 +122,7 @@ function TramitesListSection({
         ),
       },
     ],
-    [copy, newItemKeys, newItemLabel, notifications, onSelectedItemChange, unreadLabel]
+    [copy, newItemKeys, onSelectedItemChange]
   )
 
   if (!items.length) {
@@ -225,6 +178,7 @@ function TramitesListSection({
         item={selectedItem}
         open={selectedItem !== null}
         initialTab={drawerInitialTab}
+        onAttachmentCountChange={onAttachmentCountChange}
         onOpenChange={(open) => {
           if (!open) onSelectedItemChange(null)
         }}
@@ -246,6 +200,9 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
     defaultTramitesListFilters
   )
   const [selectedItem, setSelectedItem] = useState<TramiteListItem | null>(null)
+  const [attachmentCountOverrides, setAttachmentCountOverrides] = useState<
+    Record<string, number>
+  >({})
   const [drawerInitialTab, setDrawerInitialTab] = useState<
     'conversation' | 'documents'
   >('conversation')
@@ -258,10 +215,32 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
     router.replace('/tramites', { scroll: false })
   }, [router, searchParams])
 
-  const allItems = useMemo(
-    () => mergeTramitesList(data.tasks, data.tickets),
-    [data.tasks, data.tickets]
-  )
+  const allItems = useMemo(() => {
+    const merged = mergeTramitesList(data.tasks, data.tickets)
+    return merged.map((item) => {
+      const key = formatTramiteListItemKey(item.kind, item.id)
+      const override = attachmentCountOverrides[key]
+      if (override === undefined) return item
+      return { ...item, attachmentCount: Math.max(item.attachmentCount, override) }
+    })
+  }, [attachmentCountOverrides, data.tasks, data.tickets])
+
+  useEffect(() => {
+    setSelectedItem((current) => {
+      if (!current) return current
+      const fresh = allItems.find(
+        (entry) => entry.id === current.id && entry.kind === current.kind
+      )
+      if (!fresh) return current
+      if (
+        fresh.attachmentCount === current.attachmentCount &&
+        fresh.modifiedAt === current.modifiedAt
+      ) {
+        return current
+      }
+      return fresh
+    })
+  }, [allItems])
 
   const { newItemKeys, markItemSeen: markItemSeenBase } = useTramitesListNewKeys(
     allItems,
@@ -271,7 +250,10 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
   const notificationNewKeys = useMemo(
     () =>
       (notifications?.unread ?? [])
-        .filter((item) => item.reason === 'new_tramite')
+        .filter(
+          (item): item is typeof item & { listKind: 'tramite' } =>
+            item.reason === 'new_tramite' && item.listKind === 'tramite'
+        )
         .map((item) => formatTramiteListItemKey(item.listKind, item.recordId)),
     [notifications?.unread]
   )
@@ -353,6 +335,22 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
     setSelectedItem(item)
   }
 
+  const handleAttachmentCountChange = useCallback(
+    (item: TramiteListItem, attachmentCount: number) => {
+      const key = formatTramiteListItemKey(item.kind, item.id)
+      setAttachmentCountOverrides((current) => ({
+        ...current,
+        [key]: attachmentCount,
+      }))
+      setSelectedItem((current) =>
+        current && current.id === item.id && current.kind === item.kind
+          ? { ...current, attachmentCount }
+          : current
+      )
+    },
+    []
+  )
+
   const filteredItems = useMemo(
     () => filterTramitesList(allItems, filters),
     [allItems, filters]
@@ -388,6 +386,7 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
         filteredEmpty={filtersActive && filteredItems.length === 0}
         selectedItem={selectedItem}
         onSelectedItemChange={handleSelectItem}
+        onAttachmentCountChange={handleAttachmentCountChange}
         drawerInitialTab={drawerInitialTab}
       />
     </div>

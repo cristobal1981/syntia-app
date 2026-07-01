@@ -12,6 +12,10 @@ import {
   getRecordAttachmentsAction,
 } from '@/src/modules/portal/application/portal-document-actions'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
+import {
+  dedupedServerAction,
+  serverActionDedupKey,
+} from '@/src/modules/portal/infrastructure/server-action-dedup'
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { cn } from '@/lib/utils'
@@ -61,12 +65,35 @@ type RecordAttachmentsPanelProps = {
   kind: PortalRecordKind
   recordId: number
   active: boolean
+  knownAttachmentCount?: number
+  refreshToken?: number
+  highlightAttachmentId?: number | null
+}
+
+const ATTACHMENTS_CLIENT_CACHE_MS = 30_000
+const attachmentsClientCache = new Map<
+  string,
+  { at: number; attachments: PortalAttachment[] }
+>()
+
+function attachmentsCacheKey(kind: PortalRecordKind, recordId: number): string {
+  return `${kind}:${recordId}`
+}
+
+export function invalidateAttachmentsClientCache(
+  kind: PortalRecordKind,
+  recordId: number
+): void {
+  attachmentsClientCache.delete(attachmentsCacheKey(kind, recordId))
 }
 
 export function RecordAttachmentsPanel({
   kind,
   recordId,
   active,
+  knownAttachmentCount,
+  refreshToken = 0,
+  highlightAttachmentId = null,
 }: RecordAttachmentsPanelProps) {
   const [attachments, setAttachments] = useState<PortalAttachment[]>([])
   const [loading, setLoading] = useState(false)
@@ -77,9 +104,29 @@ export function RecordAttachmentsPanel({
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [activeHighlightId, setActiveHighlightId] = useState<number | null>(null)
+  const itemRefs = useRef<Map<number, HTMLLIElement>>(new Map())
 
   useEffect(() => {
     if (!active || recordId <= 0) return
+
+    if (knownAttachmentCount === 0 && refreshToken === 0) {
+      setLoading(false)
+      setError(null)
+      setAttachments([])
+      setDownloadError(null)
+      return
+    }
+
+    const cacheKey = attachmentsCacheKey(kind, recordId)
+    const cached = attachmentsClientCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < ATTACHMENTS_CLIENT_CACHE_MS && refreshToken === 0) {
+      setLoading(false)
+      setError(null)
+      setAttachments(cached.attachments)
+      setDownloadError(null)
+      return
+    }
 
     let cancelled = false
     setLoading(true)
@@ -87,7 +134,14 @@ export function RecordAttachmentsPanel({
     setAttachments([])
     setDownloadError(null)
 
-    void getRecordAttachmentsAction({ kind, recordId }).then((result) => {
+    const dedupKey = serverActionDedupKey('getRecordAttachments', {
+      kind,
+      recordId,
+    })
+
+    void dedupedServerAction(dedupKey, () =>
+      getRecordAttachmentsAction({ kind, recordId })
+    ).then((result) => {
       if (cancelled) return
       setLoading(false)
       if (!result.ok) {
@@ -97,13 +151,33 @@ export function RecordAttachmentsPanel({
         )
         return
       }
+      attachmentsClientCache.set(cacheKey, {
+        at: Date.now(),
+        attachments: result.attachments,
+      })
       setAttachments(result.attachments)
     })
 
     return () => {
       cancelled = true
     }
-  }, [active, kind, recordId])
+  }, [active, kind, knownAttachmentCount, recordId, refreshToken])
+
+  useEffect(() => {
+    if (!highlightAttachmentId || !active) return
+
+    const node = itemRefs.current.get(highlightAttachmentId)
+    if (!node) return
+
+    setActiveHighlightId(highlightAttachmentId)
+    node.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+
+    const timer = window.setTimeout(() => {
+      setActiveHighlightId(null)
+    }, 2000)
+
+    return () => window.clearTimeout(timer)
+  }, [active, attachments, highlightAttachmentId])
 
   function handleOpenPreview(attachment: PortalAttachment) {
     setPreviewAttachment(attachment)
@@ -185,9 +259,17 @@ export function RecordAttachmentsPanel({
           return (
             <li
               key={attachment.id}
+              ref={(node) => {
+                if (node) {
+                  itemRefs.current.set(attachment.id, node)
+                } else {
+                  itemRefs.current.delete(attachment.id)
+                }
+              }}
               className={cn(
                 'flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-background px-3 py-2.5 shadow-xs',
-                'dark:border-border/80 dark:bg-background'
+                'dark:border-border/80 dark:bg-background',
+                activeHighlightId === attachment.id && 'ring-2 ring-ring'
               )}
             >
               <div className="flex min-w-0 gap-2.5">

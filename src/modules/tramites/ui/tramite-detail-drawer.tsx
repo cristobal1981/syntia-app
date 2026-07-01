@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { Archive, FileText, Loader2, MessageSquare } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import { getTramiteListItemStateBadge } from '@/src/modules/tramites/domain/filter-tramites'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { getTramiteListRecordKind } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { notificationMatchesTramiteRecord } from '@/src/modules/portal/domain/compute-portal-notifications'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 
@@ -32,6 +33,7 @@ type TramiteDetailDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialTab?: TramiteDetailTab
+  onAttachmentCountChange?: (item: TramiteListItem, attachmentCount: number) => void
 }
 
 export function TramiteDetailDrawer({
@@ -39,18 +41,47 @@ export function TramiteDetailDrawer({
   open,
   onOpenChange,
   initialTab = 'conversation',
+  onAttachmentCountChange,
 }: TramiteDetailDrawerProps) {
   const notifications = useChatterNotificationsOptional()
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<TramiteDetailTab>(initialTab)
   const [scrollPin, setScrollPin] = useState(0)
+  const documentsAckRef = useRef<string | null>(null)
+
+  const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(
+    null
+  )
+  const [liveAttachmentCount, setLiveAttachmentCount] = useState(0)
+  const [attachmentsRefreshToken, setAttachmentsRefreshToken] = useState(0)
+
+  useEffect(() => {
+    if (!item) return
+    setLiveAttachmentCount(item.attachmentCount)
+  }, [item?.attachmentCount, item?.id])
+
+  const ackDocumentsIfNeeded = useCallback(
+    (item: TramiteListItem) => {
+      const ackKey = `${item.kind}:${item.id}`
+      if (documentsAckRef.current === ackKey) return
+      documentsAckRef.current = ackKey
+      void notifications?.ackDocumentsSeen?.(
+        item.kind,
+        item.id,
+        liveAttachmentCount
+      )
+    },
+    [liveAttachmentCount, notifications]
+  )
 
   useEffect(() => {
     if (!item) return
     setActiveTab(initialTab)
     setScrollPin(0)
     setZipError(null)
+    documentsAckRef.current = null
+    setHighlightAttachmentId(null)
   }, [item?.id, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
@@ -58,6 +89,36 @@ export function TramiteDetailDrawer({
   const markConversationSeen = notifications?.markConversationSeen
   const dismissNewTramiteNotification =
     notifications?.dismissNewTramiteNotification
+  const ackStatusChangeSeen = notifications?.ackStatusChangeSeen
+
+  useEffect(() => {
+    if (!open || !item) return
+
+    const chatterNotification = notifications?.unread.find(
+      (notification) =>
+        notification.reason === 'unread_chatter' &&
+        notificationMatchesTramiteRecord(notification, recordKind, item.id)
+    )
+    if (chatterNotification?.latestMessageId) {
+      void markConversationSeen?.(
+        recordKind,
+        item.id,
+        chatterNotification.latestMessageId
+      )
+    }
+
+    if (notifications?.hasTramiteNotification(item, 'status_change')) {
+      void ackStatusChangeSeen?.(item.kind, item.id)
+    }
+  }, [
+    ackStatusChangeSeen,
+    item,
+    markConversationSeen,
+    notifications?.hasTramiteNotification,
+    notifications?.unread,
+    open,
+    recordKind,
+  ])
 
   const handleConversationViewed = useCallback(
     (latestMessageId: number) => {
@@ -72,21 +133,41 @@ export function TramiteDetailDrawer({
     dismissNewTramiteNotification?.(recordKind, item.id)
   }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
 
+  useEffect(() => {
+    if (!open || !item || activeTab !== 'documents') return
+    ackDocumentsIfNeeded(item)
+  }, [ackDocumentsIfNeeded, activeTab, item, open])
+
   if (!item) {
     return null
   }
 
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
-  const showZipButton = tramite.attachmentCount > 1
+  const showZipButton = liveAttachmentCount > 1
   const canReply = !(tramite.kind === 'consulta' && tramite.isClosed)
   const conversationUnread =
     notifications?.hasUnreadChatter(recordKind, tramite.id) ?? false
+
+  function handleAttachmentsChanged(attachmentCount: number) {
+    setLiveAttachmentCount(attachmentCount)
+    setAttachmentsRefreshToken((value) => value + 1)
+    onAttachmentCountChange?.(tramite, attachmentCount)
+  }
+
+  function handleOpenDocument(attachmentId: number) {
+    setHighlightAttachmentId(attachmentId)
+    setActiveTab('documents')
+    ackDocumentsIfNeeded(tramite)
+  }
 
   function handleTabChange(tab: TramiteDetailTab) {
     setActiveTab(tab)
     if (tab === 'conversation') {
       setScrollPin((value) => value + 1)
+    }
+    if (tab === 'documents') {
+      ackDocumentsIfNeeded(tramite)
     }
   }
 
@@ -147,7 +228,7 @@ export function TramiteDetailDrawer({
               id: 'documents',
               label: portalDocuments.tabLabel,
               icon: FileText,
-              badge: tramite.attachmentCount,
+              badge: liveAttachmentCount,
             },
           ]}
           value={activeTab}
@@ -162,6 +243,8 @@ export function TramiteDetailDrawer({
               scrollPin={scrollPin}
               markReadOnView={open && activeTab === 'conversation'}
               onConversationViewed={handleConversationViewed}
+              onOpenDocument={handleOpenDocument}
+              onAttachmentsChanged={handleAttachmentsChanged}
             />
           ) : (
             <section
@@ -206,6 +289,9 @@ export function TramiteDetailDrawer({
                 kind={recordKind}
                 recordId={tramite.id}
                 active={open && activeTab === 'documents'}
+                knownAttachmentCount={liveAttachmentCount}
+                refreshToken={attachmentsRefreshToken}
+                highlightAttachmentId={highlightAttachmentId}
               />
             </section>
           )}

@@ -2,13 +2,10 @@
 
 import { Loader2 } from 'lucide-react'
 
-import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { Skeleton } from '@/components/ui/skeleton'
 import { portal } from '@/content/portal'
-import { cn } from '@/lib/utils'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
-import type { ChatterUnreadNotification } from '@/src/modules/portal/domain/chatter-notifications-types'
 
 function formatNotificationDate(value: string): string {
   const date = new Date(value)
@@ -24,22 +21,16 @@ function formatNotificationDate(value: string): string {
 
 type ClientHomeUnreadFeedProps = {
   notificationsLoading?: boolean
-  initialUnread?: ChatterUnreadNotification[]
 }
 
 export function ClientHomeUnreadFeed({
   notificationsLoading = false,
-  initialUnread,
 }: ClientHomeUnreadFeedProps) {
   const notifications = useChatterNotificationsOptional()
   const copy = portal.home.client
-  const contextUnread = notifications?.unread ?? []
-  const unreadSource =
-    contextUnread.length > 0 || !initialUnread?.length
-      ? contextUnread
-      : initialUnread
-  const unreadCount = unreadSource.length
-  const unread = unreadSource.slice(0, 3)
+  const unread = notifications?.unread ?? []
+  const unreadCount = unread.length
+  const preview = unread.slice(0, 3)
   const overflowCount = Math.max(0, unreadCount - 3)
 
   return (
@@ -76,15 +67,15 @@ export function ClientHomeUnreadFeed({
             <Skeleton className="h-3 w-1/2" />
           </div>
         </div>
-      ) : unread.length === 0 ? (
+      ) : preview.length === 0 ? (
         <div className="portal-home-card rounded-xl px-5 py-6 text-sm text-muted-foreground">
           {copy.unreadEmpty}
         </div>
       ) : (
         <div className="portal-home-card overflow-hidden rounded-xl">
           <ul className="divide-y divide-border">
-            {unread.map((item) => (
-              <li key={`${item.reason}-${item.listKind}-${item.recordId}`}>
+            {preview.map((item) => (
+              <li key={`${item.reason}-${item.scope}-${item.recordId}`}>
                 <button
                   type="button"
                   className="flex w-full flex-col gap-1.5 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
@@ -106,16 +97,8 @@ export function ClientHomeUnreadFeed({
             ))}
           </ul>
           {overflowCount > 0 ? (
-            <div className="border-t border-border">
-              <AppLink
-                href="/tramites"
-                className={cn(
-                  'flex w-full px-5 py-3 text-sm transition-colors hover:bg-muted/40',
-                  appLinkPortalClassName
-                )}
-              >
-                {copy.unreadMore.replace('{count}', String(overflowCount))}
-              </AppLink>
+            <div className="border-t border-border px-5 py-3 text-sm text-muted-foreground">
+              {copy.unreadMorePending.replace('{count}', String(overflowCount))}
             </div>
           ) : null}
         </div>

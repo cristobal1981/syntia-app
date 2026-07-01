@@ -1,14 +1,18 @@
 import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 
 export type ObligacionTaskIndexLeaf = {
+  id: number
+  name: string
   state?: string
+  modifiedAt: string
 }
 
 export type ObligacionTaskIndex = {
   /** Raíces, periodos y hojas del árbol obligaciones (exclusión en trámites). */
   excludedTaskIds: number[]
-  leafTasks: ObligacionTaskIndexLeaf[]
+  leaves: ObligacionTaskIndexLeaf[]
 }
 
 type OdooIdRow = {
@@ -17,14 +21,16 @@ type OdooIdRow = {
 
 type OdooLeafRow = {
   id: number
+  name: string
   state?: string | false | null
+  write_date?: string | false | null
 }
 
 export async function buildObligacionTaskIndex(
   projectIds: number[]
 ): Promise<ObligacionTaskIndex> {
   if (!projectIds.length) {
-    return { excludedTaskIds: [], leafTasks: [] }
+    return { excludedTaskIds: [], leaves: [] }
   }
 
   const parentPrefix = getObligacionesParentPrefix()
@@ -42,7 +48,7 @@ export async function buildObligacionTaskIndex(
 
   const rootIds = roots.map((row) => row.id)
   if (!rootIds.length) {
-    return { excludedTaskIds: [], leafTasks: [] }
+    return { excludedTaskIds: [], leaves: [] }
   }
 
   const periodRows = await odooSearchRead<OdooIdRow>('project.task', {
@@ -54,23 +60,27 @@ export async function buildObligacionTaskIndex(
 
   const periodIds = periodRows.map((row) => row.id)
   if (!periodIds.length) {
-    return { excludedTaskIds: rootIds, leafTasks: [] }
+    return { excludedTaskIds: rootIds, leaves: [] }
   }
 
   const leafRows = await odooSearchRead<OdooLeafRow>('project.task', {
     domain: [['parent_id', 'in', periodIds]],
-    fields: ['id', 'state'],
+    fields: ['id', 'name', 'state', 'write_date'],
     order: 'name asc, id asc',
     limit: 200,
   })
 
-  const leafIds = leafRows.map((row) => row.id)
-  const leafTasks = leafRows.map((row) => ({
+  const leaves: ObligacionTaskIndexLeaf[] = leafRows.map((row) => ({
+    id: row.id,
+    name: typeof row.name === 'string' ? row.name : `Obligación ${row.id}`,
     state: typeof row.state === 'string' && row.state ? row.state : undefined,
+    modifiedAt: parseOdooDateTime(row.write_date) ?? new Date().toISOString(),
   }))
+
+  const leafIds = leaves.map((leaf) => leaf.id)
 
   return {
     excludedTaskIds: [...rootIds, ...periodIds, ...leafIds],
-    leafTasks,
+    leaves,
   }
 }

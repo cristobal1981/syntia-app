@@ -3,7 +3,8 @@
  * Public signing URL uses sign.request.access_token:
  *   {ODOO_URL}/sign/document/{sign.request.id}/{access_token}
  *
- * Validate pending state values on your Odoo 19 instance; override via env.
+ * Due date: sign.request.validity («Valid Until»); override with ODOO_SIGN_REQUEST_DUE_DATE_FIELD.
+ * Sent date: sign.request.item.create_date for the pending signer item.
  */
 
 const DEFAULT_REQUEST_MODEL = 'sign.request'
@@ -41,6 +42,11 @@ export function getOdooSignRequestActiveStates(): string[] {
     process.env.ODOO_SIGN_REQUEST_ACTIVE_STATES,
     DEFAULT_REQUEST_ACTIVE_STATES
   )
+}
+
+/** Odoo Sign «Valid Until» on sign.request (override if your instance differs). */
+export function getOdooSignRequestDueDateField(): string {
+  return process.env.ODOO_SIGN_REQUEST_DUE_DATE_FIELD?.trim() || 'validity'
 }
 
 export function buildOdooSignPublicUrl(

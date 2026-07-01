@@ -1,5 +1,9 @@
-import { getOdooTicketsModel, getTicketClosedField } from '@/src/modules/tramites/infrastructure/tramites-env'
+import {
+  getCachedObligacionTaskIndex,
+  getCachedTramitesSnapshot,
+} from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { getOdooTicketsModel, getTicketClosedField } from '@/src/modules/tramites/infrastructure/tramites-env'
 
 type OdooTaskAccessRow = {
   id: number
@@ -70,6 +74,48 @@ export async function verifyRecordBelongsToPartner(
     return verifyTaskBelongsToPartner(recordId, partnerId)
   }
   return verifyTicketBelongsToPartner(recordId, partnerId)
+}
+
+async function isTaskInClientCachedSnapshot(
+  taskId: number,
+  partnerId: number
+): Promise<boolean> {
+  const [tramites, obligIndex] = await Promise.all([
+    getCachedTramitesSnapshot(partnerId),
+    getCachedObligacionTaskIndex(partnerId),
+  ])
+
+  if (tramites.tasks.some((task) => task.id === taskId)) {
+    return true
+  }
+
+  return obligIndex.leaves.some((leaf) => leaf.id === taskId)
+}
+
+async function isTicketInClientCachedSnapshot(
+  ticketId: number,
+  partnerId: number
+): Promise<boolean> {
+  const tramites = await getCachedTramitesSnapshot(partnerId)
+  return tramites.tickets.some((ticket) => ticket.id === ticketId)
+}
+
+/** Evita verify Odoo cuando el registro ya está en snapshot cacheado del cliente. */
+export async function verifyClientRecordAccess(
+  kind: 'task' | 'ticket',
+  recordId: number,
+  partnerId: number
+): Promise<boolean> {
+  const inSnapshot =
+    kind === 'task'
+      ? await isTaskInClientCachedSnapshot(recordId, partnerId)
+      : await isTicketInClientCachedSnapshot(recordId, partnerId)
+
+  if (inSnapshot) {
+    return true
+  }
+
+  return verifyRecordBelongsToPartner(kind, recordId, partnerId)
 }
 
 export function getOdooModelForRecordKind(kind: 'task' | 'ticket'): string {

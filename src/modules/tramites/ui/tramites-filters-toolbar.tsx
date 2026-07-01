@@ -62,7 +62,7 @@ export function TramitesFiltersToolbar({
               placeholder={tramites.filters.searchPlaceholder}
               autoComplete="off"
               spellCheck={false}
-              className="pl-9"
+              className="bg-input pl-9"
               onChange={(event) => {
                 onChange({ ...filters, query: event.target.value })
               }}

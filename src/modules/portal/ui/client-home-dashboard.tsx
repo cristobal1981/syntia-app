@@ -40,27 +40,15 @@ export function ClientHomeDashboard({
 
   const notificationsLoading =
     (notifications?.notificationsLoading ?? true) && !initialNotifications?.ok
-  const unreadCount =
-    notifications?.unreadCount ??
-    (initialNotifications?.ok ? initialNotifications.unread.length : 0)
 
   return (
     <div className="flex flex-col gap-8">
       {snapshot ? (
-        <ClientHomeStats
-          data={snapshot}
-          unreadCount={unreadCount}
-          notificationsLoading={notificationsLoading}
-        />
+        <ClientHomeStats data={snapshot} />
       ) : (
         <ClientHomeStatsUnavailable error={snapshotError} />
       )}
-      <ClientHomeUnreadFeed
-        notificationsLoading={notificationsLoading}
-        initialUnread={
-          initialNotifications?.ok ? initialNotifications.unread : undefined
-        }
-      />
+      <ClientHomeUnreadFeed notificationsLoading={notificationsLoading} />
     </div>
   )
 }

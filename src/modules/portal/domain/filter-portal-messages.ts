@@ -3,6 +3,7 @@ import {
   prepareChatterHtmlForDisplay,
   sanitizeChatterHtml,
 } from '@/src/modules/portal/domain/sanitize-chatter-html.server'
+import { normalizeChatterDisplayBody } from '@/src/modules/portal/domain/normalize-chatter-display-body'
 
 export type OdooMailMessageRow = {
   id: number
@@ -10,6 +11,12 @@ export type OdooMailMessageRow = {
   date?: string | false | null
   author_id?: [number, string] | false | null
   message_type?: string | false | null
+  parent_id?: [number, string] | false | null
+  attachment_ids?: number[] | false | null
+}
+
+function rowHasAttachments(row: OdooMailMessageRow): boolean {
+  return Array.isArray(row.attachment_ids) && row.attachment_ids.length > 0
 }
 
 export function stripHtmlToText(html: string): string {
@@ -28,7 +35,7 @@ export function stripHtmlToText(html: string): string {
 }
 
 export function formatChatterBodyFromOdoo(body: string): string {
-  return prepareChatterHtmlForDisplay(body)
+  return prepareChatterHtmlForDisplay(normalizeChatterDisplayBody(body))
 }
 
 export { sanitizeChatterHtml, prepareChatterHtmlForDisplay }
@@ -77,7 +84,7 @@ export function filterOdooMailMessageRows(
   }
 ): OdooMailMessageRow[] {
   return rows.filter((row) => {
-    if (!hasVisibleMessageBody(row.body)) return false
+    if (!hasVisibleMessageBody(row.body) && !rowHasAttachments(row)) return false
 
     const authorId = mapOdooMany2OneId(row.author_id)
     if (isExcludedChatterAuthor(authorId, options.excludedPartnerIds)) {

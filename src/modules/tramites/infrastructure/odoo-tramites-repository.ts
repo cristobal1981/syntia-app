@@ -5,7 +5,11 @@ import type {
 } from '@/src/modules/tramites/domain/types'
 import { isTaskClosed, mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
-import { collectObligacionTaskIds } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
+import {
+  getCachedClientProjectIds,
+  getCachedObligacionTaskIndex,
+  getCachedTramitesTagId,
+} from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
   getOdooTicketsModel,
   getTicketClosedField,
@@ -17,16 +21,6 @@ import {
   isOdooApiConfigured,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
-
-type OdooProjectRow = {
-  id: number
-  name: string
-}
-
-type OdooTagRow = {
-  id: number
-  name: string
-}
 
 type OdooTaskRow = {
   id: number
@@ -88,23 +82,19 @@ function mapTicket(
   }
 }
 
-async function listClientProjects(partnerId: number): Promise<OdooProjectRow[]> {
-  return odooSearchRead<OdooProjectRow>('project.project', {
-    domain: [['partner_id', '=', partnerId]],
-    fields: ['name'],
-    order: 'write_date desc',
-    limit: 20,
-  })
+async function listClientProjectIds(partnerId: number): Promise<number[]> {
+  return getCachedClientProjectIds(partnerId)
 }
 
 async function resolveTaskTagId(tagName: string): Promise<number | null> {
-  const rows = await odooSearchRead<OdooTagRow>('project.tags', {
-    domain: [['name', '=', tagName]],
-    fields: ['name'],
-    limit: 1,
-  })
+  return getCachedTramitesTagId(tagName)
+}
 
-  return rows[0]?.id ?? null
+async function collectExcludedObligacionTaskIds(
+  partnerId: number
+): Promise<Set<number>> {
+  const index = await getCachedObligacionTaskIndex(partnerId)
+  return new Set(index.excludedTaskIds)
 }
 
 async function listProjectTaskRows(
@@ -183,9 +173,8 @@ export async function listTramiteRecordRefsForPartner(
   }
 
   const tagName = getTramitesTaskTagName()
-  const excludedTaskIds = await collectObligacionTaskIds(partnerId)
-  const projects = await listClientProjects(partnerId)
-  const projectIds = projects.map((project) => project.id)
+  const excludedTaskIds = await collectExcludedObligacionTaskIds(partnerId)
+  const projectIds = await listClientProjectIds(partnerId)
 
   const refs: TramiteRecordRef[] = []
 
@@ -215,9 +204,8 @@ export async function fetchTramitesFromOdoo(
   }
 
   const tagName = getTramitesTaskTagName()
-  const excludedTaskIds = await collectObligacionTaskIds(partnerId)
-  const projects = await listClientProjects(partnerId)
-  const projectIds = projects.map((project) => project.id)
+  const excludedTaskIds = await collectExcludedObligacionTaskIds(partnerId)
+  const projectIds = await listClientProjectIds(partnerId)
 
   let tasks: TramiteTask[] = []
   let tagFilterActive = false

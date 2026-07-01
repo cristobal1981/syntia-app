@@ -1,13 +1,21 @@
 export const firmas = {
-  title: 'Firmas pendientes',
-  description:
-    'Documentos que tu asesoría te ha enviado para firmar. Se abrirán en Odoo en una pestaña nueva.',
-  pendingCount: '{count} pendientes',
+  list: {
+    title: 'Solicitudes pendientes de firma',
+    description:
+      'Revisa cada documento y completa la firma cuando estés listo. La firma se abre en una pestaña nueva.',
+    sentLabel: 'Enviado',
+    dueLabel: 'Vence',
+    statusPending: 'Pendiente de firma',
+    dueSoon: 'Vence pronto',
+    notificationNewFirma: 'Nueva solicitud de firma',
+    signAction: 'Firmar documento',
+  },
   emptyTitle: 'Sin firmas pendientes',
   emptyDescription:
     'Cuando tu asesoría te envíe un documento para firmar, lo verás aquí.',
+  emptyHint:
+    'No tienes ninguna acción pendiente por ahora. Si esperabas un documento, prueba a actualizar o contacta con tu asesor.',
   signButton: 'Firmar',
-  signHint: 'Se abrirá la firma en Odoo en una pestaña nueva.',
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
   states: {

@@ -128,14 +128,20 @@ export const portal = {
     label: 'Notificaciones',
     emptyTitle: 'Sin novedades',
     emptyDescription:
-      'Cuando tu asesoría te escriba o se abra un trámite nuevo, lo verás aquí.',
+      'Cuando haya novedades en tus trámites, consultas, obligaciones o firmas, lo verás aquí.',
     openConversation: 'Ver conversación',
+    openDocuments: 'Ver documentos',
+    openFirmas: 'Ver firmas',
     unreadBadge: 'Mensajes sin leer',
     tooltipUnread: '{count} novedades',
     typeTramite: 'Trámite',
     typeConsulta: 'Consulta',
     typeNewTramite: 'Nuevo trámite',
     typeUnreadMessage: 'Mensaje sin leer',
+    typeStatusChange: 'Cambio de estado',
+    typeStatusClosed: 'Trámite cerrado',
+    typeNewDocument: 'Nuevo documento',
+    typeNewFirma: 'Nueva firma pendiente',
   },
   confirm: {
     cancel: 'Cancelar',
@@ -210,15 +216,18 @@ export const portal = {
       greeting: 'Hola,',
       statsTitle: 'Resumen',
       stats: {
-        activeProcedures: 'Trámites activos',
+        activeTramitesAndConsultas: 'Trámites y consultas activos',
         obligacionesInProgress: 'Obligaciones en curso',
-        unreadMessages: 'Novedades',
+        pendingSignatures: 'Solicitudes de firma',
       },
       unreadLoading: 'Comprobando novedades…',
       unreadTitle: 'Novedades',
-      unreadEmpty: 'No tienes novedades de tu asesoría.',
+      unreadEmpty: 'No hay novedades de tu asesoría por ahora. Todo está al día — cualquier cosa, aquí estamos para ayudarte.',
+ 
       unreadViewAll: 'Ver trámites',
       unreadMore: 'Ver {count} novedades más',
+      unreadMorePending:
+        'Tienes {count} notificaciones más pendientes. Ábrelas desde la campana del menú.',
       statsUnavailable:
         'No pudimos cargar el resumen ahora mismo. Puedes seguir usando el menú lateral.',
       statsRateLimited:

@@ -1,5 +1,7 @@
 # Notificaciones de chatter (`chatter_read_state`)
 
+> **Nota:** El sistema completo del portal (estados, documentos, firmas) está documentado en [`portal-notifications.md`](./portal-notifications.md).
+
 Contexto para desarrollo y agentes. Leer antes de tocar el poll de mensajes o el estado leído.
 
 ## Esquema

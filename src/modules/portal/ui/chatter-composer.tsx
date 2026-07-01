@@ -6,6 +6,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type ChangeEvent,
 } from 'react'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
@@ -16,6 +17,7 @@ import {
   Italic,
   List,
   ListOrdered,
+  Paperclip,
   Underline as UnderlineIcon,
 } from 'lucide-react'
 
@@ -30,6 +32,7 @@ import { cn } from '@/lib/utils'
 
 export type ChatterComposerHandle = {
   clear: () => void
+  focus: () => void
   getHtml: () => string
   isEmpty: () => boolean
 }
@@ -38,6 +41,8 @@ type ChatterComposerProps = {
   disabled?: boolean
   resetToken?: number
   variant?: 'full' | 'simple'
+  canAttach?: boolean
+  onAddFiles?: (files: File[]) => void
   onEmptyChange?: (empty: boolean) => void
   onResize?: () => void
   onSubmit?: () => void
@@ -90,6 +95,8 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
       disabled = false,
       resetToken = 0,
       variant = 'full',
+      canAttach = false,
+      onAddFiles,
       onEmptyChange,
       onResize,
       onSubmit,
@@ -100,6 +107,7 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
     const [isEmpty, setIsEmpty] = useState(true)
     const [, setToolbarRevision] = useState(0)
     const rootRef = useRef<HTMLDivElement>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const editorRef = useRef<ReturnType<typeof useEditor>>(null)
     const onEmptyChangeRef = useRef(onEmptyChange)
     const onSubmitRef = useRef(onSubmit)
@@ -186,6 +194,9 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
           setIsEmpty(true)
           onEmptyChangeRef.current?.(true)
         },
+        focus: () => {
+          editor?.commands.focus('end')
+        },
         getHtml: () => editor?.getHTML() ?? '',
         isEmpty: () => isChatterHtmlEmpty(editor?.getHTML() ?? ''),
       }),
@@ -215,8 +226,27 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
       return () => observer.disconnect()
     }, [onResize])
 
+    function handleAttachClick() {
+      fileInputRef.current?.click()
+    }
+
+    function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+      const fileList = event.target.files
+      if (!fileList?.length) return
+      onAddFiles?.(Array.from(fileList))
+      event.target.value = ''
+    }
+
     return (
       <div ref={rootRef} className="min-w-0 flex-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="sr-only"
+          disabled={disabled || !canAttach}
+          onChange={handleFileChange}
+        />
         <div
           className={cn(
             'overflow-hidden rounded-2xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring dark:border-border/50',
@@ -270,6 +300,21 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
             >
               <ListOrdered className="size-4" aria-hidden />
             </FormatToolbarButton>
+            {canAttach ? (
+              <PortalActionTooltip content={portalChatter.attachFile} disabled={disabled}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 cursor-pointer"
+                  disabled={disabled}
+                  aria-label={portalChatter.attachFile}
+                  onClick={handleAttachClick}
+                >
+                  <Paperclip className="size-4" aria-hidden />
+                </Button>
+              </PortalActionTooltip>
+            ) : null}
           </div>
           ) : null}
           <EditorContent editor={editor} />

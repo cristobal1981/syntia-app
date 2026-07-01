@@ -9,26 +9,44 @@ import {
   useTransition,
 } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 import { portalChatter } from '@/content/portal-chatter'
 import {
   listRecordMessagesAction,
   postRecordMessageAction,
 } from '@/src/modules/portal/application/portal-chatter-actions'
-import { prepareChatterHtmlForDisplay } from '@/src/modules/portal/ui/sanitize-chatter-html.client'
+import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
+import { isChatterHtmlEmpty } from '@/src/modules/portal/domain/filter-portal-messages'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
+import {
+  isAllowedChatterMimeType,
+  readFilesAsUploadPayload,
+  validatePendingFilesSelection,
+} from '@/src/modules/portal/lib/chatter-attachment-validation'
+import { isPortalChatterMockEnabled } from '@/src/modules/portal/lib/portal-chatter-mock'
 import {
   ChatterComposer,
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
 import { ChatterSendButton } from '@/src/modules/portal/ui/chatter-send-button'
-import { ChatterAuthorAvatar } from '@/src/modules/portal/ui/chatter-author-avatar'
 import {
   ChatterComposerSkeleton,
   ChatterSkeleton,
 } from '@/src/modules/portal/ui/chatter-skeleton'
-import { cn } from '@/lib/utils'
+import {
+  buildParentPreview,
+  ChatterMessageItem,
+} from '@/src/modules/portal/ui/chatter-message-item'
+import { ChatterPendingAttachments } from '@/src/modules/portal/ui/chatter-pending-attachments'
+import { ChatterReplyBanner } from '@/src/modules/portal/ui/chatter-reply-banner'
+import {
+  CHATTER_MOCK_MESSAGES,
+  createMockMessageId,
+} from '@/src/modules/portal/ui/chatter-mock-data'
+import { invalidateAttachmentsClientCache } from '@/src/modules/portal/ui/record-attachments-panel'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
 type RecordChatterPanelProps = {
   kind: PortalRecordKind
@@ -38,7 +56,15 @@ type RecordChatterPanelProps = {
   scrollPin?: number
   markReadOnView?: boolean
   onConversationViewed?: (latestMessageId: number) => void
+  onOpenDocument?: (attachmentId: number) => void
+  onAttachmentsChanged?: (attachmentCount: number) => void
 }
+
+function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
+  return kind === 'task' ? 'tramite' : 'consulta'
+}
+
+const chatterMockEnabled = isPortalChatterMockEnabled()
 
 function formatMessageDate(value: string): string {
   const date = new Date(value)
@@ -60,7 +86,11 @@ export function RecordChatterPanel({
   scrollPin = 0,
   markReadOnView = false,
   onConversationViewed,
+  onOpenDocument,
+  onAttachmentsChanged,
 }: RecordChatterPanelProps) {
+  const router = useRouter()
+  const notifications = usePortalNotificationsOptional()
   const [messages, setMessages] = useState<PortalChatterMessage[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loadingInitial, setLoadingInitial] = useState(false)
@@ -69,6 +99,8 @@ export function RecordChatterPanel({
   const [sendError, setSendError] = useState<string | null>(null)
   const [composerEmpty, setComposerEmpty] = useState(true)
   const [composerResetToken, setComposerResetToken] = useState(0)
+  const [replyTarget, setReplyTarget] = useState<PortalChatterMessage | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [pending, startTransition] = useTransition()
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -79,6 +111,8 @@ export function RecordChatterPanel({
   const lastNotifiedMessageIdRef = useRef(0)
   const onConversationViewedRef = useRef(onConversationViewed)
   const loadGenerationRef = useRef(0)
+
+  const canSend = canReply && (!composerEmpty || pendingFiles.length > 0)
 
   useEffect(() => {
     onConversationViewedRef.current = onConversationViewed
@@ -119,9 +153,17 @@ export function RecordChatterPanel({
   )
 
   const handleComposerResize = useCallback(() => {
-    if (!shouldStickToBottomRef.current && composerEmpty) return
+    if (!shouldStickToBottomRef.current && composerEmpty && !pendingFiles.length) return
     scrollToBottom()
-  }, [composerEmpty, scrollToBottom])
+  }, [composerEmpty, pendingFiles.length, scrollToBottom])
+
+  const resetComposerState = useCallback(() => {
+    setReplyTarget(null)
+    setPendingFiles([])
+    setComposerEmpty(true)
+    setComposerResetToken((token) => token + 1)
+    composerRef.current?.clear()
+  }, [])
 
   const loadInitial = useCallback(async () => {
     if (recordId <= 0) return
@@ -133,11 +175,20 @@ export function RecordChatterPanel({
     setMessages([])
     setHasMore(false)
     setSendError(null)
-    setComposerEmpty(true)
-    setComposerResetToken((token) => token + 1)
+    resetComposerState()
     shouldStickToBottomRef.current = true
 
     try {
+      if (chatterMockEnabled) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        if (generation !== loadGenerationRef.current) return
+        const mockMessages = enrichPortalChatterMessages([...CHATTER_MOCK_MESSAGES])
+        setMessages(mockMessages)
+        setHasMore(false)
+        notifyConversationViewed(mockMessages)
+        return
+      }
+
       const result = await listRecordMessagesAction({ kind, recordId })
       if (generation !== loadGenerationRef.current) return
 
@@ -149,9 +200,10 @@ export function RecordChatterPanel({
         return
       }
 
-      setMessages(result.messages)
+      const enriched = enrichPortalChatterMessages(result.messages)
+      setMessages(enriched)
       setHasMore(result.hasMore)
-      notifyConversationViewed(result.messages)
+      notifyConversationViewed(enriched)
     } catch {
       if (generation !== loadGenerationRef.current) return
       setError(portalChatter.errors.odoo_unavailable)
@@ -160,7 +212,7 @@ export function RecordChatterPanel({
         setLoadingInitial(false)
       }
     }
-  }, [kind, recordId, notifyConversationViewed])
+  }, [kind, recordId, notifyConversationViewed, resetComposerState])
 
   useEffect(() => {
     if (!active || recordId <= 0) return
@@ -177,7 +229,7 @@ export function RecordChatterPanel({
     if (shouldStickToBottomRef.current) {
       scrollToBottom()
     }
-  }, [active, loadingInitial, messages, scrollToBottom])
+  }, [active, loadingInitial, messages, pendingFiles.length, replyTarget, scrollToBottom])
 
   useLayoutEffect(() => {
     if (!active || loadingInitial || scrollPin <= 0) return
@@ -189,6 +241,8 @@ export function RecordChatterPanel({
     if (recordId <= 0 || loadingOlderRef.current || !hasMore || !messages.length) {
       return
     }
+
+    if (chatterMockEnabled) return
 
     loadingOlderRef.current = true
     setLoadingOlder(true)
@@ -222,7 +276,7 @@ export function RecordChatterPanel({
     setMessages((current) => {
       const existingIds = new Set(current.map((message) => message.id))
       const older = result.messages.filter((message) => !existingIds.has(message.id))
-      return [...older, ...current]
+      return enrichPortalChatterMessages([...older, ...current])
     })
     setHasMore(result.hasMore)
 
@@ -259,18 +313,85 @@ export function RecordChatterPanel({
     shouldStickToBottomRef.current = distanceFromBottom < 48
   }
 
-  function submitMessage() {
-    if (!canReply || composerEmpty || recordId <= 0 || pending || loadingInitial) return
+  function handleAddFiles(files: File[]) {
+    const validation = validatePendingFilesSelection(pendingFiles.length, files.length)
+    if (!validation.ok) {
+      setSendError(portalChatter.errors[validation.error])
+      return
+    }
 
-    const htmlBody = composerRef.current?.getHtml() ?? ''
-    if (composerRef.current?.isEmpty()) return
+    for (const file of files) {
+      if (!isAllowedChatterMimeType(file.type || 'application/octet-stream')) {
+        setSendError(portalChatter.errors.invalid_attachment)
+        return
+      }
+    }
 
     setSendError(null)
+    setPendingFiles((current) => [...current, ...files])
+    shouldStickToBottomRef.current = true
+  }
+
+  function handleRemovePendingFile(index: number) {
+    setPendingFiles((current) => current.filter((_, i) => i !== index))
+  }
+
+  function handleReply(message: PortalChatterMessage) {
+    setReplyTarget(message)
+    setSendError(null)
+    shouldStickToBottomRef.current = true
+    queueMicrotask(() => composerRef.current?.focus())
+  }
+
+  function submitMessage() {
+    if (!canSend || recordId <= 0 || pending || loadingInitial) return
+
+    const htmlBody = composerRef.current?.getHtml() ?? ''
+    const bodyEmpty = isChatterHtmlEmpty(htmlBody)
+    if (bodyEmpty && !pendingFiles.length) return
+
+    setSendError(null)
+    const hadAttachments = pendingFiles.length > 0
     startTransition(async () => {
+      if (chatterMockEnabled) {
+        await new Promise((resolve) => setTimeout(resolve, 400))
+        const newMessage: PortalChatterMessage = {
+          id: createMockMessageId(),
+          bodyHtml: bodyEmpty ? '' : htmlBody,
+          date: new Date().toISOString(),
+          authorName: portalChatter.youLabel,
+          isFromClient: true,
+          ...(replyTarget
+            ? {
+                parentId: replyTarget.id,
+                parentPreview: buildParentPreview(replyTarget),
+              }
+            : {}),
+          ...(pendingFiles.length
+            ? {
+                attachments: pendingFiles.map((file, index) => ({
+                  id: -(createMockMessageId() + index),
+                  name: file.name,
+                })),
+              }
+            : {}),
+        }
+        resetComposerState()
+        shouldStickToBottomRef.current = true
+        setMessages((current) => [...current, newMessage])
+        return
+      }
+
+      const files = pendingFiles.length
+        ? await readFilesAsUploadPayload(pendingFiles)
+        : undefined
+
       const result = await postRecordMessageAction({
         kind,
         recordId,
-        body: htmlBody,
+        body: bodyEmpty ? '' : htmlBody,
+        parentId: replyTarget?.id,
+        files,
       })
 
       if (!result.ok) {
@@ -280,14 +401,27 @@ export function RecordChatterPanel({
         return
       }
 
-      composerRef.current?.clear()
+      resetComposerState()
       shouldStickToBottomRef.current = true
       setMessages((current) => {
         if (current.some((message) => message.id === result.message.id)) {
           return current
         }
-        return [...current, result.message]
+        return enrichPortalChatterMessages([...current, result.message])
       })
+
+      if (hadAttachments && typeof result.attachmentCount === 'number') {
+        queueMicrotask(() => {
+          invalidateAttachmentsClientCache(kind, recordId)
+          onAttachmentsChanged?.(result.attachmentCount!)
+          void notifications?.ackDocumentsSeen?.(
+            recordScopeFromKind(kind),
+            recordId,
+            result.attachmentCount!
+          )
+          router.refresh()
+        })
+      }
     })
   }
 
@@ -304,6 +438,12 @@ export function RecordChatterPanel({
       <h3 id="record-chatter-heading" className="sr-only">
         {portalChatter.title}
       </h3>
+
+      {chatterMockEnabled ? (
+        <p className="border-b border-border bg-muted/30 px-6 py-2 text-xs text-muted-foreground dark:border-border/50">
+          {portalChatter.mockBadge}
+        </p>
+      ) : null}
 
       <div
         ref={scrollRef}
@@ -342,56 +482,14 @@ export function RecordChatterPanel({
         {!loadingInitial && !error && messages.length > 0 ? (
           <ul className="flex flex-col gap-3">
             {messages.map((message) => (
-              <li
+              <ChatterMessageItem
                 key={message.id}
-                className={cn(
-                  'flex items-end gap-2',
-                  message.isFromClient ? 'justify-end' : 'justify-start'
-                )}
-              >
-                {!message.isFromClient && message.authorPartnerId ? (
-                  <ChatterAuthorAvatar
-                    name={message.authorName}
-                    partnerId={message.authorPartnerId}
-                  />
-                ) : null}
-                <article
-                  className={cn(
-                    'max-w-[88%] rounded-2xl px-3 py-2 text-sm',
-                    message.isFromClient
-                      ? 'rounded-br-md bg-primary text-primary-foreground'
-                      : 'rounded-bl-md border border-border bg-muted/50 text-foreground dark:chatter-advisor-bubble'
-                  )}
-                >
-                  <header className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-xs font-semibold">
-                      {message.isFromClient
-                        ? portalChatter.youLabel
-                        : message.authorName}
-                    </span>
-                    <time
-                      className={cn(
-                        'text-[11px]',
-                        message.isFromClient
-                          ? 'text-primary-foreground/80'
-                          : 'text-subtle-foreground'
-                      )}
-                      dateTime={message.date}
-                    >
-                      {formatMessageDate(message.date)}
-                    </time>
-                  </header>
-                  <div
-                    className={cn(
-                      'break-words [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:m-0 [&_p+p]:mt-2 [&_s]:line-through [&_u]:underline [&_ul]:list-disc [&_ul]:pl-5',
-                      message.isFromClient && '[&_a]:text-primary-foreground'
-                    )}
-                    dangerouslySetInnerHTML={{
-                      __html: prepareChatterHtmlForDisplay(message.bodyHtml),
-                    }}
-                  />
-                </article>
-              </li>
+                message={message}
+                canReply={canReply}
+                formatDate={formatMessageDate}
+                onReply={handleReply}
+                onOpenDocument={onOpenDocument}
+              />
             ))}
           </ul>
         ) : null}
@@ -404,6 +502,17 @@ export function RecordChatterPanel({
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            {replyTarget ? (
+              <ChatterReplyBanner
+                preview={buildParentPreview(replyTarget)}
+                onCancel={() => setReplyTarget(null)}
+              />
+            ) : null}
+            <ChatterPendingAttachments
+              files={pendingFiles}
+              disabled={pending}
+              onRemove={handleRemovePendingFile}
+            />
             <div className="flex items-end gap-2">
               {loadingInitial ? (
                 <ChatterComposerSkeleton />
@@ -412,15 +521,14 @@ export function RecordChatterPanel({
                   ref={composerRef}
                   disabled={pending}
                   resetToken={composerResetToken}
+                  canAttach
+                  onAddFiles={handleAddFiles}
                   onEmptyChange={handleComposerEmptyChange}
                   onResize={handleComposerResize}
                   onSubmit={submitMessage}
                 />
               )}
-              <ChatterSendButton
-                pending={pending}
-                disabled={composerEmpty || loadingInitial}
-              />
+              <ChatterSendButton pending={pending} disabled={!canSend || loadingInitial} />
             </div>
             {sendError ? (
               <p className="text-sm text-destructive" role="alert">

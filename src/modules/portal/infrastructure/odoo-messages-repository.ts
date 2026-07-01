@@ -1,9 +1,13 @@
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
-import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
+import type {
+  PortalChatterAttachmentRef,
+  PortalChatterMessage,
+} from '@/src/modules/portal/domain/portal-chatter-types'
 import { chatterReadStateKey } from '@/src/modules/portal/domain/chatter-notifications-types'
 import {
   filterOdooMailMessageRows,
   formatChatterBodyFromOdoo,
+  hasVisibleMessageBody,
   isClientChatterAuthor,
   sanitizeChatterHtml,
   type OdooMailMessageRow,
@@ -21,6 +25,7 @@ import {
   odooCall,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { resolveAttachmentNamesByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 
 type OdooMailMessageBatchRow = OdooMailMessageRow & {
   res_id?: number | false | null
@@ -70,26 +75,58 @@ function buildMessageDomain(
   return domain
 }
 
+function mapOdooAttachmentIdList(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((id): id is number => typeof id === 'number' && id > 0)
+}
+
 function mapOdooRowToPortalMessage(
   row: OdooMailMessageRow,
-  clientPartnerId: number
+  clientPartnerId: number,
+  attachmentNames: Map<number, string>
 ): PortalChatterMessage | null {
   const body = typeof row.body === 'string' ? row.body : ''
   const date = typeof row.date === 'string' ? row.date : ''
   const authorId = mapOdooMany2OneId(row.author_id)
   const authorName = mapOdooMany2OneLabel(row.author_id) ?? 'Usuario'
   const isFromClient = isClientChatterAuthor(authorId, clientPartnerId)
+  const attachmentIds = mapOdooAttachmentIdList(row.attachment_ids)
+  const hasBody = hasVisibleMessageBody(body)
 
-  if (!body || !date || !row.id) return null
+  if ((!hasBody && !attachmentIds.length) || !date || !row.id) return null
+
+  const attachments: PortalChatterAttachmentRef[] = attachmentIds
+    .map((id) => ({
+      id,
+      name: attachmentNames.get(id) ?? `Documento ${id}`,
+    }))
+    .filter((attachment) => attachment.name)
 
   return {
     id: row.id,
-    bodyHtml: formatChatterBodyFromOdoo(body),
+    bodyHtml: hasBody ? formatChatterBodyFromOdoo(body) : '',
     date,
     authorName,
     ...(isFromClient || !authorId ? {} : { authorPartnerId: authorId }),
     isFromClient,
+    ...(mapOdooMany2OneId(row.parent_id)
+      ? { parentId: mapOdooMany2OneId(row.parent_id) }
+      : {}),
+    ...(attachments.length ? { attachments } : {}),
   }
+}
+
+async function resolveAttachmentNamesForRows(
+  rows: OdooMailMessageRow[]
+): Promise<Map<number, string>> {
+  const ids = new Set<number>()
+  for (const row of rows) {
+    for (const id of mapOdooAttachmentIdList(row.attachment_ids)) {
+      ids.add(id)
+    }
+  }
+  if (!ids.size) return new Map()
+  return resolveAttachmentNamesByIds([...ids])
 }
 
 export async function listPortalMessagesPage(input: {
@@ -107,7 +144,7 @@ export async function listPortalMessagesPage(input: {
   while (visible.length <= pageSize && !exhausted) {
     const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
       domain: buildMessageDomain(input.resModel, input.recordId, cursor),
-      fields: ['body', 'date', 'author_id', 'message_type'],
+      fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
       order: 'id desc',
       limit: Math.max(pageSize + 1, 20),
     })
@@ -138,8 +175,9 @@ export async function listPortalMessagesPage(input: {
 
   const hasMore = visible.length > pageSize || !exhausted
   const pageRows = visible.slice(0, pageSize)
+  const attachmentNames = await resolveAttachmentNamesForRows(pageRows)
   const messages = pageRows
-    .map((row) => mapOdooRowToPortalMessage(row, input.clientPartnerId))
+    .map((row) => mapOdooRowToPortalMessage(row, input.clientPartnerId, attachmentNames))
     .filter((message): message is PortalChatterMessage => message !== null)
     .reverse()
 
@@ -152,12 +190,13 @@ async function readPortalMessageById(
 ): Promise<PortalChatterMessage> {
   const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
     domain: [['id', '=', messageId]],
-    fields: ['body', 'date', 'author_id', 'message_type'],
+    fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
     limit: 1,
   })
 
+  const attachmentNames = await resolveAttachmentNamesForRows(rows)
   const mapped = rows[0]
-    ? mapOdooRowToPortalMessage(rows[0], clientPartnerId)
+    ? mapOdooRowToPortalMessage(rows[0], clientPartnerId, attachmentNames)
     : null
 
   if (!mapped) {
@@ -202,32 +241,85 @@ function parseOdooCreatedId(result: number | number[] | undefined): number | nul
   return null
 }
 
+async function ensureMessageThreadLink(messageId: number, parentId: number): Promise<void> {
+  await odooCall<boolean>('mail.message', 'write', {
+    ids: [messageId],
+    vals: { parent_id: parentId },
+  })
+}
+
+export async function verifyParentMessageBelongsToRecord(input: {
+  parentId: number
+  resModel: string
+  recordId: number
+  clientPartnerId: number
+}): Promise<boolean> {
+  const excludedPartnerIds = getChatterExcludedPartnerIds()
+  const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
+    domain: [
+      ['id', '=', input.parentId],
+      ['model', '=', input.resModel],
+      ['res_id', '=', input.recordId],
+    ],
+    fields: ['body', 'date', 'author_id', 'message_type', 'attachment_ids'],
+    limit: 1,
+  })
+
+  const filtered = filterOdooMailMessageRows(rows, {
+    clientPartnerId: input.clientPartnerId,
+    excludedPartnerIds,
+  })
+
+  return filtered.length === 1
+}
+
 export async function postRecordComment(input: {
   resModel: string
   recordId: number
   clientPartnerId: number
   htmlBody: string
+  parentId?: number
+  attachmentIds?: number[]
 }): Promise<PortalChatterMessage> {
   const body = sanitizeChatterHtml(input.htmlBody)
   const subtypeId = await resolveChatterCommentSubtypeId()
 
-  // mail.message/create conserva HTML; message_post vía JSON/2 escapa el body salvo body_is_html.
-  const created = await odooCall<number | number[]>('mail.message', 'create', {
-    vals_list: [
-      {
-        message_type: 'comment',
-        res_id: input.recordId,
-        body,
-        author_id: input.clientPartnerId,
-        subtype_id: subtypeId,
-        model: input.resModel,
-      },
-    ],
-  })
+  const vals: Record<string, unknown> = {
+    message_type: 'comment',
+    res_id: input.recordId,
+    body,
+    author_id: input.clientPartnerId,
+    subtype_id: subtypeId,
+    model: input.resModel,
+  }
 
+  if (input.parentId) {
+    vals.parent_id = input.parentId
+  }
+
+  if (input.attachmentIds?.length) {
+    vals.attachment_ids = [[6, 0, input.attachmentIds]]
+  }
+
+  // mail.message/create no dispara el pipeline de email de message_post en mail.thread.
+  const created = await odooCall<number | number[]>('mail.message', 'create', {
+    vals_list: [vals],
+  })
   const messageId = parseOdooCreatedId(created)
+
   if (!messageId) {
     throw new Error('ODOO_MESSAGE_CREATE_FAILED')
+  }
+
+  if (input.parentId) {
+    try {
+      await ensureMessageThreadLink(messageId, input.parentId)
+    } catch (error) {
+      console.warn(
+        `[odoo] mail.message/write parent_id failed for message ${messageId}:`,
+        error
+      )
+    }
   }
 
   return readPortalMessageById(messageId, input.clientPartnerId)
