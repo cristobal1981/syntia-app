@@ -1,8 +1,24 @@
-import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
+import type {
+  PortalAttachment,
+  PortalRecordKind,
+} from '@/src/modules/portal/domain/portal-record-types'
 
 export type PortalChatterAttachmentRef = {
   id: number
   name: string
+  mimetype?: string
+  fileSize?: number
+}
+
+export function portalAttachmentFromChatterRef(
+  ref: PortalChatterAttachmentRef
+): PortalAttachment {
+  return {
+    id: ref.id,
+    name: ref.name,
+    mimetype: ref.mimetype,
+    fileSize: ref.fileSize,
+  }
 }
 
 export type PortalChatterParentPreview = {
@@ -65,4 +81,6 @@ export type PostRecordMessageInput = {
   body: string
   parentId?: number
   files?: PortalChatterUploadFile[]
+  /** res.partner ids del asignado (desde lista de trámites, sin Odoo extra en envío). */
+  notifyPartnerIds?: number[]
 }

@@ -30,22 +30,33 @@ function mapAttachment(row: OdooAttachmentRow): PortalAttachment {
 export async function resolveAttachmentNamesByIds(
   attachmentIds: number[]
 ): Promise<Map<number, string>> {
+  const meta = await resolveAttachmentMetaByIds(attachmentIds)
   const names = new Map<number, string>()
-  if (!attachmentIds.length) return names
+  for (const [id, attachment] of meta) {
+    names.set(id, attachment.name)
+  }
+  return names
+}
 
-  const rows = await odooSearchRead<{ id: number; name: string }>('ir.attachment', {
+export async function resolveAttachmentMetaByIds(
+  attachmentIds: number[]
+): Promise<Map<number, PortalAttachment>> {
+  const meta = new Map<number, PortalAttachment>()
+  if (!attachmentIds.length) return meta
+
+  const rows = await odooSearchRead<OdooAttachmentRow>('ir.attachment', {
     domain: [['id', 'in', attachmentIds]],
-    fields: ['name'],
+    fields: ['name', 'mimetype', 'file_size'],
     limit: attachmentIds.length,
   })
 
   for (const row of rows) {
     if (row.id && row.name) {
-      names.set(row.id, row.name)
+      meta.set(row.id, mapAttachment(row))
     }
   }
 
-  return names
+  return meta
 }
 
 export async function createAttachmentsForRecord(input: {

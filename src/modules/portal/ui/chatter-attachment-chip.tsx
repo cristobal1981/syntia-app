@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 type ChatterAttachmentChipProps = {
   name: string
   variant?: 'client' | 'advisor'
+  ariaLabel?: string
   onClick?: () => void
   className?: string
 }
@@ -13,10 +14,12 @@ type ChatterAttachmentChipProps = {
 export function ChatterAttachmentChip({
   name,
   variant = 'advisor',
+  ariaLabel,
   onClick,
   className,
 }: ChatterAttachmentChipProps) {
-  const label = portalChatter.openInDocuments.replace('{name}', name)
+  const label =
+    ariaLabel ?? portalChatter.openInDocuments.replace('{name}', name)
 
   if (!onClick) {
     return (

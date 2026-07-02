@@ -1,7 +1,12 @@
 import { CornerDownLeft } from 'lucide-react'
 
 import { portalChatter } from '@/content/portal-chatter'
-import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
+import type {
+  PortalChatterAttachmentRef,
+  PortalChatterMessage,
+} from '@/src/modules/portal/domain/portal-chatter-types'
+import { portalAttachmentFromChatterRef } from '@/src/modules/portal/domain/portal-chatter-types'
+import { classifyDocumentPreview } from '@/src/modules/portal/domain/classify-document-preview'
 import { normalizeChatterDisplaySnippet } from '@/src/modules/portal/domain/normalize-chatter-display-body'
 import { ChatterAuthorAvatar } from '@/src/modules/portal/ui/chatter-author-avatar'
 import { ChatterAttachmentChip } from '@/src/modules/portal/ui/chatter-attachment-chip'
@@ -16,7 +21,7 @@ type ChatterMessageItemProps = {
   canReply: boolean
   formatDate: (value: string) => string
   onReply?: (message: PortalChatterMessage) => void
-  onOpenDocument?: (attachmentId: number) => void
+  onOpenAttachment?: (attachment: PortalChatterAttachmentRef) => void
 }
 
 function ChatterReplyButton({
@@ -47,7 +52,7 @@ export function ChatterMessageItem({
   canReply,
   formatDate,
   onReply,
-  onOpenDocument,
+  onOpenAttachment,
 }: ChatterMessageItemProps) {
   const variant = message.isFromClient ? 'client' : 'advisor'
   const showReply = canReply && Boolean(onReply)
@@ -125,18 +130,28 @@ export function ChatterMessageItem({
         {message.attachments?.length ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="sr-only">{portalChatter.attachmentsLabel}</span>
-            {message.attachments.map((attachment) => (
-              <ChatterAttachmentChip
-                key={attachment.id}
-                name={attachment.name}
-                variant={variant}
-                onClick={
-                  onOpenDocument
-                    ? () => onOpenDocument(attachment.id)
-                    : undefined
-                }
-              />
-            ))}
+            {message.attachments.map((attachment) => {
+              const canPreview = classifyDocumentPreview(
+                portalAttachmentFromChatterRef(attachment)
+              ).canPreview
+              const actionLabel = canPreview
+                ? portalChatter.previewAttachment.replace('{name}', attachment.name)
+                : portalChatter.openInDocuments.replace('{name}', attachment.name)
+
+              return (
+                <ChatterAttachmentChip
+                  key={attachment.id}
+                  name={attachment.name}
+                  variant={variant}
+                  ariaLabel={actionLabel}
+                  onClick={
+                    onOpenAttachment
+                      ? () => onOpenAttachment(attachment)
+                      : undefined
+                  }
+                />
+              )
+            })}
           </div>
         ) : null}
       </article>

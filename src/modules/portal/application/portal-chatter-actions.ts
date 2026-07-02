@@ -1,6 +1,9 @@
 'use server'
 
+import { after } from 'next/server'
 import { updateTag } from 'next/cache'
+
+import { portalChatter } from '@/content/portal-chatter'
 
 import {
   isChatterHtmlEmpty,
@@ -17,7 +20,10 @@ import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
-import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
+import {
+  chatterUnreadBatchCacheTag,
+  tramitesSnapshotCacheTag,
+} from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
   canClientReplyOnRecord,
   getOdooModelForRecordKind,
@@ -84,6 +90,15 @@ function parseParentId(parentId?: number): number | undefined {
   const value = Number(parentId)
   if (!Number.isInteger(value) || value <= 0) return undefined
   return value
+}
+
+function sanitizeNotifyPartnerIds(partnerIds: number[] | undefined): number[] {
+  if (!partnerIds?.length) return []
+  return [
+    ...new Set(
+      partnerIds.filter((partnerId) => Number.isInteger(partnerId) && partnerId > 0)
+    ),
+  ]
 }
 
 async function advanceAttachmentWatchState(input: {
@@ -188,43 +203,49 @@ export async function postRecordMessageAction(
   }
 
   const parentId = parseParentId(input.parentId)
+  const notifyPartnerIds = sanitizeNotifyPartnerIds(input.notifyPartnerIds)
 
   try {
-    const allowed = await verifyClientRecordAccess(
-      input.kind,
-      recordId,
-      access.partnerId
-    )
-    if (!allowed) {
-      return { ok: false, error: 'not_found' }
-    }
+    const resModel = getOdooModelForRecordKind(input.kind)
+    const parentValidPromise = parentId
+      ? verifyParentMessageBelongsToRecord({
+          parentId,
+          resModel,
+          recordId,
+          clientPartnerId: access.partnerId,
+        })
+      : Promise.resolve(true)
 
-    const canReply = await canClientReplyOnRecord(input.kind, recordId)
+    const [canReply, allowed, attachmentIds, parentValid] = await Promise.all([
+      canClientReplyOnRecord(input.kind, recordId),
+      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      files.length
+        ? createAttachmentsForRecord({
+            resModel,
+            resId: recordId,
+            files,
+          })
+        : Promise.resolve([] as number[]),
+      parentValidPromise,
+    ])
+
     if (!canReply) {
       return { ok: false, error: 'read_only' }
     }
 
-    const resModel = getOdooModelForRecordKind(input.kind)
-
-    if (parentId) {
-      const parentValid = await verifyParentMessageBelongsToRecord({
-        parentId,
-        resModel,
-        recordId,
-        clientPartnerId: access.partnerId,
-      })
-      if (!parentValid) {
-        return { ok: false, error: 'invalid_parent' }
-      }
+    if (!allowed) {
+      return { ok: false, error: 'not_found' }
     }
 
-    const attachmentIds = files.length
-      ? await createAttachmentsForRecord({
-          resModel,
-          resId: recordId,
-          files,
-        })
-      : []
+    if (!parentValid) {
+      return { ok: false, error: 'invalid_parent' }
+    }
+
+    const attachmentRefs = attachmentIds.map((id, index) => ({
+      id,
+      name: files[index]?.name ?? 'Adjunto',
+      ...(files[index]?.mimetype ? { mimetype: files[index].mimetype } : {}),
+    }))
 
     const message = await postRecordComment({
       resModel,
@@ -233,24 +254,43 @@ export async function postRecordMessageAction(
       htmlBody,
       parentId,
       attachmentIds,
+      attachmentRefs,
+      notifyPartnerIds,
     })
 
-    let attachmentCount: number | undefined
-    if (files.length) {
+    updateTag(chatterUnreadBatchCacheTag(access.partnerId))
+
+    const hadAttachments = files.length > 0
+    const attachmentCountEstimate = hadAttachments ? files.length : undefined
+
+    after(() => {
+      if (!hadAttachments) return
+
       updateTag(tramitesSnapshotCacheTag(access.partnerId))
 
-      const counts = await countAttachmentsByRecordIds(resModel, [recordId])
-      attachmentCount = counts.get(recordId) ?? files.length
+      void (async () => {
+        const counts = await countAttachmentsByRecordIds(resModel, [recordId])
+        const attachmentCount = counts.get(recordId) ?? files.length
 
-      await advanceAttachmentWatchState({
-        actorId: access.actorId,
-        kind: input.kind,
-        recordId,
-        attachmentCount,
-      })
+        await advanceAttachmentWatchState({
+          actorId: access.actorId,
+          kind: input.kind,
+          recordId,
+          attachmentCount,
+        })
+      })()
+    })
+
+    return {
+      ok: true,
+      message: {
+        ...message,
+        authorName: portalChatter.youLabel,
+      },
+      ...(attachmentCountEstimate !== undefined
+        ? { attachmentCount: attachmentCountEstimate }
+        : {}),
     }
-
-    return { ok: true, message, attachmentCount }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }
   }

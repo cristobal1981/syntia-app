@@ -22,7 +22,14 @@ import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import { getTramiteListItemStateBadge } from '@/src/modules/tramites/domain/filter-tramites'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { getTramiteListRecordKind } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { classifyDocumentPreview } from '@/src/modules/portal/domain/classify-document-preview'
 import { notificationMatchesTramiteRecord } from '@/src/modules/portal/domain/compute-portal-notifications'
+import {
+  portalAttachmentFromChatterRef,
+  type PortalChatterAttachmentRef,
+} from '@/src/modules/portal/domain/portal-chatter-types'
+import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
+import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 
@@ -53,6 +60,10 @@ export function TramiteDetailDrawer({
   const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(
     null
   )
+  const [previewAttachment, setPreviewAttachment] = useState<PortalAttachment | null>(
+    null
+  )
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [liveAttachmentCount, setLiveAttachmentCount] = useState(0)
   const [attachmentsRefreshToken, setAttachmentsRefreshToken] = useState(0)
 
@@ -82,6 +93,8 @@ export function TramiteDetailDrawer({
     setZipError(null)
     documentsAckRef.current = null
     setHighlightAttachmentId(null)
+    setPreviewAttachment(null)
+    setPreviewOpen(false)
   }, [item?.id, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
@@ -155,8 +168,15 @@ export function TramiteDetailDrawer({
     onAttachmentCountChange?.(tramite, attachmentCount)
   }
 
-  function handleOpenDocument(attachmentId: number) {
-    setHighlightAttachmentId(attachmentId)
+  function handleOpenAttachment(attachment: PortalChatterAttachmentRef) {
+    const portalAttachment = portalAttachmentFromChatterRef(attachment)
+    if (classifyDocumentPreview(portalAttachment).canPreview) {
+      setPreviewAttachment(portalAttachment)
+      setPreviewOpen(true)
+      return
+    }
+
+    setHighlightAttachmentId(attachment.id)
     setActiveTab('documents')
     ackDocumentsIfNeeded(tramite)
   }
@@ -240,10 +260,11 @@ export function TramiteDetailDrawer({
               recordId={tramite.id}
               active={open}
               canReply={canReply}
+              notifyPartnerIds={tramite.assignedNotifyPartnerIds}
               scrollPin={scrollPin}
               markReadOnView={open && activeTab === 'conversation'}
               onConversationViewed={handleConversationViewed}
-              onOpenDocument={handleOpenDocument}
+              onOpenAttachment={handleOpenAttachment}
               onAttachmentsChanged={handleAttachmentsChanged}
             />
           ) : (
@@ -296,6 +317,17 @@ export function TramiteDetailDrawer({
             </section>
           )}
         </RecordDetailTabs>
+
+        <DocumentPreviewDialog
+          attachment={previewAttachment}
+          kind={recordKind}
+          recordId={tramite.id}
+          open={previewOpen}
+          onOpenChange={(open) => {
+            setPreviewOpen(open)
+            if (!open) setPreviewAttachment(null)
+          }}
+        />
     </PortalSideDrawer>
   )
 }

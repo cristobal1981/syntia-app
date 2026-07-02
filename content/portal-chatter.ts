@@ -23,6 +23,7 @@ export const portalChatter = {
   replyingTo: 'Respondiendo a {name}',
   cancelReply: 'Cancelar respuesta',
   attachmentsLabel: 'Adjuntos',
+  previewAttachment: 'Previsualizar: {name}',
   openInDocuments: 'Ver en documentos: {name}',
   attachFile: 'Adjuntar archivo',
   removeAttachment: 'Quitar {name}',

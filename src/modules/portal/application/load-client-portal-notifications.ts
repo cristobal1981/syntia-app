@@ -35,11 +35,14 @@ import { isTaskClosed } from '@/src/modules/tramites/domain/map-task-state'
 import { resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
 import {
-
   getCachedObligacionNotificationSnapshotSafe,
   getCachedPendingSignaturesSnapshotSafe,
   getCachedTramitesSnapshotSafe,
   getCachedUnreadChatterCandidates,
+  getFreshObligacionNotificationSnapshotSafe,
+  getFreshPendingSignaturesSnapshotSafe,
+  getFreshTramitesSnapshotSafe,
+  getFreshUnreadChatterCandidates,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
@@ -138,9 +141,30 @@ export async function loadClientPortalNotifications(input: {
 
   actorId: string
 
+  /** `false` en poll: lecturas Odoo sin `unstable_cache`. Por defecto cacheado (SSR). */
+  cache?: boolean
+
 }): Promise<PortalNotificationsCheckResult> {
 
   try {
+
+    const useCache = input.cache !== false
+
+    const loadTramitesSnapshot = useCache
+      ? getCachedTramitesSnapshotSafe
+      : getFreshTramitesSnapshotSafe
+
+    const loadObligacionSnapshot = useCache
+      ? getCachedObligacionNotificationSnapshotSafe
+      : getFreshObligacionNotificationSnapshotSafe
+
+    const loadFirmasSnapshot = useCache
+      ? getCachedPendingSignaturesSnapshotSafe
+      : getFreshPendingSignaturesSnapshotSafe
+
+    const loadUnreadChatter = useCache
+      ? getCachedUnreadChatterCandidates
+      : getFreshUnreadChatterCandidates
 
     const [
 
@@ -156,11 +180,11 @@ export async function loadClientPortalNotifications(input: {
 
     ] = await Promise.all([
 
-      getCachedTramitesSnapshotSafe(input.partnerId),
+      loadTramitesSnapshot(input.partnerId),
 
-      getCachedObligacionNotificationSnapshotSafe(input.partnerId),
+      loadObligacionSnapshot(input.partnerId),
 
-      getCachedPendingSignaturesSnapshotSafe(input.partnerId),
+      loadFirmasSnapshot(input.partnerId),
 
       fetchChatterReadStateForUser(input.actorId),
 
@@ -272,7 +296,7 @@ export async function loadClientPortalNotifications(input: {
 
       try {
 
-        const chatterResult = await getCachedUnreadChatterCandidates({
+        const chatterResult = await loadUnreadChatter({
           partnerId: input.partnerId,
           groups,
           readState,
@@ -504,11 +528,11 @@ export async function loadClientPortalNotifications(input: {
       pendingFirmaIds: firmasSnap.requests.map((request) => request.id),
 
       hasChanges:
+        bootstrapUpdates.length > 0 ||
         watchUpdates.length > 0 ||
         newTramiteNotifications.length > 0 ||
         recordDeltas.notifications.length > 0 ||
-        firmaDeltas.notifications.length > 0 ||
-        unreadChatterFiltered.length > 0,
+        firmaDeltas.notifications.length > 0,
 
     }
 

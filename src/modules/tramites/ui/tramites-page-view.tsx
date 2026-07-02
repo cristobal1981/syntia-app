@@ -234,7 +234,9 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
       if (!fresh) return current
       if (
         fresh.attachmentCount === current.attachmentCount &&
-        fresh.modifiedAt === current.modifiedAt
+        fresh.modifiedAt === current.modifiedAt &&
+        fresh.assignedNotifyPartnerIds.join(',') ===
+          current.assignedNotifyPartnerIds.join(',')
       ) {
         return current
       }

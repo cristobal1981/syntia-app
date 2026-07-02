@@ -11,6 +11,7 @@ export type TramiteListItem = {
   isClosed: boolean
   attachmentCount: number
   modifiedAt: string
+  assignedNotifyPartnerIds: number[]
 }
 
 export function mergeTramitesList(
@@ -25,6 +26,7 @@ export function mergeTramitesList(
     isClosed: task.isClosed,
     attachmentCount: task.attachmentCount,
     modifiedAt: task.modifiedAt,
+    assignedNotifyPartnerIds: task.assignedNotifyPartnerIds,
   }))
 
   const ticketItems: TramiteListItem[] = tickets.map((ticket) => ({
@@ -34,6 +36,7 @@ export function mergeTramitesList(
     isClosed: ticket.isClosed,
     attachmentCount: ticket.attachmentCount,
     modifiedAt: ticket.modifiedAt,
+    assignedNotifyPartnerIds: ticket.assignedNotifyPartnerIds,
   }))
 
   return [...taskItems, ...ticketItems].sort((a, b) =>

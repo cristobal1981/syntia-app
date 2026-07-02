@@ -6,6 +6,8 @@ export type TramiteTask = {
   attachmentCount: number
   isClosed: boolean
   modifiedAt: string
+  /** res.partner ids de user_ids asignados (para notificar en chatter). */
+  assignedNotifyPartnerIds: number[]
 }
 
 export type TramiteTicket = {
@@ -14,6 +16,7 @@ export type TramiteTicket = {
   attachmentCount: number
   isClosed: boolean
   modifiedAt: string
+  assignedNotifyPartnerIds: number[]
 }
 
 export type TramitesSnapshot = {

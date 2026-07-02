@@ -315,6 +315,82 @@ export async function getCachedPendingSignaturesSnapshotSafe(
   )
 }
 
+/** Poll / server action: evita `unstable_cache` para reflejar novedades al instante. */
+export async function getFreshTramitesSnapshotSafe(
+  partnerId: number
+): Promise<CachedOdooSnapshotResult<TramitesSnapshot>> {
+  return loadCachedSnapshotSafe(
+    () => loadTramitesSnapshot(partnerId),
+    EMPTY_TRAMITES_SNAPSHOT
+  )
+}
+
+async function loadFreshObligacionNotificationSnapshot(
+  partnerId: number
+): Promise<ObligacionNotificationSnapshot> {
+  const projectIds = await fetchClientProjectIds(partnerId)
+  const index = await buildObligacionTaskIndex(projectIds)
+  const leafIds = index.leaves.map((leaf) => leaf.id)
+
+  if (!leafIds.length) {
+    return { leaves: [] }
+  }
+
+  const attachmentCounts = await countAttachmentsByRecordIds(
+    'project.task',
+    leafIds
+  )
+
+  return {
+    leaves: index.leaves.map((leaf) => ({
+      ...leaf,
+      attachmentCount: attachmentCounts.get(leaf.id) ?? 0,
+    })),
+  }
+}
+
+export async function getFreshObligacionNotificationSnapshotSafe(
+  partnerId: number
+): Promise<CachedOdooSnapshotResult<ObligacionNotificationSnapshot>> {
+  return loadCachedSnapshotSafe(
+    () => loadFreshObligacionNotificationSnapshot(partnerId),
+    EMPTY_OBLIGACION_NOTIFICATION_SNAPSHOT
+  )
+}
+
+export async function getFreshPendingSignaturesSnapshotSafe(
+  partnerId: number
+): Promise<CachedOdooSnapshotResult<PendingSignaturesSnapshot>> {
+  return loadCachedSnapshotSafe(
+    () => loadPendingSignaturesSnapshot(partnerId),
+    EMPTY_PENDING_SIGNATURES_SNAPSHOT
+  )
+}
+
+export async function getFreshUnreadChatterCandidates(input: {
+  partnerId: number
+  groups: Array<{
+    resModel: string
+    recordKind: PortalRecordKind
+    records: Array<{ recordId: number }>
+  }>
+  readState: Map<string, number>
+  clientPartnerId: number
+}): Promise<{
+  unread: ChatterUnreadCandidate[]
+  bootstrapUpdates: ChatterReadStateBootstrap[]
+}> {
+  if (!input.groups.length) {
+    return { unread: [], bootstrapUpdates: [] }
+  }
+
+  return findUnreadChatterCandidatesForRecords({
+    groups: input.groups,
+    readState: input.readState,
+    clientPartnerId: input.clientPartnerId,
+  })
+}
+
 export async function getCachedUnreadChatterCandidates(input: {
   partnerId: number
   groups: Array<{

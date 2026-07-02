@@ -10,7 +10,8 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "diagnose:chatter": "node scripts/diagnose-chatter-messages.mjs",
+    "diagnose:chatter-notify": "node scripts/probe-chatter-notify.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

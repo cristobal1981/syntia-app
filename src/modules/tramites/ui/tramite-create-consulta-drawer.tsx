@@ -220,6 +220,7 @@ export function TramiteCreateConsultaDrawer({
         isClosed: false,
         attachmentCount: 0,
         modifiedAt: new Date().toISOString(),
+        assignedNotifyPartnerIds: [],
       })
     onOpenChange(false)
   }

@@ -2,7 +2,10 @@ import { tramites } from '@/content/tramites'
 import { getObligacionStateBadge } from '@/src/modules/obligaciones/domain/map-obligacion-state'
 import type { PendingSignatureRequest } from '@/src/modules/firmas/domain/types'
 import { isSignatureDueSoon } from '@/src/modules/firmas/domain/signature-due-date'
-import type { PortalNotification } from '@/src/modules/portal/domain/portal-notifications-types'
+import type {
+  PortalNotification,
+  PortalNotificationReason,
+} from '@/src/modules/portal/domain/portal-notifications-types'
 import {
   listKindFromRecordKind,
   portalWatchStateKey,
@@ -49,6 +52,7 @@ function getWatchableStateLabel(record: PortalWatchableRecord): string {
       isClosed: record.isClosed,
       attachmentCount: record.attachmentCount,
       modifiedAt: record.modifiedAt,
+      assignedNotifyPartnerIds: [],
     }
     return getTramiteListItemStateBadge(item).label
   }
@@ -65,6 +69,7 @@ function tramiteListItemFromWatchable(record: PortalWatchableRecord): TramiteLis
     isClosed: record.isClosed,
     attachmentCount: record.attachmentCount,
     modifiedAt: record.modifiedAt,
+    assignedNotifyPartnerIds: [],
   }
 }
 
@@ -325,17 +330,23 @@ export function portalNotificationKey(notification: PortalNotification): string 
   return `${notification.scope}:${notification.recordId}:${notification.reason}`
 }
 
-/** Mantiene novedades hasta ack/dismiss; incorpora deltas de cada poll. */
+/** Cada poll devuelve el estado actual de estos motivos; el resto se acumula hasta ack. */
+const POLL_SNAPSHOT_REASONS = new Set<PortalNotificationReason>([
+  'unread_chatter',
+  'new_tramite',
+])
+
+/** Incorpora deltas de cada poll y reconcilia snapshots de chatter/trámite nuevo. */
 export function mergeAccumulatedPortalNotifications(
   existing: PortalNotification[],
   incoming: PortalNotification[]
 ): PortalNotification[] {
-  if (!incoming.length) {
-    return existing
-  }
+  const retained = existing.filter(
+    (item) => !POLL_SNAPSHOT_REASONS.has(item.reason)
+  )
 
   const byKey = new Map(
-    existing.map((item) => [portalNotificationKey(item), item])
+    retained.map((item) => [portalNotificationKey(item), item])
   )
 
   for (const item of incoming) {

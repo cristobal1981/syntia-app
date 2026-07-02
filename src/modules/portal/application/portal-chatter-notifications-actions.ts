@@ -64,6 +64,7 @@ export async function checkPortalNotificationsAction(): Promise<PortalNotificati
   return loadClientPortalNotifications({
     partnerId: access.partnerId,
     actorId: access.actorId,
+    cache: false,
   })
 }
 

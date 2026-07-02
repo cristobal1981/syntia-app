@@ -16,16 +16,17 @@ import {
   getChatterExcludedPartnerIds,
   getChatterNotificationsBatchLimit,
   getChatterPageSize,
-  getDefaultChatterCommentSubtypeId,
   shouldFilterInternalChatterMessages,
 } from '@/src/modules/portal/infrastructure/portal-chatter-env'
+import { resolveChatterCommentSubtypeId } from '@/src/modules/portal/infrastructure/odoo-chatter-subtype'
 import {
   mapOdooMany2OneId,
   mapOdooMany2OneLabel,
   odooCall,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
-import { resolveAttachmentNamesByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import { resolveAttachmentMetaByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 
 type OdooMailMessageBatchRow = OdooMailMessageRow & {
   res_id?: number | false | null
@@ -83,7 +84,7 @@ function mapOdooAttachmentIdList(value: unknown): number[] {
 function mapOdooRowToPortalMessage(
   row: OdooMailMessageRow,
   clientPartnerId: number,
-  attachmentNames: Map<number, string>
+  attachmentMeta: Map<number, PortalAttachment>
 ): PortalChatterMessage | null {
   const body = typeof row.body === 'string' ? row.body : ''
   const date = typeof row.date === 'string' ? row.date : ''
@@ -96,11 +97,17 @@ function mapOdooRowToPortalMessage(
   if ((!hasBody && !attachmentIds.length) || !date || !row.id) return null
 
   const attachments: PortalChatterAttachmentRef[] = attachmentIds
-    .map((id) => ({
-      id,
-      name: attachmentNames.get(id) ?? `Documento ${id}`,
-    }))
-    .filter((attachment) => attachment.name)
+    .map((id) => {
+      const meta = attachmentMeta.get(id)
+      if (!meta?.name) return null
+      return {
+        id,
+        name: meta.name,
+        ...(meta.mimetype ? { mimetype: meta.mimetype } : {}),
+        ...(meta.fileSize !== undefined ? { fileSize: meta.fileSize } : {}),
+      }
+    })
+    .filter((attachment): attachment is PortalChatterAttachmentRef => attachment !== null)
 
   return {
     id: row.id,
@@ -116,9 +123,9 @@ function mapOdooRowToPortalMessage(
   }
 }
 
-async function resolveAttachmentNamesForRows(
+async function resolveAttachmentMetaForRows(
   rows: OdooMailMessageRow[]
-): Promise<Map<number, string>> {
+): Promise<Map<number, PortalAttachment>> {
   const ids = new Set<number>()
   for (const row of rows) {
     for (const id of mapOdooAttachmentIdList(row.attachment_ids)) {
@@ -126,7 +133,7 @@ async function resolveAttachmentNamesForRows(
     }
   }
   if (!ids.size) return new Map()
-  return resolveAttachmentNamesByIds([...ids])
+  return resolveAttachmentMetaByIds([...ids])
 }
 
 export async function listPortalMessagesPage(input: {
@@ -175,9 +182,9 @@ export async function listPortalMessagesPage(input: {
 
   const hasMore = visible.length > pageSize || !exhausted
   const pageRows = visible.slice(0, pageSize)
-  const attachmentNames = await resolveAttachmentNamesForRows(pageRows)
+  const attachmentMeta = await resolveAttachmentMetaForRows(pageRows)
   const messages = pageRows
-    .map((row) => mapOdooRowToPortalMessage(row, input.clientPartnerId, attachmentNames))
+    .map((row) => mapOdooRowToPortalMessage(row, input.clientPartnerId, attachmentMeta))
     .filter((message): message is PortalChatterMessage => message !== null)
     .reverse()
 
@@ -194,9 +201,9 @@ async function readPortalMessageById(
     limit: 1,
   })
 
-  const attachmentNames = await resolveAttachmentNamesForRows(rows)
+  const attachmentMeta = await resolveAttachmentMetaForRows(rows)
   const mapped = rows[0]
-    ? mapOdooRowToPortalMessage(rows[0], clientPartnerId, attachmentNames)
+    ? mapOdooRowToPortalMessage(rows[0], clientPartnerId, attachmentMeta)
     : null
 
   if (!mapped) {
@@ -206,46 +213,42 @@ async function readPortalMessageById(
   return mapped
 }
 
-let cachedCommentSubtypeId: number | null = null
+function buildPostedPortalMessage(input: {
+  messageId: number
+  htmlBody: string
+  clientPartnerId: number
+  parentId?: number
+  attachmentRefs?: PortalChatterAttachmentRef[]
+}): PortalChatterMessage {
+  const body = sanitizeChatterHtml(input.htmlBody)
+  const hasBody = hasVisibleMessageBody(body)
 
-async function resolveChatterCommentSubtypeId(): Promise<number> {
-  if (cachedCommentSubtypeId !== null) {
-    return cachedCommentSubtypeId
+  return {
+    id: input.messageId,
+    bodyHtml: hasBody ? formatChatterBodyFromOdoo(body) : '',
+    date: new Date().toISOString(),
+    authorName: '',
+    isFromClient: true,
+    ...(input.parentId ? { parentId: input.parentId } : {}),
+    ...(input.attachmentRefs?.length ? { attachments: input.attachmentRefs } : {}),
   }
-
-  const fromEnv = getDefaultChatterCommentSubtypeId()
-  if (process.env.ODOO_CHATTER_COMMENT_SUBTYPE_ID?.trim()) {
-    cachedCommentSubtypeId = fromEnv
-    return fromEnv
-  }
-
-  const rows = await odooSearchRead<{ id: number; name?: string | false }>(
-    'mail.message.subtype',
-    {
-      domain: [['internal', '=', false], ['default', '=', true]],
-      fields: ['id', 'name'],
-      limit: 1,
-      order: 'id asc',
-    }
-  )
-
-  cachedCommentSubtypeId = rows[0]?.id ?? fromEnv
-  return cachedCommentSubtypeId
 }
 
-function parseOdooCreatedId(result: number | number[] | undefined): number | null {
+function parseMessagePostResult(result: unknown): number | null {
   if (typeof result === 'number' && result > 0) return result
-  if (Array.isArray(result) && typeof result[0] === 'number' && result[0] > 0) {
-    return result[0]
+  if (Array.isArray(result)) {
+    const first = result[0]
+    if (typeof first === 'number' && first > 0) return first
+    if (first && typeof first === 'object' && 'id' in first) {
+      const id = (first as { id?: unknown }).id
+      if (typeof id === 'number' && id > 0) return id
+    }
+  }
+  if (result && typeof result === 'object' && 'id' in result) {
+    const id = (result as { id?: unknown }).id
+    if (typeof id === 'number' && id > 0) return id
   }
   return null
-}
-
-async function ensureMessageThreadLink(messageId: number, parentId: number): Promise<void> {
-  await odooCall<boolean>('mail.message', 'write', {
-    ids: [messageId],
-    vals: { parent_id: parentId },
-  })
 }
 
 export async function verifyParentMessageBelongsToRecord(input: {
@@ -280,49 +283,46 @@ export async function postRecordComment(input: {
   htmlBody: string
   parentId?: number
   attachmentIds?: number[]
+  attachmentRefs?: PortalChatterAttachmentRef[]
+  notifyPartnerIds?: number[]
 }): Promise<PortalChatterMessage> {
   const body = sanitizeChatterHtml(input.htmlBody)
   const subtypeId = await resolveChatterCommentSubtypeId()
+  const notifyPartnerIds = (input.notifyPartnerIds ?? []).filter(
+    (partnerId) => Number.isInteger(partnerId) && partnerId > 0
+  )
 
-  const vals: Record<string, unknown> = {
+  const postPayload: Record<string, unknown> = {
+    ids: [input.recordId],
+    context: {
+      mail_post_autofollow_author_skip: true,
+      mail_create_nosubscribe: true,
+    },
+    body: body || '<p></p>',
     message_type: 'comment',
-    res_id: input.recordId,
-    body,
-    author_id: input.clientPartnerId,
     subtype_id: subtypeId,
-    model: input.resModel,
+    author_id: input.clientPartnerId,
+    body_is_html: true,
+    notify_skip_followers: true,
+    partner_ids: notifyPartnerIds,
+    ...(input.parentId ? { parent_id: input.parentId } : { parent_id: false }),
+    ...(input.attachmentIds?.length ? { attachment_ids: input.attachmentIds } : {}),
   }
 
-  if (input.parentId) {
-    vals.parent_id = input.parentId
-  }
-
-  if (input.attachmentIds?.length) {
-    vals.attachment_ids = [[6, 0, input.attachmentIds]]
-  }
-
-  // mail.message/create no dispara el pipeline de email de message_post en mail.thread.
-  const created = await odooCall<number | number[]>('mail.message', 'create', {
-    vals_list: [vals],
-  })
-  const messageId = parseOdooCreatedId(created)
+  const posted = await odooCall<unknown>(input.resModel, 'message_post', postPayload)
+  const messageId = parseMessagePostResult(posted)
 
   if (!messageId) {
-    throw new Error('ODOO_MESSAGE_CREATE_FAILED')
+    throw new Error('ODOO_MESSAGE_POST_FAILED')
   }
 
-  if (input.parentId) {
-    try {
-      await ensureMessageThreadLink(messageId, input.parentId)
-    } catch (error) {
-      console.warn(
-        `[odoo] mail.message/write parent_id failed for message ${messageId}:`,
-        error
-      )
-    }
-  }
-
-  return readPortalMessageById(messageId, input.clientPartnerId)
+  return buildPostedPortalMessage({
+    messageId,
+    htmlBody: input.htmlBody,
+    clientPartnerId: input.clientPartnerId,
+    parentId: input.parentId,
+    attachmentRefs: input.attachmentRefs,
+  })
 }
 
 export type ChatterUnreadCandidate = {

@@ -167,15 +167,21 @@ export function PortalNotificationsProvider({
   const rateLimitedRef = useRef(false)
   const pendingFirmaIdsRef = useRef<number[]>([])
 
+  const commitUnread = useCallback((nextUnread: PortalNotification[]) => {
+    const pruned = pruneResolvedFirmaNotifications(
+      nextUnread,
+      pendingFirmaIdsRef.current
+    )
+    unreadRef.current = pruned
+    setUnread(pruned)
+    return pruned
+  }, [])
+
   const refreshPortalPages = useCallback(() => {
     startPortalRefresh(() => {
       router.refresh()
     })
   }, [router])
-
-  useEffect(() => {
-    unreadRef.current = unread
-  }, [unread])
 
   const applyReadState = useCallback((readState: ChatterReadStateMap) => {
     readStateRef.current = mergeReadState(readStateRef.current, readState)
@@ -207,9 +213,9 @@ export function PortalNotificationsProvider({
         payload.unread as PortalNotification[],
         payload.pendingFirmaIds
       )
-      setUnread(pruned)
+      commitUnread(pruned)
     },
-    [applyReadState]
+    [applyReadState, commitUnread]
   )
 
   const initializeNotifications = useCallback(
@@ -224,10 +230,10 @@ export function PortalNotificationsProvider({
         payload.readState
       )
       saveReadStateToStorage(readStateRef.current)
-      setUnread(payload.unread)
+      commitUnread(payload.unread)
       setNotificationsLoading(false)
     },
-    []
+    [commitUnread]
   )
 
   const applyPollResult = useCallback(
@@ -246,15 +252,11 @@ export function PortalNotificationsProvider({
         unreadRef.current,
         result.unread
       )
-      const pruned = pruneResolvedFirmaNotifications(
-        merged,
-        result.pendingFirmaIds
-      )
       const hadChanges =
         result.hasChanges ||
-        beforeSignature !== notificationsSignature(pruned)
+        beforeSignature !== notificationsSignature(merged)
 
-      setUnread(pruned)
+      commitUnread(merged)
 
       if (!options?.fromBroadcast) {
         pollIntervalRef.current = rateLimitedRef.current
@@ -270,7 +272,7 @@ export function PortalNotificationsProvider({
         refreshPortalPages()
       }
     },
-    [applyReadState, refreshPortalPages]
+    [applyReadState, commitUnread, refreshPortalPages]
   )
 
   const refreshNotifications = useCallback(
@@ -448,10 +450,10 @@ export function PortalNotificationsProvider({
         recordId,
         'new_tramite'
       )
-      setUnread(nextUnread)
+      commitUnread(nextUnread)
       publishStateToOtherTabs(nextUnread)
     },
-    [publishStateToOtherTabs]
+    [commitUnread, publishStateToOtherTabs]
   )
 
   const markConversationSeen = useCallback(
@@ -481,8 +483,8 @@ export function PortalNotificationsProvider({
           recordId,
           'unread_chatter'
         )
-        setUnread(nextUnread)
-        publishStateToOtherTabs(nextUnread)
+        commitUnread(nextUnread)
+        publishStateToOtherTabs(unreadRef.current)
         return
       }
 
@@ -495,7 +497,7 @@ export function PortalNotificationsProvider({
         recordId,
         'unread_chatter'
       )
-      setUnread(optimisticUnread)
+      commitUnread(optimisticUnread)
       applyReadState({ [key]: effectiveLastSeen })
       publishStateToOtherTabs(optimisticUnread)
 
@@ -508,13 +510,13 @@ export function PortalNotificationsProvider({
 
         if (result.ok) {
           applyReadState(result.readState)
-          publishStateToOtherTabs(optimisticUnread)
+          publishStateToOtherTabs(unreadRef.current)
         }
       } finally {
         markingRef.current.delete(key)
       }
     },
-    [applyReadState, enabled, publishStateToOtherTabs]
+    [applyReadState, commitUnread, enabled, publishStateToOtherTabs]
   )
 
   const ackDocumentsSeen = useCallback(
@@ -535,8 +537,8 @@ export function PortalNotificationsProvider({
         recordId,
         'new_document'
       )
-      setUnread(nextUnread)
-      publishStateToOtherTabs(nextUnread)
+      commitUnread(nextUnread)
+      publishStateToOtherTabs(unreadRef.current)
 
       pollIntervalRef.current = getInitialPollIntervalMs()
 
@@ -562,7 +564,7 @@ export function PortalNotificationsProvider({
         documentsAckInFlightRef.current.delete(ackKey)
       }
     },
-    [enabled, publishStateToOtherTabs]
+    [commitUnread, enabled, publishStateToOtherTabs]
   )
 
   const ackStatusChangeSeen = useCallback(
@@ -582,8 +584,8 @@ export function PortalNotificationsProvider({
         recordId,
         'status_change'
       )
-      setUnread(nextUnread)
-      publishStateToOtherTabs(nextUnread)
+      commitUnread(nextUnread)
+      publishStateToOtherTabs(unreadRef.current)
 
       pollIntervalRef.current = getInitialPollIntervalMs()
 
@@ -607,14 +609,14 @@ export function PortalNotificationsProvider({
         documentsAckInFlightRef.current.delete(ackKey)
       }
     },
-    [enabled, publishStateToOtherTabs]
+    [commitUnread, enabled, publishStateToOtherTabs]
   )
 
   const openNotification = useCallback(
     (notification: PortalNotification) => {
       const nextUnread = removeNotificationFromList(unreadRef.current, notification)
-      setUnread(nextUnread)
-      publishStateToOtherTabs(nextUnread)
+      commitUnread(nextUnread)
+      publishStateToOtherTabs(unreadRef.current)
 
       if (
         notification.reason === 'new_document' ||
@@ -659,7 +661,7 @@ export function PortalNotificationsProvider({
         )
       }
     },
-    [publishStateToOtherTabs, router]
+    [commitUnread, publishStateToOtherTabs, router]
   )
 
   const hasUnreadChatter = useCallback(
