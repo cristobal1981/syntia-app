@@ -379,10 +379,28 @@
     border-color: var(--border-subtle);
   }
 
-  .dark .chatter-advisor-bubble {
-    border: 1px solid color-mix(in oklch, var(--on-dark) 44%, var(--border));
-    background-color: color-mix(in oklch, var(--on-dark) 34%, var(--card));
+  .chatter-advisor-bubble {
+    border: 1px solid color-mix(in oklch, var(--surface-dark) 10%, var(--border));
+    background-color: color-mix(in oklch, var(--turquesa) 10%, var(--muted));
     color: var(--foreground);
+  }
+
+  .chatter-client-bubble {
+    border: 1px solid color-mix(in oklch, var(--turquesa) 44%, var(--border));
+    background-color: color-mix(in oklch, var(--primary) 44%, var(--muted));
+    color: var(--foreground);
+  }
+
+  .dark .chatter-advisor-bubble {
+    border: 1px solid color-mix(in oklch, var(--surface-dark) 40%, var(--border));
+    background-color: color-mix(in oklch, var(--surface-dark) 40%, var(--card));
+    color: var(--foreground);
+  }
+
+  .dark .chatter-client-bubble {
+    border: 1px solid color-mix(in oklch, var(--turquesa) 20%, var(--border));
+    background-color: color-mix(in oklch, var(--primary) 80%, var(--card));
+    color: var(--surface-dark);
   }
 
   .badge-status-pending {

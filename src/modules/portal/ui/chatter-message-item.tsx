@@ -74,19 +74,24 @@ export function ChatterMessageItem({
         className={cn(
           'max-w-[88%] rounded-2xl px-3 py-2 text-sm',
           message.isFromClient
-            ? 'rounded-br-md bg-primary text-primary-foreground'
-            : 'rounded-bl-md border border-border bg-muted/50 text-foreground dark:chatter-advisor-bubble'
+            ? 'rounded-br-none chatter-client-bubble'
+            : 'rounded-bl-none chatter-advisor-bubble'
         )}
       >
         <header className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-xs font-semibold">
+          <span
+            className={cn(
+              'text-xs font-semibold',
+              message.isFromClient && 'text-agua dark:text-surface-dark'
+            )}
+          >
             {message.isFromClient ? portalChatter.youLabel : message.authorName}
           </span>
           <time
             className={cn(
               'text-[11px]',
               message.isFromClient
-                ? 'text-primary-foreground/80'
+                ? 'text-agua/80 dark:text-black/55'
                 : 'text-subtle-foreground'
             )}
             dateTime={message.date}
@@ -109,7 +114,7 @@ export function ChatterMessageItem({
           <div
             className={cn(
               'break-words [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:m-0 [&_p+p]:mt-2 [&_s]:line-through [&_u]:underline [&_ul]:list-disc [&_ul]:pl-5',
-              message.isFromClient && '[&_a]:text-primary-foreground'
+              message.isFromClient && '[&_a]:text-agua dark:[&_a]:text-turquesa'
             )}
             dangerouslySetInnerHTML={{
               __html: prepareChatterHtmlForDisplay(message.bodyHtml),

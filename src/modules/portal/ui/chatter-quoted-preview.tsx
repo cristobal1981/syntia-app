@@ -18,9 +18,9 @@ export function ChatterQuotedPreview({
       className={cn(
         'rounded-md border-l-[3px] px-2.5 py-1.5',
         variant === 'client' &&
-          'border-primary-foreground/70 bg-primary-foreground/10 text-primary-foreground',
+          'border-agua bg-background/65 text-foreground dark:bg-background/75 dark:border-foreground',
         variant === 'advisor' &&
-          'border-primary/70 bg-background/70 text-foreground dark:bg-background/40',
+          'border-primary/80 bg-background text-foreground dark:bg-primary/10',
         variant === 'composer' &&
           'border-primary bg-primary/5 text-foreground dark:bg-primary/10',
         className
@@ -29,18 +29,13 @@ export function ChatterQuotedPreview({
       <p
         className={cn(
           'text-[11px] font-semibold leading-tight',
-          variant === 'client' ? 'text-primary-foreground' : 'text-foreground'
+          variant === 'client' ? 'text-agua dark:text-foreground' : 'text-foreground'
         )}
       >
         {authorName}
       </p>
       <p
-        className={cn(
-          'mt-0.5 line-clamp-2 text-xs leading-snug',
-          variant === 'client'
-            ? 'text-primary-foreground/85'
-            : 'text-muted-foreground'
-        )}
+        className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground"
       >
         {snippet}
       </p>
