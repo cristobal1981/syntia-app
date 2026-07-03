@@ -18,12 +18,12 @@ type OdooSignRequestItemRow = {
   sign_request_id?: [number, string] | false | null
   state?: string | false | null
   create_date?: string | false | null
+  access_token?: string | false | null
 }
 
 type OdooSignRequestRow = {
   id: number
   reference?: string | false | null
-  access_token?: string | false | null
   create_date?: string | false | null
   state?: string | false | null
   validity?: string | false | null
@@ -80,7 +80,7 @@ export async function fetchPendingSignaturesFromOdoo(
       ['partner_id', '=', partnerId],
       ['state', 'in', itemPendingStates],
     ],
-    fields: ['sign_request_id', 'state', 'create_date'],
+    fields: ['sign_request_id', 'state', 'create_date', 'access_token'],
     order: 'id desc',
     limit: 50,
   })
@@ -104,17 +104,27 @@ export async function fetchPendingSignaturesFromOdoo(
       ['id', 'in', requestIds],
       ['state', 'in', requestActiveStates],
     ],
-    fields: ['reference', 'access_token', 'create_date', 'state', dueDateField],
+    fields: ['reference', 'create_date', 'state', dueDateField],
     order: 'create_date desc, id desc',
     limit: 50,
   })
 
   const labelByRequestId = new Map<number, string>()
   const sentDateByRequestId = new Map<number, string>()
+  const signUrlByRequestId = new Map<number, string>()
 
   for (const row of itemRows) {
     if (!Array.isArray(row.sign_request_id)) continue
     const [requestId] = row.sign_request_id
+    if (!signUrlByRequestId.has(requestId)) {
+      const itemAccessToken =
+        typeof row.access_token === 'string' ? row.access_token : ''
+      const signUrl = buildOdooSignPublicUrl(requestId, itemAccessToken)
+      if (signUrl) {
+        signUrlByRequestId.set(requestId, signUrl)
+      }
+    }
+
     labelByRequestId.set(
       requestId,
       mapOdooMany2OneLabel(row.sign_request_id) ?? `Solicitud ${requestId}`
@@ -129,9 +139,7 @@ export async function fetchPendingSignaturesFromOdoo(
   const pending: PendingSignatureRequest[] = []
 
   for (const row of requestRows) {
-    const accessToken =
-      typeof row.access_token === 'string' ? row.access_token : ''
-    const signUrl = buildOdooSignPublicUrl(row.id, accessToken)
+    const signUrl = signUrlByRequestId.get(row.id)
     if (!signUrl) continue
 
     const createDate =

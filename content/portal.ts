@@ -201,7 +201,7 @@ export const portal = {
           },
         ],
       },
-      { label: 'Solicitudes', href: '/proximamente', implemented: false, icon: 'requests' },
+      { label: 'Solicitudes', href: '/solicitudes', implemented: true, icon: 'requests' },
       { label: 'Integraciones', href: '/integraciones', implemented: true, icon: 'integrations' },
       { label: 'Configuración', href: '/proximamente', implemented: false, icon: 'settings' },
     ],

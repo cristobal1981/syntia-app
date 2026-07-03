@@ -160,7 +160,7 @@ export function PortalNotificationsProvider({
   const pollingRef = useRef(false)
   const markingRef = useRef<Set<string>>(new Set())
   const documentsAckInFlightRef = useRef<Set<string>>(new Set())
-  const skipInitialFetchRef = useRef(false)
+  const ssrHydratedRef = useRef(false)
   const pollIntervalRef = useRef(getInitialPollIntervalMs())
   const pollTimerRef = useRef<number | null>(null)
   const coordinatorRef = useRef<PortalNotificationsTabCoordinator | null>(null)
@@ -223,8 +223,8 @@ export function PortalNotificationsProvider({
       unread: PortalNotification[]
       readState: ChatterReadStateMap
     }) => {
-      if (skipInitialFetchRef.current) return
-      skipInitialFetchRef.current = true
+      if (ssrHydratedRef.current) return
+      ssrHydratedRef.current = true
       readStateRef.current = mergeReadState(
         loadReadStateFromStorage(),
         payload.readState
@@ -384,17 +384,9 @@ export function PortalNotificationsProvider({
       void refreshNotifications({ force: true })
     })
 
-    const initialDelay = skipInitialFetchRef.current
-      ? pollIntervalRef.current
-      : shouldDeferInitialPoll()
-        ? DEFERRED_POLL_MS
-        : 0
+    const initialDelay = shouldDeferInitialPoll() ? DEFERRED_POLL_MS : 0
 
     const initialTimer = window.setTimeout(() => {
-      if (skipInitialFetchRef.current) {
-        scheduleNextPoll()
-        return
-      }
       void refreshNotifications().finally(() => {
         scheduleNextPoll()
       })

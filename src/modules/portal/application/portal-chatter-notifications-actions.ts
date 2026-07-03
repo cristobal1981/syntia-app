@@ -65,6 +65,7 @@ export async function checkPortalNotificationsAction(): Promise<PortalNotificati
     partnerId: access.partnerId,
     actorId: access.actorId,
     cache: false,
+    persist: true,
   })
 }
 

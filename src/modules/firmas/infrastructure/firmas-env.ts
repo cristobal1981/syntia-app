@@ -1,7 +1,9 @@
 /**
  * Odoo Sign (v16+): pending items live on sign.request.item (partner_id + state).
- * Public signing URL uses sign.request.access_token:
- *   {ODOO_URL}/sign/document/{sign.request.id}/{access_token}
+ * External signing URL (same as the email link; no Odoo portal login):
+ *   {ODOO_URL}/sign/document/{sign.request.id}/{sign.request.item.access_token}
+ *
+ * Do not use sign.request.access_token (envelope) nor sign.request.item.access_url (portal).
  *
  * Due date: sign.request.validity («Valid Until»); override with ODOO_SIGN_REQUEST_DUE_DATE_FIELD.
  * Sent date: sign.request.item.create_date for the pending signer item.
@@ -49,12 +51,13 @@ export function getOdooSignRequestDueDateField(): string {
   return process.env.ODOO_SIGN_REQUEST_DUE_DATE_FIELD?.trim() || 'validity'
 }
 
+/** Public /sign/document URL for external signers (matches Odoo email links). */
 export function buildOdooSignPublicUrl(
   requestId: number,
-  accessToken: string
+  itemAccessToken: string
 ): string | null {
   const base = process.env.ODOO_URL?.trim().replace(/\/$/, '')
-  const token = accessToken.trim()
+  const token = itemAccessToken.trim()
   if (!base || !token) return null
-  return `${base}/sign/document/${requestId}/${encodeURIComponent(token)}`
+  return `${base}/sign/document/${requestId}/${token}`
 }

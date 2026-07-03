@@ -56,7 +56,12 @@ export async function getClientHomeData(user: PortalUser): Promise<ClientHomeDat
         getCachedTramitesSnapshotSafe(partnerId),
         getCachedObligacionTaskIndex(partnerId),
         getCachedPendingSignaturesSnapshotSafe(partnerId),
-        loadClientPortalNotifications({ partnerId, actorId }),
+        loadClientPortalNotifications({
+          partnerId,
+          actorId,
+          cache: false,
+          persist: false,
+        }),
       ])
 
     const tramitesSnap = tramitesResult.data

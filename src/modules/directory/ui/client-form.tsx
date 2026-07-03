@@ -19,7 +19,6 @@ import type {
 } from '@/src/modules/directory/domain/odoo-partner-import'
 import { resolveOdooPartnerEmails } from '@/src/modules/directory/domain/odoo-partner-import'
 import type { ClientKind, ClientRecord } from '@/src/modules/directory/domain/types'
-import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
 import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
 import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selector'
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
@@ -509,10 +508,7 @@ export function ClientForm({
       </div>
 
       {!isCreate && client && onDeleted ? (
-        <>
-          <ClientAccessSection client={client} />
-          <ClientDangerZone client={client} onDeleted={onDeleted} />
-        </>
+        <ClientDangerZone client={client} onDeleted={onDeleted} />
       ) : null}
     </form>
   )
