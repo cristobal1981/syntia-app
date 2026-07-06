@@ -1,13 +1,12 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Copy, Trash2, XCircle } from 'lucide-react'
+import { Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { solicitudes } from '@/content/solicitudes'
-import { copyTextToClipboard } from '@/lib/copy-to-clipboard'
 import { cn } from '@/lib/utils'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 import {
@@ -18,7 +17,7 @@ import {
   type OnboardingSolicitudRow,
 } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import type { OnboardingTokenStatus } from '@/src/modules/onboarding/domain/onboarding-token-status'
-import { buildOnboardingAccessUrl } from '@/src/modules/onboarding/infrastructure/landing-url'
+import { OnboardingTokenSecret } from '@/src/modules/onboarding/ui/onboarding-token-secret'
 
 type SolicitudesPageViewProps = {
   initialClients: ClientRecord[]
@@ -63,6 +62,7 @@ function AltaAutonomoLinkPanel({
   const copy = solicitudes.altaAutonomo
   const [clientId, setClientId] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
+  const [linkToken, setLinkToken] = useState('')
   const [pending, startTransition] = useTransition()
 
   const sortedClients = useMemo(
@@ -79,22 +79,13 @@ function AltaAutonomoLinkPanel({
         return
       }
       setLinkUrl(result.url)
+      setLinkToken(result.token)
       toast.success(copy.generated)
       const listResult = await listOnboardingSolicitudesAction()
       if (listResult.ok) {
         onCreated(listResult.rows)
       }
     })
-  }
-
-  async function handleCopy() {
-    if (!linkUrl) return
-    const copied = await copyTextToClipboard(linkUrl)
-    if (copied) {
-      toast.success(copy.copied)
-      return
-    }
-    toast.error(copy.copyError)
   }
 
   return (
@@ -118,6 +109,7 @@ function AltaAutonomoLinkPanel({
               onChange={(event) => {
                 setClientId(event.target.value)
                 setLinkUrl('')
+                setLinkToken('')
               }}
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
@@ -142,6 +134,14 @@ function AltaAutonomoLinkPanel({
             />
           </div>
 
+          {linkToken ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">{copy.tokenLabel}</span>
+              <OnboardingTokenSecret token={linkToken} />
+              <p className="text-sm text-muted-foreground">{copy.tokenHint}</p>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -151,19 +151,11 @@ function AltaAutonomoLinkPanel({
             >
               {pending ? copy.creating : copy.createButton}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleCopy}
-              disabled={!linkUrl}
-            >
-              {copy.copyButton}
-            </Button>
-            <Button type="button" variant="outline" disabled>
-              {copy.emailButton}
+            <Button type="button" variant="secondary" disabled>
+              {copy.sendLinkButton}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">{copy.emailHint}</p>
+          <p className="text-sm text-muted-foreground">{copy.sendLinkHint}</p>
         </div>
       )}
     </section>
@@ -187,22 +179,6 @@ function OnboardingSolicitudRowActions({
     if (result.ok) {
       onUpdated(result.rows)
     }
-  }
-
-  const canCopy = row.status === 'active'
-
-  async function handleCopy() {
-    const url = buildOnboardingAccessUrl(row.token)
-    if (!url) {
-      toast.error(solicitudes.altaAutonomo.generateError)
-      return
-    }
-    const copied = await copyTextToClipboard(url)
-    if (copied) {
-      toast.success(solicitudes.altaAutonomo.copied)
-      return
-    }
-    toast.error(solicitudes.altaAutonomo.copyError)
   }
 
   async function handleRevoke() {
@@ -236,12 +212,10 @@ function OnboardingSolicitudRowActions({
         type="button"
         variant="ghost"
         size="sm"
-        onClick={handleCopy}
-        disabled={!canCopy || pendingAction !== null}
+        disabled
         className="h-8 gap-1 px-2"
       >
-        <Copy className="size-3.5" aria-hidden />
-        {copy.actions.copy}
+        {copy.actions.sendLink}
       </Button>
       {row.status === 'active' ? (
         <Button
@@ -330,7 +304,7 @@ function OnboardingSolicitudList({
         </div>
       ) : (
         <div className="portal-home-card overflow-x-auto rounded-xl">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[880px] text-left text-sm">
             <thead>
               <tr className="border-b border-border dark:border-border/50">
                 {Object.values(copy.columns).map((header) => (
@@ -355,6 +329,9 @@ function OnboardingSolicitudList({
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {row.recipientEmail ?? '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <OnboardingTokenSecret token={row.token} />
                   </td>
                   <td className="px-4 py-3">
                     <span

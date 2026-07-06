@@ -31,7 +31,7 @@ export type OnboardingSolicitudRow = {
 }
 
 export type CreateAltaAutonomoAccessLinkResult =
-  | { ok: true; url: string; expiresAt: string }
+  | { ok: true; url: string; token: string; expiresAt: string }
   | {
       ok: false
       error: 'unauthorized' | 'forbidden' | 'not_found' | 'invalid_client' | 'unknown'
@@ -198,7 +198,7 @@ export async function createAltaAutonomoAccessLinkAction(
       }
     }
 
-    return { ok: true, url, expiresAt: created.expires_at }
+    return { ok: true, url, token: created.token, expiresAt: created.expires_at }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

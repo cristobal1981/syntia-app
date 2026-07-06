@@ -20,6 +20,19 @@ El acceso se controla con tokens de un solo uso guardados en Supabase.
 - Tabla con RLS habilitado y sin acceso para `anon`/`authenticated`.
 - Un token activo por `form_kind` + (`odoo_partner_id` o `recipient_email`).
 
+## Deploy preview (Vercel)
+
+La landing valida el token en servidor llamando a syntia (`SYNTIA_APP_URL`).
+
+Checklist:
+
+1. En **landing** y **syntia**, define `LANDING_ONBOARDING_API_SECRET` con el mismo valor en el entorno **Preview** (no solo Production).
+2. En **landing** Preview, `SYNTIA_APP_URL` debe apuntar al deploy de syntia accesible (URL `*.vercel.app` del proyecto syntia, sin `/` final).
+3. Si syntia Preview tiene **Deployment Protection**, genera un bypass en syntia (Settings → Deployment Protection → Protection Bypass for Automation) y cópialo en landing como `SYNTIA_VERCEL_PROTECTION_BYPASS`. Sin esto, la landing recibe respuestas vacías (p. ej. 204) y muestra «No podemos validar el enlace ahora mismo».
+4. En **syntia** Preview deben existir `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` y credenciales Odoo (`ODOO_URL`, `ODOO_API_KEY`) para validar tokens y devolver el catálogo de países/provincias.
+5. El token debe existir en la misma base Supabase a la que apunta el deploy de syntia usado por `SYNTIA_APP_URL`.
+6. En syntia, `NEXT_PUBLIC_LANDING_URL` debe ser la URL preview de la landing para generar enlaces correctos.
+
 ## Notas operativas
 
 - Caducidad por defecto: 14 dias (`expires_at`).

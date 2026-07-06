@@ -16,14 +16,14 @@ export const solicitudes = {
     urlPlaceholder: 'Genera un enlace para mostrarlo aquí',
     createButton: 'Generar enlace',
     creating: 'Generando…',
-    copyButton: 'Copiar enlace',
+    sendLinkButton: 'Enviar enlace',
+    tokenLabel: 'Código de solicitud',
+    tokenHint:
+      'Identificador único del enlace. Úsalo para distinguir varias solicitudes del mismo cliente.',
     generated: 'Enlace generado',
-    copied: 'Enlace copiado',
-    copyError: 'No se pudo copiar el enlace. Cópialo manualmente.',
     generateError: 'No se pudo generar el enlace. Inténtalo de nuevo.',
-    emailButton: 'Enviar por email (próximamente)',
-    emailHint:
-      'El envío por email llegará en una siguiente versión. Por ahora comparte el enlace manualmente.',
+    sendLinkHint:
+      'El envío del enlace por email llegará en una siguiente versión. Por ahora comparte el enlace o el código manualmente.',
   },
   list: {
     sectionTitle: 'Solicitudes de alta de autónomo',
@@ -39,10 +39,19 @@ export const solicitudes = {
     columns: {
       client: 'Cliente',
       email: 'Email',
+      token: 'Código',
       status: 'Estado',
       created: 'Creada',
       expires: 'Caduca',
       actions: 'Acciones',
+    },
+    token: {
+      show: 'Mostrar código',
+      hide: 'Ocultar código',
+      copy: 'Copiar código',
+      copied: 'Código copiado',
+      copyError: 'No se pudo copiar el código. Cópialo manualmente.',
+      hiddenHint: 'Código oculto',
     },
     status: {
       active: 'Pendiente',
@@ -51,7 +60,7 @@ export const solicitudes = {
       expired: 'Caducada',
     },
     actions: {
-      copy: 'Copiar enlace',
+      sendLink: 'Enviar enlace',
       revoke: 'Revocar',
       delete: 'Eliminar',
       revoking: 'Revocando…',

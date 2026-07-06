@@ -34,10 +34,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 })
   }
 
-  const validation = await validateOnboardingToken({
-    token,
-    expectedFormKind: 'alta_autonomo',
-  })
+  let validation: Awaited<ReturnType<typeof validateOnboardingToken>>
+  try {
+    validation = await validateOnboardingToken({
+      token,
+      expectedFormKind: 'alta_autonomo',
+    })
+  } catch (error) {
+    console.error('[onboarding] token lookup failed', error)
+    return NextResponse.json(
+      { ok: false, error: 'service_unavailable' },
+      { status: 503 }
+    )
+  }
 
   if (!validation.ok) {
     return NextResponse.json(
@@ -50,6 +59,7 @@ export async function GET(request: Request) {
     const catalog = await getOnboardingAddressCatalog()
     return NextResponse.json({
       ok: true,
+      valid: true,
       recipientEmail: validation.token.recipient_email ?? undefined,
       expiresAt: validation.token.expires_at,
       catalog,
