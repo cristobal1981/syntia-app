@@ -12,6 +12,7 @@ export type NavIconId =
   | 'clients'
   | 'tasks'
   | 'integrations'
+  | 'invoices'
 
 export type NavItem = {
   label: string

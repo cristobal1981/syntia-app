@@ -42,18 +42,27 @@ export function ClientCreateDialog({
   const [nameSplitMode, setNameSplitMode] =
     useState<OdooNameSplitMode>('given-first')
 
-  useEffect(() => {
+  // Reset/arranque en la transición de `open` durante el render (evita setState síncrono en efecto).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (!open) {
       setOdooImportLoadState('idle')
       setOdooPartners([])
       setSelectedOdooPartnerId(null)
       setClientKind('person')
       setNameSplitMode('given-first')
+    } else {
+      setOdooImportLoadState('loading')
+    }
+  }
+
+  useEffect(() => {
+    if (!open) {
       return
     }
 
     let cancelled = false
-    setOdooImportLoadState('loading')
 
     void listOdooPartnersForImportAction().then((result) => {
       if (cancelled) return

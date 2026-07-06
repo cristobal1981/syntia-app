@@ -38,6 +38,8 @@ export type ClientIntegrationRow = {
   odoo_partner_id: number | null
   /** res.users.id del asesor asignado (asignación tarea/ticket). */
   odoo_user_id: number | null
+  /** res.company.id del cliente en Odoo (facturación VERI*FACTU, cadena por NIF). */
+  odoo_company_id: number | null
   drive_folder_id: string | null
 }
 
@@ -59,7 +61,7 @@ export const PROFILE_SELECT =
   'user_id, first_name, first_surname, second_surname, phone, company_name, advisor_id, vat, iban, address_line1, address_line2, postal_code, city, province, country'
 
 export const CLIENT_INTEGRATION_SELECT =
-  'user_id, odoo_partner_id, odoo_user_id, drive_folder_id'
+  'user_id, odoo_partner_id, odoo_user_id, odoo_company_id, drive_folder_id'
 
 export const USER_SELECT = 'id, email, role, status, is_active'
 
@@ -172,10 +174,11 @@ function resolvePersonFields(source: DirectoryPersonSource) {
       }
 
   const phone = sanitizeNullable(profile?.phone)
+  const vat = sanitizeNullable(profile?.vat)
   const companyName = sanitizeNullable(profile?.company_name)
   const email = user.email ?? ''
 
-  return { name, nameParts, phone, companyName, email }
+  return { name, nameParts, phone, vat, companyName, email }
 }
 
 function resolveClientFields(source: DirectoryPersonSource) {
@@ -218,7 +221,7 @@ export function mapDirectorySourceToClient(
 ): ClientRecord | null {
   if (!isClientDbRole(source.user.role)) return null
 
-  const { name, nameParts, phone, companyName, email, clientKind } =
+  const { name, nameParts, phone, vat, companyName, email, clientKind } =
     resolveClientFields(source)
 
   return {
@@ -228,8 +231,10 @@ export function mapDirectorySourceToClient(
     email,
     clientKind,
     phone,
+    vat,
     companyName,
     odooPartnerId: formatOdooPartnerId(source.integration?.odoo_partner_id),
+    odooCompanyId: formatOdooPartnerId(source.integration?.odoo_company_id),
     driveFolderId: sanitizeNullable(source.integration?.drive_folder_id),
     advisorId: sanitizeNullable(source.profile?.advisor_id ?? undefined),
     advisorName,

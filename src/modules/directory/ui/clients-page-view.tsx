@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
@@ -26,13 +26,9 @@ export function ClientsPageView({
 }: ClientsPageViewProps) {
   const router = useRouter()
   const copy = equipo.clientes
-  const [clients, setClients] = useState(initialClients)
+  const clients = initialClients
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-
-  useEffect(() => {
-    setClients(initialClients)
-  }, [initialClients])
 
   const items = useMemo<PersonListItem[]>(
     () =>
@@ -51,7 +47,6 @@ export function ClientsPageView({
 
   const handleSaved = useCallback(() => {
     router.refresh()
-    setClients((current) => [...current])
   }, [router])
 
   return (

@@ -29,11 +29,38 @@ export function isOdooApiConfigured(): boolean {
   return Boolean(getOdooBaseUrl() && getOdooApiKey())
 }
 
+export type OdooCallOptions = {
+  companyId?: number
+  timeoutMs?: number
+}
+
 export type OdooSearchReadOptions = {
   domain?: unknown[]
   fields?: string[]
   limit?: number
   order?: string
+  companyId?: number
+  timeoutMs?: number
+}
+
+function withCompanyContext(
+  body: Record<string, unknown>,
+  companyId: number | undefined
+): Record<string, unknown> {
+  if (!companyId) return body
+
+  const existingContext =
+    typeof body.context === 'object' && body.context !== null
+      ? (body.context as Record<string, unknown>)
+      : {}
+
+  return {
+    ...body,
+    context: {
+      ...existingContext,
+      allowed_company_ids: [companyId],
+    },
+  }
 }
 
 type OdooMany2One = [number, string] | false | null | undefined
@@ -98,7 +125,8 @@ function sleep(ms: number): Promise<void> {
 async function odooJsonRequestOnce<T>(
   model: string,
   method: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  timeoutMs: number
 ): Promise<
   | { ok: true; data: T }
   | { ok: false; status: number; body: string; retryAfterMs?: number }
@@ -111,7 +139,7 @@ async function odooJsonRequestOnce<T>(
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const response = await fetch(`${baseUrl}/json/2/${model}/${method}`, {
@@ -150,13 +178,17 @@ async function odooJsonRequestOnce<T>(
 async function odooJsonRequest<T>(
   model: string,
   method: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  options: OdooCallOptions = {}
 ): Promise<T> {
+  const requestBody = withCompanyContext(body, options.companyId)
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS
+
   await acquireOdooRequestSlot()
 
   try {
     for (let attempt = 0; attempt <= RATE_LIMIT_RETRY_DELAYS_MS.length; attempt += 1) {
-      const result = await odooJsonRequestOnce<T>(model, method, body)
+      const result = await odooJsonRequestOnce<T>(model, method, requestBody, timeoutMs)
 
       if (result.ok) {
         return result.data
@@ -193,9 +225,10 @@ async function odooJsonRequest<T>(
 export async function odooCall<T>(
   model: string,
   method: string,
-  body: Record<string, unknown> = {}
+  body: Record<string, unknown> = {},
+  options: OdooCallOptions = {}
 ): Promise<T> {
-  return odooJsonRequest<T>(model, method, body)
+  return odooJsonRequest<T>(model, method, body, options)
 }
 
 export async function odooSearchRead<T extends Record<string, unknown>>(
@@ -210,7 +243,8 @@ export async function odooSearchRead<T extends Record<string, unknown>>(
       fields: options.fields ?? [],
       limit: options.limit ?? 100,
       ...(options.order ? { order: options.order } : {}),
-    }
+    },
+    { companyId: options.companyId, timeoutMs: options.timeoutMs }
   )
 
   if (!Array.isArray(payload)) {

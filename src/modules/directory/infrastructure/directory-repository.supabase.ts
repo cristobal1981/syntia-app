@@ -16,10 +16,7 @@ import {
 } from '@/src/modules/directory/domain/map-directory-row'
 import type {
   ClientRecord,
-  DirectoryListScope,
   GestorRecord,
-  UpdateClientInput,
-  UpdateGestorInput,
 } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
 import {
@@ -439,6 +436,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       await upsertProfile(newUserId, {
         ...profileFields,
         phone: input.phone ?? null,
+        vat: input.vat ?? null,
         advisor_id: input.advisorId ?? null,
       })
 
@@ -518,6 +516,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     await upsertProfile(input.id, {
       ...profileFields,
       phone: input.phone ?? null,
+      vat: input.vat ?? null,
       advisor_id: input.advisorId ?? null,
     })
 

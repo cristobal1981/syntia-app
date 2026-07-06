@@ -129,6 +129,8 @@ export const equipo = {
       companyCommercialName: 'Nombre comercial',
       companyCommercialNameHint: 'Opcional. Nombre con el que opera el negocio.',
       phone: 'Teléfono',
+      nif: 'NIF',
+      nifHint: 'Obligatorio para activar la facturación VERI*FACTU del cliente.',
       company: 'Empresa',
       role: 'Rol',
       status: 'Estado',

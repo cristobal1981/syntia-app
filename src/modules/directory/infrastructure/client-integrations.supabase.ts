@@ -26,7 +26,8 @@ export async function fetchClientIntegrationMap(ids?: string[]) {
 
 export async function upsertClientIntegration(
   userId: string,
-  fields: Pick<ClientIntegrationRow, 'odoo_partner_id' | 'drive_folder_id'>
+  fields: Pick<ClientIntegrationRow, 'odoo_partner_id' | 'drive_folder_id'> &
+    Partial<Pick<ClientIntegrationRow, 'odoo_company_id'>>
 ) {
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase.from('client_integrations').upsert(

@@ -6,6 +6,7 @@ export type OdooPartnerImportOption = {
   corporateEmail?: string
   contactEmail?: string
   phone?: string
+  vat?: string
   odooPartnerId: string
   driveFolderId?: string
   driveFolderParseFailed?: boolean
@@ -26,6 +27,7 @@ export type OdooPartnerRow = {
   name: string
   email?: string | false | null
   phone?: string | false | null
+  vat?: string | false | null
   is_company?: boolean | null
   [key: string]: unknown
 }
@@ -197,6 +199,7 @@ export function mapOdooPartnerRowToImportOption(
     row[contactEmailFieldName] as string | undefined
   )
   const phone = sanitizeOdooString(row.phone)
+  const vat = sanitizeOdooString(row.vat)
   const driveUrl = sanitizeOdooString(row[driveFieldName] as string | undefined)
   const parentFolderId = driveUrl
     ? parseGoogleDriveParentFolderId(driveUrl)
@@ -208,6 +211,7 @@ export function mapOdooPartnerRowToImportOption(
     corporateEmail,
     contactEmail,
     phone,
+    vat,
     odooPartnerId: String(row.id),
     driveFolderId: publicDriveFolderId,
     driveFolderParseFailed: Boolean(parentFolderId && !publicDriveFolderId),
@@ -234,6 +238,7 @@ export function buildImportDraftFromOdooPartner(
       corporateEmail,
       contactEmail,
       phone: partner.phone,
+      vat: partner.vat,
       odooPartnerId: partner.odooPartnerId,
       driveFolderId: partner.driveFolderId,
     }
@@ -251,6 +256,7 @@ export function buildImportDraftFromOdooPartner(
     corporateEmail,
     contactEmail,
     phone: partner.phone,
+    vat: partner.vat,
     odooPartnerId: partner.odooPartnerId,
     driveFolderId: partner.driveFolderId,
   }

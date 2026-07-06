@@ -93,6 +93,7 @@ function parseCreateClientForm(formData: FormData) {
       String(formData.get('secondSurname') ?? '').trim() || undefined,
     email: String(formData.get('email') ?? '').trim(),
     phone: String(formData.get('phone') ?? '').trim() || undefined,
+    vat: String(formData.get('vat') ?? '').trim().toUpperCase() || undefined,
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
@@ -112,6 +113,7 @@ function parseClientForm(formData: FormData): UpdateClientInput {
       String(formData.get('secondSurname') ?? '').trim() || undefined,
     email: String(formData.get('email') ?? '').trim(),
     phone: String(formData.get('phone') ?? '').trim() || undefined,
+    vat: String(formData.get('vat') ?? '').trim().toUpperCase() || undefined,
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
@@ -174,7 +176,7 @@ export async function createClientAction(
   formData: FormData
 ): Promise<DirectoryUpdateResult> {
   try {
-    const session = await requireDirectorySession()
+    await requireDirectorySession()
     const scope = await buildDirectoryScope()
     if (scope.role === 'client') {
       return { ok: false, error: 'forbidden' }
@@ -258,7 +260,7 @@ export async function updateClientAction(
   formData: FormData
 ): Promise<DirectoryUpdateResult> {
   try {
-    const session = await requireDirectorySession()
+    await requireDirectorySession()
     const scope = await buildDirectoryScope()
     if (scope.role === 'client') {
       return { ok: false, error: 'forbidden' }

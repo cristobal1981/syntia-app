@@ -32,8 +32,12 @@ export type ClientRecord = PersonNameParts & {
   email: string
   clientKind: ClientKind
   phone?: string
+  /** NIF/CIF del cliente (profiles.vat); requerido para VERI*FACTU. */
+  vat?: string
   companyName?: string
   odooPartnerId?: string
+  /** res.company de facturación VERI*FACTU (si está activada). */
+  odooCompanyId?: string
   driveFolderId?: string
   advisorId?: string
   advisorName?: string
@@ -70,6 +74,7 @@ export type CreateClientInput = PersonNameParts & {
   clientKind: ClientKind
   email: string
   phone?: string
+  vat?: string
   companyName?: string
   odooPartnerId?: string
   driveFolderId?: string
@@ -81,6 +86,7 @@ export type UpdateClientInput = PersonNameParts & {
   clientKind: ClientKind
   email: string
   phone?: string
+  vat?: string
   companyName?: string
   odooPartnerId?: string
   driveFolderId?: string

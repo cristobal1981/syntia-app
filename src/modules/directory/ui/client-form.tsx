@@ -33,6 +33,7 @@ function parseClientFormData(formData: FormData) {
     secondSurname:
       String(formData.get('secondSurname') ?? '').trim() || undefined,
     email: String(formData.get('email') ?? '').trim(),
+    vat: String(formData.get('vat') ?? '').trim() || undefined,
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
@@ -48,6 +49,7 @@ export type ClientImportDraft = {
   secondSurname?: string
   email?: string
   phone?: string
+  vat?: string
   companyName?: string
   corporateEmail?: string
   odooPartnerId?: string
@@ -130,6 +132,7 @@ export function ClientForm({
         secondSurname: importDraft?.secondSurname ?? '',
         email: importDraft?.email ?? '',
         phone: importDraft?.phone ?? '',
+        vat: importDraft?.vat ?? '',
         companyName: importDraft?.companyName ?? '',
         odooPartnerId: importDraft?.odooPartnerId ?? '',
         driveFolderId: importDraft?.driveFolderId ?? '',
@@ -141,6 +144,7 @@ export function ClientForm({
         secondSurname: client?.secondSurname ?? '',
         email: client?.email ?? '',
         phone: client?.phone ?? '',
+        vat: client?.vat ?? '',
         companyName: client?.companyName ?? '',
         odooPartnerId: client?.odooPartnerId ?? '',
         driveFolderId: client?.driveFolderId ?? '',
@@ -189,13 +193,25 @@ export function ClientForm({
     onSuccessRef.current = onSuccess
   })
 
+  // Errores de campo derivados del resultado de la action: ajuste durante el render.
+  const [prevState, setPrevState] = useState(state)
+  if (state !== prevState) {
+    setPrevState(state)
+    if (state) {
+      if (state.ok) {
+        setLocalFieldErrors({})
+      } else if (state.error === 'validation' && state.fieldErrors) {
+        setLocalFieldErrors(state.fieldErrors)
+      }
+    }
+  }
+
   useEffect(() => {
     if (!state) return
     if (handledStateRef.current === state) return
     handledStateRef.current = state
 
     if (state.ok) {
-      setLocalFieldErrors({})
       toast.success(
         isCreate
           ? state.inviteSent === false
@@ -212,10 +228,6 @@ export function ClientForm({
     }
     if (state.error !== 'validation') {
       toast.error(state.message ?? copy.errors.unknown)
-      return
-    }
-    if (state.fieldErrors) {
-      setLocalFieldErrors(state.fieldErrors)
     }
   }, [state, copy, isCreate])
 
@@ -391,6 +403,24 @@ export function ClientForm({
           defaultValue={defaults.phone}
           autoComplete="tel"
         />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="client-vat" className="text-sm font-medium text-foreground">
+          {copy.fields.nif}
+        </label>
+        <Input
+          id="client-vat"
+          name="vat"
+          defaultValue={defaults.vat}
+          autoComplete="off"
+          aria-describedby="client-vat-hint"
+          aria-invalid={Boolean(getFieldError('vat'))}
+        />
+        <p id="client-vat-hint" className="text-xs text-muted-foreground">
+          {copy.fields.nifHint}
+        </p>
+        <FieldError message={getFieldError('vat')} />
       </div>
 
       {!isCompany ? (

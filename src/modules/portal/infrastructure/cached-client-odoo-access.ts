@@ -50,6 +50,10 @@ export function clientOdooPartnerCacheTag(actorId: string): string {
   return `client-odoo-partner:${actorId}`
 }
 
+export function clientOdooCompanyCacheTag(actorId: string): string {
+  return `client-odoo-company:${actorId}`
+}
+
 export function tramitesSnapshotCacheTag(partnerId: number): string {
   return `tramites-snapshot:${partnerId}`
 }
@@ -124,6 +128,30 @@ export async function getCachedClientOdooPartnerId(
     {
       revalidate: CLIENT_ODOO_PARTNER_REVALIDATE_SECONDS,
       tags: [clientOdooPartnerCacheTag(actorId)],
+    }
+  )
+
+  return cached()
+}
+
+async function loadClientOdooCompanyId(actorId: string): Promise<number | null> {
+  const integration = await getClientIntegrationByUserId(actorId)
+  const companyId = integration?.odoo_company_id
+  if (typeof companyId === 'number' && companyId > 0) {
+    return companyId
+  }
+  return null
+}
+
+export async function getCachedClientOdooCompanyId(
+  actorId: string
+): Promise<number | null> {
+  const cached = unstable_cache(
+    () => loadClientOdooCompanyId(actorId),
+    ['client-odoo-company', actorId],
+    {
+      revalidate: CLIENT_ODOO_PARTNER_REVALIDATE_SECONDS,
+      tags: [clientOdooCompanyCacheTag(actorId)],
     }
   )
 

@@ -7,6 +7,7 @@ import {
   MessageSquare,
   PenLine,
   Plug,
+  Receipt,
   Scale,
   Settings,
   UserCircle,
@@ -31,6 +32,7 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   clients: UsersRound,
   tasks: ListChecks,
   integrations: Plug,
+  invoices: Receipt,
 }
 
 type PortalNavIconProps = {

@@ -56,6 +56,7 @@ async function fetchOdooPartnersForImport(
       'name',
       'email',
       'phone',
+      'vat',
       'is_company',
       driveField,
       contactEmailField,

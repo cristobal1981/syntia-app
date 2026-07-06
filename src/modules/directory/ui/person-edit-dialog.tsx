@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { equipo } from '@/content/equipo'
 import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
 import { ClientForm } from '@/src/modules/directory/ui/client-form'
 import { DirectoryPanel } from '@/src/modules/directory/ui/directory-panel'
 import { GestorForm } from '@/src/modules/directory/ui/gestor-form'
+import { FacturacionActivationCard } from '@/src/modules/facturacion/ui/facturacion-activation-card'
 
 type PersonEditDialogProps =
   | {
@@ -32,11 +33,14 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
     kind === 'client' && record ? record.clientKind : 'person'
   )
 
-  useEffect(() => {
+  // Ajuste de estado derivado durante el render (patrón "you might not need an effect").
+  const [prevRecord, setPrevRecord] = useState(record)
+  if (record !== prevRecord) {
+    setPrevRecord(record)
     if (kind === 'client' && record) {
       setClientKind(record.clientKind)
     }
-  }, [kind, record])
+  }
 
   const clientFormKey =
     kind === 'client' && record
@@ -64,6 +68,16 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
             onOpenChange(false)
           }}
         />
+      ) : null}
+
+      {record && kind === 'client' ? (
+        <div className="mb-4">
+          <FacturacionActivationCard
+            clientId={record.id}
+            odooCompanyId={record.odooCompanyId}
+            onActivated={onSaved}
+          />
+        </div>
       ) : null}
 
       {record && kind === 'client' ? (

@@ -177,6 +177,7 @@ export const portal = {
         icon: 'obligations',
       },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
+      { label: 'Facturas', href: '/facturas', implemented: true, icon: 'invoices' },
       { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
     ],
