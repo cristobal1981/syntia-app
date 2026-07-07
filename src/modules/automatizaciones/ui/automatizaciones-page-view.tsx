@@ -4,8 +4,10 @@ import { useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { Button } from '@/components/ui/button'
 import { automatizaciones } from '@/content/automatizaciones'
+import { cn } from '@/lib/utils'
 import type { PortalAutomationListItem } from '@/src/modules/automatizaciones/domain/types'
 import {
   deleteAutomationAction,
@@ -21,6 +23,7 @@ import {
   AutomationRunsPanelTrigger,
 } from '@/src/modules/automatizaciones/ui/automation-runs-panel'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
+import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 type AdvisorOption = { id: string; name: string }
 
@@ -130,9 +133,14 @@ export function AutomatizacionesPageView({
           <h1 className="mt-2 font-sans text-2xl font-semibold text-foreground md:text-3xl">
             {copy.title}
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {copy.description}
-          </p>
+          {isAdmin ? (
+            <AppLink
+              href="/automatizaciones/config-impuesto-sociedades"
+              className={cn('mt-3 text-sm', appLinkPortalClassName)}
+            >
+              {copy.configIsLink}
+            </AppLink>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {isAdmin ? (
@@ -161,23 +169,21 @@ export function AutomatizacionesPageView({
       ) : null}
 
       {isAdmin ? (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={tab === 'run' ? 'default' : 'outline'}
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label={automatizaciones.tabs.label}
+        >
+          <PortalFilterChip
+            label={automatizaciones.tabs.run}
+            active={tab === 'run'}
             onClick={() => setTab('run')}
-          >
-            {automatizaciones.tabs.run}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={tab === 'access' ? 'default' : 'outline'}
+          />
+          <PortalFilterChip
+            label={automatizaciones.tabs.access}
+            active={tab === 'access'}
             onClick={() => setTab('access')}
-          >
-            {automatizaciones.tabs.access}
-          </Button>
+          />
         </div>
       ) : null}
 

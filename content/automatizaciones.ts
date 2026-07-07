@@ -2,20 +2,20 @@ export const automatizaciones = {
   page: {
     eyebrow: 'Operaciones',
     title: 'Automatizaciones',
-    description:
-      'Lanza procesos manuales en n8n en puntos clave. Cada tarjeta dispara un flujo configurado por tu asesoría.',
+    createButton: 'Nueva automatización',
+    configIsLink: 'Configuración Impuesto sobre Sociedades',
+    notConfiguredTitle: 'n8n no configurado',
+    notConfiguredDescription:
+      'Falta N8N_WEBHOOK_BASE_URL en el entorno del portal. Las automatizaciones no se pueden lanzar.',
     activityButton: 'Actividad reciente',
     emptyTitle: 'Sin automatizaciones disponibles',
     emptyDescription:
       'No hay procesos activos para tu perfil. Si necesitas alguno, contacta con administración.',
     emptyAdminDescription:
       'Aún no hay automatizaciones en el catálogo. Crea la primera para enlazarla con un workflow de n8n.',
-    createButton: 'Nueva automatización',
-    notConfiguredTitle: 'n8n no configurado',
-    notConfiguredDescription:
-      'Falta N8N_WEBHOOK_BASE_URL en el entorno del portal. Las automatizaciones no se pueden lanzar.',
   },
   tabs: {
+    label: 'Vista',
     run: 'Lanzar',
     access: 'Acceso asesores',
   },
@@ -176,6 +176,78 @@ export const automatizaciones = {
       submitting: 'Creando…',
       submitEdit: 'Guardar cambios',
       submittingEdit: 'Guardando…',
+    },
+  },
+  impuestoSociedadesConfig: {
+    eyebrow: 'Operaciones',
+    title: 'Configuración Impuesto sobre Sociedades',
+    backLink: 'Volver a automatizaciones',
+    addButton: 'Añadir configuración',
+    notConfiguredTitle: 'Supabase no configurado',
+    notConfiguredDescription:
+      'Falta SUPABASE_SERVICE_ROLE_KEY en el entorno del portal.',
+    emptyTitle: 'Sin configuraciones',
+    emptyDescription:
+      'Añade el primer ejercicio y tipo de empresa para alimentar los flujos de n8n.',
+    filterAllYears: 'Todos los ejercicios',
+    filterYear: 'Ejercicio {year}',
+    filterGroupLabel: 'Filtrar por ejercicio',
+    columns: {
+      anio: 'Ejercicio',
+      tipoEmpresa: 'Tipo de empresa',
+      gravamen: 'Gravamen',
+      actions: 'Acciones',
+    },
+    tipoEmpresa: {
+      general: 'Régimen general',
+      micropymes: 'Régimen de micropymes',
+      reducida_dimension: 'Reducida dimensión',
+      nueva_creacion: 'Nueva creación',
+      emergentes: 'Entidades emergentes',
+      patrimonial: 'Entidades patrimoniales',
+    },
+    drawer: {
+      titleCreate: 'Nueva configuración',
+      titleEdit: 'Editar configuración',
+      description:
+        'Define el tipo impositivo para un ejercicio y régimen. Solo puede haber un registro por combinación.',
+      fields: {
+        anio: 'Ejercicio fiscal',
+        tipoEmpresa: 'Tipo de empresa',
+        esEscala: 'Usa escala de gravamen',
+        tipoGravamenFijo: 'Tipo de gravamen fijo (%)',
+        baseGravamen: 'Base de gravamen (€)',
+        tipoGravamenBase: 'Tipo sobre la base (%)',
+        tipoGravamenRestante: 'Tipo sobre el resto (%)',
+      },
+      hints: {
+        esEscala:
+          'Actívalo para regímenes con tramos (p. ej. micropymes). Si no, indica un tipo fijo.',
+        tipoGravamenFijo: 'Porcentaje único aplicable a toda la base.',
+        baseGravamen: 'Importe hasta el que aplica el primer tipo.',
+      },
+      actions: {
+        cancel: 'Cancelar',
+        submitCreate: 'Crear configuración',
+        submitEdit: 'Guardar cambios',
+        submittingCreate: 'Creando…',
+        submittingEdit: 'Guardando…',
+      },
+    },
+    confirmDeleteTitle: 'Eliminar configuración',
+    confirmDelete:
+      'Se eliminará esta configuración del ejercicio. Los flujos de n8n dejarán de encontrarla. ¿Continuar?',
+    confirmDeleteConfirm: 'Eliminar',
+    edit: 'Editar',
+    delete: 'Eliminar',
+    toast: {
+      created: 'Configuración creada',
+      createFailed: 'No se pudo crear la configuración',
+      updated: 'Configuración actualizada',
+      updateFailed: 'No se pudo actualizar la configuración',
+      deleted: 'Configuración eliminada',
+      deleteFailed: 'No se pudo eliminar la configuración',
+      loadFailed: 'No se pudo cargar la configuración',
     },
   },
 } as const
