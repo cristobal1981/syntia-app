@@ -1,4 +1,10 @@
-import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
+import {
+  buildDisplayName,
+  PROFILE_SELECT,
+  USER_SELECT,
+  type ProfileRow,
+  type UserRow,
+} from '@/src/modules/directory/domain/map-directory-row'
 import type {
   AdvisorVisibility,
   AutomationInputField,
@@ -11,6 +17,7 @@ import {
   advisorCanSeeAutomation,
   parseAutomationInputFields,
 } from '@/src/modules/automatizaciones/domain/types'
+import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
 type AutomationRow = {
   id: string
@@ -276,18 +283,37 @@ export async function listPortalAutomationRuns(input: {
   const automationById = new Map(automations.map((item) => [item.id, item]))
 
   const userIds = [...new Set(rows.map((row) => row.triggered_by))]
-  const { data: users, error: usersError } = await supabase
-    .from('users')
-    .select('id, name')
-    .in('id', userIds)
+
+  const [{ data: users, error: usersError }, { data: profiles, error: profilesError }] =
+    await Promise.all([
+      supabase.from('users').select(USER_SELECT).in('id', userIds),
+      supabase.from('profiles').select(PROFILE_SELECT).in('user_id', userIds),
+    ])
 
   if (usersError) {
     throw new Error(usersError.message)
   }
+  if (profilesError) {
+    throw new Error(profilesError.message)
+  }
 
-  const userNameById = new Map(
-    (users ?? []).map((user) => [user.id as string, user.name as string | null])
+  const userById = new Map((users ?? []).map((row) => [row.id, row as UserRow]))
+  const profileByUserId = new Map(
+    (profiles ?? []).map((row) => [row.user_id, row as ProfileRow])
   )
+
+  function resolveTriggeredByName(userId: string): string | null {
+    const profile = profileByUserId.get(userId)
+    if (profile) {
+      return buildDisplayName(
+        profile.first_name,
+        profile.first_surname,
+        profile.second_surname
+      )
+    }
+    const user = userById.get(userId)
+    return user?.email?.trim() || null
+  }
 
   return rows.map((row) => {
     const automation = automationById.get(row.automation_id)
@@ -297,7 +323,7 @@ export async function listPortalAutomationRuns(input: {
       automationSlug: automation?.slug ?? row.automation_id,
       automationTitle: automation?.title ?? 'Automatización',
       triggeredBy: row.triggered_by,
-      triggeredByName: userNameById.get(row.triggered_by) ?? null,
+      triggeredByName: resolveTriggeredByName(row.triggered_by),
       status: row.status,
       httpStatus: row.http_status,
       errorMessage: row.error_message,

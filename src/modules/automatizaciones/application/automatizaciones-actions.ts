@@ -33,6 +33,10 @@ import {
 } from '@/src/modules/automatizaciones/infrastructure/automation-repository.supabase'
 import { triggerAutomationWebhook } from '@/src/modules/portal/infrastructure/n8n-webhook-client'
 import { isAutomationIconId } from '@/src/modules/automatizaciones/domain/automation-icons'
+import {
+  formatAutomationActionError,
+  formatAutomationWebhookError,
+} from '@/src/modules/automatizaciones/domain/format-automation-errors'
 
 export type CreateAutomationInput = {
   slug: string
@@ -117,6 +121,7 @@ export type AutomatizacionesResult<T> =
         | 'not_found'
         | 'not_configured'
         | 'invalid_input'
+        | 'webhook_failed'
         | 'unknown'
       message?: string
     }
@@ -243,19 +248,23 @@ export async function triggerAutomationAction(
     )
 
     const status = result.ok ? 'sent' : 'failed'
+    const friendlyError = result.ok
+      ? undefined
+      : formatAutomationWebhookError(result)
+
     await insertPortalAutomationRun({
       automationId: automation.id,
       triggeredBy: actorId,
       status,
       httpStatus: result.ok ? result.httpStatus : result.httpStatus,
-      errorMessage: result.ok ? undefined : result.errorMessage,
+      errorMessage: friendlyError,
     })
 
     if (!result.ok) {
       return {
         ok: false,
-        error: 'unknown',
-        message: result.errorMessage,
+        error: 'webhook_failed',
+        message: friendlyError,
       }
     }
 
@@ -270,7 +279,10 @@ export async function triggerAutomationAction(
     return {
       ok: false,
       error: 'unknown',
-      message: error instanceof Error ? error.message : undefined,
+      message: formatAutomationActionError(
+        'unknown',
+        error instanceof Error ? error.message : undefined
+      ),
     }
   }
 }
@@ -295,7 +307,10 @@ export async function listAutomationRunsAction(): Promise<
     return {
       ok: false,
       error: 'unknown',
-      message: error instanceof Error ? error.message : undefined,
+      message: formatAutomationActionError(
+        'unknown',
+        error instanceof Error ? error.message : undefined
+      ),
     }
   }
 }

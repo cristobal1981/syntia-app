@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   KeyboardSensor,
@@ -22,6 +23,17 @@ import { cn } from '@/lib/utils'
 import type { PortalAutomationListItem } from '@/src/modules/automatizaciones/domain/types'
 import { AutomationCard } from '@/src/modules/automatizaciones/ui/automation-card'
 
+const DND_CONTEXT_ID = 'automatizaciones-sortable-grid'
+
+type AutomationGridCardProps = {
+  automation: PortalAutomationListItem
+  configured: boolean
+  onTriggered: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>
+}
+
 type SortableAutomationCardProps = {
   automation: PortalAutomationListItem
   configured: boolean
@@ -29,6 +41,43 @@ type SortableAutomationCardProps = {
   onTriggered: () => void
   onEdit?: (automation: PortalAutomationListItem) => void
   onDelete?: (automation: PortalAutomationListItem) => void
+}
+
+function AutomationGridList({
+  automations,
+  configured,
+  onTriggered,
+  onEdit,
+  onDelete,
+  renderCard,
+}: {
+  automations: PortalAutomationListItem[]
+  configured: boolean
+  onTriggered: () => void
+  onEdit?: (automation: PortalAutomationListItem) => void
+  onDelete?: (automation: PortalAutomationListItem) => void
+  renderCard: (props: AutomationGridCardProps) => React.ReactNode
+}) {
+  return (
+    <ul
+      className={cn(
+        'grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3',
+        !configured && 'pointer-events-none opacity-60'
+      )}
+    >
+      {automations.map((automation) => (
+        <li key={automation.id} className="h-full">
+          {renderCard({
+            automation,
+            configured,
+            onTriggered,
+            onEdit: onEdit ? () => onEdit(automation) : undefined,
+            onDelete: onDelete ? () => onDelete(automation) : undefined,
+          })}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function SortableAutomationCard({
@@ -53,9 +102,7 @@ function SortableAutomationCard({
         configured={configured}
         onTriggered={onTriggered}
         dragHandleProps={
-          reorderEnabled
-            ? { ...attributes, ...listeners }
-            : undefined
+          reorderEnabled ? { ...attributes, ...listeners } : undefined
         }
         onEdit={onEdit ? () => onEdit(automation) : undefined}
         onDelete={onDelete ? () => onDelete(automation) : undefined}
@@ -83,6 +130,12 @@ export function AutomationSortableGrid({
   onEdit,
   onDelete,
 }: AutomationSortableGridProps) {
+  const [dndMounted, setDndMounted] = useState(false)
+
+  useEffect(() => {
+    setDndMounted(true)
+  }, [])
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -100,8 +153,22 @@ export function AutomationSortableGrid({
     onReorder(arrayMove(ids, oldIndex, newIndex))
   }
 
+  if (!reorderEnabled || !dndMounted) {
+    return (
+      <AutomationGridList
+        automations={automations}
+        configured={configured}
+        onTriggered={onTriggered}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        renderCard={(props) => <AutomationCard {...props} />}
+      />
+    )
+  }
+
   return (
     <DndContext
+      id={DND_CONTEXT_ID}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
@@ -123,8 +190,8 @@ export function AutomationSortableGrid({
               configured={configured}
               reorderEnabled={reorderEnabled}
               onTriggered={onTriggered}
-              onEdit={onEdit}
-              onDelete={onDelete}
+              onEdit={onEdit ? () => onEdit(automation) : undefined}
+              onDelete={onDelete ? () => onDelete(automation) : undefined}
             />
           ))}
         </ul>

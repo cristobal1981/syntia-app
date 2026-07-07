@@ -63,12 +63,12 @@ export function AutomationCard({
     startTransition(async () => {
       const result = await triggerAutomationAction(automation.id, inputValues)
       if (!result.ok) {
-        toast.error(
+        const message =
           result.message ??
-            (result.error === 'invalid_input'
-              ? automatizaciones.toast.invalidInputs
-              : automatizaciones.toast.launchFailed)
-        )
+          (result.error === 'invalid_input'
+            ? automatizaciones.toast.invalidInputs
+            : automatizaciones.toast.launchFailed)
+        toast.error(message)
         onTriggered()
         return
       }

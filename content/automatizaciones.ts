@@ -61,17 +61,35 @@ export const automatizaciones = {
     updateFailed: 'No se pudo actualizar la automatización',
     deleted: 'Automatización eliminada',
     deleteFailed: 'No se pudo eliminar la automatización',
+    runsLoadFailed: 'No se pudo cargar la actividad reciente',
+  },
+  errors: {
+    notConfigured:
+      'n8n no está configurado. Revisa N8N_WEBHOOK_BASE_URL en el entorno del portal.',
+    forbidden: 'No tienes permiso para esta acción.',
+    notFound: 'No encontramos la automatización.',
+    unknown: 'Algo ha fallado. Inténtalo de nuevo en unos minutos.',
+    runsLoadFailed: 'No pudimos cargar la actividad reciente.',
+    webhookNotFound:
+      'No encontramos ese webhook en n8n. Revisa que la ruta coincida con el workflow.',
+    webhookUnauthorized:
+      'n8n rechazó la petición. Revisa el secreto compartido con el portal.',
+    webhookRateLimited:
+      'n8n está recibiendo mucha demanda. Vuelve a intentarlo en unos minutos.',
+    webhookServerError:
+      'n8n respondió con un error. Inténtalo de nuevo o contacta con administración.',
+    webhookTimeout:
+      'n8n tardó demasiado en responder. Comprueba el workflow y vuelve a intentarlo.',
+    webhookInvalidPath: 'La ruta del webhook no es válida.',
+    webhookFailed: 'No se pudo lanzar la automatización.',
   },
   runsPanel: {
     title: 'Actividad reciente',
     description: 'Últimas ejecuciones que puedes ver con tu perfil.',
     empty: 'Aún no hay ejecuciones registradas.',
-    columns: {
-      automation: 'Automatización',
-      user: 'Usuario',
-      status: 'Estado',
-      when: 'Cuándo',
-    },
+    loading: 'Cargando actividad…',
+    loadError: 'No pudimos cargar la actividad. Cierra y vuelve a abrir el panel.',
+    unknownUser: 'Usuario desconocido',
   },
   access: {
     title: 'Acceso asesores',
