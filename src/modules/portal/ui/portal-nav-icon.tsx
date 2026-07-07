@@ -12,6 +12,7 @@ import {
   UserCircle,
   Users,
   UsersRound,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -31,6 +32,7 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   clients: UsersRound,
   tasks: ListChecks,
   integrations: Plug,
+  automations: Workflow,
 }
 
 type PortalNavIconProps = {

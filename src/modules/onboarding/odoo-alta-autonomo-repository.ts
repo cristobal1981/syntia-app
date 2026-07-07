@@ -35,10 +35,6 @@ async function loadOdooFieldMeta(): Promise<OdooFieldsGetResponse> {
       attributes: ['string', 'type', 'selection'],
     })
     cachedFieldMeta = fields ?? {}
-    const available = Object.keys(cachedFieldMeta)
-    console.info(
-      `[onboarding] fields_get ${ODOO_MODEL}: ${available.slice(0, 80).join(', ')}`
-    )
     return cachedFieldMeta
   } catch (error) {
     if (error instanceof Error && error.message === ODOO_ERROR.NOT_CONFIGURED) {

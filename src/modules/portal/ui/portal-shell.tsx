@@ -35,6 +35,7 @@ const menuEase = [0.22, 1, 0.36, 1] as const
 
 type PortalShellProps = {
   user: PortalUser
+  navItems?: NavItem[]
   children: React.ReactNode
 }
 
@@ -269,14 +270,14 @@ function PortalContentProgress({
   )
 }
 
-export function PortalShell({ user, children }: PortalShellProps) {
+export function PortalShell({ user, navItems: navItemsProp, children }: PortalShellProps) {
   const pathname = usePathname()
   const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [navPending, setNavPending] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
-  const navItems = getNavForRole(user.role)
+  const navItems = navItemsProp ?? getNavForRole(user.role)
   const roleLabel = portal.roles[user.role]
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
