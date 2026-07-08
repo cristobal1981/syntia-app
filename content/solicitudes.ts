@@ -16,6 +16,9 @@ export const solicitudes = {
     createButton: 'Generar enlace',
     creating: 'Generando…',
     generated: 'Enlace generado',
+    generatedStateTitle: 'Solicitud creada correctamente',
+    generatedStateDescription:
+      'El enlace ya está generado y listo para compartir con este cliente.',
     generateError: 'No se pudo generar el enlace. Inténtalo de nuevo.',
     copyLink: 'Copiar enlace',
     linkCopied: 'Enlace copiado',

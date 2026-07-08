@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { solicitudes } from '@/content/solicitudes'
-import { copyTextToClipboard } from '@/lib/copy-to-clipboard'
 import { cn } from '@/lib/utils'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 import {
@@ -33,6 +32,7 @@ import {
 } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import type { OnboardingTokenStatus } from '@/src/modules/onboarding/domain/onboarding-token-status'
 import { OnboardingTokenSecret } from '@/src/modules/onboarding/ui/onboarding-token-secret'
+import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 type SolicitudesPageViewProps = {
@@ -41,6 +41,7 @@ type SolicitudesPageViewProps = {
 }
 
 type ListFilter = 'pending' | 'all'
+const UNSELECTED_CLIENT_VALUE = '__unselected_client__'
 
 function formatDateTime(value: string): string {
   const date = new Date(value)
@@ -88,6 +89,10 @@ function AltaAutonomoCreateDialog({
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name, 'es')),
     [clients]
   )
+  const selectedClientName = useMemo(
+    () => sortedClients.find((client) => client.id === clientId)?.name ?? '—',
+    [clientId, sortedClients]
+  )
 
   useEffect(() => {
     if (!open) {
@@ -114,8 +119,35 @@ function AltaAutonomoCreateDialog({
   }
 
   async function handleCopyLink() {
-    if (!linkUrl) return
-    const copied = await copyTextToClipboard(linkUrl)
+    const value = linkUrl.trim()
+    if (!value) return
+
+    // Try sync fallback first to keep browser user-gesture context.
+    const textarea = document.createElement('textarea')
+    textarea.value = value
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    textarea.setSelectionRange(0, textarea.value.length)
+    let copied = false
+    try {
+      copied = document.execCommand('copy')
+    } finally {
+      document.body.removeChild(textarea)
+    }
+
+    if (!copied && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value)
+        copied = true
+      } catch {
+        copied = false
+      }
+    }
+
     if (copied) {
       toast.success(copy.linkCopied)
       return
@@ -135,58 +167,81 @@ function AltaAutonomoCreateDialog({
           <p className="text-sm text-muted-foreground">{copy.noClients}</p>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="solicitud-client" className="text-sm font-medium">
-                {copy.clientLabel}
-              </label>
-              <Select
-                value={clientId || undefined}
-                onValueChange={(next) => {
-                  setClientId(next)
-                  setLinkUrl('')
-                }}
-              >
-                <SelectTrigger
-                  id="solicitud-client"
-                  aria-label={copy.clientLabel}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <SelectValue placeholder={copy.clientPlaceholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedClients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name} ({client.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {linkUrl ? (
-              <>
-                <input type="hidden" readOnly value={linkUrl} aria-hidden />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full gap-2"
-                  onClick={handleCopyLink}
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <p className="text-sm font-medium text-foreground">
+                  {copy.generatedStateTitle}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {copy.generatedStateDescription}
+                </p>
+                <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {copy.clientLabel}
+                </p>
+                <p className="mt-1 text-sm text-foreground">{selectedClientName}</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="solicitud-client" className="text-sm font-medium">
+                  {copy.clientLabel}
+                </label>
+                <Select
+                  value={clientId || UNSELECTED_CLIENT_VALUE}
+                  onValueChange={(next) => {
+                    if (next === UNSELECTED_CLIENT_VALUE) return
+                    setClientId(next)
+                    setLinkUrl('')
+                  }}
                 >
-                  <Copy className="size-4" aria-hidden />
-                  {copy.copyLink}
-                </Button>
-              </>
-            ) : null}
+                  <SelectTrigger
+                    id="solicitud-client"
+                    aria-label={copy.clientLabel}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <SelectValue placeholder={copy.clientPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNSELECTED_CLIENT_VALUE} disabled>
+                      {copy.clientPlaceholder}
+                    </SelectItem>
+                    {sortedClients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {linkUrl ? <input type="hidden" readOnly value={linkUrl} aria-hidden /> : null}
           </div>
         )}
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-row items-center justify-end">
+          {linkUrl ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="order-1 flex-1 gap-2"
+              onClick={handleCopyLink}
+            >
+              <Copy className="size-4" aria-hidden />
+              {copy.copyLink}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="order-2 w-auto flex-none"
+            onClick={() => onOpenChange(false)}
+          >
             Cerrar
           </Button>
           {sortedClients.length > 0 && !linkUrl ? (
             <Button
               type="button"
+              className="order-1"
               onClick={handleGenerateLink}
               disabled={pending || !clientId}
               aria-busy={pending}
@@ -211,6 +266,7 @@ function OnboardingSolicitudRowActions({
   const [pendingAction, setPendingAction] = useState<'revoke' | 'delete' | null>(
     null
   )
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   async function refreshRows() {
     const result = await listOnboardingSolicitudesAction()
@@ -232,7 +288,6 @@ function OnboardingSolicitudRowActions({
   }
 
   async function handleDelete() {
-    if (!window.confirm(copy.deleteConfirm)) return
     setPendingAction('delete')
     const result = await deleteOnboardingSolicitudAction(row.token)
     setPendingAction(null)
@@ -272,13 +327,24 @@ function OnboardingSolicitudRowActions({
         type="button"
         variant="ghost"
         size="sm"
-        onClick={handleDelete}
+        onClick={() => setDeleteConfirmOpen(true)}
         disabled={pendingAction !== null}
         className="h-8 gap-1 px-2 text-destructive hover:text-destructive"
       >
         <Trash2 className="size-3.5" aria-hidden />
         {pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
       </Button>
+      <PortalConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={copy.actions.delete}
+        description={copy.deleteConfirm}
+        confirmLabel={copy.actions.delete}
+        confirmVariant="destructive"
+        onConfirm={() => {
+          void handleDelete()
+        }}
+      />
     </div>
   )
 }
