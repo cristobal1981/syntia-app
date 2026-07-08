@@ -2,6 +2,7 @@ import { onboarding } from '@/content/onboarding'
 
 export function resolveLandingBaseUrl(): string | null {
   const value =
+    process.env.NEXT_PUBLIC_ONBOARDING_LANDING_URL?.trim() ??
     process.env.NEXT_PUBLIC_LANDING_URL?.trim() ??
     process.env.SITE_URL?.trim() ??
     ''

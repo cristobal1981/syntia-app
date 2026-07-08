@@ -11,6 +11,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { automatizaciones } from '@/content/automatizaciones'
 import { cn } from '@/lib/utils'
 import {
@@ -190,26 +197,31 @@ export function ImpuestoSociedadesConfigDrawer({
             <label htmlFor="is-config-tipo" className="text-sm font-medium">
               {copy.fields.tipoEmpresa}
             </label>
-            <select
-              id="is-config-tipo"
+            <Select
               value={form.tipoEmpresaKey}
-              onChange={(event) =>
-                updateForm({
-                  tipoEmpresaKey: event.target.value as TipoEmpresaKey,
-                })
+              onValueChange={(next) =>
+                updateForm({ tipoEmpresaKey: next as TipoEmpresaKey })
               }
-              disabled={isEdit}
-              className={cn(
-                SELECT_FIELD_CLASS,
-                isEdit && 'cursor-not-allowed opacity-60'
-              )}
             >
-              {TIPO_EMPRESA_KEYS.map((key) => (
-                <option key={key} value={key}>
-                  {tipoLabels[key]}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                id="is-config-tipo"
+                disabled={isEdit}
+                aria-label={copy.fields.tipoEmpresa}
+                className={cn(
+                  SELECT_FIELD_CLASS,
+                  isEdit && 'cursor-not-allowed opacity-60'
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIPO_EMPRESA_KEYS.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {tipoLabels[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border px-4 py-3 dark:border-border/50">

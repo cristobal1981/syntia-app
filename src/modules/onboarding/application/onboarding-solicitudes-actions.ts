@@ -194,7 +194,8 @@ export async function createAltaAutonomoAccessLinkAction(
       return {
         ok: false,
         error: 'unknown',
-        message: 'NEXT_PUBLIC_LANDING_URL no está configurada.',
+        message:
+          'NEXT_PUBLIC_ONBOARDING_LANDING_URL (o NEXT_PUBLIC_LANDING_URL) no está configurada.',
       }
     }
 

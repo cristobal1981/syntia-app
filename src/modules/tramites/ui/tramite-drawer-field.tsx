@@ -1,6 +1,13 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 export function TramiteFieldError({
@@ -105,23 +112,29 @@ export function TramiteDrawerSelect({
       <label htmlFor={id} className="text-sm font-medium text-foreground">
         {label}
       </label>
-      <select
-        id={id}
-        name={name}
+      <Select
         value={value}
+        onValueChange={(next) => onChange(next)}
         disabled={disabled}
-        aria-invalid={Boolean(error)}
-        aria-describedby={errorId}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border/80"
       >
-        <option value="">{placeholder}</option>
-        {Object.entries(options).map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          id={id}
+          aria-label={label}
+          aria-invalid={Boolean(error)}
+          aria-describedby={errorId}
+          className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border/80"
+        >
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">{placeholder}</SelectItem>
+          {Object.entries(options).map(([optionValue, optionLabel]) => (
+            <SelectItem key={optionValue} value={optionValue}>
+              {optionLabel}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <TramiteFieldError message={error} id={errorId} />
     </div>
   )

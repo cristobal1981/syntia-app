@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, GripVertical, Pencil, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, GripVertical, Pencil, Rocket, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -97,7 +97,7 @@ export function AutomationCard({
       size="sm"
       compact
       className="shrink-0"
-      icon={Icon}
+      icon={Rocket}
       iconBehavior="spinWhenPending"
     />
   )
@@ -166,20 +166,6 @@ export function AutomationCard({
             </p>
           ) : null}
 
-          {automation.adminOnly || !automation.isActive ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {automation.adminOnly ? (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {copy.adminOnly}
-                </span>
-              ) : null}
-              {!automation.isActive ? (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {copy.inactive}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -210,20 +196,27 @@ export function AutomationCard({
           )}
         </p>
 
-        {hasInputFields ? (
-          <AutomationLaunchPopover
-            automationTitle={automation.title}
-            fields={automation.inputFields}
-            open={paramsOpen}
-            onOpenChange={setParamsOpen}
-            pending={pending}
-            onLaunch={(values) => launch(values)}
-          >
-            {launchButton}
-          </AutomationLaunchPopover>
-        ) : (
-          launchButton
-        )}
+        <div className="flex items-center gap-2">
+          {!automation.isActive ? (
+            <span className="rounded-full border border-border/70 bg-muted/80 px-2 py-0.5 text-[11px] font-semibold text-foreground/80 dark:border-border dark:bg-muted/55 dark:text-foreground/85">
+              {copy.inactive}
+            </span>
+          ) : null}
+          {hasInputFields ? (
+            <AutomationLaunchPopover
+              automationTitle={automation.title}
+              fields={automation.inputFields}
+              open={paramsOpen}
+              onOpenChange={setParamsOpen}
+              pending={pending}
+              onLaunch={(values) => launch(values)}
+            >
+              {launchButton}
+            </AutomationLaunchPopover>
+          ) : (
+            launchButton
+          )}
+        </div>
       </div>
     </div>
   )

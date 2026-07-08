@@ -5,6 +5,13 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { equipo } from '@/content/equipo'
 import {
   createClientAction,
@@ -146,6 +153,19 @@ export function ClientForm({
         driveFolderId: client?.driveFolderId ?? '',
         advisorId: client?.advisorId ?? '',
       }
+
+  const [advisorIdValue, setAdvisorIdValue] = useState(defaults.advisorId)
+  const [statusValue, setStatusValue] = useState<
+    'active' | 'invited'
+  >(client?.status ?? 'invited')
+
+  useEffect(() => {
+    setAdvisorIdValue(defaults.advisorId)
+  }, [defaults.advisorId])
+
+  useEffect(() => {
+    setStatusValue((client?.status ?? 'invited') as 'active' | 'invited')
+  }, [client?.status])
 
   const corporateEmailHint =
     isCompany &&
@@ -459,19 +479,23 @@ export function ClientForm({
           >
             {copy.fields.advisor}
           </label>
-          <select
-            id="client-advisor"
-            name="advisorId"
-            defaultValue={defaults.advisorId}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          <input type="hidden" name="advisorId" value={advisorIdValue} />
+          <Select
+            value={advisorIdValue}
+            onValueChange={(next) => setAdvisorIdValue(next)}
           >
-            <option value="">{copy.fields.unassigned}</option>
-            {advisorOptions.map((advisor) => (
-              <option key={advisor.id} value={advisor.id}>
-                {advisor.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label={copy.fields.advisor} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+              <SelectValue placeholder={copy.fields.unassigned} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">{copy.fields.unassigned}</SelectItem>
+              {advisorOptions.map((advisor) => (
+                <SelectItem key={advisor.id} value={advisor.id}>
+                  {advisor.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
 
@@ -480,15 +504,21 @@ export function ClientForm({
           <label htmlFor="client-status" className="text-sm font-medium text-foreground">
             {copy.fields.status}
           </label>
-          <select
-            id="client-status"
-            name="status"
-            defaultValue={client?.status ?? 'invited'}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          <input type="hidden" name="status" value={statusValue} />
+          <Select
+            value={statusValue}
+            onValueChange={(next) =>
+              setStatusValue(next as 'active' | 'invited')
+            }
           >
-            <option value="active">{equipo.status.active}</option>
-            <option value="invited">{equipo.status.invited}</option>
-          </select>
+            <SelectTrigger aria-label={copy.fields.status} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{equipo.status.active}</SelectItem>
+              <SelectItem value="invited">{equipo.status.invited}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
 

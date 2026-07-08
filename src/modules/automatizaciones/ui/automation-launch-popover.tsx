@@ -5,6 +5,13 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Popover,
   PopoverAnchor,
   PopoverContent,
@@ -123,27 +130,38 @@ export function AutomationLaunchPopover({
                   className={INPUT_CLASS}
                 />
               ) : (
-                <select
-                  id={`launch-${field.key}`}
+                <Select
                   value={values[field.key] ?? ''}
-                  onChange={(event) => {
+                  onValueChange={(next) => {
                     setError(null)
                     setValues((current) => ({
                       ...current,
-                      [field.key]: event.target.value,
+                      [field.key]: next,
                     }))
                   }}
-                  className={SELECT_CLASS}
                 >
-                  <option value="" disabled={field.required}>
-                    {copy.launchParamsRequired}
-                  </option>
-                  {field.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id={`launch-${field.key}`}
+                    className={SELECT_CLASS}
+                    aria-label={field.label}
+                  >
+                    <SelectValue
+                      placeholder={
+                        field.required ? copy.launchParamsRequired : undefined
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!field.required ? (
+                      <SelectItem value="">{copy.launchParamsRequired}</SelectItem>
+                    ) : null}
+                    {field.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
           ))}

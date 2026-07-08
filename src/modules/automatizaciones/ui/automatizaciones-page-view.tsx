@@ -194,6 +194,7 @@ export function AutomatizacionesPageView({
           advisorOptions={advisorOptions}
           onEdit={setEditingAutomation}
           onDelete={requestDelete}
+          onUpdated={refreshAutomations}
         />
       ) : automations.length === 0 ? (
         <div className="portal-home-card rounded-xl px-6 py-10 text-center">

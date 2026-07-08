@@ -34,8 +34,7 @@ export type PortalAutomation = {
   icon: string
   sortOrder: number
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   grantedAdvisorIds: string[]
   inputFields: AutomationInputField[]
 }
@@ -62,20 +61,20 @@ export type PortalAutomationListItem = PortalAutomation & {
 
 type AutomationVisibilityInput = Pick<
   PortalAutomation,
-  'isActive' | 'adminOnly' | 'advisorVisibility' | 'grantedAdvisorIds'
+  'isActive' | 'visibility' | 'grantedAdvisorIds'
 >
 
 export function advisorCanSeeAutomation(
   automation: AutomationVisibilityInput,
   advisorId: string
 ): boolean {
-  if (!automation.isActive || automation.adminOnly) {
+  if (!automation.isActive) {
     return false
   }
-  if (automation.advisorVisibility === 'all') {
+  if (automation.visibility === 'all') {
     return true
   }
-  if (automation.advisorVisibility === 'selected') {
+  if (automation.visibility === 'selected') {
     return automation.grantedAdvisorIds.includes(advisorId)
   }
   return false

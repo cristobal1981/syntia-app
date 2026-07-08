@@ -3,32 +3,25 @@ export const solicitudes = {
     eyebrow: 'Administración',
     title: 'Solicitudes',
     description:
-      'Gestiona los enlaces de acceso al formulario de alta de autónomo para tus clientes.',
+      'Enlaces de acceso al formulario de alta de autónomo para tus clientes.',
   },
   altaAutonomo: {
-    sectionTitle: 'Nueva solicitud de alta de autónomo',
-    sectionDescription:
+    newButton: 'Nueva solicitud',
+    modalTitle: 'Nueva solicitud de alta de autónomo',
+    modalDescription:
       'Elige un cliente y genera un enlace privado para que complete el formulario en la web.',
     clientLabel: 'Cliente',
     clientPlaceholder: 'Selecciona un cliente',
     noClients: 'No hay clientes disponibles. Crea uno en Usuarios → Clientes.',
-    urlLabel: 'Enlace del formulario',
-    urlPlaceholder: 'Genera un enlace para mostrarlo aquí',
     createButton: 'Generar enlace',
     creating: 'Generando…',
-    sendLinkButton: 'Enviar enlace',
-    tokenLabel: 'Código de solicitud',
-    tokenHint:
-      'Identificador único del enlace. Úsalo para distinguir varias solicitudes del mismo cliente.',
     generated: 'Enlace generado',
     generateError: 'No se pudo generar el enlace. Inténtalo de nuevo.',
-    sendLinkHint:
-      'El envío del enlace por email llegará en una siguiente versión. Por ahora comparte el enlace o el código manualmente.',
+    copyLink: 'Copiar enlace',
+    linkCopied: 'Enlace copiado',
+    copyLinkError: 'No se pudo copiar el enlace. Cópialo manualmente.',
   },
   list: {
-    sectionTitle: 'Solicitudes de alta de autónomo',
-    sectionDescription:
-      'Enlaces generados para el formulario. Las pendientes están activas y listas para compartir.',
     filterPending: 'Pendientes',
     filterAll: 'Todas',
     emptyPendingTitle: 'Sin solicitudes pendientes',

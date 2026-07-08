@@ -12,6 +12,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { automatizaciones } from '@/content/automatizaciones'
 import { cn } from '@/lib/utils'
 import type {
@@ -44,8 +51,7 @@ type FormState = {
   webhookPath: string
   icon: string
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   inputFields: DraftInputField[]
 }
 
@@ -56,8 +62,7 @@ const EMPTY_FORM: FormState = {
   webhookPath: '/webhook/',
   icon: 'workflow',
   isActive: true,
-  adminOnly: false,
-  advisorVisibility: 'none',
+  visibility: 'none',
   inputFields: [],
 }
 
@@ -69,8 +74,7 @@ function formFromAutomation(automation: PortalAutomationListItem): FormState {
     webhookPath: automation.webhookPath,
     icon: automation.icon,
     isActive: automation.isActive,
-    adminOnly: automation.adminOnly,
-    advisorVisibility: automation.advisorVisibility,
+    visibility: automation.visibility,
     inputFields: inputFieldsToDrafts(automation.inputFields),
   }
 }
@@ -150,8 +154,7 @@ export function AutomationCreateDrawer({
         webhookPath: form.webhookPath,
         icon: form.icon,
         isActive: form.isActive,
-        adminOnly: form.adminOnly,
-        advisorVisibility: form.advisorVisibility,
+        visibility: form.visibility,
         inputFields: draftFieldsToInputFields(form.inputFields),
       }
 
@@ -269,46 +272,58 @@ export function AutomationCreateDrawer({
             </DrawerField>
 
             <DrawerField id="automation-icon" label={copy.fields.icon}>
-              <select
-                id="automation-icon"
-                name="icon"
+              <Select
                 value={form.icon}
-                onChange={(event) => patchForm({ icon: event.target.value })}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                onValueChange={(next) => patchForm({ icon: next })}
               >
-                {AUTOMATION_ICON_IDS.map((iconId) => (
-                    <option key={iconId} value={iconId}>
+                <SelectTrigger
+                  id="automation-icon"
+                  aria-label={copy.fields.icon}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AUTOMATION_ICON_IDS.map((iconId) => (
+                    <SelectItem key={iconId} value={iconId}>
                       {copy.icons[iconId]}
-                    </option>
+                    </SelectItem>
                   ))}
-              </select>
+                </SelectContent>
+              </Select>
             </DrawerField>
 
             <DrawerField
               id="automation-visibility"
               label={copy.fields.advisorVisibility}
             >
-              <select
-                id="automation-visibility"
-                name="advisorVisibility"
-                value={form.advisorVisibility}
-                onChange={(event) =>
+              <Select
+                value={form.visibility}
+                onValueChange={(next) =>
                   patchForm({
-                    advisorVisibility: event.target.value as AdvisorVisibility,
+                    visibility: next as AdvisorVisibility,
                   })
                 }
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                {(
-                  Object.entries(automatizaciones.access.visibility) as Array<
-                    [AdvisorVisibility, string]
-                  >
-                ).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="automation-visibility"
+                  aria-label={copy.fields.advisorVisibility}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    Object.entries(automatizaciones.access.visibility) as Array<
+                      [AdvisorVisibility, string]
+                    >
+                  ).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </DrawerField>
 
             <div className="flex flex-col gap-3 rounded-lg border border-input bg-background px-4 py-3">
@@ -322,17 +337,6 @@ export function AutomationCreateDrawer({
                   className="size-4 cursor-pointer"
                 />
                 <span className="text-sm text-foreground">{copy.fields.isActive}</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={form.adminOnly}
-                  onChange={(event) =>
-                    patchForm({ adminOnly: event.target.checked })
-                  }
-                  className="size-4 cursor-pointer"
-                />
-                <span className="text-sm text-foreground">{copy.fields.adminOnly}</span>
               </label>
             </div>
 

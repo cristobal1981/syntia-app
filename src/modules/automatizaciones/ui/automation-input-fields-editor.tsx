@@ -4,6 +4,13 @@ import { Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { automatizaciones } from '@/content/automatizaciones'
 import type {
   AutomationInputField,
@@ -31,6 +38,8 @@ const RECESSED_FIELD_CLASS =
 
 const SELECT_CLASS =
   'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm'
+
+const NONE_DEFAULT_VALUE = '__none__'
 
 let localIdCounter = 0
 function nextLocalId(): string {
@@ -161,19 +170,26 @@ export function AutomationInputFieldsEditor({
               >
                 {copy.type}
               </label>
-              <select
-                id={`field-type-${field.localId}`}
+              <Select
                 value={field.type}
-                onChange={(event) =>
+                onValueChange={(next) =>
                   patchField(field.localId, {
-                    type: event.target.value as AutomationInputFieldType,
+                    type: next as AutomationInputFieldType,
                   })
                 }
-                className={SELECT_CLASS}
               >
-                <option value="select">{copy.typeSelect}</option>
-                <option value="text">{copy.typeText}</option>
-              </select>
+                <SelectTrigger
+                  id={`field-type-${field.localId}`}
+                  className={SELECT_CLASS}
+                  aria-label={copy.type}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="select">{copy.typeSelect}</SelectItem>
+                  <SelectItem value="text">{copy.typeText}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <label
@@ -302,23 +318,41 @@ export function AutomationInputFieldsEditor({
                   className={RECESSED_FIELD_CLASS}
                 />
               ) : (
-                <select
-                  id={`field-default-${field.localId}`}
-                  value={field.defaultValue}
-                  onChange={(event) =>
-                    patchField(field.localId, { defaultValue: event.target.value })
+                <Select
+                  value={
+                    field.defaultValue === ''
+                      ? NONE_DEFAULT_VALUE
+                      : field.defaultValue
                   }
-                  className={SELECT_CLASS}
+                  onValueChange={(next) =>
+                    patchField(field.localId, {
+                      defaultValue: next === NONE_DEFAULT_VALUE ? '' : next,
+                    })
+                  }
                 >
-                  <option value="">{copy.noDefault}</option>
-                  {field.options
-                    .filter((option) => option.value.trim())
-                    .map((option) => (
-                      <option key={option.localId} value={option.value.trim()}>
-                        {option.label.trim() || option.value.trim()}
-                      </option>
-                    ))}
-                </select>
+                  <SelectTrigger
+                    id={`field-default-${field.localId}`}
+                    className={SELECT_CLASS}
+                    aria-label={copy.defaultValue}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_DEFAULT_VALUE}>
+                      {copy.noDefault}
+                    </SelectItem>
+                    {field.options
+                      .filter((option) => option.value.trim())
+                      .map((option) => (
+                        <SelectItem
+                          key={option.localId}
+                          value={option.value.trim()}
+                        >
+                          {option.label.trim() || option.value.trim()}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
             <label className="flex cursor-pointer items-center gap-2 sm:mt-6">

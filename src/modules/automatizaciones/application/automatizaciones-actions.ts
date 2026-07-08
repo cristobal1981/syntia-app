@@ -45,8 +45,7 @@ export type CreateAutomationInput = {
   webhookPath: string
   icon: string
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   inputFields: AutomationInputField[]
 }
 
@@ -104,8 +103,7 @@ function validateCreateAutomationInput(
       webhookPath,
       icon: input.icon,
       isActive: input.isActive,
-      adminOnly: input.adminOnly,
-      advisorVisibility: input.advisorVisibility,
+      visibility: input.visibility,
       inputFields: fieldsResult.fields,
     },
   }
@@ -318,8 +316,7 @@ export async function listAutomationRunsAction(): Promise<
 export async function updateAutomationAccessAction(input: {
   automationId: string
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   grantedAdvisorIds: string[]
 }): Promise<AutomatizacionesResult<{ saved: true }>> {
   try {
@@ -336,10 +333,9 @@ export async function updateAutomationAccessAction(input: {
     await updatePortalAutomationAccess({
       automationId: input.automationId,
       isActive: input.isActive,
-      adminOnly: input.adminOnly,
-      advisorVisibility: input.advisorVisibility,
+      visibility: input.visibility,
       grantedAdvisorIds:
-        input.advisorVisibility === 'selected' ? input.grantedAdvisorIds : [],
+        input.visibility === 'selected' ? input.grantedAdvisorIds : [],
     })
 
     return { ok: true, data: { saved: true } }
@@ -413,8 +409,7 @@ export async function updateAutomationAction(
         webhookPath: data.webhookPath,
         icon: data.icon,
         isActive: data.isActive,
-        adminOnly: data.adminOnly,
-        advisorVisibility: data.advisorVisibility,
+        visibility: data.visibility,
         inputFields: data.inputFields,
       })
     } catch (error) {
@@ -572,8 +567,7 @@ export async function createAutomationAction(
         icon: data.icon,
         sortOrder,
         isActive: data.isActive,
-        adminOnly: data.adminOnly,
-        advisorVisibility: data.advisorVisibility,
+        visibility: data.visibility,
         inputFields: data.inputFields,
       })
     } catch (error) {

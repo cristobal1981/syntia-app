@@ -1,6 +1,7 @@
 import { profile } from '@/content/profile'
 import { cn } from '@/lib/utils'
 import type { AdvisorPresenceStatus } from '@/src/modules/profile/domain/advisor-presence'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 
 const PRESENCE_RING = 'shadow-[0_0_0_2px_var(--card)]'
 
@@ -29,35 +30,37 @@ export function AdvisorPresenceDot({
 
   if (status === 'busy') {
     return (
+      <PortalActionTooltip content={label}>
+        <span
+          className={cn(
+            'relative flex shrink-0 items-center justify-center rounded-full bg-[#e25349] dark:bg-[#e86a62]',
+            ringClass,
+            className
+          )}
+          role="img"
+          aria-label={label}
+        >
+          <span
+            className="block h-[2px] w-[62%] rounded-full bg-[#041d23]"
+            aria-hidden
+          />
+        </span>
+      </PortalActionTooltip>
+    )
+  }
+
+  return (
+    <PortalActionTooltip content={label}>
       <span
         className={cn(
-          'relative flex shrink-0 items-center justify-center rounded-full bg-[#e25349] dark:bg-[#e86a62]',
+          'block size-2.5 shrink-0 rounded-full',
+          PRESENCE_DOT_CLASS[status],
           ringClass,
           className
         )}
         role="img"
         aria-label={label}
-        title={label}
-      >
-        <span
-          className="block h-[2px] w-[62%] rounded-full bg-[#041d23]"
-          aria-hidden
-        />
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className={cn(
-        'block size-2.5 shrink-0 rounded-full',
-        PRESENCE_DOT_CLASS[status],
-        ringClass,
-        className
-      )}
-      role="img"
-      aria-label={label}
-      title={label}
-    />
+      />
+    </PortalActionTooltip>
   )
 }

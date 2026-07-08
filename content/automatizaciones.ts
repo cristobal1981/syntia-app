@@ -97,14 +97,15 @@ export const automatizaciones = {
       'Activa automatizaciones y define qué asesores pueden lanzarlas.',
     columns: {
       automation: 'Automatización',
-      active: 'Activa',
-      adminOnly: 'Solo admin',
-      visibility: 'Asesores',
+      visibility: 'Visibilidad',
       advisors: 'Seleccionados',
       actions: 'Acciones',
     },
     save: 'Guardar',
     saving: 'Guardando…',
+    archive: 'Archivar',
+    archived: 'Automatización archivada',
+    moreActions: 'Más acciones de',
     visibility: {
       none: 'Ningún asesor',
       all: 'Todos los asesores',
@@ -112,6 +113,9 @@ export const automatizaciones = {
     },
     selectAdvisors: 'Asesores con acceso',
     selectAdvisorsPlaceholder: 'Elige uno o más asesores',
+    selectedCount: '{count} asesores seleccionados',
+    enable: 'Habilitar',
+    disable: 'Deshabilitar',
   },
   create: {
     title: 'Nueva automatización',
@@ -128,7 +132,6 @@ export const automatizaciones = {
       icon: 'Icono',
       advisorVisibility: 'Visibilidad para asesores',
       isActive: 'Activa al guardar',
-      adminOnly: 'Solo administración',
       inputFields: 'Parámetros de entrada',
     },
     placeholders: {

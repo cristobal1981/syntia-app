@@ -28,8 +28,7 @@ type AutomationRow = {
   icon: string
   sort_order: number
   is_active: boolean
-  admin_only: boolean
-  advisor_visibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   input_fields: unknown
 }
 
@@ -49,7 +48,7 @@ type RunRow = {
 }
 
 const AUTOMATION_SELECT =
-  'id, slug, title, description, webhook_path, icon, sort_order, is_active, admin_only, advisor_visibility, input_fields'
+  'id, slug, title, description, webhook_path, icon, sort_order, is_active, visibility, input_fields'
 
 function mapAutomationRow(
   row: AutomationRow,
@@ -64,8 +63,7 @@ function mapAutomationRow(
     icon: row.icon,
     sortOrder: row.sort_order,
     isActive: row.is_active,
-    adminOnly: row.admin_only,
-    advisorVisibility: row.advisor_visibility,
+    visibility: row.visibility,
     grantedAdvisorIds,
     inputFields: parseAutomationInputFields(row.input_fields),
   }
@@ -185,8 +183,7 @@ export async function getPortalAutomationById(
 export async function updatePortalAutomationAccess(input: {
   automationId: string
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   grantedAdvisorIds: string[]
 }): Promise<void> {
   const supabase = createSupabaseAdminClient()
@@ -196,8 +193,7 @@ export async function updatePortalAutomationAccess(input: {
     .from('portal_automations')
     .update({
       is_active: input.isActive,
-      admin_only: input.adminOnly,
-      advisor_visibility: input.advisorVisibility,
+      visibility: input.visibility,
       updated_at: now,
     })
     .eq('id', input.automationId)
@@ -215,7 +211,7 @@ export async function updatePortalAutomationAccess(input: {
     throw new Error(deleteError.message)
   }
 
-  if (input.advisorVisibility !== 'selected' || !input.grantedAdvisorIds.length) {
+  if (input.visibility !== 'selected' || !input.grantedAdvisorIds.length) {
     return
   }
 
@@ -340,8 +336,7 @@ export async function insertPortalAutomation(input: {
   icon: string
   sortOrder: number
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   inputFields: AutomationInputField[]
 }): Promise<PortalAutomation> {
   const supabase = createSupabaseAdminClient()
@@ -357,8 +352,7 @@ export async function insertPortalAutomation(input: {
       icon: input.icon,
       sort_order: input.sortOrder,
       is_active: input.isActive,
-      admin_only: input.adminOnly,
-      advisor_visibility: input.advisorVisibility,
+      visibility: input.visibility,
       input_fields: input.inputFields,
       created_at: now,
       updated_at: now,
@@ -382,8 +376,7 @@ export async function updatePortalAutomationDefinition(input: {
   webhookPath: string
   icon: string
   isActive: boolean
-  adminOnly: boolean
-  advisorVisibility: AdvisorVisibility
+  visibility: AdvisorVisibility
   inputFields: AutomationInputField[]
 }): Promise<void> {
   const supabase = createSupabaseAdminClient()
@@ -397,8 +390,7 @@ export async function updatePortalAutomationDefinition(input: {
       webhook_path: input.webhookPath,
       icon: input.icon,
       is_active: input.isActive,
-      admin_only: input.adminOnly,
-      advisor_visibility: input.advisorVisibility,
+      visibility: input.visibility,
       input_fields: input.inputFields,
       updated_at: new Date().toISOString(),
     })
@@ -408,7 +400,7 @@ export async function updatePortalAutomationDefinition(input: {
     throw error
   }
 
-  if (input.advisorVisibility !== 'selected') {
+  if (input.visibility !== 'selected') {
     const { error: grantsError } = await supabase
       .from('portal_automation_advisor_grants')
       .delete()

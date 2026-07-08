@@ -1,12 +1,27 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
-import { Trash2, XCircle } from 'lucide-react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
+import { Copy, Plus, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { solicitudes } from '@/content/solicitudes'
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard'
 import { cn } from '@/lib/utils'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 import {
@@ -18,6 +33,7 @@ import {
 } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import type { OnboardingTokenStatus } from '@/src/modules/onboarding/domain/onboarding-token-status'
 import { OnboardingTokenSecret } from '@/src/modules/onboarding/ui/onboarding-token-secret'
+import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 type SolicitudesPageViewProps = {
   initialClients: ClientRecord[]
@@ -52,23 +68,33 @@ function statusClassName(status: OnboardingTokenStatus): string {
   }
 }
 
-function AltaAutonomoLinkPanel({
+function AltaAutonomoCreateDialog({
+  open,
   clients,
+  onOpenChange,
   onCreated,
 }: {
+  open: boolean
   clients: ClientRecord[]
+  onOpenChange: (open: boolean) => void
   onCreated: (rows: OnboardingSolicitudRow[]) => void
 }) {
   const copy = solicitudes.altaAutonomo
   const [clientId, setClientId] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
-  const [linkToken, setLinkToken] = useState('')
   const [pending, startTransition] = useTransition()
 
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => a.name.localeCompare(b.name, 'es')),
     [clients]
   )
+
+  useEffect(() => {
+    if (!open) {
+      setClientId('')
+      setLinkUrl('')
+    }
+  }, [open])
 
   function handleGenerateLink() {
     if (!clientId) return
@@ -79,7 +105,6 @@ function AltaAutonomoLinkPanel({
         return
       }
       setLinkUrl(result.url)
-      setLinkToken(result.token)
       toast.success(copy.generated)
       const listResult = await listOnboardingSolicitudesAction()
       if (listResult.ok) {
@@ -88,61 +113,78 @@ function AltaAutonomoLinkPanel({
     })
   }
 
+  async function handleCopyLink() {
+    if (!linkUrl) return
+    const copied = await copyTextToClipboard(linkUrl)
+    if (copied) {
+      toast.success(copy.linkCopied)
+      return
+    }
+    toast.error(copy.copyLinkError)
+  }
+
   return (
-    <section className="portal-home-card rounded-xl p-5 md:p-6">
-      <h2 className="font-sans text-lg font-semibold text-foreground">
-        {copy.sectionTitle}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">{copy.sectionDescription}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{copy.modalTitle}</DialogTitle>
+          <DialogDescription>{copy.modalDescription}</DialogDescription>
+        </DialogHeader>
 
-      {sortedClients.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">{copy.noClients}</p>
-      ) : (
-        <div className="mt-5 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="solicitud-client" className="text-sm font-medium">
-              {copy.clientLabel}
-            </label>
-            <select
-              id="solicitud-client"
-              value={clientId}
-              onChange={(event) => {
-                setClientId(event.target.value)
-                setLinkUrl('')
-                setLinkToken('')
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">{copy.clientPlaceholder}</option>
-              {sortedClients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name} ({client.email})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label htmlFor="solicitud-link" className="text-sm font-medium">
-              {copy.urlLabel}
-            </label>
-            <Input
-              id="solicitud-link"
-              value={linkUrl}
-              placeholder={copy.urlPlaceholder}
-              readOnly
-            />
-          </div>
-
-          {linkToken ? (
+        {sortedClients.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{copy.noClients}</p>
+        ) : (
+          <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">{copy.tokenLabel}</span>
-              <OnboardingTokenSecret token={linkToken} />
-              <p className="text-sm text-muted-foreground">{copy.tokenHint}</p>
+              <label htmlFor="solicitud-client" className="text-sm font-medium">
+                {copy.clientLabel}
+              </label>
+              <Select
+                value={clientId || undefined}
+                onValueChange={(next) => {
+                  setClientId(next)
+                  setLinkUrl('')
+                }}
+              >
+                <SelectTrigger
+                  id="solicitud-client"
+                  aria-label={copy.clientLabel}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <SelectValue placeholder={copy.clientPlaceholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedClients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name} ({client.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ) : null}
 
-          <div className="flex flex-wrap gap-2">
+            {linkUrl ? (
+              <>
+                <input type="hidden" readOnly value={linkUrl} aria-hidden />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full gap-2"
+                  onClick={handleCopyLink}
+                >
+                  <Copy className="size-4" aria-hidden />
+                  {copy.copyLink}
+                </Button>
+              </>
+            ) : null}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cerrar
+          </Button>
+          {sortedClients.length > 0 && !linkUrl ? (
             <Button
               type="button"
               onClick={handleGenerateLink}
@@ -151,14 +193,10 @@ function AltaAutonomoLinkPanel({
             >
               {pending ? copy.creating : copy.createButton}
             </Button>
-            <Button type="button" variant="secondary" disabled>
-              {copy.sendLinkButton}
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">{copy.sendLinkHint}</p>
-        </div>
-      )}
-    </section>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -245,120 +283,92 @@ function OnboardingSolicitudRowActions({
   )
 }
 
-function OnboardingSolicitudList({
+function OnboardingSolicitudTable({
   rows,
+  filter,
   onUpdated,
 }: {
   rows: OnboardingSolicitudRow[]
+  filter: ListFilter
   onUpdated: (rows: OnboardingSolicitudRow[]) => void
 }) {
   const copy = solicitudes.list
-  const [filter, setFilter] = useState<ListFilter>('pending')
 
   const filteredRows = useMemo(() => {
     if (filter === 'all') return rows
     return rows.filter((row) => row.status === 'active')
   }, [filter, rows])
 
-  return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="font-sans text-lg font-semibold text-foreground">
-            {copy.sectionTitle}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {copy.sectionDescription}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={filter === 'pending' ? 'default' : 'outline'}
-            onClick={() => setFilter('pending')}
-          >
-            {copy.filterPending}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={filter === 'all' ? 'default' : 'outline'}
-            onClick={() => setFilter('all')}
-          >
-            {copy.filterAll}
-          </Button>
-        </div>
+  if (filteredRows.length === 0) {
+    return (
+      <div className="portal-home-card rounded-xl px-5 py-10 text-center">
+        <p className="font-sans text-base font-medium text-foreground">
+          {filter === 'pending' ? copy.emptyPendingTitle : copy.emptyAllTitle}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {filter === 'pending'
+            ? copy.emptyPendingDescription
+            : copy.emptyAllDescription}
+        </p>
       </div>
+    )
+  }
 
-      {filteredRows.length === 0 ? (
-        <div className="portal-home-card rounded-xl px-5 py-10 text-center">
-          <p className="font-sans text-base font-medium text-foreground">
-            {filter === 'pending' ? copy.emptyPendingTitle : copy.emptyAllTitle}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {filter === 'pending'
-              ? copy.emptyPendingDescription
-              : copy.emptyAllDescription}
-          </p>
-        </div>
-      ) : (
-        <div className="portal-home-card overflow-x-auto rounded-xl">
-          <table className="w-full min-w-[880px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border dark:border-border/50">
-                {Object.values(copy.columns).map((header) => (
-                  <th
-                    key={header}
-                    scope="col"
-                    className="px-4 py-3 font-sans font-medium text-muted-foreground"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row) => (
-                <tr
-                  key={row.token}
-                  className="border-b border-border last:border-b-0 dark:border-border/50"
+  return (
+    <div className="portal-home-card overflow-x-auto rounded-xl">
+      <table className="w-full min-w-[880px] text-left text-sm">
+        <thead>
+          <tr className="border-b border-border dark:border-border/50">
+            {Object.values(copy.columns).map((header) => (
+              <th
+                key={header}
+                scope="col"
+                className="px-4 py-3 font-sans font-medium text-muted-foreground"
+              >
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filteredRows.map((row) => (
+            <tr
+              key={row.token}
+              className="border-b border-border last:border-b-0 dark:border-border/50"
+            >
+              <td className="px-4 py-3 text-foreground">
+                {row.clientName ?? copy.unknownClient}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {row.recipientEmail ?? '—'}
+              </td>
+              <td className="px-4 py-3">
+                <OnboardingTokenSecret token={row.token} />
+              </td>
+              <td className="px-4 py-3">
+                <span
+                  className={cn(
+                    'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                    statusClassName(row.status)
+                  )}
                 >
-                  <td className="px-4 py-3 text-foreground">
-                    {row.clientName ?? copy.unknownClient}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {row.recipientEmail ?? '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <OnboardingTokenSecret token={row.token} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
-                        statusClassName(row.status)
-                      )}
-                    >
-                      {statusLabel(row.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDateTime(row.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDateTime(row.expiresAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <OnboardingSolicitudRowActions row={row} onUpdated={onUpdated} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+                  {statusLabel(row.status)}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {formatDateTime(row.createdAt)}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {formatDateTime(row.expiresAt)}
+              </td>
+              <td className="px-4 py-3">
+                <OnboardingSolicitudRowActions row={row} onUpdated={onUpdated} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -367,10 +377,19 @@ export function SolicitudesPageView({
   initialRows,
 }: SolicitudesPageViewProps) {
   const copy = solicitudes.page
+  const altaCopy = solicitudes.altaAutonomo
+  const listCopy = solicitudes.list
   const [rows, setRows] = useState(initialRows)
+  const [filter, setFilter] = useState<ListFilter>('pending')
+  const [createOpen, setCreateOpen] = useState(false)
+
+  const pendingCount = useMemo(
+    () => rows.filter((row) => row.status === 'active').length,
+    [rows]
+  )
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <header className="max-w-2xl">
         <p className="text-xs font-medium tracking-wide text-primary uppercase">
           {copy.eyebrow}
@@ -383,8 +402,41 @@ export function SolicitudesPageView({
         </p>
       </header>
 
-      <AltaAutonomoLinkPanel clients={initialClients} onCreated={setRows} />
-      <OnboardingSolicitudList rows={rows} onUpdated={setRows} />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <PortalFilterChip
+              label={listCopy.filterPending}
+              count={pendingCount}
+              active={filter === 'pending'}
+              onClick={() => setFilter('pending')}
+            />
+            <PortalFilterChip
+              label={listCopy.filterAll}
+              count={rows.length}
+              active={filter === 'all'}
+              onClick={() => setFilter('all')}
+            />
+          </div>
+          <Button
+            type="button"
+            className="gap-2 self-start sm:self-auto"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="size-4" aria-hidden />
+            {altaCopy.newButton}
+          </Button>
+        </div>
+
+        <OnboardingSolicitudTable rows={rows} filter={filter} onUpdated={setRows} />
+      </div>
+
+      <AltaAutonomoCreateDialog
+        open={createOpen}
+        clients={initialClients}
+        onOpenChange={setCreateOpen}
+        onCreated={setRows}
+      />
     </div>
   )
 }

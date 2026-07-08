@@ -1,10 +1,17 @@
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { equipo } from '@/content/equipo'
 import {
   createGestorAction,
@@ -45,6 +52,19 @@ export function GestorForm({
     DirectoryUpdateResult | null,
     FormData
   >(action, null)
+
+  const [roleValue, setRoleValue] = useState<string>(gestor?.role ?? 'advisor')
+  const [statusValue, setStatusValue] = useState<string>(
+    gestor?.status ?? 'invited'
+  )
+
+  useEffect(() => {
+    setRoleValue(gestor?.role ?? 'advisor')
+  }, [gestor?.role])
+
+  useEffect(() => {
+    setStatusValue(gestor?.status ?? 'invited')
+  }, [gestor?.status])
   const onSuccessRef = useRef(onSuccess)
   const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
 
@@ -199,15 +219,22 @@ export function GestorForm({
           <label htmlFor="gestor-role" className="text-sm font-medium text-foreground">
             {copy.fields.role}
           </label>
-          <select
-            id="gestor-role"
-            name="role"
-            defaultValue={gestor?.role ?? 'advisor'}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          <input type="hidden" name="role" value={roleValue} />
+          <Select
+            value={roleValue}
+            onValueChange={(next) => setRoleValue(next)}
           >
-            <option value="advisor">{equipo.roles.advisor}</option>
-            <option value="admin">{equipo.roles.admin}</option>
-          </select>
+            <SelectTrigger
+              aria-label={copy.fields.role}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="advisor">{equipo.roles.advisor}</SelectItem>
+              <SelectItem value="admin">{equipo.roles.admin}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {!isCreate ? (
@@ -215,15 +242,24 @@ export function GestorForm({
             <label htmlFor="gestor-status" className="text-sm font-medium text-foreground">
               {copy.fields.status}
             </label>
-            <select
-              id="gestor-status"
-              name="status"
-              defaultValue={gestor?.status ?? 'invited'}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            <input type="hidden" name="status" value={statusValue} />
+            <Select
+              value={statusValue}
+              onValueChange={(next) => setStatusValue(next)}
             >
-              <option value="active">{equipo.status.active}</option>
-              <option value="invited">{equipo.status.invited}</option>
-            </select>
+              <SelectTrigger
+                aria-label={copy.fields.status}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{equipo.status.active}</SelectItem>
+                <SelectItem value="invited">
+                  {equipo.status.invited}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         ) : null}
       </div>
