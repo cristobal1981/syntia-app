@@ -42,7 +42,7 @@ export async function ClientHome({ user }: ClientHomeProps) {
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLinkCard
-            href="/proximamente"
+            href="/documentos"
             label="Documentos"
             description="Consulta y sube archivos"
             icon={FileText}

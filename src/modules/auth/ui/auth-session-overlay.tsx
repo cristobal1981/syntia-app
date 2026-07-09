@@ -1,8 +1,9 @@
 'use client'
 
 import Image from 'next/image'
-import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+
+import { SyntiaBoltLoader } from '@/components/ui/syntia-bolt-loader'
 
 import { site } from '@/content/site'
 import { portal } from '@/content/portal'
@@ -42,14 +43,11 @@ function SignOutOverlay() {
       aria-live="polite"
       aria-busy="true"
     >
-      <div className="portal-home-card flex max-w-sm flex-col items-center gap-4 rounded-xl px-6 py-6 text-center shadow-lg">
-        <p className="text-base font-semibold text-foreground">
+      <div className="flex flex-col items-center justify-center gap-3 text-center">
+        <SyntiaBoltLoader size={72} />
+        <p className="max-w-sm text-sm text-muted-foreground">
           {portal.authLoading.signOutMessage}
         </p>
-        <Loader2
-          className="size-6 animate-spin text-primary motion-reduce:animate-none"
-          aria-hidden
-        />
       </div>
     </div>
   )

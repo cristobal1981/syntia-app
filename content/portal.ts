@@ -106,7 +106,7 @@ export const portal = {
   },
   authLoading: {
     signOutMessage: '¡Hasta pronto! Vuelve cuando quieras.',
-    signOutMinDisplayMs: 1500,
+    signOutMinDisplayMs: 500,
     entryMinDisplayMs: 2000,
     entryPhrases: [
       'Preparando su portal personalizado',
@@ -177,6 +177,7 @@ export const portal = {
         icon: 'obligations',
       },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
+      { label: 'Documentos', href: '/documentos', implemented: true, icon: 'documents' },
       { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
     ],

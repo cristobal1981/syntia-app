@@ -67,9 +67,28 @@ El navegador del cliente **nunca** recibe `odoo_partner_id` ni `drive_folder_id`
 2. [`resolve-client-odoo-partner-id.ts`](../../src/modules/tramites/application/resolve-client-odoo-partner-id.ts) → `getClientIntegrationByUserId`
 3. [`odoo-tramites-repository.ts`](../../src/modules/tramites/infrastructure/odoo-tramites-repository.ts)
 
-### Drive (futuro)
+### Drive (portal cliente)
 
-[`drive-client.ts`](../../src/modules/portal/infrastructure/drive-client.ts) es stub. Cuando se implemente, resolver `drive_folder_id` igual que Odoo: solo server-side desde sesión.
+1. [`resolve-client-drive-root.ts`](../../src/modules/documents/application/resolve-client-drive-root.ts) → `getCachedClientDriveRootId` desde `client_integrations.drive_folder_id`.
+2. Server actions en [`portal-drive-document-actions.ts`](../../src/modules/documents/application/portal-drive-document-actions.ts): listado, preview, descarga, subida, renombrado, eliminación.
+3. Cada operación valida que carpeta/archivo pertenece al árbol del cliente (`drive-folder-access.ts`).
+4. Ruta portal: `/documentos` (solo rol `client`). El navegador **nunca** recibe `drive_folder_id` raíz.
+
+**Prerrequisitos Google (producción):**
+
+- Service account con scope `drive` (JWT en `google-drive-auth.ts`).
+- Rol **Editor** del service account en la subcarpeta pública de cada cliente (o Shared drive contenedor).
+- Variables: `GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY`.
+- Límites opcionales: `DRIVE_MAX_UPLOAD_BYTES` (default 25 MB), `DRIVE_MAX_FILES_PER_BATCH` (default 10).
+- Desarrollo UI sin API: `DRIVE_DOCUMENTS_MOCK=true` (datos estáticos; mutaciones deshabilitadas).
+
+### Drive (import equipo — legacy)
+
+[`google-drive-public-folder.ts`](../../src/modules/portal/infrastructure/google-drive-public-folder.ts) resuelve subcarpeta pública al importar desde Odoo. Usa el mismo auth (`google-drive-auth.ts`).
+
+### Drive (stub deprecado)
+
+[`drive-client.ts`](../../src/modules/portal/infrastructure/drive-client.ts) — sustituido por `google-drive-repository.ts`.
 
 ## Archivos clave
 
@@ -81,6 +100,9 @@ El navegador del cliente **nunca** recibe `odoo_partner_id` ni `drive_folder_id`
 | `src/modules/directory/infrastructure/odoo-partner-catalog.ts` | Catálogo Odoo cacheado para import |
 | `src/modules/directory/domain/odoo-partner-import.ts` | Mapeo partner → borrador formulario |
 | `src/modules/tramites/application/resolve-client-odoo-partner-id.ts` | Partner Odoo desde sesión |
+| `src/modules/documents/application/resolve-client-drive-root.ts` | Carpeta Drive desde sesión |
+| `src/modules/documents/infrastructure/google-drive-repository.ts` | API Drive v3 (list, CRUD) |
+| `src/modules/documents/infrastructure/drive-folder-access.ts` | Validación árbol (anti-IDOR) |
 
 ## Anti-patrones
 
