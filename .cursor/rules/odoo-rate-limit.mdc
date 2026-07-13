@@ -1,0 +1,32 @@
+---
+description: Presupuesto Odoo — mínimas peticiones/campos; UI mock antes de integrar; el agente debe recordar la norma si se omite
+alwaysApply: true
+---
+
+# Presupuesto Odoo (429)
+
+No podemos subir el rate limit de Odoo. Cada feature nueva debe **minimizar** llamadas y payload.
+
+## Siempre
+
+- **`search_read`**: solo `fields` imprescindibles para lo que muestra o valida esa pantalla/acción.
+- **Una resolución por request**: reutilizar `partnerId`, snapshots cacheados (`cached-client-odoo-access`) y `verifyClientRecordAccess` antes de verify Odoo en frío.
+- **Sin duplicados**: no repetir la misma server action en mount + tab + Strict Mode; dedup in-flight (`server-action-dedup`) o ref de idempotencia.
+- **Cliente**: un poll/coordinator por navegador; backoff ante 429; no N pestañas × N polls.
+- **Infraestructura en `infrastructure/`**, no fetch Odoo en componentes.
+
+## Página nueva sobre un modelo Odoo
+
+Orden **obligatorio** salvo renuncia explícita del usuario:
+
+1. **UI con mock** — datos estáticos o tipos locales; **cero** llamadas Odoo hasta UI cerrada (estados vacío/carga/error incluidos).
+2. **Diseño de datos** — qué `search_read`/acciones, qué `fields`, cache TTL, dedup; documentar en PR o plan breve.
+3. **Integración** — repository + cache + server action; conectar UI.
+
+Si piden cablear Odoo antes del mock, **parar**, citar esta regla y preguntar si renuncian explícitamente. No saltar el paso en silencio.
+
+## Antes de añadir una llamada Odoo
+
+¿Se puede derivar de snapshot/cache ya cargado? ¿Se puede batch? ¿Hace falta en mount o solo al abrir detalle? Si la respuesta honesta es no, justificar en una línea.
+
+Referencia: `odoo-json-client.ts`, `.cursor/docs/portal-notifications.md`.

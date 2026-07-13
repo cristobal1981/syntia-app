@@ -35,8 +35,6 @@ export function LoginAmbientBackdrop() {
     let running = true
     let pulseTimer = 0
 
-    const mouse = { x: 0, y: 0, active: false }
-
     const resize = () => {
       const rect = root.getBoundingClientRect()
       dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -44,22 +42,12 @@ export function LoginAmbientBackdrop() {
       height = rect.height
       canvas.width = Math.floor(width * dpr)
       canvas.height = Math.floor(height * dpr)
-      canvas.style.width = `${width}px`
-      canvas.style.height = `${height}px`
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       particles = createParticles(width, height, 0.72)
     }
 
-    const onPointerMove = (event: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect()
-      mouse.x = event.clientX - rect.left
-      mouse.y = event.clientY - rect.top
-      mouse.active = true
-    }
-
     resize()
     window.addEventListener('resize', resize)
-    window.addEventListener('pointermove', onPointerMove)
 
     if (!reducedMotion) {
       gsap.fromTo(canvas, { opacity: 0 }, { opacity: 1, duration: 1.2, ease: 'power2.out' })
@@ -67,7 +55,7 @@ export function LoginAmbientBackdrop() {
       const tick = (time: number) => {
         if (!running) return
 
-        updateNetwork(particles, width, height, mouse, time)
+        updateNetwork(particles, time)
 
         pulseTimer += 1
         if (pulseTimer > 42 && pulses.length < 3) {
@@ -80,7 +68,7 @@ export function LoginAmbientBackdrop() {
           .map((pulse) => ({ ...pulse, progress: pulse.progress + pulse.speed }))
           .filter((pulse) => pulse.progress <= 1)
 
-        drawNetwork(ctx, { width, height, particles, pulses, mouse, time })
+        drawNetwork(ctx, { width, height, particles, pulses, time })
         frameId = window.requestAnimationFrame(tick)
       }
 
@@ -91,7 +79,6 @@ export function LoginAmbientBackdrop() {
         height,
         particles: createParticles(width, height, 0.65),
         pulses: [],
-        mouse,
         time: 0,
       })
     }
@@ -100,7 +87,6 @@ export function LoginAmbientBackdrop() {
       running = false
       window.cancelAnimationFrame(frameId)
       window.removeEventListener('resize', resize)
-      window.removeEventListener('pointermove', onPointerMove)
     }
   }, [reducedMotion])
 
@@ -112,13 +98,7 @@ export function LoginAmbientBackdrop() {
     >
       <div className="login-tech-mesh absolute inset-0" />
 
-      <div
-        className="login-tech-grid absolute inset-0 opacity-25"
-        style={{
-          maskImage:
-            'radial-gradient(ellipse 85% 75% at 35% 45%, black 15%, transparent 72%)',
-        }}
-      />
+      <div className="login-tech-grid absolute inset-0 opacity-25" />
 
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full opacity-[0.68]" />
 

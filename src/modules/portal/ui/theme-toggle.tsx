@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 
 const options = [
   { value: 'light', label: portal.shell.theme.light, icon: Sun },
@@ -26,7 +27,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   if (!mounted) {
     return (
       <div
-        className={cn('size-8 rounded-md bg-muted', className)}
+        className={cn('size-8 rounded-md bg-background dark:bg-sidebar-accent', className)}
         aria-hidden
       />
     )
@@ -37,7 +38,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       role="group"
       aria-label={portal.shell.theme.label}
       className={cn(
-        'inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5',
+        'inline-flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 dark:border-border dark:bg-sidebar-accent',
         className
       )}
     >
@@ -45,23 +46,23 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         const isActive = theme === value
 
         return (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTheme(value)}
-            aria-pressed={isActive}
-            aria-label={label}
-            title={label}
-            className={cn(
-              'flex size-7 items-center justify-center rounded-[5px] transition-colors',
-              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-              isActive
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Icon className="size-3.5 shrink-0" aria-hidden />
-          </button>
+          <PortalActionTooltip key={value} content={label}>
+            <button
+              type="button"
+              onClick={() => setTheme(value)}
+              aria-pressed={isActive}
+              aria-label={label}
+              className={cn(
+                'flex size-7 cursor-pointer items-center justify-center rounded-[5px] transition-colors',
+                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                isActive
+                  ? 'bg-brisa text-agua shadow-sm dark:bg-input dark:text-primary'
+                  : 'text-on-light-muted hover:text-on-light-muted dark:text-subtle-foreground dark:hover:text-muted-foreground'
+              )}
+            >
+              <Icon className="size-3.5 shrink-0" aria-hidden />
+            </button>
+          </PortalActionTooltip>
         )
       })}
     </div>

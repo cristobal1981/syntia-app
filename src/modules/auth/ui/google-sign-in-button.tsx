@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { signInWithGoogleIdTokenAction } from '@/src/modules/auth/application/sign-in-with-google'
 import { getGoogleClientId } from '@/src/modules/auth/infrastructure/google/google-client-id'
 import { GoogleSignInButtonFallback } from '@/src/modules/auth/ui/google-sign-in-button-fallback'
+import { markPortalEntryPending } from '@/src/modules/portal/ui/portal-entry-loading-context'
 
 /**
  * Botón oficial vía @react-oauth/google (wrapper de Google Identity Services).
@@ -37,6 +38,7 @@ export function GoogleSignInButton() {
         setUseFallback(true)
         return
       }
+      markPortalEntryPending()
       await signInWithGoogleIdTokenAction(response.credential)
     },
     []

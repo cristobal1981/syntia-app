@@ -1,17 +1,24 @@
+import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
+import { AppLink } from '@/components/ui/app-link'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { getHomeDataForRole } from '@/src/modules/portal/application/get-home-data-for-role'
-import { IntegrationBadges } from '@/src/modules/portal/ui/integration-badges'
-import { MockDataTable } from '@/src/modules/portal/ui/mock-data-table'
-import { StatCard } from '@/src/modules/portal/ui/stat-card'
+import { listGestoresAction } from '@/src/modules/directory/application/directory-queries'
+import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
+import { DataTable } from '@/src/modules/portal/ui/data-table'
+import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
+import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 
 type AdminHomeProps = {
   user: PortalUser
 }
 
-export function AdminHome({ user }: AdminHomeProps) {
-  const data = getHomeDataForRole(user)
+export async function AdminHome({ user }: AdminHomeProps) {
+  const [integrations, gestores] = await Promise.all([
+    getIntegrationsStatusForRole(user.role),
+    listGestoresAction(),
+  ])
   const copy = portal.home.admin
+  const previewGestores = gestores.slice(0, 5)
 
   return (
     <div className="flex flex-col gap-8">
@@ -22,47 +29,42 @@ export function AdminHome({ user }: AdminHomeProps) {
         </h1>
       </header>
 
-      <section aria-labelledby="admin-stats">
-        <h2 id="admin-stats" className="sr-only">
-          Resumen
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </div>
-      </section>
-
-      {data.team ? (
-        <section aria-labelledby="admin-team">
+      <section aria-labelledby="admin-team">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2
             id="admin-team"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
+            className="font-sans text-lg font-semibold text-foreground"
           >
             {copy.teamTitle}
           </h2>
-          <MockDataTable
+          <AppLink href="/equipo/gestores" className="text-sm">
+            {copy.viewTeamLink}
+          </AppLink>
+        </div>
+        {previewGestores.length ? (
+          <DataTable
             headers={['Nombre', 'Rol', 'Estado']}
-            rows={data.team.map((member) => [
+            rows={previewGestores.map((member) => [
               member.name,
-              member.role,
-              member.status === 'active' ? 'Activo' : 'Invitado',
+              equipo.roles[member.role],
+              member.status === 'active'
+                ? equipo.status.active
+                : equipo.status.invited,
             ])}
           />
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">{equipo.gestores.emptyDescription}</p>
+        )}
+      </section>
 
-      {data.integrations ? (
-        <section aria-labelledby="admin-integrations">
-          <h2
-            id="admin-integrations"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
-          >
-            {copy.integrationsTitle}
-          </h2>
-          <IntegrationBadges integrations={data.integrations} />
-        </section>
-      ) : null}
+      <section aria-labelledby="admin-integrations">
+        <IntegrationsPanel
+          initialIntegrations={integrations}
+          title={copy.integrationsTitle}
+          showRefresh
+        />
+      </section>
+      <PortalDashboardReady />
     </div>
   )
 }

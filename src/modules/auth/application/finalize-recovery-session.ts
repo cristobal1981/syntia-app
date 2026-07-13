@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { establishPortalSession } from '@/src/modules/auth/application/establish-portal-session'
-import { mapSupabaseUser } from '@/src/modules/auth/application/map-supabase-user'
+import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 
@@ -25,6 +25,6 @@ export async function finalizeRecoverySessionAction(): Promise<FinalizeRecoveryR
     return { ok: false, error: 'no_session' }
   }
 
-  await establishPortalSession(mapSupabaseUser(user))
+  await establishPortalSession(await resolvePortalUserFromAuth(user))
   redirect('/dashboard')
 }

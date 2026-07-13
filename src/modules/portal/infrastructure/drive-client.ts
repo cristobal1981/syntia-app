@@ -1,7 +1,3 @@
-/**
- * Contrato Google Drive (documentos). Implementación real vía service account / OAuth.
- */
-
 export type DriveDocument = {
   id: string
   name: string
@@ -9,6 +5,9 @@ export type DriveDocument = {
   mimeType: string
 }
 
+/**
+ * @deprecated Use src/modules/documents/infrastructure/google-drive-repository.ts
+ */
 export interface DriveClient {
   listRecentDocuments(folderId: string): Promise<DriveDocument[]>
 }

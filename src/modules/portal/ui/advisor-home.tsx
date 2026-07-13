@@ -1,17 +1,24 @@
+import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
+import { AppLink } from '@/components/ui/app-link'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { getHomeDataForRole } from '@/src/modules/portal/application/get-home-data-for-role'
-import { IntegrationBadges } from '@/src/modules/portal/ui/integration-badges'
-import { MockDataTable } from '@/src/modules/portal/ui/mock-data-table'
-import { StatCard } from '@/src/modules/portal/ui/stat-card'
+import { listClientsAction } from '@/src/modules/directory/application/directory-queries'
+import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
+import { DataTable } from '@/src/modules/portal/ui/data-table'
+import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
+import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 
 type AdvisorHomeProps = {
   user: PortalUser
 }
 
-export function AdvisorHome({ user }: AdvisorHomeProps) {
-  const data = getHomeDataForRole(user)
+export async function AdvisorHome({ user }: AdvisorHomeProps) {
+  const [integrations, clients] = await Promise.all([
+    getIntegrationsStatusForRole(user.role),
+    listClientsAction(),
+  ])
   const copy = portal.home.advisor
+  const previewClients = clients.slice(0, 5)
 
   return (
     <div className="flex flex-col gap-8">
@@ -22,65 +29,44 @@ export function AdvisorHome({ user }: AdvisorHomeProps) {
         </h1>
       </header>
 
-      <section aria-labelledby="advisor-stats">
-        <h2 id="advisor-stats" className="sr-only">
-          Resumen
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </div>
-      </section>
-
-      {data.clients ? (
-        <section aria-labelledby="advisor-clients">
+      <section aria-labelledby="advisor-clients">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2
             id="advisor-clients"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
+            className="font-sans text-lg font-semibold text-foreground"
           >
             {copy.clientsTitle}
           </h2>
-          <MockDataTable
-            headers={['Cliente', 'Empresa', 'Tareas pendientes']}
-            rows={data.clients.map((client) => [
+          <AppLink href="/clientes" className="text-sm">
+            {equipo.clientes.viewAll}
+          </AppLink>
+        </div>
+        {previewClients.length ? (
+          <DataTable
+            headers={['Cliente', 'Empresa', 'Estado']}
+            rows={previewClients.map((client) => [
               client.name,
-              client.company,
-              String(client.pendingTasks),
+              client.companyName ?? '—',
+              client.status === 'active'
+                ? equipo.status.active
+                : equipo.status.invited,
             ])}
           />
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {equipo.clientes.emptyDescription}
+          </p>
+        )}
+      </section>
 
-      {data.queueItems ? (
-        <section aria-labelledby="advisor-queue">
-          <h2
-            id="advisor-queue"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
-          >
-            {copy.queueTitle}
-          </h2>
-          <ul className="flex flex-col gap-3">
-            {data.queueItems.map((item) => (
-              <li
-                key={item}
-                className="rounded-xl border border-agua/30 bg-card/60 px-4 py-3 text-foreground"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {data.integrations ? (
-        <section aria-labelledby="advisor-integrations">
-          <h2 id="advisor-integrations" className="sr-only">
-            Integraciones
-          </h2>
-          <IntegrationBadges integrations={data.integrations} />
-        </section>
-      ) : null}
+      <section aria-labelledby="advisor-integrations">
+        <IntegrationsPanel
+          initialIntegrations={integrations}
+          title={copy.integrationsTitle}
+          showRefresh
+        />
+      </section>
+      <PortalDashboardReady />
     </div>
   )
 }

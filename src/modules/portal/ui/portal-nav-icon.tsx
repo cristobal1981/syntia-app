@@ -5,11 +5,14 @@ import {
   LayoutDashboard,
   ListChecks,
   MessageSquare,
+  PenLine,
   Plug,
+  Scale,
   Settings,
   UserCircle,
   Users,
   UsersRound,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -18,7 +21,9 @@ import type { NavIconId } from '@/src/modules/portal/domain/types'
 const navIcons: Record<NavIconId, LucideIcon> = {
   home: LayoutDashboard,
   documents: FileText,
+  obligations: Scale,
   procedures: ClipboardList,
+  signatures: PenLine,
   messages: MessageSquare,
   profile: UserCircle,
   team: Users,
@@ -27,6 +32,7 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   clients: UsersRound,
   tasks: ListChecks,
   integrations: Plug,
+  automations: Workflow,
 }
 
 type PortalNavIconProps = {

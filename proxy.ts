@@ -4,7 +4,13 @@ import type { NextRequest } from 'next/server'
 import { SESSION_COOKIE_NAME } from '@/src/modules/auth/domain/types'
 import { getSessionFromToken } from '@/src/modules/auth/infrastructure/session-cookie'
 
-const PROTECTED_PREFIX = '/dashboard'
+const PROTECTED_PREFIXES = [
+  '/dashboard',
+  '/perfil',
+  '/integraciones',
+  '/equipo',
+  '/clientes',
+]
 const AUTH_PAGES_PREFIX = '/login'
 
 export async function proxy(request: NextRequest) {
@@ -25,7 +31,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (pathname.startsWith(PROTECTED_PREFIX) && !isAuthenticated) {
+  if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) && !isAuthenticated) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
@@ -35,5 +41,17 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/login/:path*', '/dashboard', '/dashboard/:path*'],
+  matcher: [
+    '/',
+    '/login',
+    '/login/:path*',
+    '/dashboard',
+    '/dashboard/:path*',
+    '/perfil',
+    '/integraciones',
+    '/equipo',
+    '/equipo/:path*',
+    '/clientes',
+    '/clientes/:path*',
+  ],
 }

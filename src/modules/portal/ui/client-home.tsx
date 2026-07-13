@@ -1,18 +1,19 @@
-import { FileText, MessageSquare, Scale } from 'lucide-react'
+import { ClipboardList, FileText, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { getHomeDataForRole } from '@/src/modules/portal/application/get-home-data-for-role'
+import { getClientHomeData } from '@/src/modules/portal/application/get-client-home-data'
+import { ClientHomeDashboard } from '@/src/modules/portal/ui/client-home-dashboard'
+import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 import { QuickLinkCard } from '@/src/modules/portal/ui/quick-link-card'
-import { StatCard } from '@/src/modules/portal/ui/stat-card'
 
 type ClientHomeProps = {
   user: PortalUser
 }
 
-export function ClientHome({ user }: ClientHomeProps) {
-  const data = getHomeDataForRole(user)
+export async function ClientHome({ user }: ClientHomeProps) {
   const copy = portal.home.client
+  const homeData = await getClientHomeData(user)
 
   return (
     <div className="flex flex-col gap-8">
@@ -26,38 +27,11 @@ export function ClientHome({ user }: ClientHomeProps) {
         </h1>
       </header>
 
-      <section aria-labelledby="client-stats">
-        <h2 id="client-stats" className="sr-only">
-          Resumen
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </div>
-      </section>
-
-      {data.deadlines ? (
-        <section aria-labelledby="client-deadlines">
-          <h2
-            id="client-deadlines"
-            className="mb-4 font-sans text-lg font-semibold text-foreground"
-          >
-            {copy.deadlinesTitle}
-          </h2>
-          <ul className="flex flex-col gap-3">
-            {data.deadlines.map((item) => (
-              <li
-                key={item.title}
-                className="flex items-center justify-between gap-4 rounded-xl border border-agua/30 bg-card/60 px-4 py-3"
-              >
-                <span className="text-foreground">{item.title}</span>
-                <span className="shrink-0 text-sm text-muted-foreground">{item.date}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <ClientHomeDashboard
+        snapshot={homeData.snapshot}
+        snapshotError={homeData.snapshotError}
+        initialNotifications={homeData.notifications}
+      />
 
       <section aria-labelledby="client-quick-links">
         <h2
@@ -68,25 +42,26 @@ export function ClientHome({ user }: ClientHomeProps) {
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLinkCard
-            href="/proximamente"
+            href="/documentos"
             label="Documentos"
             description="Consulta y sube archivos"
             icon={FileText}
           />
           <QuickLinkCard
-            href="/proximamente"
-            label="Trámites"
-            description="Estado de tus gestiones"
+            href="/obligaciones"
+            label="Obligaciones"
+            description="Modelos tributarios por periodo"
             icon={Scale}
           />
           <QuickLinkCard
-            href="/proximamente"
-            label="Mensajes"
-            description="Habla con tu gestor"
-            icon={MessageSquare}
+            href="/tramites"
+            label="Trámites"
+            description="Gestiones y soporte"
+            icon={ClipboardList}
           />
         </div>
       </section>
+      <PortalDashboardReady />
     </div>
   )
 }

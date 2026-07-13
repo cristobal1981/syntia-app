@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { LazyMotion, AnimatePresence, domAnimation, m } from 'framer-motion'
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
 
 import { portal } from '@/content/portal'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,8 @@ import {
   type SignInResult,
 } from '@/src/modules/auth/application/sign-in'
 import { GoogleSignInButton } from '@/src/modules/auth/ui/google-sign-in-button'
+import { PasswordInput } from '@/src/modules/auth/ui/password-input'
+import { markPortalEntryPending } from '@/src/modules/portal/ui/portal-entry-loading-context'
 
 export function LoginForm() {
   const reducedMotion = usePrefersReducedMotion()
@@ -22,6 +24,12 @@ export function LoginForm() {
   )
   const errorMessage =
     state && !state.ok ? portal.login.errors[state.error] : null
+
+  useEffect(() => {
+    if (pending) {
+      markPortalEntryPending()
+    }
+  }, [pending])
 
   return (
     <LazyMotion features={domAnimation}>
@@ -70,10 +78,9 @@ export function LoginForm() {
               {portal.login.forgotPasswordLabel}
             </Link>
           </div>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             className="input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base transition-[border-color,box-shadow] duration-200 focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_1px_rgba(1,222,162,0.25)]"

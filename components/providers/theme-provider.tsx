@@ -4,6 +4,8 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { Toaster } from '@/components/ui/sonner'
+
 function isAuthPath(pathname: string | null): boolean {
   if (!pathname) return false
   return (
@@ -19,7 +21,7 @@ type ThemeProviderProps = {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const pathname = usePathname()
-  const forceDarkOnAuth = isAuthPath(pathname)
+  const forcedTheme = isAuthPath(pathname) ? 'dark' : undefined
 
   return (
     <NextThemesProvider
@@ -27,10 +29,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       defaultTheme="system"
       enableSystem
       storageKey="syntia-theme"
-      forcedTheme={forceDarkOnAuth ? 'dark' : undefined}
+      forcedTheme={forcedTheme}
       disableTransitionOnChange
     >
       {children}
+      <Toaster />
     </NextThemesProvider>
   )
 }

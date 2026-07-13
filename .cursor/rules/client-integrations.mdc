@@ -1,0 +1,19 @@
+---
+description: Integraciones cliente (Odoo/Drive) — IDs solo server-side
+globs:
+  - src/modules/directory/**
+  - src/modules/tramites/**
+  - src/modules/portal/**
+alwaysApply: false
+---
+
+# Integraciones de cliente
+
+Documentación completa: [`.cursor/docs/client-integrations.md`](../docs/client-integrations.md)
+
+## Reglas rápidas
+
+- `odoo_partner_id` y `drive_folder_id` viven en `client_integrations`, no en `profiles`.
+- Resolver siempre desde sesión → `user_id` → lookup Supabase (service role) en servidor.
+- Única UI de edición: formulario equipo (`client-form`). No listar IDs en tablas ni portal cliente.
+- No exponer IDs en URLs, `NEXT_PUBLIC_*`, ni props serializadas al navegador del cliente.

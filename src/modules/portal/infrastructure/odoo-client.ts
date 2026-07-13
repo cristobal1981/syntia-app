@@ -1,18 +1,10 @@
 /**
- * Contrato Odoo (ERP/tareas). Implementación real vía env ODOO_URL.
- * Supabase: perfiles; Odoo: operaciones de gestoría.
+ * @deprecated Usa el módulo `tramites` y `odoo-json-client`.
  */
-
-export type OdooTask = {
-  id: string
-  title: string
-  clientId: string
-  dueDate?: string
-  status: 'open' | 'done'
-}
+export type { TramiteTask as OdooTask } from '@/src/modules/tramites/domain/types'
 
 export interface OdooClient {
-  listOpenTasks(clientId: string): Promise<OdooTask[]>
+  listOpenTasks(clientId: string): Promise<never>
 }
 
 export const odooClient: OdooClient = {

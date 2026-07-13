@@ -1,5 +1,5 @@
 import type { AuthCredentials, PortalUser } from '@/src/modules/auth/domain/types'
-import { mapSupabaseUser } from '@/src/modules/auth/application/map-supabase-user'
+import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 
 /**
@@ -19,7 +19,7 @@ export const supabaseAuthRepository: SupabaseAuthRepository = {
     })
 
     if (error || !data.user) return null
-    return mapSupabaseUser(data.user)
+    return resolvePortalUserFromAuth(data.user)
   },
 
   async signOut() {

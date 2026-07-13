@@ -1,0 +1,178 @@
+'use client'
+
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
+
+import { SyntiaBoltLoader } from '@/components/ui/syntia-bolt-loader'
+
+import { site } from '@/content/site'
+import { portal } from '@/content/portal'
+import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { cn } from '@/lib/utils'
+
+const PHRASE_INTERVAL_MS = 2000;
+const PROGRESS_TICK_MS = 120;
+const PROGRESS_CAP = 92;
+const COMPLETE_DELAY_MS = 420;
+
+type AuthSessionOverlayProps =
+  | {
+      variant: 'sign-out'
+    }
+  | {
+      variant: 'entry'
+      ready?: boolean
+      onDismiss?: () => void
+    }
+
+export function AuthSessionOverlay(props: AuthSessionOverlayProps) {
+  if (props.variant === 'sign-out') {
+    return <SignOutOverlay />
+  }
+
+  return (
+    <EntryOverlay ready={props.ready ?? false} onDismiss={props.onDismiss} />
+  )
+}
+
+function SignOutOverlay() {
+  return (
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-background/80 px-6 backdrop-blur-[2px]"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div className="flex flex-col items-center justify-center gap-3 text-center">
+        <SyntiaBoltLoader size={72} />
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {portal.authLoading.signOutMessage}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function EntryOverlay({
+  ready,
+  onDismiss,
+}: {
+  ready: boolean
+  onDismiss?: () => void
+}) {
+  const reducedMotion = usePrefersReducedMotion()
+  const phrases = portal.authLoading.entryPhrases
+  const [phraseIndex, setPhraseIndex] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const [visible, setVisible] = useState(true)
+  const [exiting, setExiting] = useState(false)
+  const [startedAt] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (ready) return
+
+    const phraseTimer = window.setInterval(() => {
+      setPhraseIndex((index) => (index + 1) % phrases.length)
+    }, PHRASE_INTERVAL_MS)
+
+    const progressTimer = window.setInterval(() => {
+      setProgress((value) => {
+        if (value >= PROGRESS_CAP) return value
+        const step = value < 50 ? 2.4 : value < 80 ? 1.2 : 0.45
+        return Math.min(PROGRESS_CAP, value + step)
+      })
+    }, PROGRESS_TICK_MS)
+
+    return () => {
+      window.clearInterval(phraseTimer)
+      window.clearInterval(progressTimer)
+    }
+  }, [ready, phrases.length])
+
+  useEffect(() => {
+    if (!ready) return
+
+    let minTimer: number | undefined
+    let completeTimer: number | undefined
+    let exitTimer: number | undefined
+
+    const finish = () => {
+      setProgress(100)
+      completeTimer = window.setTimeout(() => {
+        setExiting(true)
+        exitTimer = window.setTimeout(() => {
+          setVisible(false)
+          onDismiss?.()
+        }, 300)
+      }, COMPLETE_DELAY_MS)
+    }
+
+    const elapsed = Date.now() - startedAt
+    const remaining = portal.authLoading.entryMinDisplayMs - elapsed
+
+    if (remaining > 0) {
+      minTimer = window.setTimeout(finish, remaining)
+    } else {
+      finish()
+    }
+
+    return () => {
+      if (minTimer !== undefined) window.clearTimeout(minTimer)
+      if (completeTimer !== undefined) window.clearTimeout(completeTimer)
+      if (exitTimer !== undefined) window.clearTimeout(exitTimer)
+    }
+  }, [ready, onDismiss, startedAt])
+
+  if (!visible) return null
+
+  return (
+    <div
+      className={cn(
+        'fixed inset-0 z-[110] flex items-center justify-center bg-background px-6 transition-opacity duration-300',
+        exiting && 'opacity-0'
+      )}
+      role="status"
+      aria-live="polite"
+      aria-busy={!exiting}
+    >
+      <div className="flex w-full max-w-md flex-col items-center">
+        <div className="mb-8 flex justify-center">
+          <Image
+            src={site.brand.logoHorizontalPositivo}
+            alt="Syntia"
+            width={180}
+            height={40}
+            priority
+            className="h-9 w-auto dark:hidden"
+          />
+          <Image
+            src={site.brand.logoHorizontalNegativo}
+            alt="Syntia"
+            width={180}
+            height={40}
+            priority
+            className="hidden h-9 w-auto dark:block"
+          />
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/15">
+          <div
+            className={cn(
+              'h-full rounded-full bg-primary',
+              !reducedMotion && 'transition-[width] duration-300 ease-out'
+            )}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p
+          key={phraseIndex}
+          className={cn(
+            'mt-5 text-center text-sm font-medium text-foreground',
+            !reducedMotion && 'animate-in fade-in duration-300'
+          )}
+        >
+          {phrases[phraseIndex]}
+        </p>
+      </div>
+    </div>
+  )
+}

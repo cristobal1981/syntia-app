@@ -32,24 +32,14 @@ export function PortalBrandMark({
           className="size-9 shrink-0"
         />
       ) : (
-        <>
-          <Image
-            src={site.brand.logoHorizontalPositivo}
-            alt="Syntia"
-            width={180}
-            height={40}
-            priority={priority}
-            className="h-8 w-auto max-w-full dark:hidden sm:h-9"
-          />
-          <Image
-            src={site.brand.logoHorizontalNegativo}
-            alt="Syntia"
-            width={180}
-            height={40}
-            priority={priority}
-            className="hidden h-8 w-auto max-w-full dark:block sm:h-9"
-          />
-        </>
+        <Image
+          src={site.brand.logoHorizontalNegativo}
+          alt="Syntia"
+          width={180}
+          height={40}
+          priority={priority}
+          className="h-8 w-auto max-w-full sm:h-9"
+        />
       )}
     </Link>
   )

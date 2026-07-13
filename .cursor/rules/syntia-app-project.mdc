@@ -14,7 +14,8 @@ alwaysApply: true
 ## Contenido y copy
 
 - Textos del sitio en `content/site.ts` (y archivos de contenido dedicados por feature).
-- Tono: cercano, profesional, sin jerga de gestoría tradicional (ver manual de marca en `.cursor/rules.md`).
+- Tono: cercano, profesional, sin jerga de asesoría tradicional (ver manual de marca en `.cursor/rules.md`).
+- En copy de usuario: entidad = **asesoría** (nunca «gestoría»); persona = **asesor** (nunca «gestor»).
 
 ## Funcionalidad no lista
 
@@ -24,3 +25,12 @@ alwaysApply: true
 
 - Variables de entorno para webhooks/credenciales; nunca en código fuente.
 - Solo UI (sin API): `NEXT_PUBLIC_FORM_SUBMIT_STUB=true` en `.env.local`; quitar en producción.
+
+## UI del portal
+
+- Botones interactivos: `cursor-pointer` (en `Button` y acciones del shell).
+- Acciones con tooltip/atajo/icono: `PortalActionButton`, no duplicar en cada página.
+
+## Odoo
+
+- Presupuesto de peticiones y flujo UI-mock → datos → integración: ver regla `odoo-rate-limit.mdc`.

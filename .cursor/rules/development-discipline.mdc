@@ -45,3 +45,10 @@ Define cómo comprobar antes de dar por hecho:
 
 - No añadir suite de tests salvo que lo pidan.
 - En pasos multi-paso: plan breve con verificación por paso.
+
+## 5. Componentes reutilizables
+
+- Si un patrón de UI se repite (mismo layout, tooltip, icono, estados), extraer a **un archivo** en `components/` o `src/modules/<módulo>/ui/`.
+- Variar comportamiento solo con **props** (icono opcional, `pending`, variantes), no copiando markup.
+- Botones de acción del portal: usar `PortalActionButton` (`src/modules/portal/ui/portal-action-button.tsx`) para tooltip, atajo, icono y estados.
+- `Button` base (`components/ui/button.tsx`) lleva `cursor-pointer`; disabled → `cursor-not-allowed`.

@@ -45,7 +45,8 @@ public/brand/
 - Cercano pero profesional; nunca distante ni burocrático.
 - Claro, sin jerga técnica innecesaria.
 - Inspirador y orientado al crecimiento del cliente.
-- Evitar tono de "gestoría tradicional".
+- Evitar tono de "asesoría tradicional" (burocrático).
+- En copy visible al usuario: entidad = **asesoría**; persona = **asesor** (nunca «gestor» ni «gestoría»).
 
 ## Tipografía
 

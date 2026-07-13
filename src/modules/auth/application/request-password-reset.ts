@@ -21,9 +21,6 @@ export async function requestPasswordResetAction(
   }
 
   if (!isSupabaseConfigured()) {
-    if (process.env.NEXT_PUBLIC_AUTH_STUB === 'true') {
-      return { ok: true }
-    }
     return { ok: false, error: 'not_configured' }
   }
 

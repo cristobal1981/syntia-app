@@ -1,8 +1,8 @@
 export type NetworkParticle = {
+  homeX: number
+  homeY: number
   x: number
   y: number
-  vx: number
-  vy: number
   radius: number
   phase: number
 }
@@ -17,7 +17,7 @@ export type NetworkPulse = {
 const PRIMARY = { r: 1, g: 222, b: 162 }
 const TURQUESA = { r: 43, g: 192, b: 169 }
 const LINK_DISTANCE = 148
-const MOUSE_INFLUENCE = 200
+const DRIFT_AMPLITUDE = 16
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
@@ -43,14 +43,19 @@ export function createParticles(
   const area = (width * height) / 10000
   const count = clamp(Math.floor(area * density), 48, 110)
 
-  return Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: (Math.random() - 0.5) * 0.35,
-    vy: (Math.random() - 0.5) * 0.35,
-    radius: Math.random() * 1.2 + 0.8,
-    phase: Math.random() * Math.PI * 2,
-  }))
+  return Array.from({ length: count }, () => {
+    const homeX = Math.random() * width
+    const homeY = Math.random() * height
+
+    return {
+      homeX,
+      homeY,
+      x: homeX,
+      y: homeY,
+      radius: Math.random() * 1.2 + 0.8,
+      phase: Math.random() * Math.PI * 2,
+    }
+  })
 }
 
 export function spawnPulse(particles: NetworkParticle[]): NetworkPulse | null {
@@ -76,54 +81,125 @@ export function spawnPulse(particles: NetworkParticle[]): NetworkPulse | null {
   return null
 }
 
+const CURSOR_RADIUS = 132
+const CURSOR_PULL = 0.42
+
+export function applyCursorInfluence(
+  particles: NetworkParticle[],
+  cursor: { x: number; y: number } | null
+) {
+  if (!cursor) return
+
+  for (const particle of particles) {
+    const dx = cursor.x - particle.x
+    const dy = cursor.y - particle.y
+    const dist = Math.hypot(dx, dy)
+    if (dist > CURSOR_RADIUS || dist < 2) continue
+
+    const pull = (1 - dist / CURSOR_RADIUS) * CURSOR_PULL
+    particle.x += dx * pull * 0.12
+    particle.y += dy * pull * 0.12
+  }
+}
+
+export function applyCursorRepel(
+  particles: NetworkParticle[],
+  cursor: { x: number; y: number } | null
+) {
+  if (!cursor) return
+
+  for (const particle of particles) {
+    const dx = particle.x - cursor.x
+    const dy = particle.y - cursor.y
+    const dist = Math.hypot(dx, dy)
+    if (dist > CURSOR_RADIUS || dist < 2) continue
+
+    const push = (1 - dist / CURSOR_RADIUS) * CURSOR_PULL
+    particle.x += (dx / dist) * push * 14
+    particle.y += (dy / dist) * push * 14
+  }
+}
+
+export function applyNetworkGlitch(particles: NetworkParticle[], time: number) {
+  const spike = Math.sin(time * 0.002) * Math.sin(time * 0.0007)
+  if (spike < 0.82) return
+
+  for (const particle of particles) {
+    particle.x += (Math.random() - 0.5) * 6
+    particle.y += (Math.random() - 0.5) * 6
+  }
+}
+
+export function spawnPulsesFromPoint(
+  particles: NetworkParticle[],
+  x: number,
+  y: number,
+  maxPulses = 5
+): NetworkPulse[] {
+  if (particles.length < 2) return []
+
+  const ranked = particles
+    .map((particle, index) => ({
+      index,
+      dist: Math.hypot(particle.x - x, particle.y - y),
+    }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 4)
+
+  const pulses: NetworkPulse[] = []
+  const seen = new Set<string>()
+
+  for (const origin of ranked) {
+    for (let index = 0; index < particles.length; index += 1) {
+      if (index === origin.index) continue
+
+      const target = particles[index]
+      const originParticle = particles[origin.index]
+      const dist = Math.hypot(target.x - originParticle.x, target.y - originParticle.y)
+      if (dist > LINK_DISTANCE) continue
+
+      const key = `${origin.index}-${index}`
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      pulses.push({
+        fromIndex: origin.index,
+        toIndex: index,
+        progress: 0,
+        speed: 0.018 + Math.random() * 0.022,
+      })
+
+      if (pulses.length >= maxPulses) return pulses
+    }
+  }
+
+  return pulses
+}
+
 export type DrawNetworkOptions = {
   width: number
   height: number
   particles: NetworkParticle[]
   pulses: NetworkPulse[]
-  mouse: { x: number; y: number; active: boolean }
   time: number
 }
 
 export function updateNetwork(
   particles: NetworkParticle[],
-  width: number,
-  height: number,
-  mouse: DrawNetworkOptions['mouse'],
   time: number
 ) {
   const t = time * 0.00035
 
   for (const particle of particles) {
-    const flowX = flowNoise(particle.x * 0.0028, particle.y * 0.002, t) * 0.55
-    const flowY = flowNoise(particle.y * 0.0028, particle.x * 0.002 + 42, t + 2) * 0.55
+    const driftX =
+      flowNoise(particle.homeX * 0.0028, particle.homeY * 0.002, t) * DRIFT_AMPLITUDE
+    const driftY =
+      flowNoise(particle.homeY * 0.0028, particle.homeX * 0.002 + 42, t + 2) *
+      DRIFT_AMPLITUDE
 
-    particle.vx = lerp(particle.vx, flowX, 0.04)
-    particle.vy = lerp(particle.vy, flowY, 0.04)
-
-    if (mouse.active) {
-      const dx = particle.x - mouse.x
-      const dy = particle.y - mouse.y
-      const dist = Math.hypot(dx, dy)
-      if (dist < MOUSE_INFLUENCE && dist > 0) {
-        const force = (MOUSE_INFLUENCE - dist) / MOUSE_INFLUENCE
-        particle.vx += (dx / dist) * force * 0.08
-        particle.vy += (dy / dist) * force * 0.08
-      }
-    }
-
-    particle.x += particle.vx
-    particle.y += particle.vy
+    particle.x = particle.homeX + driftX
+    particle.y = particle.homeY + driftY
     particle.phase += 0.02
-
-    if (particle.x < 0 || particle.x > width) {
-      particle.vx *= -1
-      particle.x = clamp(particle.x, 0, width)
-    }
-    if (particle.y < 0 || particle.y > height) {
-      particle.vy *= -1
-      particle.y = clamp(particle.y, 0, height)
-    }
   }
 }
 

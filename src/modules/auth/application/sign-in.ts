@@ -3,14 +3,13 @@
 import { redirect } from 'next/navigation'
 
 import { establishPortalSession } from '@/src/modules/auth/application/establish-portal-session'
-import { mapSupabaseUser } from '@/src/modules/auth/application/map-supabase-user'
-import { authenticateMockUser } from '@/src/modules/auth/infrastructure/mock-auth-repository'
+import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 
 export type SignInResult =
   | { ok: true }
-  | { ok: false; error: 'invalid_credentials' | 'unknown' }
+  | { ok: false; error: 'invalid_credentials' | 'not_configured' | 'unknown' }
 
 export async function signInAction(
   _prev: SignInResult | null,
@@ -19,26 +18,20 @@ export async function signInAction(
   const email = String(formData.get('email') ?? '').trim()
   const password = String(formData.get('password') ?? '')
 
-  if (isSupabaseConfigured()) {
-    const supabase = await createSupabaseServerClient()
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error || !data.user) {
-      return { ok: false, error: 'invalid_credentials' }
-    }
-
-    await establishPortalSession(mapSupabaseUser(data.user))
-    redirect('/dashboard')
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: 'not_configured' }
   }
 
-  const user = await authenticateMockUser({ email, password })
-  if (!user) {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error || !data.user) {
     return { ok: false, error: 'invalid_credentials' }
   }
 
-  await establishPortalSession(user)
+  await establishPortalSession(await resolvePortalUserFromAuth(data.user))
   redirect('/dashboard')
 }

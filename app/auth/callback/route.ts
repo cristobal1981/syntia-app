@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { establishPortalSession } from '@/src/modules/auth/application/establish-portal-session'
-import { mapSupabaseUser } from '@/src/modules/auth/application/map-supabase-user'
+import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 
@@ -25,6 +25,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/login?error=auth_callback', request.url))
   }
 
-  await establishPortalSession(mapSupabaseUser(data.user))
-  return NextResponse.redirect(new URL(next, origin))
+  await establishPortalSession(await resolvePortalUserFromAuth(data.user))
+  const destination = new URL(next, origin)
+  destination.searchParams.set('entering', '1')
+  return NextResponse.redirect(destination)
 }

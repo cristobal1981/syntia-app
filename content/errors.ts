@@ -3,9 +3,10 @@ export const notImplementedPath = "/proximamente" as const
 export const errorPages = {
   404: {
     code: "404",
-    title: "Esta página no está en el balance",
+    title: "Ruta no encontrada en el mapa",
     description:
-      "Hemos buscado en todas las cuentas y esta URL no aparece por ningún lado. Puede que el enlace esté desactualizado o que hayas escrito mal la dirección.",
+      "No hemos encontrado lo que buscabas, pero el logo sigue rebotando. Quédate a ver si toca justo la esquina — no se lo contaremos a nadie 😉.",
+    playHint: "Modo salvapantallas activado. La esquina perfecta lleva años esperando.",
     primaryLabel: "Volver al inicio",
     primaryHref: "/",
     image:
@@ -14,9 +15,10 @@ export const errorPages = {
   },
   400: {
     code: "400",
-    title: "Esta petición no cuadra",
+    title: "Petición fuera de formato",
     description:
-      "Algo en lo que has enviado no encaja con lo que esperamos — como una fila en Excel que no suma. Revisa la dirección o inténtalo de nuevo.",
+      "Lo que nos has mandado no encaja en ningún molde conocido — como un Excel con las columnas en diagonal. Puedes desahogarte empujando los nodos.",
+    playHint: "Acércate con el cursor: los nodos huyen. Pulsa para descargar tensión.",
     primaryLabel: "Volver al inicio",
     primaryHref: "/",
     image:
@@ -25,9 +27,11 @@ export const errorPages = {
   },
   500: {
     code: "500",
-    title: "Pausa café involuntaria",
+    title: "Pausa técnica no programada",
     description:
-      "Nuestros servidores han tomado un respiro inesperado. No es culpa tuya: estamos en ello. Si el problema persiste, escríbenos y lo revisamos con calma.",
+      "Nuestros servidores han dicho «basta un segundo». Dale un toque al fondo para intentar despertarlos — nosotros también lo estamos haciendo.",
+    playHint: "Pulsa para enviar un pulso de reinicio. La red tiembla sola de vez en cuando.",
+    retryLabel: "Intentar de nuevo",
     primaryLabel: "Volver al inicio",
     primaryHref: "/",
     image:

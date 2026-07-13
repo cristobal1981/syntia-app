@@ -39,7 +39,7 @@ export function ErrorScreen({
           sizes="100vw"
         />
         <div
-          className="absolute inset-0 bg-gradient-to-br from-background/92 via-background/85 to-card/90"
+          className="absolute inset-0 bg-gradient-to-br from-surface-dark/92 via-surface-dark/85 to-surface-dark/90"
           aria-hidden
         />
       </div>
