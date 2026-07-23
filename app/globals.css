@@ -158,6 +158,52 @@
   --sidebar-ring: #01dea2;
 }
 
+/*
+ * Accesibilidad: escala de fuente. Todo el layout usa unidades rem,
+ * así que escalar el font-size raíz escala tipografía y espaciado a la vez.
+ */
+html[data-font-scale='sm'] {
+  font-size: 93.75%; /* 15px */
+}
+html[data-font-scale='lg'] {
+  font-size: 112.5%; /* 18px */
+}
+html[data-font-scale='xl'] {
+  font-size: 125%; /* 20px */
+}
+
+/*
+ * Accesibilidad: alto contraste. Refuerza los pares WCAG documentados arriba
+ * (texto atenuado ≥7:1, bordes visibles) sin tocar el Verde Syntia.
+ */
+html.hc:not(.dark) {
+  --muted-on-light: #33534e;
+  --on-light-muted: #3a5551;
+  --accent-on-light: #014e48;
+  --border: #9fb6b0;
+  --input: #dbe4e1;
+  --ring: #01635c;
+  --sidebar-muted-foreground: #dcebee;
+  --sidebar-border: #1a4a55;
+}
+
+html.dark.hc {
+  --muted-on-dark: #e2eef1;
+  --subtle-foreground: #d5e6ea;
+  --icon-muted: #dcebee;
+  --border: #1d5563;
+  --border-subtle: #1d5563;
+  --input: #12454f;
+  --sidebar-muted-foreground: #e2eef1;
+  --sidebar-border: #1a4a55;
+}
+
+/* Accesibilidad: subrayar enlaces */
+.a11y-underline :is(a, [role='link']) {
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+
 @theme inline {
   --font-sans: var(--font-host-grotesk), system-ui, sans-serif;
   --font-body: var(--font-archivo), system-ui, sans-serif;
@@ -324,6 +370,29 @@
 }
 
 @layer utilities {
+  /* Resaltado temporal al llegar a un modelo concreto desde una guía */
+  .guide-card-flash {
+    animation: guide-card-flash 2s ease-out;
+  }
+
+  @keyframes guide-card-flash {
+    0%,
+    35% {
+      box-shadow: 0 0 0 3px var(--primary);
+      background-color: color-mix(in oklch, var(--primary) 10%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .guide-card-flash {
+      animation: none;
+      box-shadow: 0 0 0 3px var(--primary);
+    }
+  }
+
   .portal-menu-corner::after {
     content: '';
     pointer-events: none;

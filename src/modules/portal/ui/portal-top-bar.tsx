@@ -5,6 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import type { PortalRole } from '@/src/modules/auth/domain/types'
+import { AccessibilityMenu } from '@/src/modules/portal/ui/accessibility-menu'
 import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
 import { PortalTopBarCreateConsulta } from '@/src/modules/portal/ui/portal-top-bar-create-consulta'
 import { PortalTopBarSearch } from '@/src/modules/portal/ui/portal-top-bar-search'
@@ -98,8 +99,9 @@ export function PortalTopBar({
       <div className="min-w-2 flex-1" aria-hidden />
 
       <div className="flex shrink-0 items-center gap-2">
-        <NotificationBell className="hidden lg:flex" />
         <PortalTopBarCreateConsulta />
+        <NotificationBell className="hidden lg:flex" />
+        <AccessibilityMenu className="shrink-0" />
         <ThemeToggle className="shrink-0" />
       </div>
     </header>

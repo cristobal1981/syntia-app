@@ -7,7 +7,11 @@ export type AutomationInputOption = {
   label: string
 }
 
-export type AutomationInputFieldType = 'select' | 'text'
+export type AutomationInputFieldType =
+  | 'select'
+  | 'text'
+  | 'checkbox'
+  | 'odoo_companies_multi'
 
 /** Campo de entrada que se pide al lanzar y viaja al webhook con su clave. */
 export type AutomationInputField = {
@@ -19,6 +23,8 @@ export type AutomationInputField = {
   /** Solo para type === 'select'. */
   options: AutomationInputOption[]
 }
+
+export type AutomationWebhookPayload = Record<string, string | number[] | boolean>
 
 export const AUTOMATION_INPUT_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/
 export const MAX_AUTOMATION_INPUT_FIELDS = 6
@@ -111,7 +117,13 @@ export function parseAutomationInputFields(raw: unknown): AutomationInputField[]
     const options = (entry as { options?: unknown }).options
     const typeRaw = (entry as { type?: unknown }).type
     const type: AutomationInputFieldType =
-      typeRaw === 'text' ? 'text' : 'select'
+      typeRaw === 'text'
+        ? 'text'
+        : typeRaw === 'checkbox'
+          ? 'checkbox'
+          : typeRaw === 'odoo_companies_multi'
+            ? 'odoo_companies_multi'
+            : 'select'
 
     if (typeof key !== 'string' || !AUTOMATION_INPUT_KEY_PATTERN.test(key)) continue
 
@@ -122,6 +134,44 @@ export function parseAutomationInputFields(raw: unknown): AutomationInputField[]
         key,
         label: typeof label === 'string' && label.trim() ? label.trim() : key,
         type: 'text',
+        required: required !== false,
+        defaultValue: parsedDefault,
+        options: [],
+      })
+      if (fields.length >= MAX_AUTOMATION_INPUT_FIELDS) break
+      continue
+    }
+
+    if (type === 'odoo_companies_multi') {
+      fields.push({
+        key,
+        label: typeof label === 'string' && label.trim() ? label.trim() : key,
+        type: 'odoo_companies_multi',
+        required: required !== false,
+        defaultValue: null,
+        options: [],
+      })
+      if (fields.length >= MAX_AUTOMATION_INPUT_FIELDS) break
+      continue
+    }
+
+    if (type === 'checkbox') {
+      const parsedDefault =
+        defaultValue === true ||
+        defaultValue === 'true' ||
+        defaultValue === 1 ||
+        defaultValue === '1'
+          ? 'true'
+          : defaultValue === false ||
+              defaultValue === 'false' ||
+              defaultValue === 0 ||
+              defaultValue === '0'
+            ? 'false'
+            : null
+      fields.push({
+        key,
+        label: typeof label === 'string' && label.trim() ? label.trim() : key,
+        type: 'checkbox',
         required: required !== false,
         defaultValue: parsedDefault,
         options: [],
@@ -194,7 +244,14 @@ export function validateAutomationInputFieldsDefinition(
       return { ok: false, message: `El parámetro «${key}» necesita etiqueta.` }
     }
 
-    const type = field.type === 'text' ? 'text' : 'select'
+    const type =
+      field.type === 'text'
+        ? 'text'
+        : field.type === 'checkbox'
+          ? 'checkbox'
+          : field.type === 'odoo_companies_multi'
+            ? 'odoo_companies_multi'
+            : 'select'
 
     if (type === 'text') {
       const defaultValue = field.defaultValue?.trim() || null
@@ -208,6 +265,36 @@ export function validateAutomationInputFieldsDefinition(
         key,
         label,
         type: 'text',
+        required: field.required,
+        defaultValue,
+        options: [],
+      })
+      continue
+    }
+
+    if (type === 'odoo_companies_multi') {
+      normalized.push({
+        key,
+        label,
+        type: 'odoo_companies_multi',
+        required: field.required,
+        defaultValue: null,
+        options: [],
+      })
+      continue
+    }
+
+    if (type === 'checkbox') {
+      const defaultValue =
+        field.defaultValue === 'true'
+          ? 'true'
+          : field.defaultValue === 'false'
+            ? 'false'
+            : null
+      normalized.push({
+        key,
+        label,
+        type: 'checkbox',
         required: field.required,
         defaultValue,
         options: [],
@@ -264,17 +351,56 @@ export function validateAutomationInputFieldsDefinition(
 }
 
 export type AutomationInputValuesValidation =
-  | { ok: true; inputs: Record<string, string> }
+  | { ok: true; payload: AutomationWebhookPayload }
   | { ok: false; message: string }
+
+function parseCompanyIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  const ids: number[] = []
+  for (const entry of value) {
+    const id = typeof entry === 'number' ? entry : Number.parseInt(String(entry), 10)
+    if (Number.isInteger(id) && id > 0 && !ids.includes(id)) {
+      ids.push(id)
+    }
+  }
+  return ids
+}
 
 /** Valida los valores recibidos al lanzar: requerido presente (o default), valor ∈ opciones. */
 export function validateAutomationInputValues(
   fields: AutomationInputField[],
-  values: Record<string, string>
+  values: Record<string, string>,
+  companyIdsByField: Record<string, number[]> = {}
 ): AutomationInputValuesValidation {
-  const inputs: Record<string, string> = {}
+  const payload: AutomationWebhookPayload = {}
 
   for (const field of fields) {
+    if (field.type === 'odoo_companies_multi') {
+      const ids = parseCompanyIds(companyIdsByField[field.key])
+      if (!ids.length) {
+        if (field.required) {
+          return { ok: false, message: `Selecciona al menos una empresa para «${field.label}».` }
+        }
+        continue
+      }
+      payload[field.key] = ids
+      continue
+    }
+
+    if (field.type === 'checkbox') {
+      const raw = values[field.key]
+      const checked =
+        raw === 'true' || (raw !== 'false' && field.defaultValue === 'true')
+      if (field.required && !checked) {
+        return {
+          ok: false,
+          message: `Marca la opción «${field.label}» para continuar.`,
+        }
+      }
+      payload[field.key] = checked
+      continue
+    }
+
     const raw = values[field.key]
     const value = typeof raw === 'string' ? raw.trim() : ''
     const resolved = value || field.defaultValue || ''
@@ -293,7 +419,7 @@ export function validateAutomationInputValues(
           message: `El parámetro «${field.label}» es demasiado largo.`,
         }
       }
-      inputs[field.key] = resolved
+      payload[field.key] = resolved
       continue
     }
 
@@ -304,8 +430,8 @@ export function validateAutomationInputValues(
       }
     }
 
-    inputs[field.key] = resolved
+    payload[field.key] = resolved
   }
 
-  return { ok: true, inputs }
+  return { ok: true, payload }
 }

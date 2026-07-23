@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   ClipboardList,
   FileText,
   Inbox,
@@ -33,6 +34,7 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   tasks: ListChecks,
   integrations: Plug,
   automations: Workflow,
+  guides: BookOpen,
 }
 
 type PortalNavIconProps = {

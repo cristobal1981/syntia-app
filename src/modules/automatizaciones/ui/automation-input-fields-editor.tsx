@@ -125,6 +125,12 @@ export function AutomationInputFieldsEditor({
         if (patch.type === 'text') {
           return { ...next, options: [], defaultValue: next.defaultValue }
         }
+        if (patch.type === 'odoo_companies_multi') {
+          return { ...next, options: [], defaultValue: '' }
+        }
+        if (patch.type === 'checkbox') {
+          return { ...next, options: [], defaultValue: 'false' }
+        }
         if (patch.type === 'select' && !next.options.length) {
           return { ...next, options: [emptyDraftInputOption()] }
         }
@@ -188,6 +194,10 @@ export function AutomationInputFieldsEditor({
                 <SelectContent>
                   <SelectItem value="select">{copy.typeSelect}</SelectItem>
                   <SelectItem value="text">{copy.typeText}</SelectItem>
+                  <SelectItem value="checkbox">{copy.typeCheckbox}</SelectItem>
+                  <SelectItem value="odoo_companies_multi">
+                    {copy.typeOdooCompaniesMulti}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -299,13 +309,17 @@ export function AutomationInputFieldsEditor({
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor={`field-default-${field.localId}`}
-                className="text-xs font-medium text-foreground"
-              >
-                {field.type === 'text' ? copy.defaultTextValue : copy.defaultValue}
-              </label>
+            {field.type !== 'odoo_companies_multi' &&
+            field.type !== 'checkbox' ? (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor={`field-default-${field.localId}`}
+                  className="text-xs font-medium text-foreground"
+                >
+                  {field.type === 'text'
+                    ? copy.defaultTextValue
+                    : copy.defaultValue}
+                </label>
               {field.type === 'text' ? (
                 <Input
                   id={`field-default-${field.localId}`}
@@ -317,7 +331,7 @@ export function AutomationInputFieldsEditor({
                   autoComplete="off"
                   className={RECESSED_FIELD_CLASS}
                 />
-              ) : (
+              ) : field.type === 'select' ? (
                 <Select
                   value={
                     field.defaultValue === ''
@@ -353,9 +367,32 @@ export function AutomationInputFieldsEditor({
                       ))}
                   </SelectContent>
                 </Select>
-              )}
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 sm:mt-6">
+              ) : null}
+              </div>
+            ) : field.type === 'checkbox' ? (
+              <label className="flex cursor-pointer items-center gap-2 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={field.defaultValue === 'true'}
+                  onChange={(event) =>
+                    patchField(field.localId, {
+                      defaultValue: event.target.checked ? 'true' : 'false',
+                    })
+                  }
+                  className="size-4 cursor-pointer"
+                />
+                <span className="text-sm text-foreground">
+                  {copy.defaultChecked}
+                </span>
+              </label>
+            ) : null}
+            <label
+              className={
+                field.type === 'odoo_companies_multi' || field.type === 'checkbox'
+                  ? 'flex cursor-pointer items-center gap-2'
+                  : 'flex cursor-pointer items-center gap-2 sm:mt-6'
+              }
+            >
               <input
                 type="checkbox"
                 checked={field.required}
@@ -403,6 +440,28 @@ export function AutomationInputFieldsEditor({
         >
           <Plus className="size-4" aria-hidden />
           {copy.addTextField}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => onChange([...fields, emptyDraftInputField('checkbox')])}
+        >
+          <Plus className="size-4" aria-hidden />
+          {copy.addCheckboxField}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() =>
+            onChange([...fields, emptyDraftInputField('odoo_companies_multi')])
+          }
+        >
+          <Plus className="size-4" aria-hidden />
+          {copy.addOdooCompaniesField}
         </Button>
       </div>
     </div>

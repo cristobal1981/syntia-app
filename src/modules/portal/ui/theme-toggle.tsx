@@ -8,11 +8,17 @@ import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 
-const options = [
-  { value: 'light', label: portal.shell.theme.light, icon: Sun },
-  { value: 'dark', label: portal.shell.theme.dark, icon: Moon },
-  { value: 'system', label: portal.shell.theme.system, icon: Monitor },
-] as const
+const order = ['light', 'dark', 'system'] as const
+
+type ThemeValue = (typeof order)[number]
+
+const icons = { light: Sun, dark: Moon, system: Monitor } as const
+
+const labels: Record<ThemeValue, string> = {
+  light: portal.shell.theme.light,
+  dark: portal.shell.theme.dark,
+  system: portal.shell.theme.system,
+}
 
 type ThemeToggleProps = {
   className?: string
@@ -33,38 +39,26 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     )
   }
 
-  return (
-    <div
-      role="group"
-      aria-label={portal.shell.theme.label}
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 dark:border-border dark:bg-sidebar-accent',
-        className
-      )}
-    >
-      {options.map(({ value, label, icon: Icon }) => {
-        const isActive = theme === value
+  const current: ThemeValue = order.includes(theme as ThemeValue)
+    ? (theme as ThemeValue)
+    : 'system'
+  const next = order[(order.indexOf(current) + 1) % order.length]
+  const Icon = icons[current]
+  const label = `${portal.shell.theme.currentPrefix} ${labels[current]}. ${portal.shell.theme.switchToPrefix} ${labels[next]}`
 
-        return (
-          <PortalActionTooltip key={value} content={label}>
-            <button
-              type="button"
-              onClick={() => setTheme(value)}
-              aria-pressed={isActive}
-              aria-label={label}
-              className={cn(
-                'flex size-7 cursor-pointer items-center justify-center rounded-[5px] transition-colors',
-                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                isActive
-                  ? 'bg-brisa text-agua shadow-sm dark:bg-input dark:text-primary'
-                  : 'text-on-light-muted hover:text-on-light-muted dark:text-subtle-foreground dark:hover:text-muted-foreground'
-              )}
-            >
-              <Icon className="size-3.5 shrink-0" aria-hidden />
-            </button>
-          </PortalActionTooltip>
-        )
-      })}
-    </div>
+  return (
+    <PortalActionTooltip content={label}>
+      <button
+        type="button"
+        onClick={() => setTheme(next)}
+        aria-label={label}
+        className={cn(
+          'flex size-8 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+          className
+        )}
+      >
+        <Icon className="size-4" aria-hidden />
+      </button>
+    </PortalActionTooltip>
   )
 }

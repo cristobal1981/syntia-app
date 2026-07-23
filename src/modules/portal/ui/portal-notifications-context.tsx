@@ -11,7 +11,7 @@ import {
   useTransition,
   type ReactNode,
 } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import {
   ackPortalNotificationAction,
@@ -52,6 +52,24 @@ import {
 
 const CHATTER_READ_STATE_STORAGE_KEY = 'syntia-chatter-read-state'
 const DEFERRED_POLL_MS = 2_000
+const PORTAL_MAIN_SELECTOR = 'main'
+
+function shouldRefreshPortalPageOnNotificationPoll(pathname: string): boolean {
+  // Guías: contenido estático; router.refresh() remonta loading.tsx y pierde scroll.
+  if (pathname.startsWith('/guias')) return false
+  return true
+}
+
+function readPortalMainScrollTop(): number {
+  if (typeof document === 'undefined') return 0
+  return document.querySelector(PORTAL_MAIN_SELECTOR)?.scrollTop ?? 0
+}
+
+function restorePortalMainScrollTop(top: number) {
+  if (typeof document === 'undefined') return
+  const main = document.querySelector(PORTAL_MAIN_SELECTOR)
+  if (main) main.scrollTop = top
+}
 
 function shouldDeferInitialPoll(): boolean {
   if (typeof window === 'undefined') return false
@@ -152,7 +170,8 @@ export function PortalNotificationsProvider({
   enabled,
 }: PortalNotificationsProviderProps) {
   const router = useRouter()
-  const [, startPortalRefresh] = useTransition()
+  const pathname = usePathname()
+  const [portalRefreshPending, startPortalRefresh] = useTransition()
   const [unread, setUnread] = useState<PortalNotification[]>([])
   const [notificationsLoading, setNotificationsLoading] = useState(enabled)
   const unreadRef = useRef<PortalNotification[]>([])
@@ -166,6 +185,7 @@ export function PortalNotificationsProvider({
   const coordinatorRef = useRef<PortalNotificationsTabCoordinator | null>(null)
   const rateLimitedRef = useRef(false)
   const pendingFirmaIdsRef = useRef<number[]>([])
+  const pendingMainScrollRestoreRef = useRef<number | null>(null)
 
   const commitUnread = useCallback((nextUnread: PortalNotification[]) => {
     const pruned = pruneResolvedFirmaNotifications(
@@ -178,10 +198,24 @@ export function PortalNotificationsProvider({
   }, [])
 
   const refreshPortalPages = useCallback(() => {
+    pendingMainScrollRestoreRef.current = readPortalMainScrollTop()
     startPortalRefresh(() => {
       router.refresh()
     })
   }, [router])
+
+  useEffect(() => {
+    if (portalRefreshPending || pendingMainScrollRestoreRef.current === null) return
+
+    const top = pendingMainScrollRestoreRef.current
+    pendingMainScrollRestoreRef.current = null
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        restorePortalMainScrollTop(top)
+      })
+    })
+  }, [portalRefreshPending])
 
   const applyReadState = useCallback((readState: ChatterReadStateMap) => {
     readStateRef.current = mergeReadState(readStateRef.current, readState)
@@ -268,11 +302,15 @@ export function PortalNotificationsProvider({
         rateLimitedRef.current = false
       }
 
-      if (options?.refreshPages && hadChanges) {
+      if (
+        options?.refreshPages &&
+        hadChanges &&
+        shouldRefreshPortalPageOnNotificationPoll(pathname)
+      ) {
         refreshPortalPages()
       }
     },
-    [applyReadState, commitUnread, refreshPortalPages]
+    [applyReadState, commitUnread, pathname, refreshPortalPages]
   )
 
   const refreshNotifications = useCallback(

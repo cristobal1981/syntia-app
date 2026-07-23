@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Archivo, Host_Grotesk } from 'next/font/google'
 
+import { AccessibilityProvider } from '@/components/providers/accessibility-provider'
+import { AccessibilityScript } from '@/components/providers/accessibility-script'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import './globals.css'
 
@@ -51,7 +53,10 @@ export default function RootLayout({
       className={`${hostGrotesk.variable} ${archivo.variable} bg-background`}
     >
       <body className={`${archivo.className} antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <AccessibilityScript />
+        <ThemeProvider>
+          <AccessibilityProvider>{children}</AccessibilityProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

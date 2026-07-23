@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fiscalModelsGuide } from '@/content/fiscal-models-guide'
+import { guias } from '@/content/guias'
 import { cn } from '@/lib/utils'
 import {
   fiscalModelMatchesQuery,
@@ -15,6 +16,10 @@ import {
   normalizeGuideSearchText,
 } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
 import type { FiscalModelGuideEntry } from '@/content/fiscal-models-guide'
+
+// Código de modelo pendiente de desplazamiento; sobrevive al doble montaje
+// de StrictMode una vez consumido el parámetro de la URL.
+let pendingScrollModelCode: string | null = null
 
 type FiscalModelGuideCardProps = {
   entry: FiscalModelGuideEntry
@@ -31,22 +36,20 @@ function FiscalModelGuideCard({
 
   return (
     <article
+      id={`modelo-${entry.code}`}
       className={cn(
         'portal-home-card portal-home-card-interactive group flex h-full flex-col rounded-xl px-5 py-4 md:px-6 md:py-5',
-        'transition-[transform,box-shadow,border-color,background-color] duration-300 ease-out',
-        'hover:-translate-y-1 hover:border-primary/55 hover:bg-primary/[0.04] hover:shadow-lg hover:shadow-primary/15',
-        'dark:hover:translate-y-0 dark:hover:border-transparent dark:hover:bg-muted/25 dark:hover:shadow-none',
-        'motion-reduce:transition-none motion-reduce:hover:translate-y-0'
+        'transition-[box-shadow,border-color,background-color] duration-300 ease-out',
+        'hover:border-primary/70 hover:bg-primary/[0.04] hover:shadow-[0_0_0_1px_var(--primary)]',
+        'dark:hover:border-primary/60 dark:hover:bg-muted/25',
+        'motion-reduce:transition-none'
       )}
     >
       <div className="flex items-center gap-3">
         <div
           className={cn(
             'flex shrink-0 items-center justify-center rounded-lg bg-primary px-3 py-2.5 text-white',
-            'transition-[transform,box-shadow] duration-300 ease-out',
-            'group-hover:scale-105 group-hover:shadow-md group-hover:shadow-primary/25',
-            'dark:bg-primary/15 dark:text-primary dark:group-hover:bg-primary/25',
-            'motion-reduce:group-hover:scale-100'
+            'dark:bg-primary/15 dark:text-primary dark:group-hover:bg-primary/25'
           )}
           aria-hidden
         >
@@ -93,9 +96,68 @@ function FiscalModelGuideCard({
   )
 }
 
-export function FiscalModelsGuidePageView() {
+export function FiscalModelsGuideView() {
   const copy = fiscalModelsGuide
   const [query, setQuery] = useState('')
+
+  // Al llegar con ?modelo=<código> (desde una guía), desplaza hasta la ficha
+  // y la resalta brevemente. No usamos scrollIntoView porque también
+  // desplaza los ancestros con overflow-hidden (el shell del portal),
+  // descolocando la barra superior; se desplaza solo el <main> scrollable.
+  useEffect(() => {
+    // Consumir el parámetro cuanto antes: los refrescos del router (p. ej. el
+    // sondeo de notificaciones llama a router.refresh()) remontan la página y
+    // volverían a disparar el desplazamiento a mitad de transición. El código
+    // pendiente se guarda a nivel de módulo para sobrevivir al doble montaje
+    // de StrictMode en desarrollo.
+    const paramCode = new URLSearchParams(window.location.search).get('modelo')
+    if (paramCode) {
+      pendingScrollModelCode = paramCode
+      const url = new URL(window.location.href)
+      url.searchParams.delete('modelo')
+      window.history.replaceState(null, '', url)
+    }
+
+    const code = pendingScrollModelCode
+    if (!code) return
+
+    const target = document.getElementById(`modelo-${code}`)
+    if (!target) {
+      pendingScrollModelCode = null
+      return
+    }
+
+    const scroller = target.closest('main')
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let removeTimeout: number | undefined
+
+    const frame = window.requestAnimationFrame(() => {
+      pendingScrollModelCode = null
+      if (scroller) {
+        const targetRect = target.getBoundingClientRect()
+        const scrollerRect = scroller.getBoundingClientRect()
+        const top =
+          scroller.scrollTop +
+          (targetRect.top - scrollerRect.top) -
+          (scroller.clientHeight - targetRect.height) / 2
+        scroller.scrollTo({
+          top: Math.max(0, top),
+          behavior: reduceMotion ? 'auto' : 'smooth',
+        })
+      }
+      target.classList.add('guide-card-flash')
+      removeTimeout = window.setTimeout(
+        () => target.classList.remove('guide-card-flash'),
+        2200
+      )
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      if (removeTimeout !== undefined) window.clearTimeout(removeTimeout)
+      target.classList.remove('guide-card-flash')
+    }
+  }, [])
 
   const visibleModels = useMemo(() => {
     const entries = getSortedFiscalModelGuideEntries()
@@ -108,9 +170,9 @@ export function FiscalModelsGuidePageView() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
         <Button type="button" variant="ghost" size="sm" className="w-fit px-0" asChild>
-          <Link href="/obligaciones">
+          <Link href="/guias">
             <ArrowLeft className="size-4" aria-hidden />
-            <span className="ml-2">{copy.backToObligaciones}</span>
+            <span className="ml-2">{guias.detail.backToHub}</span>
           </Link>
         </Button>
         <div>
