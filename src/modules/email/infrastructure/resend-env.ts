@@ -24,12 +24,18 @@ export function getResendFromEmail(): string {
   return from
 }
 
+/** Solo sandbox / preview / local. En producción de Vercel nunca se aplica. */
+function getInviteOverrideTo(): string {
+  if (process.env.VERCEL_ENV === 'production') return ''
+  return stripEnvQuotes(process.env.RESEND_INVITE_OVERRIDE_TO)
+}
+
 /** Sandbox Resend: redirige invitaciones a tu bandeja (mismo correo que la cuenta Resend). */
 export function getInviteRecipientEmail(clientEmail: string): string {
-  const override = stripEnvQuotes(process.env.RESEND_INVITE_OVERRIDE_TO)
+  const override = getInviteOverrideTo()
   return override || clientEmail.trim().toLowerCase()
 }
 
 export function isInviteRecipientOverridden(): boolean {
-  return Boolean(stripEnvQuotes(process.env.RESEND_INVITE_OVERRIDE_TO))
+  return Boolean(getInviteOverrideTo())
 }

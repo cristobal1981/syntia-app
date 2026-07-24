@@ -42,8 +42,7 @@ export function buildAltaAutonomoAccessEmail({
   expiresAt,
   isOverrideRecipient,
 }: AltaAutonomoAccessEmailParams) {
-  const subjectBase = 'Completa tu solicitud de alta de autónomo'
-  const subject = isOverrideRecipient ? `[Prueba] ${subjectBase}` : subjectBase
+  const subject = 'Completa tu solicitud de alta de autónomo'
   const expiresLabel = formatAltaAutonomoExpiryLabel(expiresAt)
   const firstName = resolveGreetingFirstName(clientFirstName)
   const saludo = firstName ? `Hola, ${firstName}` : 'Hola'
