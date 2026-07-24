@@ -59,9 +59,16 @@ export function AutomationCard({
   const canLaunch = configured && automation.isActive
   const showAdminActions = Boolean(onEdit || onDelete || dragHandleProps)
 
-  function launch(inputValues?: Record<string, string>) {
+  function launch(
+    inputValues?: Record<string, string>,
+    companyIdsByField?: Record<string, number[]>
+  ) {
     startTransition(async () => {
-      const result = await triggerAutomationAction(automation.id, inputValues)
+      const result = await triggerAutomationAction(
+        automation.id,
+        inputValues,
+        companyIdsByField
+      )
       if (!result.ok) {
         const message =
           result.message ??
@@ -209,7 +216,9 @@ export function AutomationCard({
               open={paramsOpen}
               onOpenChange={setParamsOpen}
               pending={pending}
-              onLaunch={(values) => launch(values)}
+              onLaunch={(values, companyIdsByField) =>
+                launch(values, companyIdsByField)
+              }
             >
               {launchButton}
             </AutomationLaunchPopover>

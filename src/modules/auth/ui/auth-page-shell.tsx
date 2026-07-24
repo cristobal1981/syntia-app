@@ -14,7 +14,7 @@ const easeOut = [0.22, 1, 0.36, 1] as const
 
 type AuthPageShellProps = {
   title: string
-  description: string
+  description?: string
   children: ReactNode
   footer?: ReactNode
   logoHref?: string
@@ -50,7 +50,7 @@ export function AuthPageShell({
           >
             <Link
               href={logoHref}
-              className="mb-10 inline-flex w-fit focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="mb-10 inline-flex w-fit flex-col gap-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <Image
                 src={site.brand.logoHorizontalNegativo}
@@ -60,15 +60,20 @@ export function AuthPageShell({
                 priority
                 className="h-9 w-auto sm:h-11"
               />
+              <span className="text-xs tracking-wide text-muted-on-dark">
+                {site.brand.byLine}
+              </span>
             </Link>
 
             <h1 className="font-sans text-3xl font-semibold tracking-tight text-on-dark sm:text-4xl lg:text-[2.75rem] lg:leading-[1.1]">
               {title}
             </h1>
 
-            <p className="mt-4 max-w-sm text-base leading-relaxed text-muted-on-dark sm:text-lg">
-              {description}
-            </p>
+            {description ? (
+              <p className="mt-4 max-w-sm text-base leading-relaxed text-muted-on-dark sm:text-lg">
+                {description}
+              </p>
+            ) : null}
 
             <div className="mt-8 hidden h-px w-16 bg-primary/70 lg:block" />
 

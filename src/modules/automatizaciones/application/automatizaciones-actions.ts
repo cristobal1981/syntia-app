@@ -15,6 +15,8 @@ import {
   validateAutomationInputFieldsDefinition,
   validateAutomationInputValues,
 } from '@/src/modules/automatizaciones/domain/types'
+import { listOdooCompaniesForAutomation } from '@/src/modules/automatizaciones/application/list-odoo-companies-for-automation'
+import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
 import { isAutomatizacionesConfigured } from '@/src/modules/automatizaciones/infrastructure/automation-env'
 import {
   deletePortalAutomation,
@@ -208,7 +210,8 @@ export async function listAutomatizacionesAction(): Promise<
 
 export async function triggerAutomationAction(
   automationId: string,
-  inputValues?: Record<string, string>
+  inputValues?: Record<string, string>,
+  companyIdsByField?: Record<string, number[]>
 ): Promise<AutomatizacionesResult<{ status: 'sent' | 'failed' }>> {
   try {
     const { session, actorId } = await requireStaffSession()
@@ -233,7 +236,8 @@ export async function triggerAutomationAction(
 
     const inputsResult = validateAutomationInputValues(
       automation.inputFields,
-      inputValues ?? {}
+      inputValues ?? {},
+      companyIdsByField ?? {}
     )
     if (!inputsResult.ok) {
       // No se registra run: no hubo intento de webhook.
@@ -242,7 +246,7 @@ export async function triggerAutomationAction(
 
     const result = await triggerAutomationWebhook(
       automation.webhookPath,
-      inputsResult.inputs
+      inputsResult.payload
     )
 
     const status = result.ok ? 'sent' : 'failed'
@@ -594,6 +598,40 @@ export async function createAutomationAction(
         },
       },
     }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'forbidden') {
+      return { ok: false, error: 'forbidden' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function listOdooCompaniesForAutomationAction(): Promise<
+  AutomatizacionesResult<{ companies: OdooCompanyOption[] }>
+> {
+  try {
+    await requireStaffSession()
+
+    const result = await listOdooCompaniesForAutomation()
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: 'not_configured',
+        message:
+          result.error === 'odoo_unavailable'
+            ? 'Odoo no está configurado en el portal.'
+            : 'No se pudo cargar el catálogo de empresas de Odoo.',
+      }
+    }
+
+    return { ok: true, data: { companies: result.companies } }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

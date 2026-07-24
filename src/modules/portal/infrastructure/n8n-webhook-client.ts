@@ -8,7 +8,10 @@ export type TriggerAutomationWebhookResult =
   | { ok: true; httpStatus: number }
   | { ok: false; httpStatus?: number; errorMessage: string }
 
-export type TriggerAutomationWebhookPayload = Record<string, string>
+export type TriggerAutomationWebhookPayload = Record<
+  string,
+  string | number[] | boolean
+>
 
 function joinWebhookUrl(base: string, path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`

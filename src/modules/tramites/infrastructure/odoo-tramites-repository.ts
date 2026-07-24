@@ -8,13 +8,12 @@ import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-date
 import {
   getCachedClientProjectIds,
   getCachedObligacionTaskIndex,
-  getCachedTramitesTagId,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
   getOdooTicketsModel,
   getTicketClosedField,
-  getTramitesTaskTagName,
   TRAMITES_FETCH_LIMIT,
+  TRAMITES_SHOW_IN_SYNTIA_FIELD,
 } from '@/src/modules/tramites/infrastructure/tramites-env'
 import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import { resolveOdooPartnerIdsByUserIds } from '@/src/modules/portal/infrastructure/odoo-advisor-partner'
@@ -30,6 +29,10 @@ type OdooTaskRow = {
   state?: string | false | null
   write_date?: string | false | null
   user_ids?: number[] | false | null
+}
+
+type OdooTaskIdRow = {
+  id: number
 }
 
 type OdooTicketRow = {
@@ -118,10 +121,6 @@ async function listClientProjectIds(partnerId: number): Promise<number[]> {
   return getCachedClientProjectIds(partnerId)
 }
 
-async function resolveTaskTagId(tagName: string): Promise<number | null> {
-  return getCachedTramitesTagId(tagName)
-}
-
 async function collectExcludedObligacionTaskIds(
   partnerId: number
 ): Promise<Set<number>> {
@@ -129,18 +128,37 @@ async function collectExcludedObligacionTaskIds(
   return new Set(index.excludedTaskIds)
 }
 
+/**
+ * Tareas con x_studio_mostrar_en_syntia + todas sus subtareas (child_of).
+ * Excluye el árbol de obligaciones (filtro por nombre, independiente del flag).
+ */
 async function listProjectTaskRows(
   projectIds: number[],
-  tagId: number | null,
   excludedTaskIds: Set<number>
 ): Promise<OdooTaskRow[]> {
-  const domain: unknown[] = [['project_id', 'in', projectIds]]
-  if (tagId) {
-    domain.push(['tag_ids', 'in', [tagId]])
+  const flagged = await odooSearchRead<OdooTaskIdRow>('project.task', {
+    domain: [
+      ['project_id', 'in', projectIds],
+      [TRAMITES_SHOW_IN_SYNTIA_FIELD, '=', true],
+    ],
+    fields: ['id'],
+    order: 'id desc',
+    limit: TRAMITES_FETCH_LIMIT,
+  })
+
+  const flaggedIds = flagged
+    .map((row) => row.id)
+    .filter((id) => !excludedTaskIds.has(id))
+
+  if (!flaggedIds.length) {
+    return []
   }
 
   const rows = await odooSearchRead<OdooTaskRow>('project.task', {
-    domain,
+    domain: [
+      ['project_id', 'in', projectIds],
+      ['id', 'child_of', flaggedIds],
+    ],
     fields: ['name', 'state', 'write_date', 'user_ids'],
     order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
@@ -151,14 +169,9 @@ async function listProjectTaskRows(
 
 async function listProjectTasks(
   projectIds: number[],
-  tagId: number | null,
   excludedTaskIds: Set<number>
 ): Promise<TramiteTask[]> {
-  const filteredRows = await listProjectTaskRows(
-    projectIds,
-    tagId,
-    excludedTaskIds
-  )
+  const filteredRows = await listProjectTaskRows(projectIds, excludedTaskIds)
   const assigneeUserIds = filteredRows.flatMap((row) => mapOdooUserIds(row.user_ids))
   const partnerByUserId = await resolveOdooPartnerIdsByUserIds(assigneeUserIds)
   const attachmentCounts = await countAttachmentsByRecordIds(
@@ -210,19 +223,15 @@ export async function listTramiteRecordRefsForPartner(
     throw new Error('ODOO_NOT_CONFIGURED')
   }
 
-  const tagName = getTramitesTaskTagName()
   const excludedTaskIds = await collectExcludedObligacionTaskIds(partnerId)
   const projectIds = await listClientProjectIds(partnerId)
 
   const refs: TramiteRecordRef[] = []
 
   if (projectIds.length) {
-    const tagId = tagName ? await resolveTaskTagId(tagName) : null
-    if (!tagName || tagId) {
-      const taskRows = await listProjectTaskRows(projectIds, tagId, excludedTaskIds)
-      for (const row of taskRows) {
-        refs.push({ kind: 'task', recordId: row.id, name: row.name })
-      }
+    const taskRows = await listProjectTaskRows(projectIds, excludedTaskIds)
+    for (const row of taskRows) {
+      refs.push({ kind: 'task', recordId: row.id, name: row.name })
     }
   }
 
@@ -241,26 +250,18 @@ export async function fetchTramitesFromOdoo(
     throw new Error('ODOO_NOT_CONFIGURED')
   }
 
-  const tagName = getTramitesTaskTagName()
   const excludedTaskIds = await collectExcludedObligacionTaskIds(partnerId)
   const projectIds = await listClientProjectIds(partnerId)
 
-  let tasks: TramiteTask[] = []
-  let tagFilterActive = false
-
-  if (projectIds.length) {
-    const tagId = tagName ? await resolveTaskTagId(tagName) : null
-    tagFilterActive = Boolean(tagName && tagId)
-    if (!tagName || tagId) {
-      tasks = await listProjectTasks(projectIds, tagId, excludedTaskIds)
-    }
-  }
+  const tasks = projectIds.length
+    ? await listProjectTasks(projectIds, excludedTaskIds)
+    : []
 
   const tickets = await listPartnerTickets(partnerId)
 
   return {
     tasks,
     tickets,
-    tagFilterActive,
+    tagFilterActive: true,
   }
 }

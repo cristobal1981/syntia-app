@@ -1,6 +1,9 @@
 export const TRAMITES_PAGE_SIZE = 15
 export const TRAMITES_FETCH_LIMIT = 200
 
+/** Campo Studio en project.task: visible en trámites del portal (+ subtareas). */
+export const TRAMITES_SHOW_IN_SYNTIA_FIELD = 'x_studio_mostrar_en_syntia'
+
 export function getTramitesTaskTagName(): string | undefined {
   const value = process.env.ODOO_TRAMITES_TASK_TAG?.trim()
   return value || undefined

@@ -188,7 +188,7 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
         <div className="flex flex-col gap-6">
           <div className="flex justify-end">
             <AppLink
-              href="/obligaciones/guia-modelos"
+              href="/guias/modelos-aeat"
               className={cn('text-sm', appLinkPortalClassName)}
             >
               {obligaciones.guideLink}

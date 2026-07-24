@@ -1,5 +1,6 @@
 import {
   getTramitesTaskTagName,
+  TRAMITES_SHOW_IN_SYNTIA_FIELD,
 } from '@/src/modules/tramites/infrastructure/tramites-env'
 import { odooCall, odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
@@ -56,6 +57,7 @@ export async function createPartnerTask(input: {
   const vals: Record<string, unknown> = {
     name: input.name,
     project_id: projectId,
+    [TRAMITES_SHOW_IN_SYNTIA_FIELD]: true,
     ...(input.description ? { description: input.description } : {}),
     ...(tagId ? { tag_ids: [[6, 0, [tagId]]] } : {}),
   }

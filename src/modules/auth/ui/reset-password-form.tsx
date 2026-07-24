@@ -2,10 +2,9 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { portal } from '@/content/portal'
-import { Input } from '@/components/ui/input'
 import { MarketingButton } from '@/components/ui/marketing-button'
 import { finalizeRecoverySessionAction } from '@/src/modules/auth/application/finalize-recovery-session'
 import {
@@ -13,11 +12,28 @@ import {
   verifyRecoveryLink as establishRecoverySessionFromUrl,
 } from '@/src/modules/auth/application/verify-recovery-link'
 import {
+  getPasswordRequirementStatus,
+  isStrongPassword,
+} from '@/src/modules/auth/domain/password-policy'
+import {
   createSupabaseBrowserClient,
   isSupabaseBrowserConfigured,
 } from '@/src/modules/auth/infrastructure/supabase/client'
+import { PasswordInput } from '@/src/modules/auth/ui/password-input'
+import { PasswordRequirementsChecklist } from '@/src/modules/auth/ui/password-requirements-checklist'
+import { ResetLinkUnavailable } from '@/src/modules/auth/ui/reset-link-unavailable'
+import { markPortalEntryPending } from '@/src/modules/portal/ui/portal-entry-loading-context'
 
 type ResetStatus = 'loading' | 'ready' | 'invalid' | 'not_configured'
+
+export type ResetPasswordFormStatus = ResetStatus
+
+type ResetPasswordFormProps = {
+  onStatusChange?: (status: ResetPasswordFormStatus) => void
+}
+
+const passwordFieldClassName =
+  'input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base transition-[border-color,box-shadow] duration-200 focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_1px_rgba(1,222,162,0.25)]'
 
 function parseAuthHashParams(): {
   access_token?: string
@@ -35,12 +51,30 @@ function parseAuthHashParams(): {
   }
 }
 
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ onStatusChange }: ResetPasswordFormProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [status, setStatus] = useState<ResetStatus>('loading')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [mismatchAttempted, setMismatchAttempted] = useState(false)
   const [pending, setPending] = useState(false)
+
+  const requirementStatus = useMemo(
+    () => getPasswordRequirementStatus(password),
+    [password]
+  )
+
+  const showMismatch = mismatchAttempted && password !== confirmPassword
+  const errorMessage = showMismatch
+    ? portal.reset.errors.mismatch
+    : submitError
+  const hasFieldError = Boolean(errorMessage)
+
+  useEffect(() => {
+    onStatusChange?.(status)
+  }, [status, onStatusChange])
 
   useEffect(() => {
     let cancelled = false
@@ -75,11 +109,6 @@ export function ResetPasswordForm() {
         return
       }
 
-      if (tokenHash || code || hash.access_token) {
-        setStatus('invalid')
-        return
-      }
-
       setStatus('invalid')
     }
 
@@ -94,27 +123,23 @@ export function ResetPasswordForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setErrorMessage(null)
+    setSubmitError(null)
+    setMismatchAttempted(false)
     setPending(true)
 
-    const formData = new FormData(event.currentTarget)
-    const password = String(formData.get('password') ?? '')
-    const confirm = String(formData.get('confirmPassword') ?? '')
-
-    if (password.length < 8) {
-      setErrorMessage(portal.reset.errors.weak_password)
+    if (!isStrongPassword(password)) {
       setPending(false)
       return
     }
 
-    if (password !== confirm) {
-      setErrorMessage(portal.reset.errors.mismatch)
+    if (password !== confirmPassword) {
+      setMismatchAttempted(true)
       setPending(false)
       return
     }
 
     if (!isSupabaseBrowserConfigured()) {
-      setErrorMessage(portal.reset.errors.not_configured)
+      setSubmitError(portal.reset.errors.not_configured)
       setPending(false)
       return
     }
@@ -123,11 +148,23 @@ export function ResetPasswordForm() {
     const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
-      setErrorMessage(portal.reset.errors.unknown)
+      const message = error.message.toLowerCase()
+      const isSamePassword =
+        error.code === 'same_password' ||
+        (error.status === 422 &&
+          (message.includes('same_password') ||
+            message.includes('different from the old password') ||
+            message.includes('different password')))
+      setSubmitError(
+        isSamePassword
+          ? portal.reset.errors.same_password
+          : portal.reset.errors.unknown
+      )
       setPending(false)
       return
     }
 
+    markPortalEntryPending()
     await finalizeRecoverySessionAction()
     setPending(false)
   }
@@ -139,28 +176,19 @@ export function ResetPasswordForm() {
   }
 
   if (status === 'invalid') {
-    return (
-      <div className="flex flex-col gap-4">
-        <p role="alert" className="text-sm text-destructive">
-          {portal.reset.errors.invalid_link}
-        </p>
-        <Link
-          href="/login/recuperar"
-          className="text-sm text-primary underline-offset-4 hover:underline"
-        >
-          {portal.reset.requestNewLinkLabel}
-        </Link>
-      </div>
-    )
+    return <ResetLinkUnavailable />
   }
 
   if (status === 'not_configured') {
     return (
-      <p role="alert" className="text-sm text-destructive">
+      <p role="alert" className="alert-on-dark">
         {portal.reset.errors.not_configured}
       </p>
     )
   }
+
+  const canSubmit =
+    isStrongPassword(password) && confirmPassword.length > 0 && !pending
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
@@ -171,15 +199,21 @@ export function ResetPasswordForm() {
         >
           {portal.reset.passwordLabel}
         </label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
-          minLength={8}
-          className="input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base"
+          value={password}
+          onChange={(event) => {
+            setSubmitError(null)
+            setMismatchAttempted(false)
+            setPassword(event.target.value)
+          }}
+          aria-invalid={hasFieldError}
+          className={passwordFieldClassName}
         />
+        <PasswordRequirementsChecklist status={requirementStatus} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -189,19 +223,24 @@ export function ResetPasswordForm() {
         >
           {portal.reset.confirmPasswordLabel}
         </label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           required
-          minLength={8}
-          className="input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base"
+          value={confirmPassword}
+          onChange={(event) => {
+            setSubmitError(null)
+            setMismatchAttempted(false)
+            setConfirmPassword(event.target.value)
+          }}
+          aria-invalid={hasFieldError}
+          className={passwordFieldClassName}
         />
       </div>
 
       {errorMessage ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="alert-on-dark">
           {errorMessage}
         </p>
       ) : null}
@@ -210,7 +249,8 @@ export function ResetPasswordForm() {
         type="submit"
         marketingVariant="primary"
         className="h-12 w-full rounded-lg text-base font-semibold"
-        disabled={pending}
+        disabled={!canSubmit}
+        aria-busy={pending}
       >
         {pending ? 'Guardando…' : portal.reset.submitLabel}
       </MarketingButton>

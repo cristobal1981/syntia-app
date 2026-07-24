@@ -1,4 +1,4 @@
-import { ClipboardList, FileText, Scale } from 'lucide-react'
+import { BookOpen, ClipboardList, FileText, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
@@ -58,6 +58,12 @@ export async function ClientHome({ user }: ClientHomeProps) {
             label="Trámites"
             description="Gestiones y soporte"
             icon={ClipboardList}
+          />
+          <QuickLinkCard
+            href="/guias"
+            label="Guías"
+            description="Guías prácticas y plazos fiscales"
+            icon={BookOpen}
           />
         </div>
       </section>

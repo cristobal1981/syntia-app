@@ -314,7 +314,7 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
-    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh overflow-clip bg-background text-foreground">
       <aside
         className={cn(
           'hidden min-h-0 shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:flex',
@@ -373,7 +373,9 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
         </div>
       </aside>
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      {/* overflow-clip (no hidden): un contenedor hidden sigue siendo desplazable
+          programáticamente (focus/scrollIntoView) y descolocaba la barra superior */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip bg-background">
         <PortalTopBar
           role={user.role}
           mobileNavOpen={mobileOpen}
