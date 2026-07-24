@@ -7,7 +7,6 @@ import { ArrowLeft, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fiscalModelsGuide } from '@/content/fiscal-models-guide'
-import { guias } from '@/content/guias'
 import { cn } from '@/lib/utils'
 import {
   fiscalModelMatchesQuery,
@@ -170,9 +169,9 @@ export function FiscalModelsGuideView() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
         <Button type="button" variant="ghost" size="sm" className="w-fit px-0" asChild>
-          <Link href="/guias">
+          <Link href="/obligaciones">
             <ArrowLeft className="size-4" aria-hidden />
-            <span className="ml-2">{guias.detail.backToHub}</span>
+            <span className="ml-2">{copy.backToObligaciones}</span>
           </Link>
         </Button>
         <div>

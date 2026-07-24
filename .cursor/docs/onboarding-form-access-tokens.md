@@ -37,4 +37,4 @@ Checklist:
 
 - Caducidad por defecto: 14 dias (`expires_at`).
 - Estados invalidos esperados por la landing: `expired`, `used`, `revoked`, `not_found`.
-- En v1 no se envia email desde Syntia: el enlace se copia manualmente.
+- Al generar el enlace, Syntia envía el correo branded al cliente (Resend) con CTA, caducidad y aviso de formulario único.

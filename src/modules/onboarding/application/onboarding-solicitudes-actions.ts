@@ -18,6 +18,9 @@ import {
   listOnboardingFormAccessTokens,
   revokeOnboardingFormAccessToken,
 } from '@/src/modules/onboarding/onboarding-token-repository.supabase'
+import { sendAltaAutonomoAccessEmail } from '@/src/modules/email/application/send-alta-autonomo-access-email'
+import { isResendConfigured } from '@/src/modules/email/infrastructure/resend-env'
+import { mapDirectoryEmailError } from '@/src/modules/directory/application/map-directory-email-error'
 
 export type OnboardingSolicitudRow = {
   token: string
@@ -31,10 +34,16 @@ export type OnboardingSolicitudRow = {
 }
 
 export type CreateAltaAutonomoAccessLinkResult =
-  | { ok: true; url: string; token: string; expiresAt: string }
+  | { ok: true; url: string; token: string; expiresAt: string; emailSent: boolean }
   | {
       ok: false
-      error: 'unauthorized' | 'forbidden' | 'not_found' | 'invalid_client' | 'unknown'
+      error:
+        | 'unauthorized'
+        | 'forbidden'
+        | 'not_found'
+        | 'invalid_client'
+        | 'email_failed'
+        | 'unknown'
       message?: string
     }
 
@@ -199,7 +208,48 @@ export async function createAltaAutonomoAccessLinkAction(
       }
     }
 
-    return { ok: true, url, token: created.token, expiresAt: created.expires_at }
+    const recipientEmail = existing.email.trim().toLowerCase()
+    if (!recipientEmail) {
+      return {
+        ok: false,
+        error: 'invalid_client',
+        message: 'El cliente no tiene un correo para enviar el enlace.',
+      }
+    }
+
+    if (!isResendConfigured()) {
+      return {
+        ok: false,
+        error: 'email_failed',
+        message: 'Resend no está configurado. No se pudo enviar el correo al cliente.',
+      }
+    }
+
+    try {
+      await sendAltaAutonomoAccessEmail({
+        clientEmail: recipientEmail,
+        accessLink: url,
+        expiresAt: created.expires_at,
+      })
+    } catch (emailError) {
+      await revokeOnboardingFormAccessToken(created.token).catch(() => undefined)
+      const mapped = mapDirectoryEmailError(emailError)
+      return {
+        ok: false,
+        error: 'email_failed',
+        message:
+          (!mapped.ok ? mapped.message : undefined) ??
+          'No se pudo enviar el correo con el enlace al cliente.',
+      }
+    }
+
+    return {
+      ok: true,
+      url,
+      token: created.token,
+      expiresAt: created.expires_at,
+      emailSent: true,
+    }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

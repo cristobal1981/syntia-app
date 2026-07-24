@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
 
+import { notImplementedPath } from '@/content/errors'
 import { getSession } from '@/src/modules/auth/application/get-session'
-import { AltaTrabajadorLayoutClient } from '@/src/modules/alta-trabajador/ui/alta-trabajador-layout-client'
 
 export default async function AltaTrabajadorLayout({
-  children,
+  children: _children,
 }: {
   children: React.ReactNode
 }) {
@@ -13,15 +13,5 @@ export default async function AltaTrabajadorLayout({
     redirect('/login')
   }
 
-  if (session.user.role !== 'client') {
-    redirect('/dashboard')
-  }
-
-  return (
-    <div className="flex flex-1 flex-col py-6 md:py-8">
-      <div className="container px-4 md:px-6">
-        <AltaTrabajadorLayoutClient>{children}</AltaTrabajadorLayoutClient>
-      </div>
-    </div>
-  )
+  redirect(notImplementedPath)
 }
