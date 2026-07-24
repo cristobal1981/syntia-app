@@ -25,11 +25,6 @@ export const tramiteSolicitudes = {
       label: 'Carta de vacaciones',
       description: 'Solicitud de carta o comunicación de periodo de vacaciones.',
     },
-    comingSoonCard: {
-      title: 'Cuestionarios ágiles',
-      description:
-        'Próximamente tendrás cuestionarios ágiles en esta sección para solicitudes como altas, bajas o vacaciones.',
-    },
   },
   common: {
     creating: 'Creando…',
