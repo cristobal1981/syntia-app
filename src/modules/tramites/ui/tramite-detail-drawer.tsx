@@ -1,7 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { Archive, FileText, Loader2, MessageSquare } from 'lucide-react'
+import {
+  Archive,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Loader2,
+  MessageSquare,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +48,9 @@ type TramiteDetailDrawerProps = {
   onOpenChange: (open: boolean) => void
   initialTab?: TramiteDetailTab
   onAttachmentCountChange?: (item: TramiteListItem, attachmentCount: number) => void
+  pageItems?: TramiteListItem[]
+  pageItemIndex?: number
+  onNavigateItem?: (item: TramiteListItem) => void
 }
 
 export function TramiteDetailDrawer({
@@ -49,6 +59,9 @@ export function TramiteDetailDrawer({
   onOpenChange,
   initialTab = 'conversation',
   onAttachmentCountChange,
+  pageItems = [],
+  pageItemIndex = -1,
+  onNavigateItem,
 }: TramiteDetailDrawerProps) {
   const notifications = useChatterNotificationsOptional()
   const [zipError, setZipError] = useState<string | null>(null)
@@ -95,7 +108,7 @@ export function TramiteDetailDrawer({
     setHighlightAttachmentId(null)
     setPreviewAttachment(null)
     setPreviewOpen(false)
-  }, [item?.id, initialTab])
+  }, [item?.id, item?.kind, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0
@@ -162,6 +175,23 @@ export function TramiteDetailDrawer({
   const conversationUnread =
     notifications?.hasUnreadChatter(recordKind, tramite.id) ?? false
 
+  const pageTotal = pageItems.length
+  const showPageNav =
+    Boolean(onNavigateItem) && pageTotal > 0 && pageItemIndex >= 0
+  const canGoPrevious = showPageNav && pageItemIndex > 0
+  const canGoNext = showPageNav && pageItemIndex < pageTotal - 1
+  const navCopy = tramites.list.detailNav
+
+  function handleGoPrevious() {
+    if (!canGoPrevious || !onNavigateItem) return
+    onNavigateItem(pageItems[pageItemIndex - 1]!)
+  }
+
+  function handleGoNext() {
+    if (!canGoNext || !onNavigateItem) return
+    onNavigateItem(pageItems[pageItemIndex + 1]!)
+  }
+
   function handleAttachmentsChanged(attachmentCount: number) {
     setLiveAttachmentCount(attachmentCount)
     setAttachmentsRefreshToken((value) => value + 1)
@@ -226,12 +256,51 @@ export function TramiteDetailDrawer({
         <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border/50">
           <DialogTitle className="text-pretty pr-8">{tramite.name}</DialogTitle>
           <DialogDescription asChild>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <TramiteTypeBadge kind={tramite.kind} />
-              <TaskStateBadge
-                label={stateBadge.label}
-                variant={stateBadge.variant}
-              />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <TramiteTypeBadge kind={tramite.kind} />
+                <TaskStateBadge
+                  label={stateBadge.label}
+                  variant={stateBadge.variant}
+                />
+              </div>
+
+              {showPageNav ? (
+                <div
+                  className="flex items-center gap-1"
+                  role="navigation"
+                  aria-label={navCopy.positionLabel
+                    .replace('{current}', String(pageItemIndex + 1))
+                    .replace('{total}', String(pageTotal))}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canGoPrevious}
+                    onClick={handleGoPrevious}
+                    aria-label={navCopy.previous}
+                  >
+                    <ChevronLeft className="size-4" aria-hidden />
+                  </Button>
+                  <span
+                    className="min-w-[3.25rem] text-center text-xs tabular-nums text-muted-foreground"
+                    aria-hidden
+                  >
+                    {pageItemIndex + 1}/{pageTotal}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canGoNext}
+                    onClick={handleGoNext}
+                    aria-label={navCopy.next}
+                  >
+                    <ChevronRight className="size-4" aria-hidden />
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </DialogDescription>
         </DialogHeader>

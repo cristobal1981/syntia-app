@@ -12,7 +12,6 @@ import {
   signInAction,
   type SignInResult,
 } from '@/src/modules/auth/application/sign-in'
-import { GoogleSignInButton } from '@/src/modules/auth/ui/google-sign-in-button'
 import { PasswordInput } from '@/src/modules/auth/ui/password-input'
 import { markPortalEntryPending } from '@/src/modules/portal/ui/portal-entry-loading-context'
 
@@ -120,16 +119,6 @@ export function LoginForm() {
           </MarketingButton>
         </m.div>
       </form>
-
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-agua/25" />
-        <span className="text-xs tracking-wide text-muted-on-dark uppercase">
-          {portal.login.orDivider}
-        </span>
-        <div className="h-px flex-1 bg-agua/25" />
-      </div>
-
-      <GoogleSignInButton />
       </div>
     </LazyMotion>
   )

@@ -25,7 +25,10 @@ import {
   type TramitesListSeenState,
 } from '@/src/modules/tramites/domain/tramites-list-seen-state'
 import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
-import { PORTAL_LIST_PAGE_SIZE } from '@/src/modules/portal/ui/list-pagination'
+import {
+  paginateItems,
+  PORTAL_LIST_PAGE_SIZE,
+} from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
 import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
@@ -64,6 +67,29 @@ function TramitesListSection({
   useEffect(() => {
     setPage(1)
   }, [items])
+
+  useEffect(() => {
+    if (!selectedItem) return
+    const index = items.findIndex(
+      (entry) =>
+        entry.id === selectedItem.id && entry.kind === selectedItem.kind
+    )
+    if (index < 0) return
+    const itemPage = Math.floor(index / PORTAL_LIST_PAGE_SIZE) + 1
+    setPage((current) => (current === itemPage ? current : itemPage))
+  }, [items, selectedItem])
+
+  const pageItems = useMemo(
+    () => paginateItems(items, page, PORTAL_LIST_PAGE_SIZE),
+    [items, page]
+  )
+
+  const pageNavIndex = selectedItem
+    ? pageItems.findIndex(
+        (entry) =>
+          entry.id === selectedItem.id && entry.kind === selectedItem.kind
+      )
+    : -1
 
   const columns = useMemo(
     () => [
@@ -179,6 +205,9 @@ function TramitesListSection({
         open={selectedItem !== null}
         initialTab={drawerInitialTab}
         onAttachmentCountChange={onAttachmentCountChange}
+        pageItems={pageItems}
+        pageItemIndex={pageNavIndex}
+        onNavigateItem={(item) => onSelectedItemChange(item)}
         onOpenChange={(open) => {
           if (!open) onSelectedItemChange(null)
         }}

@@ -44,7 +44,7 @@ async function main() {
   }
 
   const { buildClientAccessEmail } = await import(
-    '../content/portal-client-access-email.ts'
+    '../content/portal-client-access-email'
   )
 
   const email = buildClientAccessEmail({

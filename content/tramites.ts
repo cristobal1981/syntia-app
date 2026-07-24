@@ -66,7 +66,7 @@ export const tramites = {
     description:
       'Trámites de proyecto y consultas de soporte en un solo listado.',
     tagFilterNote:
-      'Las tareas de proyecto se filtran por la etiqueta configurada en Odoo.',
+      'Las tareas de proyecto se muestran si están marcadas para Syntia, junto con sus subtareas.',
     emptyTitle: 'Sin trámites',
     emptyDescription: 'No hay trámites en curso en tu cuenta en este momento.',
     columns: {
@@ -79,6 +79,11 @@ export const tramites = {
     viewItem: 'Ver detalles',
     newItemBadge: 'Nuevo',
     downloadZip: 'Descargar todo',
+    detailNav: {
+      previous: 'Anterior de la lista',
+      next: 'Siguiente de la lista',
+      positionLabel: 'Trámite {current} de {total} en esta página',
+    },
     types: {
       tramite: 'Trámite',
       consulta: 'Consulta',

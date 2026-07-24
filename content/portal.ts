@@ -36,7 +36,7 @@ export const portal = {
       'Si existe una cuenta con ese correo, recibirás un enlace en unos minutos. Revisa también la carpeta de spam.',
     errors: {
       not_configured:
-        'La recuperación de contraseña requiere Supabase. Configura las variables de entorno.',
+        'La recuperación requiere Supabase, Resend y SUPABASE_SERVICE_ROLE_KEY configurados.',
       invalid_email: 'Introduce un correo electrónico válido.',
       unknown: 'No pudimos enviar el enlace. Inténtalo de nuevo.',
     },
@@ -45,17 +45,39 @@ export const portal = {
     title: 'Nueva contraseña',
     description: 'Elige una contraseña segura para volver a acceder a tu cuenta.',
     passwordLabel: 'Nueva contraseña',
+    passwordRequirements: {
+      intro: 'La nueva contraseña debe contener:',
+      minLength: 'Al menos 8 caracteres',
+      uppercase: 'Una letra mayúscula',
+      lowercase: 'Una letra minúscula',
+      digit: 'Un número',
+      symbol: 'Un símbolo (!, @, #…)',
+    },
     confirmPasswordLabel: 'Confirmar contraseña',
     submitLabel: 'Guardar contraseña',
     backToLoginLabel: 'Volver al inicio de sesión',
     requestNewLinkLabel: 'Solicitar un nuevo enlace',
     verifyingLink: 'Verificando enlace…',
+    unavailable: {
+      eyebrow: 'Restablecer contraseña',
+      title: 'Este enlace no está disponible',
+      description:
+        'El enlace que has abierto no es válido, ha caducado o ya no está activo.',
+      ctaLabel: 'Solicitar un nuevo enlace',
+    },
     errors: {
       not_configured:
         'El restablecimiento requiere Supabase. Configura las variables de entorno.',
       invalid_link: 'Este enlace no es válido o ha caducado.',
-      weak_password: 'La contraseña debe tener al menos 8 caracteres.',
+      weak_password:
+        'La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y símbolo.',
+      weak_password_short: 'Usa al menos 8 caracteres.',
+      weak_password_uppercase: 'Incluye al menos una letra mayúscula.',
+      weak_password_lowercase: 'Incluye al menos una letra minúscula.',
+      weak_password_digit: 'Incluye al menos un número.',
+      weak_password_symbol: 'Incluye al menos un símbolo.',
       mismatch: 'Las contraseñas no coinciden.',
+      same_password: 'La nueva contraseña debe ser distinta a la actual.',
       unknown: 'No pudimos actualizar la contraseña. Inténtalo de nuevo.',
     },
   },
