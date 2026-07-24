@@ -1,6 +1,9 @@
 /**
  * Envío de prueba: email de alta de autónomo.
- * Uso: pnpm exec tsx scripts/resend-alta-autonomo-test.ts
+ * Uso: pnpm dlx tsx scripts/resend-alta-autonomo-test.ts
+ *
+ * Con RESEND_INVITE_OVERRIDE_TO: asunto/banner de prueba.
+ * Sin override: plantilla de producción (envía al correo indicado en CLIENT_EMAIL).
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -35,31 +38,41 @@ async function main() {
 
   const apiKey = process.env.RESEND_API_KEY?.trim()
   const from = process.env.RESEND_FROM_EMAIL?.trim()
-  const to = process.env.RESEND_INVITE_OVERRIDE_TO?.trim()
+  const override = process.env.RESEND_INVITE_OVERRIDE_TO?.trim()
+  const to = override || process.env.CLIENT_EMAIL?.trim()
 
   if (!apiKey || !from || !to) {
-    console.error('Faltan RESEND_API_KEY / RESEND_FROM_EMAIL / RESEND_INVITE_OVERRIDE_TO')
+    console.error(
+      'Faltan RESEND_API_KEY / RESEND_FROM_EMAIL y RESEND_INVITE_OVERRIDE_TO (o CLIENT_EMAIL)'
+    )
     process.exit(1)
   }
 
   const { buildAltaAutonomoAccessEmail } = await import(
     '../content/portal-alta-autonomo-email'
   )
+  const { buildOnboardingAccessUrl } = await import(
+    '../src/modules/onboarding/infrastructure/landing-url'
+  )
+
+  const accessLink =
+    buildOnboardingAccessUrl('test-preview-token') ??
+    'https://tenaasesores.es/solicitud-alta-autonomo/test-preview-token'
 
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
   const email = buildAltaAutonomoAccessEmail({
-    accessLink:
-      'https://tenaasesores.es/solicitud-alta-autonomo/test-preview-token',
+    accessLink,
     clientEmail: 'cliente-prueba@ejemplo.com',
+    clientFirstName: 'Guillermo',
     expiresAt,
-    isOverrideRecipient: true,
+    isOverrideRecipient: Boolean(override),
   })
 
   const resend = new Resend(apiKey)
   const { data, error } = await resend.emails.send({
     from,
     to,
-    subject: `[Prueba] ${email.subject}`,
+    subject: email.subject,
     html: email.html,
     text: email.text,
   })
@@ -69,7 +82,16 @@ async function main() {
     process.exit(1)
   }
 
-  console.log('SEND_OK id=', data?.id, '| to=', to)
+  console.log(
+    'SEND_OK id=',
+    data?.id,
+    '| to=',
+    to,
+    '| override=',
+    Boolean(override),
+    '| link=',
+    accessLink
+  )
 }
 
 main().catch((err) => {

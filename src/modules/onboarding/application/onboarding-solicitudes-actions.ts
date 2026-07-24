@@ -228,6 +228,7 @@ export async function createAltaAutonomoAccessLinkAction(
     try {
       await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
+        clientFirstName: existing.firstName,
         accessLink: url,
         expiresAt: created.expires_at,
       })

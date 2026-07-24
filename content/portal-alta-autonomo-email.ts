@@ -4,6 +4,7 @@ import { renderBrandedEmail } from '@/src/modules/email/application/render-brand
 type AltaAutonomoAccessEmailParams = {
   accessLink: string
   clientEmail: string
+  clientFirstName?: string | null
   expiresAt: string
   isOverrideRecipient: boolean
 }
@@ -28,14 +29,24 @@ export function formatAltaAutonomoExpiryLabel(expiresAt: string): string {
   }).format(date)
 }
 
+function resolveGreetingFirstName(firstName?: string | null): string | null {
+  const cleaned = firstName?.trim().split(/\s+/)[0] ?? ''
+  if (!cleaned) return null
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+}
+
 export function buildAltaAutonomoAccessEmail({
   accessLink,
   clientEmail,
+  clientFirstName,
   expiresAt,
   isOverrideRecipient,
 }: AltaAutonomoAccessEmailParams) {
-  const subject = 'Completa tu solicitud de alta de autónomo'
+  const subjectBase = 'Completa tu solicitud de alta de autónomo'
+  const subject = isOverrideRecipient ? `[Prueba] ${subjectBase}` : subjectBase
   const expiresLabel = formatAltaAutonomoExpiryLabel(expiresAt)
+  const firstName = resolveGreetingFirstName(clientFirstName)
+  const saludo = firstName ? `Hola, ${firstName}` : 'Hola'
 
   const bloques: EmailBlock[] = []
 
@@ -43,7 +54,7 @@ export function buildAltaAutonomoAccessEmail({
     bloques.push({
       tipo: 'caja',
       tema: 'advertencia',
-      textoLibre: `Correo de prueba: enlace generado para <strong>${escapeHtml(clientEmail)}</strong>.`,
+      textoLibre: `Correo de <strong>prueba</strong>: el enlace real se generó para <strong>${escapeHtml(clientEmail)}</strong>, pero este envío se redirigió por <code>RESEND_INVITE_OVERRIDE_TO</code>.`,
     })
   }
 
@@ -57,12 +68,6 @@ export function buildAltaAutonomoAccessEmail({
     textoLibre: `Tienes hasta el <strong>${escapeHtml(expiresLabel)}</strong> para enviarlo. Pasada esa fecha el enlace caduca y no podrás usarlo.`,
   })
   bloques.push({
-    tipo: 'caja',
-    tema: 'advertencia',
-    textoLibre:
-      'Este formulario es <strong>único y personal</strong>. No lo compartas con nadie: el enlace solo sirve para ti y deja de ser válido cuando lo completes o caduque.',
-  })
-  bloques.push({
     tipo: 'cta',
     href: accessLink,
     label: 'Abrir formulario de alta',
@@ -72,26 +77,31 @@ export function buildAltaAutonomoAccessEmail({
     html: `<p style="margin: 0 0 16px 0; font-family: 'Archivo', Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.5; color: #5B6E6C;">Si el botón no funciona, copia y pega esta URL en el navegador:<br><span style="word-break:break-all; font-size: 11px;">${escapeHtml(accessLink)}</span></p>`,
   })
   bloques.push({
+    tipo: 'html',
+    html: `<p style="margin: 0 0 16px 0; font-family: 'Archivo', Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.55; color: #8A6D1D;">Este formulario es <strong>único y personal</strong>. No lo compartas con nadie: el enlace solo sirve para ti y deja de ser válido cuando lo completes o caduque.</p>`,
+  })
+  bloques.push({
     tipo: 'parrafo',
     html: '<span style="color:#5B6E6C;font-size:14px;">Si no esperabas este correo, puedes ignorarlo o avisar a tu asesoría.</span>',
   })
 
   const html = renderBrandedEmail({
     tipo: 'cliente',
-    saludo: 'Hola,',
+    saludo,
     despedida: 'Un cordial saludo,',
     bloques,
   })
 
   const text = [
-    'Hola,',
+    saludo,
     isOverrideRecipient
-      ? `Correo de prueba: enlace generado para ${clientEmail}.`
+      ? `Correo de prueba: enlace generado para ${clientEmail} (redirigido por RESEND_INVITE_OVERRIDE_TO).`
       : '',
     'Tu asesoría te ha preparado un formulario para la solicitud de alta de autónomo.',
     `Tienes hasta el ${expiresLabel} para enviarlo. Pasada esa fecha el enlace caduca.`,
-    'Este formulario es único y personal. No lo compartas con nadie.',
     accessLink,
+    '',
+    'Este formulario es único y personal. No lo compartas con nadie.',
     '',
     'Si no esperabas este correo, puedes ignorarlo o avisar a tu asesoría.',
     '',

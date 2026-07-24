@@ -7,6 +7,7 @@ import {
 
 type SendAltaAutonomoAccessEmailInput = {
   clientEmail: string
+  clientFirstName?: string | null
   accessLink: string
   expiresAt: string
 }
@@ -18,6 +19,7 @@ export async function sendAltaAutonomoAccessEmail(
   const { subject, html, text } = buildAltaAutonomoAccessEmail({
     accessLink: input.accessLink,
     clientEmail: input.clientEmail,
+    clientFirstName: input.clientFirstName,
     expiresAt: input.expiresAt,
     isOverrideRecipient: isInviteRecipientOverridden(),
   })
