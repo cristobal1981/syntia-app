@@ -99,14 +99,6 @@ export const portal = {
     extras: {
       client: [
         {
-          id: 'extra:guias',
-          label: 'Guías',
-          description: 'Guías prácticas y plazos fiscales',
-          href: '/guias',
-          icon: 'guides' as const,
-          keywords: ['guías', 'guias', 'plazos', 'calendario fiscal', 'ayuda'],
-        },
-        {
           id: 'extra:guia-modelos',
           label: 'Guía de modelos tributarios',
           description: 'Para qué sirve cada modelo fiscal',
@@ -224,9 +216,7 @@ export const portal = {
         icon: 'obligations',
       },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
-      { label: 'Documentos', href: '/documentos', implemented: true, icon: 'documents' },
       { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
-      { label: 'Guías', href: '/guias', implemented: true, icon: 'guides' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
     ],
     admin: [

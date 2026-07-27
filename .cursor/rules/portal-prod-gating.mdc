@@ -1,0 +1,37 @@
+---
+description: Funcionalidades del portal cliente que deben permanecer desactivadas en main/producción hasta revisión explícita
+alwaysApply: true
+---
+
+# Portal — gating de producción
+
+Detalle y checklist: `.cursor/docs/portal-prod-features.md`.
+
+## Regla dura
+
+Al trabajar en **`main`**, al mergear **hacia `main`**, o al desplegar **producción**:
+
+1. **Obligatorio** comprobar que las features de la lista «OFF en prod» siguen desactivadas para el cliente.
+2. **No** reactivarlas en `main` sin sign-off explícito del usuario (producto).
+3. En **`develop`** pueden estar visibles para desarrollo; eso **no** autoriza a subirlas a `main`.
+
+Si un cambio en `main` toca nav, home, rutas del portal o el flujo de nueva solicitud, **parar** y contrastar con el doc antes de commit/push.
+
+## OFF en prod (cliente)
+
+| Feature | Estado requerido en `main` |
+| --- | --- |
+| Documentos (`/documentos`) | Oculto en nav/home + ruta → `/proximamente` |
+| Guías hub (`/guias`) | Oculto en nav/home/search + hub → `/proximamente` |
+| Otras guías (no modelos AEAT) | → `/proximamente` |
+| Solicitudes tipadas (alta/baja/vacaciones) | Fuera del picker/search; solo consulta general |
+| Wizard alta trabajador (`/alta-trabajador`) | Layout → `/proximamente` |
+
+## ON en prod (no tocar el gate)
+
+Inicio, Obligaciones, Trámites, Firmas, Perfil, **consulta general**, guía **`/guias/modelos-aeat`**.
+
+## Referencia de código en prod
+
+El comportamiento correcto está en **`origin/main`** (gating aplicado).  
+`develop` puede tener el código «todo visible»; no usar develop como plantilla al endurecer `main`.

@@ -13,6 +13,7 @@ export const fiscalModelsGuide = {
   title: 'Guía de modelos tributarios',
   description:
     'Para qué sirve cada modelo fiscal y en qué situaciones suele presentarse. Si tienes dudas sobre tu caso concreto, tu asesor te orientará.',
+  backLabel: 'Volver',
   searchLabel: 'Buscar en la guía',
   searchPlaceholder: 'Ej.: alquiler, IVA, nóminas…',
   noResultsTitle: 'Sin resultados',

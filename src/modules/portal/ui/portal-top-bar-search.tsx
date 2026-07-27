@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { portal } from '@/content/portal'
-import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { cn } from '@/lib/utils'
 import type { PortalRole } from '@/src/modules/auth/domain/types'
 import {
@@ -31,7 +30,6 @@ import {
   getPortalSearchSuggestions,
 } from '@/src/modules/portal/application/filter-portal-search'
 import type { PortalSearchItem } from '@/src/modules/portal/domain/portal-search-types'
-import type { ProcedureTicketType } from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
   formatPortalShortcutLabel,
   PORTAL_SEARCH_SHORTCUT,
@@ -46,45 +44,6 @@ type PortalTopBarSearchProps = {
   role: PortalRole
   className?: string
   onNavigate?: (href: string) => void
-}
-
-const PROCEDURE_SEARCH_ACTIONS: Array<{
-  id: string
-  procedure: ProcedureTicketType
-  label: string
-  description: string
-  keywords: string[]
-}> = [
-  {
-    id: 'action:procedure:alta-trabajador',
-    procedure: 'alta-trabajador',
-    label: tramiteSolicitudes.picker.altaTrabajador.label,
-    description: tramiteSolicitudes.picker.altaTrabajador.description,
-    keywords: ['alta', 'trabajador', 'empleado', 'contrato', 'contratación'],
-  },
-  {
-    id: 'action:procedure:baja-trabajador',
-    procedure: 'baja-trabajador',
-    label: tramiteSolicitudes.picker.bajaTrabajador.label,
-    description: tramiteSolicitudes.picker.bajaTrabajador.description,
-    keywords: ['baja', 'trabajador', 'empleado', 'dimisión', 'despido'],
-  },
-  {
-    id: 'action:procedure:carta-vacaciones',
-    procedure: 'carta-vacaciones',
-    label: tramiteSolicitudes.picker.cartaVacaciones.label,
-    description: tramiteSolicitudes.picker.cartaVacaciones.description,
-    keywords: ['vacaciones', 'carta', 'descanso', 'festivos'],
-  },
-]
-
-function procedureActionMatchesQuery(query: string, keywords: string[]): boolean {
-  const normalized = query.trim().toLowerCase()
-  if (!normalized) return false
-  return keywords.some(
-    (keyword) =>
-      keyword.includes(normalized) || normalized.includes(keyword)
-  )
 }
 
 function SearchResultsList({
@@ -251,24 +210,6 @@ export function PortalTopBarSearch({
     }
   }, [createConsulta?.isAvailable, role])
 
-  const procedureActionItems = useMemo<PortalSearchItem[]>(() => {
-    if (role !== 'client' || !createConsulta?.isAvailable) return []
-
-    const trimmed = query.trim()
-    if (!trimmed) return []
-
-    return PROCEDURE_SEARCH_ACTIONS.filter((action) =>
-      procedureActionMatchesQuery(trimmed, action.keywords)
-    ).map((action) => ({
-      id: action.id,
-      kind: 'action' as const,
-      label: action.label,
-      description: action.description,
-      icon: 'procedures' as const,
-      keywords: action.keywords,
-    }))
-  }, [createConsulta?.isAvailable, query, role])
-
   const visibleItems = useMemo(() => {
     const trimmed = query.trim()
     const pages = trimmed
@@ -279,8 +220,8 @@ export function PortalTopBarSearch({
     const quickActions =
       !trimmed && createConsultaItem ? [createConsultaItem] : queryActions
 
-    return [...pages, ...procedureActionItems, ...quickActions]
-  }, [createConsultaItem, index, procedureActionItems, query, role])
+    return [...pages, ...quickActions]
+  }, [createConsultaItem, index, query, role])
 
   const openSearch = useCallback(() => setOpen(true), [])
 
@@ -306,21 +247,6 @@ export function PortalTopBarSearch({
     (item: PortalSearchItem) => {
       if (item.id === 'action:create-consulta') {
         createConsulta?.openCreateConsulta()
-        close()
-        return
-      }
-
-      if (item.id.startsWith('action:procedure:')) {
-        const procedure = item.id.replace(
-          'action:procedure:',
-          ''
-        ) as ProcedureTicketType
-        if (procedure === 'alta-trabajador') {
-          router.push('/alta-trabajador')
-          close()
-          return
-        }
-        createConsulta?.openCreateConsulta({ procedure })
         close()
         return
       }

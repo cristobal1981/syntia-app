@@ -10,7 +10,7 @@ import {
   type FormEvent,
 } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,6 @@ import {
   TramiteCartaVacacionesForm,
   type CartaVacacionesFormValues,
 } from '@/src/modules/tramites/ui/tramite-carta-vacaciones-form'
-import { TramiteSolicitudPicker } from '@/src/modules/tramites/ui/tramite-solicitud-picker'
 import {
   EMPTY_TRABAJADOR_FORM,
   TramiteTrabajadorForm,
@@ -107,10 +106,9 @@ function mapProcedureActionError(
 }
 
 function procedureStepFromInitial(
-  initialProcedure?: ProcedureTicketType | null
+  _initialProcedure?: ProcedureTicketType | null
 ): DrawerStep {
-  if (initialProcedure === 'alta-trabajador') return 'picker'
-  return initialProcedure ?? 'picker'
+  return 'general'
 }
 
 function trabajadorFormHasContent(values: TrabajadorFormValues): boolean {
@@ -191,23 +189,6 @@ export function TramiteCreateConsultaDrawer({
 
   const handleConfirmDiscard = () => {
     onOpenChange(false)
-  }
-
-  const handlePickerSelect = (id: SolicitudPickerId) => {
-    setFieldErrors({})
-    setFormError(null)
-    if (id === 'alta-trabajador') {
-      onOpenChange(false)
-      router.push('/alta-trabajador')
-      return
-    }
-    setStep(id)
-  }
-
-  const handleBackToPicker = () => {
-    setFieldErrors({})
-    setFormError(null)
-    setStep('picker')
   }
 
   const finishCreated = (ticketId: number, name: string, currentStep: DrawerStep) => {
@@ -350,19 +331,6 @@ export function TramiteCreateConsultaDrawer({
       <PortalSideDrawer open={open} onOpenChange={handleOpenChange} size="wide">
         <div className="flex h-full min-h-0 flex-col">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4 pr-12 text-left">
-            {step !== 'picker' ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mb-2 -ml-2 w-fit cursor-pointer gap-1 px-2 text-muted-foreground"
-                disabled={pending}
-                onClick={handleBackToPicker}
-              >
-                <ArrowLeft className="size-4" aria-hidden />
-                {solicitudCopy.picker.back}
-              </Button>
-            ) : null}
             <DialogTitle
               ref={focusRef}
               tabIndex={-1}
@@ -376,12 +344,6 @@ export function TramiteCreateConsultaDrawer({
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {step === 'picker' ? (
-              <div className="flex flex-col gap-5 px-6 py-5 pb-8">
-                <TramiteSolicitudPicker onSelect={handlePickerSelect} />
-              </div>
-            ) : null}
-
             {step === 'general' ? (
               <form
                 id={GENERAL_FORM_ID}
@@ -391,6 +353,18 @@ export function TramiteCreateConsultaDrawer({
                   handleGeneralSubmit()
                 }}
               >
+                <aside
+                  className="rounded-lg border border-dashed border-primary/35 bg-primary/5 px-4 py-3"
+                  aria-label={solicitudCopy.picker.comingSoonCard.title}
+                >
+                  <p className="text-sm font-medium text-foreground">
+                    {solicitudCopy.picker.comingSoonCard.title}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {solicitudCopy.picker.comingSoonCard.description}
+                  </p>
+                </aside>
+
                 <div className="space-y-2">
                   <label
                     htmlFor={subjectId}

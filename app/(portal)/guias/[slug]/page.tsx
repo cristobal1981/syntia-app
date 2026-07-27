@@ -1,9 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 
+import { notImplementedPath } from '@/content/errors'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { getGuideBySlug } from '@/src/modules/guias/domain/guide-search'
 import { FiscalModelsGuideView } from '@/src/modules/guias/ui/fiscal-models-guide-view'
-import { GuideDetailView } from '@/src/modules/guias/ui/guide-detail-view'
 
 type GuideRoutePageProps = {
   params: Promise<{ slug: string }>
@@ -29,5 +29,5 @@ export default async function GuideRoutePage({ params }: GuideRoutePageProps) {
     return <FiscalModelsGuideView />
   }
 
-  return <GuideDetailView guide={guide} />
+  redirect(notImplementedPath)
 }

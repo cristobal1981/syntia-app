@@ -70,14 +70,12 @@ export function PortalCreateConsultaProvider({
   const openCreateConsulta = useCallback(
     (options?: OpenCreateConsultaOptions) => {
       if (!isAvailable) return
-      if (options?.procedure === 'alta-trabajador') {
-        router.push('/alta-trabajador')
-        return
-      }
-      setInitialProcedure(options?.procedure ?? null)
+      // Solicitudes tipadas desactivadas en prod: solo consulta general.
+      void options
+      setInitialProcedure(null)
       setOpen(true)
     },
-    [isAvailable, router]
+    [isAvailable]
   )
 
   usePortalShortcut(

@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardList, FileText, Scale } from 'lucide-react'
+import { ClipboardList, Scale } from 'lucide-react'
 
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
@@ -40,13 +40,7 @@ export async function ClientHome({ user }: ClientHomeProps) {
         >
           {copy.quickLinksTitle}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickLinkCard
-            href="/documentos"
-            label="Documentos"
-            description="Consulta y sube archivos"
-            icon={FileText}
-          />
+        <div className="grid gap-3 sm:grid-cols-2">
           <QuickLinkCard
             href="/obligaciones"
             label="Obligaciones"
@@ -58,12 +52,6 @@ export async function ClientHome({ user }: ClientHomeProps) {
             label="Trámites"
             description="Gestiones y soporte"
             icon={ClipboardList}
-          />
-          <QuickLinkCard
-            href="/guias"
-            label="Guías"
-            description="Guías prácticas y plazos fiscales"
-            icon={BookOpen}
           />
         </div>
       </section>

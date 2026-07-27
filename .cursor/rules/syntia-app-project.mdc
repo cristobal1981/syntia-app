@@ -20,6 +20,7 @@ alwaysApply: true
 ## Funcionalidad no lista
 
 - Enlaces o rutas sin implementar → `/proximamente`, no 404/500 como "próximamente".
+- Features WIP del **cliente** que deben permanecer off en `main`/prod: ver regla `portal-prod-gating.mdc` y `.cursor/docs/portal-prod-features.md`.
 
 ## Secretos
 

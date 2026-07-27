@@ -25,6 +25,11 @@ export const tramiteSolicitudes = {
       label: 'Carta de vacaciones',
       description: 'Solicitud de carta o comunicación de periodo de vacaciones.',
     },
+    comingSoonCard: {
+      title: 'Consultas estructuradas',
+      description:
+        'Próximamente se habilitarán consultas estructuradas para solicitudes recurrentes.',
+    },
   },
   common: {
     creating: 'Creando…',
