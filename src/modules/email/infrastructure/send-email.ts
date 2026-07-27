@@ -14,14 +14,14 @@ type SendEmailOptions = {
 export async function sendEmail(
   input: SendEmailInput,
   options: SendEmailOptions = {}
-): Promise<void> {
+): Promise<{ id: string | null }> {
   const { required = false } = options
 
   if (!isResendConfigured()) {
     if (required) {
       throw new Error('RESEND_NOT_CONFIGURED')
     }
-    return
+    return { id: null }
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY)
@@ -51,4 +51,6 @@ export async function sendEmail(
   if (process.env.NODE_ENV !== 'production') {
     console.info('[email sent]', { id: data?.id, to: input.to, subject: input.subject })
   }
+
+  return { id: data?.id ?? null }
 }

@@ -15,7 +15,9 @@ import { buildOnboardingAccessUrl } from '@/src/modules/onboarding/infrastructur
 import {
   createOnboardingFormAccessToken,
   deleteOnboardingFormAccessToken,
+  getOnboardingFormAccessTokenByToken,
   listOnboardingFormAccessTokens,
+  recordOnboardingEmailSent,
   revokeOnboardingFormAccessToken,
 } from '@/src/modules/onboarding/onboarding-token-repository.supabase'
 import { sendAltaAutonomoAccessEmail } from '@/src/modules/email/application/send-alta-autonomo-access-email'
@@ -31,6 +33,13 @@ export type OnboardingSolicitudRow = {
   expiresAt: string
   createdAt: string
   url: string | null
+  resendEmailId: string | null
+  emailSentAt: string | null
+  emailDeliveredAt: string | null
+  emailOpenedAt: string | null
+  emailClickedAt: string | null
+  emailBouncedAt: string | null
+  emailComplainedAt: string | null
 }
 
 export type CreateAltaAutonomoAccessLinkResult =
@@ -55,11 +64,27 @@ export type OnboardingSolicitudMutationResult =
       message?: string
     }
 
+export type ResendOnboardingSolicitudLinkResult =
+  | { ok: true }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'not_found' | 'not_active' | 'email_failed' | 'unknown'
+      message?: string
+    }
+
 export type ListOnboardingSolicitudesResult =
   | { ok: true; rows: OnboardingSolicitudRow[] }
   | {
       ok: false
       error: 'unauthorized' | 'forbidden' | 'unknown'
+      message?: string
+    }
+
+export type GetOnboardingSolicitudDetailResult =
+  | { ok: true; row: OnboardingSolicitudRow }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'not_found' | 'unknown'
       message?: string
     }
 
@@ -120,6 +145,13 @@ function mapTokenToRow(
     expiresAt: token.expires_at,
     createdAt: token.created_at,
     url: status === 'active' ? buildOnboardingAccessUrl(token.token) : null,
+    resendEmailId: token.resend_email_id,
+    emailSentAt: token.email_sent_at,
+    emailDeliveredAt: token.email_delivered_at,
+    emailOpenedAt: token.email_opened_at,
+    emailClickedAt: token.email_clicked_at,
+    emailBouncedAt: token.email_bounced_at,
+    emailComplainedAt: token.email_complained_at,
   }
 }
 
@@ -147,6 +179,126 @@ export async function listOnboardingSolicitudesAction(): Promise<ListOnboardingS
     const rows = tokens.map((token) => mapTokenToRow(token, lookup))
 
     return { ok: true, rows }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'forbidden') {
+      return { ok: false, error: 'forbidden' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function getOnboardingSolicitudDetailAction(
+  token: string
+): Promise<GetOnboardingSolicitudDetailResult> {
+  try {
+    await requireSolicitudesSession()
+    const scope = await buildDirectoryScope()
+    const repository = getDirectoryRepository()
+
+    const [tokenRecord, clients] = await Promise.all([
+      getOnboardingFormAccessTokenByToken(token),
+      repository.listClients(scope),
+    ])
+
+    if (!tokenRecord || tokenRecord.form_kind !== onboarding.altaAutonomo.formKind) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    const lookup = buildClientLookup(clients)
+    return { ok: true, row: mapTokenToRow(tokenRecord, lookup) }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'forbidden') {
+      return { ok: false, error: 'forbidden' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function resendOnboardingSolicitudLinkAction(
+  token: string
+): Promise<ResendOnboardingSolicitudLinkResult> {
+  try {
+    await requireSolicitudesSession()
+    const repository = getDirectoryRepository()
+    const scope = await buildDirectoryScope()
+
+    const tokenRecord = await getOnboardingFormAccessTokenByToken(token)
+    if (!tokenRecord || tokenRecord.form_kind !== onboarding.altaAutonomo.formKind) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    if (deriveOnboardingTokenStatus(tokenRecord) !== 'active') {
+      return { ok: false, error: 'not_active' }
+    }
+
+    const recipientEmail = tokenRecord.recipient_email?.trim().toLowerCase()
+    if (!recipientEmail) {
+      return {
+        ok: false,
+        error: 'unknown',
+        message: 'La solicitud no tiene un correo de destino.',
+      }
+    }
+
+    const clients = await repository.listClients(scope)
+    const lookup = buildClientLookup(clients)
+    const client = resolveClientForToken(tokenRecord, lookup)
+    const clientFirstName = client
+      ? (clients.find((c) => c.id === client.id)?.firstName ?? null)
+      : null
+
+    const url = buildOnboardingAccessUrl(tokenRecord.token)
+    if (!url) {
+      return {
+        ok: false,
+        error: 'unknown',
+        message:
+          'NEXT_PUBLIC_ONBOARDING_LANDING_URL (o NEXT_PUBLIC_LANDING_URL) no está configurada.',
+      }
+    }
+
+    if (!isResendConfigured()) {
+      return {
+        ok: false,
+        error: 'email_failed',
+        message: 'Resend no está configurado. No se pudo enviar el correo al cliente.',
+      }
+    }
+
+    try {
+      const { emailId } = await sendAltaAutonomoAccessEmail({
+        clientEmail: recipientEmail,
+        clientFirstName,
+        accessLink: url,
+        expiresAt: tokenRecord.expires_at,
+      })
+      await recordOnboardingEmailSent(tokenRecord.token, emailId)
+    } catch (emailError) {
+      const mapped = mapDirectoryEmailError(emailError)
+      return {
+        ok: false,
+        error: 'email_failed',
+        message:
+          (!mapped.ok ? mapped.message : undefined) ??
+          'No se pudo reenviar el correo con el enlace al cliente.',
+      }
+    }
+
+    return { ok: true }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }
@@ -226,12 +378,13 @@ export async function createAltaAutonomoAccessLinkAction(
     }
 
     try {
-      await sendAltaAutonomoAccessEmail({
+      const { emailId } = await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
         clientFirstName: existing.firstName,
         accessLink: url,
         expiresAt: created.expires_at,
       })
+      await recordOnboardingEmailSent(created.token, emailId)
     } catch (emailError) {
       await revokeOnboardingFormAccessToken(created.token).catch(() => undefined)
       const mapped = mapDirectoryEmailError(emailError)

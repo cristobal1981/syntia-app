@@ -14,7 +14,7 @@ type SendAltaAutonomoAccessEmailInput = {
 
 export async function sendAltaAutonomoAccessEmail(
   input: SendAltaAutonomoAccessEmailInput
-): Promise<void> {
+): Promise<{ emailId: string | null }> {
   const to = getInviteRecipientEmail(input.clientEmail)
   const { subject, html, text } = buildAltaAutonomoAccessEmail({
     accessLink: input.accessLink,
@@ -24,7 +24,7 @@ export async function sendAltaAutonomoAccessEmail(
     isOverrideRecipient: isInviteRecipientOverridden(),
   })
 
-  await sendEmail(
+  const { id } = await sendEmail(
     {
       to,
       subject,
@@ -33,4 +33,6 @@ export async function sendAltaAutonomoAccessEmail(
     },
     { required: true }
   )
+
+  return { emailId: id }
 }

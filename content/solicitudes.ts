@@ -36,8 +36,6 @@ export const solicitudes = {
       client: 'Cliente',
       email: 'Email',
       token: 'Código',
-      status: 'Estado',
-      created: 'Creada',
       expires: 'Caduca',
       actions: 'Acciones',
     },
@@ -57,6 +55,7 @@ export const solicitudes = {
     },
     actions: {
       sendLink: 'Enviar enlace',
+      sendingLink: 'Enviando…',
       revoke: 'Revocar',
       delete: 'Eliminar',
       revoking: 'Revocando…',
@@ -68,6 +67,34 @@ export const solicitudes = {
     deleteError: 'No se pudo eliminar la solicitud',
     deleteConfirm:
       '¿Eliminar esta solicitud? El enlace dejará de existir y no se podrá recuperar.',
+    resendSuccess: 'Enlace reenviado',
+    resendError: 'No se pudo reenviar el enlace',
     unknownClient: 'Cliente sin asignar',
+  },
+  detail: {
+    back: 'Volver a solicitudes',
+    progressTitle: 'Progreso del envío',
+    steps: {
+      sent: 'Enviado',
+      delivered: 'Entregado',
+      opened: 'Abierto',
+      clicked: 'Clicado',
+    },
+    openedReliabilityNote:
+      'El estado "Abierto" puede no ser exacto: algunos gestores de correo precargan imágenes automáticamente.',
+    failure: {
+      bounced: 'Rebotado',
+      complained: 'Marcado como spam',
+    },
+    notSentYet: 'Aún no se ha enviado ningún correo para esta solicitud.',
+    infoTitle: 'Datos de la solicitud',
+    fields: {
+      client: 'Cliente',
+      email: 'Email',
+      code: 'Código',
+      status: 'Estado',
+      created: 'Creada',
+      expires: 'Caduca',
+    },
   },
 } as const

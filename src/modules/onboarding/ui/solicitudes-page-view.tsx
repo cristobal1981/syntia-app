@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { Copy, Plus, Trash2, XCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Copy, Plus, Send, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -27,10 +28,11 @@ import {
   createAltaAutonomoAccessLinkAction,
   deleteOnboardingSolicitudAction,
   listOnboardingSolicitudesAction,
+  resendOnboardingSolicitudLinkAction,
   revokeOnboardingSolicitudAction,
   type OnboardingSolicitudRow,
 } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
-import type { OnboardingTokenStatus } from '@/src/modules/onboarding/domain/onboarding-token-status'
+import { formatOnboardingDateNumeric } from '@/src/modules/onboarding/ui/format-onboarding-date'
 import { OnboardingTokenSecret } from '@/src/modules/onboarding/ui/onboarding-token-secret'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
@@ -42,32 +44,6 @@ type SolicitudesPageViewProps = {
 
 type ListFilter = 'pending' | 'all'
 const UNSELECTED_CLIENT_VALUE = '__unselected_client__'
-
-function formatDateTime(value: string): string {
-  const date = new Date(value)
-  if (!Number.isFinite(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('es-ES', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date)
-}
-
-function statusLabel(status: OnboardingTokenStatus): string {
-  return solicitudes.list.status[status]
-}
-
-function statusClassName(status: OnboardingTokenStatus): string {
-  switch (status) {
-    case 'active':
-      return 'bg-primary/10 text-primary'
-    case 'used':
-      return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-    case 'revoked':
-      return 'bg-muted text-muted-foreground'
-    case 'expired':
-      return 'bg-amber-500/10 text-amber-800 dark:text-amber-300'
-  }
-}
 
 function AltaAutonomoCreateDialog({
   open,
@@ -263,7 +239,7 @@ function OnboardingSolicitudRowActions({
   onUpdated: (rows: OnboardingSolicitudRow[]) => void
 }) {
   const copy = solicitudes.list
-  const [pendingAction, setPendingAction] = useState<'revoke' | 'delete' | null>(
+  const [pendingAction, setPendingAction] = useState<'resend' | 'revoke' | 'delete' | null>(
     null
   )
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -273,6 +249,18 @@ function OnboardingSolicitudRowActions({
     if (result.ok) {
       onUpdated(result.rows)
     }
+  }
+
+  async function handleResend() {
+    setPendingAction('resend')
+    const result = await resendOnboardingSolicitudLinkAction(row.token)
+    setPendingAction(null)
+    if (!result.ok) {
+      toast.error(copy.resendError)
+      return
+    }
+    toast.success(copy.resendSuccess)
+    await refreshRows()
   }
 
   async function handleRevoke() {
@@ -300,16 +288,26 @@ function OnboardingSolicitudRowActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled
-        className="h-8 gap-1 px-2"
-      >
-        {copy.actions.sendLink}
-      </Button>
+    <div
+      className="flex flex-wrap items-center justify-end gap-1"
+      onClick={(event) => event.stopPropagation()}
+    >
+      {row.status === 'active' ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleResend}
+          disabled={pendingAction !== null}
+          aria-label={pendingAction === 'resend' ? copy.actions.sendingLink : copy.actions.sendLink}
+          className="h-8 gap-1 px-2"
+        >
+          <Send className="size-3.5" aria-hidden />
+          <span className="hidden sm:inline">
+            {pendingAction === 'resend' ? copy.actions.sendingLink : copy.actions.sendLink}
+          </span>
+        </Button>
+      ) : null}
       {row.status === 'active' ? (
         <Button
           type="button"
@@ -317,10 +315,13 @@ function OnboardingSolicitudRowActions({
           size="sm"
           onClick={handleRevoke}
           disabled={pendingAction !== null}
+          aria-label={pendingAction === 'revoke' ? copy.actions.revoking : copy.actions.revoke}
           className="h-8 gap-1 px-2"
         >
           <XCircle className="size-3.5" aria-hidden />
-          {pendingAction === 'revoke' ? copy.actions.revoking : copy.actions.revoke}
+          <span className="hidden sm:inline">
+            {pendingAction === 'revoke' ? copy.actions.revoking : copy.actions.revoke}
+          </span>
         </Button>
       ) : null}
       <Button
@@ -329,10 +330,13 @@ function OnboardingSolicitudRowActions({
         size="sm"
         onClick={() => setDeleteConfirmOpen(true)}
         disabled={pendingAction !== null}
+        aria-label={pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
         className="h-8 gap-1 px-2 text-destructive hover:text-destructive"
       >
         <Trash2 className="size-3.5" aria-hidden />
-        {pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
+        <span className="hidden sm:inline">
+          {pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
+        </span>
       </Button>
       <PortalConfirmDialog
         open={deleteConfirmOpen}
@@ -359,6 +363,7 @@ function OnboardingSolicitudTable({
   onUpdated: (rows: OnboardingSolicitudRow[]) => void
 }) {
   const copy = solicitudes.list
+  const router = useRouter()
 
   const filteredRows = useMemo(() => {
     if (filter === 'all') return rows
@@ -382,14 +387,17 @@ function OnboardingSolicitudTable({
 
   return (
     <div className="portal-home-card overflow-x-auto rounded-xl">
-      <table className="w-full min-w-[880px] text-left text-sm">
+      <table className="w-full min-w-[640px] text-left text-sm">
         <thead>
           <tr className="border-b border-border dark:border-border/50">
-            {Object.values(copy.columns).map((header) => (
+            {Object.entries(copy.columns).map(([key, header]) => (
               <th
-                key={header}
+                key={key}
                 scope="col"
-                className="px-4 py-3 font-sans font-medium text-muted-foreground"
+                className={cn(
+                  'px-4 py-3 font-sans font-medium text-muted-foreground',
+                  key === 'actions' && 'text-right'
+                )}
               >
                 {header}
               </th>
@@ -400,34 +408,31 @@ function OnboardingSolicitudTable({
           {filteredRows.map((row) => (
             <tr
               key={row.token}
-              className="border-b border-border last:border-b-0 dark:border-border/50"
+              onClick={() => router.push(`/solicitudes/${row.token}`)}
+              className="cursor-pointer border-b border-border last:border-b-0 hover:bg-muted/40 dark:border-border/50"
             >
-              <td className="px-4 py-3 text-foreground">
+              <td className="max-w-[160px] truncate px-4 py-3 text-foreground sm:max-w-[220px]">
                 {row.clientName ?? copy.unknownClient}
               </td>
-              <td className="px-4 py-3 text-muted-foreground">
+              <td
+                className="max-w-[140px] truncate px-4 py-3 text-muted-foreground sm:max-w-[240px]"
+                title={row.recipientEmail ?? undefined}
+              >
                 {row.recipientEmail ?? '—'}
               </td>
-              <td className="px-4 py-3">
-                <OnboardingTokenSecret token={row.token} />
+              <td
+                className="px-4 py-3"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <OnboardingTokenSecret
+                  token={row.token}
+                  className="min-w-0 sm:min-w-[12rem]"
+                />
               </td>
-              <td className="px-4 py-3">
-                <span
-                  className={cn(
-                    'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
-                    statusClassName(row.status)
-                  )}
-                >
-                  {statusLabel(row.status)}
-                </span>
+              <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                {formatOnboardingDateNumeric(row.expiresAt)}
               </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {formatDateTime(row.createdAt)}
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {formatDateTime(row.expiresAt)}
-              </td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3 text-right">
                 <OnboardingSolicitudRowActions row={row} onUpdated={onUpdated} />
               </td>
             </tr>

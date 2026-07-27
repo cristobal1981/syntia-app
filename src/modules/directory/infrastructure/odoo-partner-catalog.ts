@@ -45,7 +45,7 @@ async function fetchOdooPartnersForImport(
 ): Promise<OdooPartnerImportOption[]> {
   const driveField = getOdooDriveFieldName()
   const contactEmailField = getOdooContactEmailFieldName()
-  const domain: unknown[] = [[driveField, '!=', false]]
+  const domain: unknown[] = []
   if (linkedIds.length > 0) {
     domain.push(['id', 'not in', linkedIds])
   }

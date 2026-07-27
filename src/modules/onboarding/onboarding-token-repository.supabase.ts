@@ -2,6 +2,13 @@ import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructur
 
 export type OnboardingFormKind = 'alta_autonomo'
 
+export type OnboardingEmailEventColumn =
+  | 'email_delivered_at'
+  | 'email_opened_at'
+  | 'email_clicked_at'
+  | 'email_bounced_at'
+  | 'email_complained_at'
+
 export type OnboardingFormAccessToken = {
   id: number
   token: string
@@ -13,6 +20,13 @@ export type OnboardingFormAccessToken = {
   revoked_at: string | null
   created_by: string
   created_at: string
+  resend_email_id: string | null
+  email_sent_at: string | null
+  email_delivered_at: string | null
+  email_opened_at: string | null
+  email_clicked_at: string | null
+  email_bounced_at: string | null
+  email_complained_at: string | null
 }
 
 type CreateOnboardingFormAccessTokenInput = {
@@ -33,10 +47,17 @@ type OnboardingTokenRow = {
   revoked_at: string | null
   created_by: string
   created_at: string
+  resend_email_id: string | null
+  email_sent_at: string | null
+  email_delivered_at: string | null
+  email_opened_at: string | null
+  email_clicked_at: string | null
+  email_bounced_at: string | null
+  email_complained_at: string | null
 }
 
 const TOKEN_SELECT =
-  'id, token, form_kind, recipient_email, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at'
+  'id, token, form_kind, recipient_email, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at'
 
 function normalizeEmail(value: string | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? ''
@@ -55,6 +76,13 @@ function toOnboardingToken(row: OnboardingTokenRow): OnboardingFormAccessToken {
     revoked_at: row.revoked_at,
     created_by: row.created_by,
     created_at: row.created_at,
+    resend_email_id: row.resend_email_id,
+    email_sent_at: row.email_sent_at,
+    email_delivered_at: row.email_delivered_at,
+    email_opened_at: row.email_opened_at,
+    email_clicked_at: row.email_clicked_at,
+    email_bounced_at: row.email_bounced_at,
+    email_complained_at: row.email_complained_at,
   }
 }
 
@@ -207,6 +235,56 @@ export async function revokeOnboardingFormAccessToken(
   }
 
   return Array.isArray(data) && data.length > 0
+}
+
+export async function recordOnboardingEmailSent(
+  token: string,
+  emailId: string | null
+): Promise<void> {
+  const normalized = token.trim()
+  if (!normalized) {
+    return
+  }
+
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('onboarding_form_access_tokens')
+    .update({
+      resend_email_id: emailId,
+      email_sent_at: new Date().toISOString(),
+      email_delivered_at: null,
+      email_opened_at: null,
+      email_clicked_at: null,
+      email_bounced_at: null,
+      email_complained_at: null,
+    })
+    .eq('token', normalized)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+export async function recordOnboardingEmailEvent(
+  emailId: string,
+  column: OnboardingEmailEventColumn,
+  occurredAt: string
+): Promise<void> {
+  const normalized = emailId.trim()
+  if (!normalized) {
+    return
+  }
+
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('onboarding_form_access_tokens')
+    .update({ [column]: occurredAt })
+    .eq('resend_email_id', normalized)
+    .is(column, null)
+
+  if (error) {
+    throw new Error(error.message)
+  }
 }
 
 export async function deleteOnboardingFormAccessToken(
