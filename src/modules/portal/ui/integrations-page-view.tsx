@@ -11,10 +11,11 @@ import type {
   IntegrationStatus,
 } from '@/src/modules/portal/domain/types'
 import {
-  integrationIcons,
+  integrationBrandIcons,
   integrationStatusLabel,
   integrationStatusStyles,
 } from '@/src/modules/portal/ui/integration-ui'
+import { BrandMark } from '@/src/modules/portal/ui/brand-mark'
 import { cn } from '@/lib/utils'
 
 type IntegrationsPageViewProps = {
@@ -140,7 +141,7 @@ function IntegrationCard({ integration }: { integration: IntegrationStatus }) {
   const copy = portal.integrations
   const itemCopy = copy.items[integration.id]
   const styles = integrationStatusStyles[integration.status]
-  const Icon = integrationIcons[integration.id]
+  const brand = integrationBrandIcons[integration.id]
 
   return (
     <li
@@ -150,13 +151,12 @@ function IntegrationCard({ integration }: { integration: IntegrationStatus }) {
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <div
-          className={cn(
-            'flex size-12 shrink-0 items-center justify-center rounded-xl',
-            styles.iconBg
-          )}
-        >
-          <Icon className="size-6" aria-hidden />
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted">
+          <BrandMark
+            path={brand.path}
+            title={brand.title}
+            className="size-6 text-icon-muted"
+          />
         </div>
         <span
           className={cn(

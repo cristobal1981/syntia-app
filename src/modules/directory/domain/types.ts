@@ -24,6 +24,7 @@ export type GestorRecord = PersonNameParts & {
   companyName?: string
   phone?: string
   status: PersonStatus
+  odooUserId?: string
 }
 
 export type ClientRecord = PersonNameParts & {
@@ -47,6 +48,7 @@ export type UpdateGestorInput = PersonNameParts & {
   companyName?: string
   phone?: string
   status: PersonStatus
+  odooUserId?: string
 }
 
 export type CreateClientResult = {
@@ -64,6 +66,7 @@ export type CreateGestorInput = PersonNameParts & {
   role: Extract<PortalRole, 'advisor' | 'admin'>
   companyName?: string
   phone?: string
+  odooUserId?: string
 }
 
 export type CreateClientInput = PersonNameParts & {

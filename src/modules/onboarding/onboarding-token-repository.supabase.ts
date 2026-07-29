@@ -14,6 +14,7 @@ export type OnboardingFormAccessToken = {
   token: string
   form_kind: OnboardingFormKind
   recipient_email: string | null
+  recipient_name: string | null
   odoo_partner_id: number | null
   expires_at: string
   used_at: string | null
@@ -32,6 +33,7 @@ export type OnboardingFormAccessToken = {
 type CreateOnboardingFormAccessTokenInput = {
   formKind?: OnboardingFormKind
   recipientEmail?: string
+  recipientName?: string
   odooPartnerId?: number
   createdBy: string
 }
@@ -41,6 +43,7 @@ type OnboardingTokenRow = {
   token: string
   form_kind: OnboardingFormKind
   recipient_email: string | null
+  recipient_name: string | null
   odoo_partner_id: number | null
   expires_at: string
   used_at: string | null
@@ -57,7 +60,7 @@ type OnboardingTokenRow = {
 }
 
 const TOKEN_SELECT =
-  'id, token, form_kind, recipient_email, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at'
+  'id, token, form_kind, recipient_email, recipient_name, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at'
 
 function normalizeEmail(value: string | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? ''
@@ -70,6 +73,7 @@ function toOnboardingToken(row: OnboardingTokenRow): OnboardingFormAccessToken {
     token: row.token,
     form_kind: row.form_kind,
     recipient_email: row.recipient_email,
+    recipient_name: row.recipient_name,
     odoo_partner_id: row.odoo_partner_id,
     expires_at: row.expires_at,
     used_at: row.used_at,
@@ -129,6 +133,7 @@ export async function createOnboardingFormAccessToken(
       token,
       form_kind: formKind,
       recipient_email: recipientEmail,
+      recipient_name: input.recipientName?.trim() || null,
       odoo_partner_id: odooPartnerId,
       created_by: input.createdBy,
     })
@@ -239,7 +244,9 @@ export async function revokeOnboardingFormAccessToken(
 
 export async function recordOnboardingEmailSent(
   token: string,
-  emailId: string | null
+  emailId: string | null,
+  recipientEmail?: string,
+  recipientName?: string
 ): Promise<void> {
   const normalized = token.trim()
   if (!normalized) {
@@ -257,6 +264,8 @@ export async function recordOnboardingEmailSent(
       email_clicked_at: null,
       email_bounced_at: null,
       email_complained_at: null,
+      ...(recipientEmail !== undefined ? { recipient_email: recipientEmail } : {}),
+      ...(recipientName !== undefined ? { recipient_name: recipientName } : {}),
     })
     .eq('token', normalized)
 

@@ -34,10 +34,10 @@ export function IntegrationsPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="portal-home-card rounded-xl p-4 md:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {title ? (
-          <h2 className="font-sans text-lg font-semibold text-foreground">
+          <h2 className="font-sans text-base font-semibold text-foreground">
             {title}
           </h2>
         ) : (
@@ -60,7 +60,11 @@ export function IntegrationsPanel({
           </Button>
         ) : null}
       </div>
-      <IntegrationBadges integrations={integrations} loading={isPending} />
+      <IntegrationBadges
+        integrations={integrations}
+        loading={isPending}
+        className="mt-3"
+      />
     </div>
   )
 }

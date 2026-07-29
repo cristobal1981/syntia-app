@@ -3,22 +3,26 @@ export const solicitudes = {
     eyebrow: 'Administración',
     title: 'Solicitudes',
     description:
-      'Enlaces de acceso al formulario de alta de autónomo para tus clientes.',
+      'Enlaces de acceso al formulario de alta de autónomo para tus contactos.',
   },
   altaAutonomo: {
     newButton: 'Nueva solicitud',
     modalTitle: 'Nueva solicitud de alta de autónomo',
     modalDescription:
-      'Elige un cliente: generaremos un enlace privado y se lo enviaremos por correo con la fecha de caducidad.',
-    clientLabel: 'Cliente',
-    clientPlaceholder: 'Selecciona un cliente',
-    noClients: 'No hay clientes disponibles. Crea uno en Usuarios → Clientes.',
+      'Elige un contacto de Odoo: generaremos un enlace privado y se lo enviaremos por correo con la fecha de caducidad. Solo aparecen contactos que todavía no son clientes en el portal.',
+    clientLabel: 'Contacto',
+    clientPlaceholder: 'Selecciona un contacto de Odoo',
+    loading: 'Cargando contactos desde Odoo…',
+    unavailable: 'Odoo no está configurado. No se pueden crear solicitudes sin conexión a Odoo.',
+    error: 'No pudimos cargar los contactos de Odoo. Inténtalo de nuevo.',
+    empty:
+      'No hay contactos de Odoo disponibles (los que ya son clientes no aparecen aquí).',
     createButton: 'Generar y enviar enlace',
     creating: 'Enviando…',
-    generated: 'Enlace generado y enviado al correo del cliente',
+    generated: 'Enlace generado y enviado al correo del contacto',
     generatedStateTitle: 'Solicitud creada y enviada',
     generatedStateDescription:
-      'Hemos enviado el enlace al correo del cliente. También puedes copiarlo aquí si lo necesitas.',
+      'Hemos enviado el enlace al correo del contacto. También puedes copiarlo aquí si lo necesitas.',
     generateError: 'No se pudo generar o enviar el enlace. Inténtalo de nuevo.',
     copyLink: 'Copiar enlace',
     linkCopied: 'Enlace copiado',
@@ -29,11 +33,11 @@ export const solicitudes = {
     filterAll: 'Todas',
     emptyPendingTitle: 'Sin solicitudes pendientes',
     emptyPendingDescription:
-      'Cuando generes un enlace activo para un cliente, aparecerá aquí.',
+      'Cuando generes un enlace activo para un contacto, aparecerá aquí.',
     emptyAllTitle: 'Sin solicitudes',
     emptyAllDescription: 'Aún no se ha generado ningún enlace de alta de autónomo.',
     columns: {
-      client: 'Cliente',
+      client: 'Contacto',
       email: 'Email',
       token: 'Código',
       expires: 'Caduca',
@@ -69,10 +73,11 @@ export const solicitudes = {
       '¿Eliminar esta solicitud? El enlace dejará de existir y no se podrá recuperar.',
     resendSuccess: 'Enlace reenviado',
     resendError: 'No se pudo reenviar el enlace',
-    unknownClient: 'Cliente sin asignar',
+    unknownClient: 'Sin nombre',
   },
   detail: {
     back: 'Volver a solicitudes',
+    eyebrow: 'Solicitud de Onboarding',
     progressTitle: 'Progreso del envío',
     steps: {
       sent: 'Enviado',
@@ -80,16 +85,24 @@ export const solicitudes = {
       opened: 'Abierto',
       clicked: 'Clicado',
     },
-    openedReliabilityNote:
-      'El estado "Abierto" puede no ser exacto: algunos gestores de correo precargan imágenes automáticamente.',
+    openedBanner: {
+      title: 'Correo abierto',
+      note: 'El estado "Abierto" puede no ser exacto: algunos gestores de correo precargan imágenes automáticamente.',
+    },
     failure: {
-      bounced: 'Rebotado',
-      complained: 'Marcado como spam',
+      bounced: {
+        title: 'Correo rebotado',
+        note: 'El correo no llegó al destinatario. Comprueba que la dirección sea correcta.',
+      },
+      complained: {
+        title: 'Marcado como spam',
+        note: 'El destinatario ha marcado este correo como spam.',
+      },
     },
     notSentYet: 'Aún no se ha enviado ningún correo para esta solicitud.',
     infoTitle: 'Datos de la solicitud',
     fields: {
-      client: 'Cliente',
+      client: 'Contacto',
       email: 'Email',
       code: 'Código',
       status: 'Estado',

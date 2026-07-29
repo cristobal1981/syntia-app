@@ -295,8 +295,17 @@ export const portal = {
         'El servidor está recibiendo mucha demanda y no pudimos cargar el resumen. Vuelve a intentarlo en unos minutos.',
       quickLinksTitle: 'Accesos rápidos',
     },
+    solicitudesStats: {
+      total: 'Pendientes',
+      empty: 'Sin solicitudes pendientes',
+      clicked: 'Clicadas',
+      received: 'Recibidas',
+      failed: 'Fallidas',
+    },
     admin: {
       greeting: 'Panel de administración',
+      clientsStat: 'Clientes',
+      advisorsStat: 'Asesores',
       teamTitle: 'Asesores',
       viewTeamLink: 'Ver todos',
       requestsTitle: 'Solicitudes abiertas',
@@ -304,6 +313,8 @@ export const portal = {
     },
     advisor: {
       greeting: 'Buenos días,',
+      requestsTitle: 'Solicitudes abiertas',
+      clientsStat: 'Clientes asignados',
       clientsTitle: 'Clientes recientes',
       queueTitle: 'Cola de automatización',
       integrationsTitle: 'Integraciones',

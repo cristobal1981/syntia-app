@@ -178,6 +178,16 @@ function isEmailRateLimitError(message: string): boolean {
   return message.toLowerCase().includes('rate limit')
 }
 
+/**
+ * Contraseña aleatoria descartada de inmediato: invalida la sesión activa del
+ * usuario (Supabase revoca la sesión al cambiar la contraseña vía admin API)
+ * sin que nadie llegue a conocerla. El sufijo fijo garantiza mayúscula/dígito/
+ * símbolo por si el proyecto de Supabase exige fuerza mínima.
+ */
+function buildRandomStrongPassword(): string {
+  return `${crypto.randomUUID()}Aa1!`
+}
+
 type AuthUserCreation = {
   authUserId: string
   inviteSent: boolean
@@ -357,6 +367,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
           role: input.role,
           status: 'invited',
           is_active: false,
+          odoo_user_id: parseOdooPartnerId(input.odooUserId),
         })
         .select('id')
         .single()
@@ -475,6 +486,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
         role: input.role,
         status,
         is_active: input.status === 'active',
+        odoo_user_id: parseOdooPartnerId(input.odooUserId),
         updated_at: new Date().toISOString(),
       })
       .eq('id', input.id)
@@ -605,7 +617,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     const supabase = createSupabaseAdminClient()
     const { data: userRow, error: fetchError } = await supabase
       .from('users')
-      .select('id, email, auth_user_id, role')
+      .select('id, email, auth_user_id, role, status')
       .eq('id', clientId)
       .maybeSingle()
 
@@ -619,6 +631,49 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
 
     if (!userRow.auth_user_id) {
       throw new Error('NO_AUTH_ACCOUNT')
+    }
+
+    if (userRow.status === 'active') {
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        String(userRow.auth_user_id),
+        { password: buildRandomStrongPassword() }
+      )
+      if (passwordError) {
+        throw new Error('PASSWORD_RESET_FAILED')
+      }
+    }
+
+    await sendClientAccessEmailForClient(String(userRow.email))
+  },
+
+  async resendGestorAccessEmail(gestorId) {
+    const supabase = createSupabaseAdminClient()
+    const { data: userRow, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, auth_user_id, role, status')
+      .eq('id', gestorId)
+      .maybeSingle()
+
+    if (fetchError) {
+      throw new Error(fetchError.message)
+    }
+
+    if (!userRow || !isGestorDbRole(userRow.role)) {
+      throw new Error('NOT_FOUND')
+    }
+
+    if (!userRow.auth_user_id) {
+      throw new Error('NO_AUTH_ACCOUNT')
+    }
+
+    if (userRow.status === 'active') {
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        String(userRow.auth_user_id),
+        { password: buildRandomStrongPassword() }
+      )
+      if (passwordError) {
+        throw new Error('PASSWORD_RESET_FAILED')
+      }
     }
 
     await sendClientAccessEmailForClient(String(userRow.email))

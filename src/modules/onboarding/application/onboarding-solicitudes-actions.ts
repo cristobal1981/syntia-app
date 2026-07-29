@@ -5,8 +5,12 @@ import {
   buildDirectoryScope,
   requireDirectorySession,
 } from '@/src/modules/directory/application/directory-queries'
-import type { ClientRecord } from '@/src/modules/directory/domain/types'
+import type { ClientRecord, DirectoryListScope } from '@/src/modules/directory/domain/types'
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
+import {
+  resolvePortalEmailFromOdoo,
+  splitOdooLabelToNameFields,
+} from '@/src/modules/directory/domain/odoo-partner-import'
 import {
   deriveOnboardingTokenStatus,
   type OnboardingTokenStatus,
@@ -28,8 +32,7 @@ export type OnboardingSolicitudRow = {
   token: string
   status: OnboardingTokenStatus
   recipientEmail: string | null
-  clientName: string | null
-  clientId: string | null
+  recipientName: string | null
   expiresAt: string
   createdAt: string
   url: string | null
@@ -40,6 +43,13 @@ export type OnboardingSolicitudRow = {
   emailClickedAt: string | null
   emailBouncedAt: string | null
   emailComplainedAt: string | null
+}
+
+export type CreateAltaAutonomoAccessLinkInput = {
+  odooPartnerId: number
+  label: string
+  contactEmail?: string
+  corporateEmail?: string
 }
 
 export type CreateAltaAutonomoAccessLinkResult =
@@ -88,60 +98,16 @@ export type GetOnboardingSolicitudDetailResult =
       message?: string
     }
 
-function buildClientLookup(clients: ClientRecord[]) {
-  const byEmail = new Map<string, ClientRecord>()
-  const byOdooPartnerId = new Map<number, ClientRecord>()
-
-  for (const client of clients) {
-    const email = client.email.trim().toLowerCase()
-    if (email) {
-      byEmail.set(email, client)
-    }
-    if (client.odooPartnerId) {
-      const partnerId = Number.parseInt(client.odooPartnerId, 10)
-      if (Number.isInteger(partnerId)) {
-        byOdooPartnerId.set(partnerId, client)
-      }
-    }
-  }
-
-  return { byEmail, byOdooPartnerId }
-}
-
-function resolveClientForToken(
-  token: {
-    recipient_email: string | null
-    odoo_partner_id: number | null
-  },
-  lookup: ReturnType<typeof buildClientLookup>
-): Pick<ClientRecord, 'id' | 'name'> | null {
-  if (token.odoo_partner_id !== null) {
-    const match = lookup.byOdooPartnerId.get(token.odoo_partner_id)
-    if (match) return { id: match.id, name: match.name }
-  }
-
-  const email = token.recipient_email?.trim().toLowerCase()
-  if (email) {
-    const match = lookup.byEmail.get(email)
-    if (match) return { id: match.id, name: match.name }
-  }
-
-  return null
-}
-
 function mapTokenToRow(
-  token: Awaited<ReturnType<typeof listOnboardingFormAccessTokens>>[number],
-  lookup: ReturnType<typeof buildClientLookup>
+  token: Awaited<ReturnType<typeof listOnboardingFormAccessTokens>>[number]
 ): OnboardingSolicitudRow {
   const status = deriveOnboardingTokenStatus(token)
-  const client = resolveClientForToken(token, lookup)
 
   return {
     token: token.token,
     status,
     recipientEmail: token.recipient_email,
-    clientName: client?.name ?? null,
-    clientId: client?.id ?? null,
+    recipientName: token.recipient_name,
     expiresAt: token.expires_at,
     createdAt: token.created_at,
     url: status === 'active' ? buildOnboardingAccessUrl(token.token) : null,
@@ -166,17 +132,11 @@ async function requireSolicitudesSession() {
 export async function listOnboardingSolicitudesAction(): Promise<ListOnboardingSolicitudesResult> {
   try {
     await requireSolicitudesSession()
-    const scope = await buildDirectoryScope()
-    const repository = getDirectoryRepository()
-    const [tokens, clients] = await Promise.all([
-      listOnboardingFormAccessTokens({
-        formKind: onboarding.altaAutonomo.formKind,
-      }),
-      repository.listClients(scope),
-    ])
+    const tokens = await listOnboardingFormAccessTokens({
+      formKind: onboarding.altaAutonomo.formKind,
+    })
 
-    const lookup = buildClientLookup(clients)
-    const rows = tokens.map((token) => mapTokenToRow(token, lookup))
+    const rows = tokens.map((token) => mapTokenToRow(token))
 
     return { ok: true, rows }
   } catch (error) {
@@ -199,20 +159,13 @@ export async function getOnboardingSolicitudDetailAction(
 ): Promise<GetOnboardingSolicitudDetailResult> {
   try {
     await requireSolicitudesSession()
-    const scope = await buildDirectoryScope()
-    const repository = getDirectoryRepository()
-
-    const [tokenRecord, clients] = await Promise.all([
-      getOnboardingFormAccessTokenByToken(token),
-      repository.listClients(scope),
-    ])
+    const tokenRecord = await getOnboardingFormAccessTokenByToken(token)
 
     if (!tokenRecord || tokenRecord.form_kind !== onboarding.altaAutonomo.formKind) {
       return { ok: false, error: 'not_found' }
     }
 
-    const lookup = buildClientLookup(clients)
-    return { ok: true, row: mapTokenToRow(tokenRecord, lookup) }
+    return { ok: true, row: mapTokenToRow(tokenRecord) }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }
@@ -228,12 +181,42 @@ export async function getOnboardingSolicitudDetailAction(
   }
 }
 
+/**
+ * Si el destinatario de la solicitud ya es cliente en el portal, lo localiza
+ * por odoo_partner_id o por el email guardado — así el reenvío puede recoger
+ * un email corregido en el directorio sin tener que crear una solicitud nueva.
+ */
+function findClientForToken(
+  tokenRecord: { recipient_email: string | null; odoo_partner_id: number | null },
+  clients: ClientRecord[]
+): ClientRecord | null {
+  if (tokenRecord.odoo_partner_id !== null) {
+    const byPartner = clients.find((client) => {
+      const partnerId = client.odooPartnerId
+        ? Number.parseInt(client.odooPartnerId, 10)
+        : null
+      return (
+        partnerId !== null &&
+        Number.isInteger(partnerId) &&
+        partnerId === tokenRecord.odoo_partner_id
+      )
+    })
+    if (byPartner) return byPartner
+  }
+
+  const email = tokenRecord.recipient_email?.trim().toLowerCase()
+  if (email) {
+    return clients.find((client) => client.email.trim().toLowerCase() === email) ?? null
+  }
+
+  return null
+}
+
 export async function resendOnboardingSolicitudLinkAction(
   token: string
 ): Promise<ResendOnboardingSolicitudLinkResult> {
   try {
     await requireSolicitudesSession()
-    const repository = getDirectoryRepository()
     const scope = await buildDirectoryScope()
 
     const tokenRecord = await getOnboardingFormAccessTokenByToken(token)
@@ -245,7 +228,16 @@ export async function resendOnboardingSolicitudLinkAction(
       return { ok: false, error: 'not_active' }
     }
 
-    const recipientEmail = tokenRecord.recipient_email?.trim().toLowerCase()
+    // Si ya es cliente en el portal, prioriza su email/nombre actuales sobre
+    // los guardados en la solicitud.
+    const clients = await getDirectoryRepository().listClients(scope)
+    const matchedClient = findClientForToken(tokenRecord, clients)
+
+    const recipientEmail = (
+      matchedClient?.email ?? tokenRecord.recipient_email ?? ''
+    )
+      .trim()
+      .toLowerCase()
     if (!recipientEmail) {
       return {
         ok: false,
@@ -254,12 +246,12 @@ export async function resendOnboardingSolicitudLinkAction(
       }
     }
 
-    const clients = await repository.listClients(scope)
-    const lookup = buildClientLookup(clients)
-    const client = resolveClientForToken(tokenRecord, lookup)
-    const clientFirstName = client
-      ? (clients.find((c) => c.id === client.id)?.firstName ?? null)
-      : null
+    const recipientName = matchedClient?.name ?? tokenRecord.recipient_name ?? undefined
+    const clientFirstName =
+      matchedClient?.firstName ??
+      (recipientName
+        ? splitOdooLabelToNameFields(recipientName, 'given-first').firstName
+        : null)
 
     const url = buildOnboardingAccessUrl(tokenRecord.token)
     if (!url) {
@@ -286,7 +278,12 @@ export async function resendOnboardingSolicitudLinkAction(
         accessLink: url,
         expiresAt: tokenRecord.expires_at,
       })
-      await recordOnboardingEmailSent(tokenRecord.token, emailId)
+      await recordOnboardingEmailSent(
+        tokenRecord.token,
+        emailId,
+        recipientEmail,
+        recipientName
+      )
     } catch (emailError) {
       const mapped = mapDirectoryEmailError(emailError)
       return {
@@ -314,39 +311,51 @@ export async function resendOnboardingSolicitudLinkAction(
   }
 }
 
-export async function createAltaAutonomoAccessLinkAction(
-  clientId: string
+/**
+ * Núcleo de la creación de una solicitud a partir de un contacto de Odoo, sin
+ * sesión de asesor — lo usa tanto la action de la UI como el webhook público
+ * de Odoo (`app/api/odoo/solicitudes/route.ts`), cada uno resolviendo su
+ * propio `scope` (sesión real o uno sintético para la llamada de servicio).
+ */
+export async function createAltaAutonomoAccessLinkCore(
+  partner: CreateAltaAutonomoAccessLinkInput,
+  scope: DirectoryListScope
 ): Promise<CreateAltaAutonomoAccessLinkResult> {
   try {
-    await requireSolicitudesSession()
-    const scope = await buildDirectoryScope()
+    const odooEmail = resolvePortalEmailFromOdoo(
+      partner.contactEmail,
+      partner.corporateEmail
+    )
+      .trim()
+      .toLowerCase()
 
-    const repository = getDirectoryRepository()
-    const existing = await repository.getClient(clientId)
-    if (!existing) {
-      return { ok: false, error: 'not_found' }
-    }
+    // Si el contacto ya es cliente en el portal, usa sus datos actuales de
+    // Supabase (email/nombre) en vez de la foto fija que trae Odoo.
+    const clients = await getDirectoryRepository().listClients(scope)
+    const matchedClient = findClientForToken(
+      { recipient_email: odooEmail || null, odoo_partner_id: partner.odooPartnerId },
+      clients
+    )
 
-    if (scope.role === 'advisor' && existing.advisorId !== scope.userId) {
-      return { ok: false, error: 'forbidden' }
-    }
-
-    const odooPartnerId = existing.odooPartnerId
-      ? Number.parseInt(existing.odooPartnerId, 10)
-      : null
-
-    if (existing.odooPartnerId && !Number.isInteger(odooPartnerId)) {
+    const recipientEmail = (matchedClient?.email ?? odooEmail).trim().toLowerCase()
+    if (!recipientEmail) {
       return {
         ok: false,
         error: 'invalid_client',
-        message: 'El cliente no tiene un ID de Odoo válido.',
+        message: 'Este contacto no tiene un correo de destino.',
       }
     }
 
+    const recipientName = matchedClient?.name ?? partner.label
+    const clientFirstName =
+      matchedClient?.firstName ??
+      splitOdooLabelToNameFields(partner.label, 'given-first').firstName
+
     const created = await createOnboardingFormAccessToken({
       formKind: onboarding.altaAutonomo.formKind,
-      recipientEmail: existing.email,
-      odooPartnerId: odooPartnerId ?? undefined,
+      recipientEmail,
+      recipientName,
+      odooPartnerId: partner.odooPartnerId,
       createdBy: scope.userId,
     })
 
@@ -357,15 +366,6 @@ export async function createAltaAutonomoAccessLinkAction(
         error: 'unknown',
         message:
           'NEXT_PUBLIC_ONBOARDING_LANDING_URL (o NEXT_PUBLIC_LANDING_URL) no está configurada.',
-      }
-    }
-
-    const recipientEmail = existing.email.trim().toLowerCase()
-    if (!recipientEmail) {
-      return {
-        ok: false,
-        error: 'invalid_client',
-        message: 'El cliente no tiene un correo para enviar el enlace.',
       }
     }
 
@@ -380,7 +380,7 @@ export async function createAltaAutonomoAccessLinkAction(
     try {
       const { emailId } = await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
-        clientFirstName: existing.firstName,
+        clientFirstName,
         accessLink: url,
         expiresAt: created.expires_at,
       })
@@ -404,6 +404,22 @@ export async function createAltaAutonomoAccessLinkAction(
       expiresAt: created.expires_at,
       emailSent: true,
     }
+  } catch (error) {
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function createAltaAutonomoAccessLinkAction(
+  partner: CreateAltaAutonomoAccessLinkInput
+): Promise<CreateAltaAutonomoAccessLinkResult> {
+  try {
+    await requireSolicitudesSession()
+    const scope = await buildDirectoryScope()
+    return await createAltaAutonomoAccessLinkCore(partner, scope)
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

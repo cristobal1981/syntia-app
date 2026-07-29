@@ -22,5 +22,6 @@ export interface DirectoryRepository {
   deleteGestor(id: string): Promise<void>
   deleteClient(id: string): Promise<void>
   resendClientAccessEmail(clientId: string): Promise<void>
+  resendGestorAccessEmail(gestorId: string): Promise<void>
   listAdvisorOptions(): Promise<Array<{ id: string; name: string }>>
 }

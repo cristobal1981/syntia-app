@@ -21,8 +21,11 @@ import type {
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
 import { mapDirectoryEmailError } from '@/src/modules/directory/application/map-directory-email-error'
 import { listOdooPartnersForImport } from '@/src/modules/directory/application/list-odoo-partners-for-import'
+import { listOdooGestoresForImport } from '@/src/modules/directory/application/list-odoo-gestores-for-import'
 import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
+import type { OdooUserImportOption } from '@/src/modules/directory/domain/odoo-user-import'
 import { ODOO_PARTNER_CATALOG_CACHE_TAG } from '@/src/modules/directory/infrastructure/odoo-partner-env'
+import { ODOO_GESTOR_CATALOG_CACHE_TAG } from '@/src/modules/directory/infrastructure/odoo-gestor-catalog'
 
 export type DirectoryUpdateResult =
   | { ok: true; inviteSent?: boolean }
@@ -41,7 +44,7 @@ export type DirectoryDeleteResult =
       message?: string
     }
 
-export type ResendClientAccessResult =
+export type ResendAccessResult =
   | { ok: true }
   | {
       ok: false
@@ -51,6 +54,13 @@ export type ResendClientAccessResult =
 
 export type ListOdooPartnersForImportActionResult =
   | { ok: true; partners: OdooPartnerImportOption[] }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
+    }
+
+export type ListOdooGestoresForImportActionResult =
+  | { ok: true; users: OdooUserImportOption[] }
   | {
       ok: false
       error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
@@ -68,6 +78,7 @@ function parseGestorForm(formData: FormData): UpdateGestorInput {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     phone: String(formData.get('phone') ?? '').trim() || undefined,
     status: String(formData.get('status') ?? 'active') as PersonStatus,
+    odooUserId: String(formData.get('odooUserId') ?? '').trim() || undefined,
   }
 }
 
@@ -81,6 +92,7 @@ function parseCreateGestorForm(formData: FormData) {
     phone: String(formData.get('phone') ?? '').trim() || undefined,
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     role: String(formData.get('role') ?? 'advisor') as 'advisor' | 'admin',
+    odooUserId: String(formData.get('odooUserId') ?? '').trim() || undefined,
   }
 }
 
@@ -141,6 +153,7 @@ export async function createGestorAction(
     }
 
     const result = await getDirectoryRepository().createGestor(input)
+    updateTag(ODOO_GESTOR_CATALOG_CACHE_TAG)
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
@@ -396,7 +409,7 @@ export async function deleteClientAction(
 
 export async function resendClientAccessEmailAction(
   clientId: string
-): Promise<ResendClientAccessResult> {
+): Promise<ResendAccessResult> {
   try {
     await requireDirectorySession()
     const scope = await buildDirectoryScope()
@@ -425,19 +438,77 @@ export async function resendClientAccessEmailAction(
   }
 }
 
-export async function listOdooPartnersForImportAction(): Promise<ListOdooPartnersForImportActionResult> {
+export async function resendGestorAccessEmailAction(
+  gestorId: string
+): Promise<ResendAccessResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const scope = await buildDirectoryScope()
+    if (scope.userId === gestorId) {
+      return {
+        ok: false,
+        error: 'forbidden',
+        message: 'No puedes restablecer tu propia contraseña desde aquí. Usa «olvidé mi contraseña».',
+      }
+    }
+
+    const repository = getDirectoryRepository()
+    const existing = await repository.getGestor(gestorId)
+
+    if (!existing) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    await repository.resendGestorAccessEmail(gestorId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return mapDirectoryEmailError(error)
+  }
+}
+
+export async function listOdooPartnersForImportAction(options?: {
+  includeLinked?: boolean
+}): Promise<ListOdooPartnersForImportActionResult> {
   try {
     const session = await requireDirectorySession()
     if (session.user.role === 'client') {
       return { ok: false, error: 'forbidden' }
     }
 
-    const result = await listOdooPartnersForImport()
+    const result = await listOdooPartnersForImport(options)
     if (!result.ok) {
       return { ok: false, error: result.error }
     }
 
     return { ok: true, partners: result.partners }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    throw error
+  }
+}
+
+export async function listOdooGestoresForImportAction(): Promise<ListOdooGestoresForImportActionResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const result = await listOdooGestoresForImport()
+    if (!result.ok) {
+      return { ok: false, error: result.error }
+    }
+
+    return { ok: true, users: result.users }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

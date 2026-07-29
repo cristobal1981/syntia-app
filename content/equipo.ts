@@ -103,17 +103,62 @@ export const equipo = {
         'En Odoo también figura el correo corporativo {email}. No se guarda en el portal; el acceso usa el correo de contacto.',
       corporateEmailLabel: 'Correo corporativo Odoo',
     },
+    gestorOdooImport: {
+      title: 'Importar desde Odoo',
+      description:
+        'Usuarios internos de Odoo (no de portal/clientes) que aún no están vinculados a ningún asesor. Al elegir uno se rellena el formulario.',
+      searchPlaceholder: 'Buscar por nombre o correo…',
+      empty: 'No hay usuarios de Odoo disponibles para importar.',
+      noResults: 'Ningún usuario coincide con la búsqueda.',
+      clearSelection: 'Quitar selección y rellenar manualmente',
+      loading: 'Cargando usuarios desde Odoo…',
+      unavailable:
+        'Odoo no está configurado. Puedes crear el asesor rellenando el formulario.',
+      error: 'No pudimos cargar los usuarios de Odoo. Rellena el formulario manualmente.',
+      reviewHint:
+        'Datos importados de Odoo. Revisa y corrige lo necesario antes de crear.',
+    },
     accessSection: {
       title: 'Acceso al portal',
       description:
-        'Reenvía el enlace de acceso si el cliente no recibió la invitación o no puede entrar. Si ya había accedido, recibirá un enlace para restablecer la contraseña.',
+        'Reenvía la invitación si el cliente no la recibió o no puede entrar. Si ya había verificado su cuenta, puedes forzar un cambio de contraseña.',
       loginHint:
         'El cliente también puede usar «He olvidado mi contraseña» en la pantalla de inicio de sesión.',
-      sendButton: 'Enviar enlace de acceso',
+      sendButton: 'Reenviar invitación',
       sending: 'Enviando…',
-      success: 'Enlace de acceso enviado por correo.',
+      success: 'Invitación reenviada por correo.',
+      resetButton: 'Restablecer contraseña',
+      resetting: 'Restableciendo…',
+      resetSuccess:
+        'Se ha enviado un correo para crear una nueva contraseña. La contraseña actual y las sesiones activas del cliente han quedado invalidadas.',
+      resetConfirmTitle: '¿Restablecer la contraseña de este cliente?',
+      resetConfirmDescription:
+        'Se invalidará su contraseña actual y se cerrarán sus sesiones activas. Recibirá un correo para crear una nueva. Úsalo solo si ha perdido el acceso o detectas actividad sospechosa en su cuenta.',
+      resetConfirmButton: 'Restablecer y cerrar sesión',
       errors: {
         notFound: 'Cliente no encontrado.',
+        sendFailed: 'No pudimos enviar el correo. Inténtalo de nuevo.',
+      },
+    },
+    gestorAccessSection: {
+      title: 'Acceso al portal',
+      description:
+        'Reenvía la invitación si el asesor no la recibió o no puede entrar. Si ya había verificado su cuenta, puedes forzar un cambio de contraseña.',
+      loginHint:
+        'El asesor también puede usar «He olvidado mi contraseña» en la pantalla de inicio de sesión.',
+      sendButton: 'Reenviar invitación',
+      sending: 'Enviando…',
+      success: 'Invitación reenviada por correo.',
+      resetButton: 'Restablecer contraseña',
+      resetting: 'Restableciendo…',
+      resetSuccess:
+        'Se ha enviado un correo para crear una nueva contraseña. La contraseña actual y las sesiones activas del asesor han quedado invalidadas.',
+      resetConfirmTitle: '¿Restablecer la contraseña de este asesor?',
+      resetConfirmDescription:
+        'Se invalidará su contraseña actual y se cerrarán sus sesiones activas. Recibirá un correo para crear una nueva. Úsalo solo si ha perdido el acceso o detectas actividad sospechosa en su cuenta.',
+      resetConfirmButton: 'Restablecer y cerrar sesión',
+      errors: {
+        notFound: 'Asesor no encontrado.',
         sendFailed: 'No pudimos enviar el correo. Inténtalo de nuevo.',
       },
     },
@@ -139,6 +184,8 @@ export const equipo = {
       driveFolderIdHint:
         'ID de la subcarpeta pública de documentos (no la carpeta padre de Odoo). Solo visible en este formulario.',
       unassigned: 'Sin asignar',
+      odooUserId: 'ID usuario Odoo',
+      odooUserIdHint: 'res.users.id del asesor en Odoo.',
     },
     errors: {
       unknown: 'No pudimos guardar los cambios. Inténtalo de nuevo.',

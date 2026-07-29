@@ -16,7 +16,7 @@ type StatCardProps = {
   href?: string
 }
 
-function StatCard({ label, value, icon: Icon, href }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, href }: StatCardProps) {
   const inner = (
     <div className="flex items-start gap-4">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">

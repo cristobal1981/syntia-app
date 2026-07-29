@@ -25,6 +25,8 @@
  * dark: border #072d36 on card #041d23 — subtle surface step (not accent)
  * dark: primary #01dea2 on sidebar-active #0a3540 — ~7:1 (Verde Syntia, immutable)
  * dark: destructive-foreground on destructive #ff6b6b — ~7:1
+ * info-text #1a4f8f on surface-light — ~7.8:1
+ * dark: info-text #bfe0ff on card #0c3b46 — ~10.8:1
  */
 
 :root {
@@ -79,6 +81,14 @@
   --alert-on-dark-input-bg: rgba(190, 72, 72, 0.09);
   --alert-on-dark-ring: rgba(220, 96, 96, 0.32);
   --service-constitucion: #9b8cf0;
+  --info-bg: rgba(37, 110, 194, 0.08);
+  --info-border: rgba(37, 110, 194, 0.28);
+  --info-text: #1a4f8f;
+  --info-icon: #256ec2;
+  /* Rampa ordinal (recibida→clicada) para el gráfico de solicitudes; el
+     extremo "clicada" invierte el ancla en oscuro (chart-4 claro / chart-1 oscuro). */
+  --chart-ordinal-received: #039272;
+  --chart-ordinal-clicked: #046c5a;
   --radius: 0.625rem;
   --sidebar: var(--surface-dark);
   --sidebar-foreground: var(--on-dark);
@@ -145,6 +155,12 @@
   --alert-on-dark-input-bg: rgba(255, 107, 107, 0.08);
   --alert-on-dark-ring: rgba(255, 107, 107, 0.35);
   --service-constitucion: #9b8cf0;
+  --info-bg: rgba(56, 132, 255, 0.14);
+  --info-border: rgba(56, 132, 255, 0.38);
+  --info-text: #bfe0ff;
+  --info-icon: #7bb6ff;
+  --chart-ordinal-received: #039272;
+  --chart-ordinal-clicked: #01dea2;
   --sidebar: var(--surface-dark);
   --sidebar-foreground: var(--on-dark);
   --sidebar-muted-foreground: var(--muted-on-dark);
@@ -239,6 +255,8 @@ html.dark.hc {
   --color-brisa: var(--brisa);
   --color-turquesa: var(--turquesa);
   --color-agua: var(--agua);
+  --color-chart-ordinal-received: var(--chart-ordinal-received);
+  --color-chart-ordinal-clicked: var(--chart-ordinal-clicked);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -549,6 +567,23 @@ html.dark.hc {
     @apply rounded-lg px-3 py-2 text-sm leading-relaxed text-alert-on-dark;
     border: 1px solid var(--alert-on-dark-border);
     background-color: var(--alert-on-dark-bg);
+  }
+  .status-banner {
+    @apply flex items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-relaxed;
+  }
+  .status-banner-info {
+    color: var(--info-text);
+    border-color: var(--info-border);
+    background-color: var(--info-bg);
+  }
+  .status-banner-info .status-banner-icon {
+    color: var(--info-icon);
+  }
+  .status-banner-destructive {
+    @apply border-destructive/30 bg-destructive/10 text-destructive;
+  }
+  .status-banner-destructive .status-banner-icon {
+    @apply text-destructive;
   }
   .prose-width {
     max-width: 65ch;

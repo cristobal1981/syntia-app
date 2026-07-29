@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { Copy, Plus, Send, Trash2, XCircle } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Copy, Loader2, Plus, Send, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -14,16 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { solicitudes } from '@/content/solicitudes'
 import { cn } from '@/lib/utils'
-import type { ClientRecord } from '@/src/modules/directory/domain/types'
+import { listOdooPartnersForImportAction } from '@/src/modules/directory/application/directory-mutations'
+import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
+import { OdooPartnerImportPicker } from '@/src/modules/directory/ui/odoo-partner-import-picker'
 import {
   createAltaAutonomoAccessLinkAction,
   deleteOnboardingSolicitudAction,
@@ -38,49 +33,75 @@ import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dial
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 type SolicitudesPageViewProps = {
-  initialClients: ClientRecord[]
   initialRows: OnboardingSolicitudRow[]
 }
 
 type ListFilter = 'pending' | 'all'
-const UNSELECTED_CLIENT_VALUE = '__unselected_client__'
+type OdooImportLoadState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
 
 function AltaAutonomoCreateDialog({
   open,
-  clients,
   onOpenChange,
   onCreated,
 }: {
   open: boolean
-  clients: ClientRecord[]
   onOpenChange: (open: boolean) => void
   onCreated: (rows: OnboardingSolicitudRow[]) => void
 }) {
   const copy = solicitudes.altaAutonomo
-  const [clientId, setClientId] = useState('')
+  const [partners, setPartners] = useState<OdooPartnerImportOption[]>([])
+  const [loadState, setLoadState] = useState<OdooImportLoadState>('idle')
+  const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null)
   const [linkUrl, setLinkUrl] = useState('')
   const [pending, startTransition] = useTransition()
 
-  const sortedClients = useMemo(
-    () => [...clients].sort((a, b) => a.name.localeCompare(b.name, 'es')),
-    [clients]
-  )
-  const selectedClientName = useMemo(
-    () => sortedClients.find((client) => client.id === clientId)?.name ?? '—',
-    [clientId, sortedClients]
+  const selectedPartner = useMemo(
+    () => partners.find((partner) => partner.id === selectedPartnerId) ?? null,
+    [partners, selectedPartnerId]
   )
 
   useEffect(() => {
     if (!open) {
-      setClientId('')
+      setSelectedPartnerId(null)
       setLinkUrl('')
+      setLoadState('idle')
+      setPartners([])
+      return
+    }
+
+    let cancelled = false
+    setLoadState('loading')
+
+    void listOdooPartnersForImportAction({ includeLinked: true }).then((result) => {
+      if (cancelled) return
+
+      if (!result.ok) {
+        if (result.error === 'odoo_unavailable') {
+          setLoadState('unavailable')
+          return
+        }
+        setLoadState('error')
+        return
+      }
+
+      setPartners(result.partners)
+      setLoadState('ready')
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [open])
 
   function handleGenerateLink() {
-    if (!clientId) return
+    if (!selectedPartner) return
     startTransition(async () => {
-      const result = await createAltaAutonomoAccessLinkAction(clientId)
+      const result = await createAltaAutonomoAccessLinkAction({
+        odooPartnerId: selectedPartner.id,
+        label: selectedPartner.label,
+        contactEmail: selectedPartner.contactEmail,
+        corporateEmail: selectedPartner.corporateEmail,
+      })
       if (!result.ok) {
         toast.error(result.message ?? copy.generateError)
         return
@@ -139,60 +160,50 @@ function AltaAutonomoCreateDialog({
           <DialogDescription>{copy.modalDescription}</DialogDescription>
         </DialogHeader>
 
-        {sortedClients.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{copy.noClients}</p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {linkUrl ? (
-              <div className="rounded-md border border-border bg-muted/30 p-3">
-                <p className="text-sm font-medium text-foreground">
-                  {copy.generatedStateTitle}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {copy.generatedStateDescription}
-                </p>
-                <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {copy.clientLabel}
-                </p>
-                <p className="mt-1 text-sm text-foreground">{selectedClientName}</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <label htmlFor="solicitud-client" className="text-sm font-medium">
-                  {copy.clientLabel}
-                </label>
-                <Select
-                  value={clientId || UNSELECTED_CLIENT_VALUE}
-                  onValueChange={(next) => {
-                    if (next === UNSELECTED_CLIENT_VALUE) return
-                    setClientId(next)
-                    setLinkUrl('')
-                  }}
-                >
-                  <SelectTrigger
-                    id="solicitud-client"
-                    aria-label={copy.clientLabel}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <SelectValue placeholder={copy.clientPlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UNSELECTED_CLIENT_VALUE} disabled>
-                      {copy.clientPlaceholder}
-                    </SelectItem>
-                    {sortedClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+        <div className="flex flex-col gap-4">
+          {loadState === 'loading' ? (
+            <p className="text-sm text-muted-foreground">{copy.loading}</p>
+          ) : null}
+          {loadState === 'unavailable' ? (
+            <p className="text-sm text-muted-foreground">{copy.unavailable}</p>
+          ) : null}
+          {loadState === 'error' ? (
+            <p className="text-sm text-destructive" role="alert">
+              {copy.error}
+            </p>
+          ) : null}
+          {loadState === 'ready' && partners.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{copy.empty}</p>
+          ) : null}
 
-            {linkUrl ? <input type="hidden" readOnly value={linkUrl} aria-hidden /> : null}
-          </div>
-        )}
+          {linkUrl ? (
+            <div className="rounded-md border border-border bg-muted/30 p-3">
+              <p className="text-sm font-medium text-foreground">
+                {copy.generatedStateTitle}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {copy.generatedStateDescription}
+              </p>
+              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {copy.clientLabel}
+              </p>
+              <p className="mt-1 text-sm text-foreground">
+                {selectedPartner?.label ?? '—'}
+              </p>
+            </div>
+          ) : loadState === 'ready' && partners.length > 0 ? (
+            <OdooPartnerImportPicker
+              partners={partners}
+              selectedId={selectedPartnerId}
+              onSelect={(partner) => {
+                setSelectedPartnerId(partner?.id ?? null)
+                setLinkUrl('')
+              }}
+            />
+          ) : null}
+
+          {linkUrl ? <input type="hidden" readOnly value={linkUrl} aria-hidden /> : null}
+        </div>
 
         <DialogFooter className="flex-row items-center justify-end">
           {linkUrl ? (
@@ -214,12 +225,12 @@ function AltaAutonomoCreateDialog({
           >
             Cerrar
           </Button>
-          {sortedClients.length > 0 && !linkUrl ? (
+          {!linkUrl ? (
             <Button
               type="button"
               className="order-1"
               onClick={handleGenerateLink}
-              disabled={pending || !clientId}
+              disabled={pending || !selectedPartner}
               aria-busy={pending}
             >
               {pending ? copy.creating : copy.createButton}
@@ -364,6 +375,18 @@ function OnboardingSolicitudTable({
 }) {
   const copy = solicitudes.list
   const router = useRouter()
+  const pathname = usePathname()
+  const [navigatingToken, setNavigatingToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    setNavigatingToken(null)
+  }, [pathname])
+
+  function handleRowOpen(token: string) {
+    if (navigatingToken) return
+    setNavigatingToken(token)
+    router.push(`/solicitudes/${token}`)
+  }
 
   const filteredRows = useMemo(() => {
     if (filter === 'all') return rows
@@ -405,14 +428,29 @@ function OnboardingSolicitudTable({
           </tr>
         </thead>
         <tbody>
-          {filteredRows.map((row) => (
+          {filteredRows.map((row) => {
+            const isNavigating = navigatingToken === row.token
+            return (
             <tr
               key={row.token}
-              onClick={() => router.push(`/solicitudes/${row.token}`)}
-              className="cursor-pointer border-b border-border last:border-b-0 hover:bg-muted/40 dark:border-border/50"
+              onClick={() => handleRowOpen(row.token)}
+              aria-busy={isNavigating}
+              className={cn(
+                'cursor-pointer border-b border-border last:border-b-0 hover:bg-muted/40 dark:border-border/50',
+                isNavigating && 'bg-muted/40',
+                navigatingToken && !isNavigating && 'pointer-events-none opacity-50'
+              )}
             >
               <td className="max-w-[160px] truncate px-4 py-3 text-foreground sm:max-w-[220px]">
-                {row.clientName ?? copy.unknownClient}
+                <span className="inline-flex items-center gap-2">
+                  {row.recipientName ?? copy.unknownClient}
+                  {isNavigating ? (
+                    <Loader2
+                      className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+                      aria-hidden
+                    />
+                  ) : null}
+                </span>
               </td>
               <td
                 className="max-w-[140px] truncate px-4 py-3 text-muted-foreground sm:max-w-[240px]"
@@ -436,17 +474,15 @@ function OnboardingSolicitudTable({
                 <OnboardingSolicitudRowActions row={row} onUpdated={onUpdated} />
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>
   )
 }
 
-export function SolicitudesPageView({
-  initialClients,
-  initialRows,
-}: SolicitudesPageViewProps) {
+export function SolicitudesPageView({ initialRows }: SolicitudesPageViewProps) {
   const copy = solicitudes.page
   const altaCopy = solicitudes.altaAutonomo
   const listCopy = solicitudes.list
@@ -504,7 +540,6 @@ export function SolicitudesPageView({
 
       <AltaAutonomoCreateDialog
         open={createOpen}
-        clients={initialClients}
         onOpenChange={setCreateOpen}
         onCreated={setRows}
       />

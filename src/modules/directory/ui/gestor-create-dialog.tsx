@@ -1,8 +1,15 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { equipo } from '@/content/equipo'
+import { listOdooGestoresForImportAction } from '@/src/modules/directory/application/directory-mutations'
+import {
+  buildImportDraftFromOdooUser,
+  detectDefaultOdooNameSplitMode,
+  type OdooNameSplitMode,
+  type OdooUserImportOption,
+} from '@/src/modules/directory/domain/odoo-user-import'
 import { DirectoryPanel } from '@/src/modules/directory/ui/directory-panel'
 import { GestorForm } from '@/src/modules/directory/ui/gestor-form'
 
@@ -12,15 +19,82 @@ type GestorCreateDialogProps = {
   onCreated: () => void
 }
 
+type OdooImportLoadState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
+
 export function GestorCreateDialog({
   open,
   onOpenChange,
   onCreated,
 }: GestorCreateDialogProps) {
+  const [odooUsers, setOdooUsers] = useState<OdooUserImportOption[]>([])
+  const [odooImportLoadState, setOdooImportLoadState] =
+    useState<OdooImportLoadState>('idle')
+  const [selectedOdooUserId, setSelectedOdooUserId] = useState<number | null>(
+    null
+  )
+  const [nameSplitMode, setNameSplitMode] =
+    useState<OdooNameSplitMode>('given-first')
+
+  useEffect(() => {
+    if (!open) {
+      setOdooImportLoadState('idle')
+      setOdooUsers([])
+      setSelectedOdooUserId(null)
+      setNameSplitMode('given-first')
+      return
+    }
+
+    let cancelled = false
+    setOdooImportLoadState('loading')
+
+    void listOdooGestoresForImportAction().then((result) => {
+      if (cancelled) return
+
+      if (!result.ok) {
+        if (result.error === 'odoo_unavailable') {
+          setOdooImportLoadState('unavailable')
+          return
+        }
+        setOdooImportLoadState('error')
+        return
+      }
+
+      setOdooUsers(result.users)
+      setOdooImportLoadState('ready')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  const selectedUser = useMemo(
+    () => odooUsers.find((user) => user.id === selectedOdooUserId) ?? null,
+    [odooUsers, selectedOdooUserId]
+  )
+
+  const importDraft = selectedUser
+    ? buildImportDraftFromOdooUser(selectedUser, nameSplitMode)
+    : null
+
+  const handleOdooUserSelect = useCallback(
+    (user: OdooUserImportOption | null) => {
+      setSelectedOdooUserId(user?.id ?? null)
+      setNameSplitMode(
+        user ? detectDefaultOdooNameSplitMode(user.label) : 'given-first'
+      )
+    },
+    []
+  )
+
   const handleSuccess = useCallback(() => {
     onCreated()
     onOpenChange(false)
   }, [onCreated, onOpenChange])
+
+  const formInstanceKey = selectedOdooUserId
+    ? `gestor-create-odoo-${selectedOdooUserId}-${nameSplitMode}`
+    : 'gestor-create-empty'
 
   return (
     <DirectoryPanel
@@ -31,10 +105,18 @@ export function GestorCreateDialog({
     >
       {open ? (
         <GestorForm
-          key="gestor-create"
+          key={formInstanceKey}
           mode="create"
           onCancel={() => onOpenChange(false)}
           onSuccess={handleSuccess}
+          formInstanceKey={formInstanceKey}
+          importDraft={importDraft}
+          odooUsers={odooUsers}
+          odooImportLoadState={odooImportLoadState}
+          selectedOdooUserId={selectedOdooUserId}
+          onOdooUserSelect={handleOdooUserSelect}
+          odooNameSplitMode={nameSplitMode}
+          onOdooNameSplitModeChange={setNameSplitMode}
         />
       ) : null}
     </DirectoryPanel>
