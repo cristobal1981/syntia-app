@@ -3,8 +3,12 @@ import { NextResponse } from 'next/server'
 import { createAltaAutonomoAccessLinkCore } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import { mapOdooMany2OneId } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
-/** Usuario "de sistema" para solicitudes creadas por la automatización de Odoo. */
-const ODOO_WEBHOOK_CREATED_BY = 'odoo-webhook'
+/**
+ * Usuario "de sistema" (automatizacion-odoo@syntia.internal, sin login real)
+ * para solicitudes creadas por la automatización de Odoo. created_by es uuid,
+ * no admite un string arbitrario.
+ */
+const ODOO_WEBHOOK_CREATED_BY = '22b8a71b-7369-4270-ab70-c75df5da8307'
 
 function getWebhookSecret(): string | null {
   const value = process.env.ODOO_SOLICITUD_WEBHOOK_SECRET?.trim()
