@@ -322,6 +322,19 @@ export async function createAltaAutonomoAccessLinkCore(
   scope: DirectoryListScope
 ): Promise<CreateAltaAutonomoAccessLinkResult> {
   try {
+    // Comprobar Resend antes de crear nada: evita dejar un token huérfano
+    // (creado pero sin poder enviarse) si el correo no está configurado.
+    if (!isResendConfigured()) {
+      console.error(
+        '[solicitudes] Resend no configurado (RESEND_API_KEY/RESEND_FROM_EMAIL).'
+      )
+      return {
+        ok: false,
+        error: 'email_failed',
+        message: 'Resend no está configurado. No se pudo enviar el correo al cliente.',
+      }
+    }
+
     const odooEmail = resolvePortalEmailFromOdoo(
       partner.contactEmail,
       partner.corporateEmail
@@ -339,6 +352,10 @@ export async function createAltaAutonomoAccessLinkCore(
 
     const recipientEmail = (matchedClient?.email ?? odooEmail).trim().toLowerCase()
     if (!recipientEmail) {
+      console.error(
+        '[solicitudes] Sin email de destino.',
+        { odooPartnerId: partner.odooPartnerId, hadContactEmail: Boolean(partner.contactEmail), hadCorporateEmail: Boolean(partner.corporateEmail) }
+      )
       return {
         ok: false,
         error: 'invalid_client',
@@ -351,29 +368,39 @@ export async function createAltaAutonomoAccessLinkCore(
       matchedClient?.firstName ??
       splitOdooLabelToNameFields(partner.label, 'given-first').firstName
 
-    const created = await createOnboardingFormAccessToken({
-      formKind: onboarding.altaAutonomo.formKind,
-      recipientEmail,
-      recipientName,
-      odooPartnerId: partner.odooPartnerId,
-      createdBy: scope.userId,
-    })
+    let created: Awaited<ReturnType<typeof createOnboardingFormAccessToken>>
+    try {
+      created = await createOnboardingFormAccessToken({
+        formKind: onboarding.altaAutonomo.formKind,
+        recipientEmail,
+        recipientName,
+        odooPartnerId: partner.odooPartnerId,
+        createdBy: scope.userId,
+      })
+    } catch (tokenError) {
+      console.error('[solicitudes] No se pudo crear el token.', tokenError)
+      return {
+        ok: false,
+        error: 'unknown',
+        message:
+          tokenError instanceof Error
+            ? `No se pudo crear la solicitud: ${tokenError.message}`
+            : 'No se pudo crear la solicitud.',
+      }
+    }
 
     const url = buildOnboardingAccessUrl(created.token)
     if (!url) {
+      console.error(
+        '[solicitudes] NEXT_PUBLIC_ONBOARDING_LANDING_URL no configurada; revocando token huérfano.',
+        { token: created.token }
+      )
+      await revokeOnboardingFormAccessToken(created.token).catch(() => undefined)
       return {
         ok: false,
         error: 'unknown',
         message:
           'NEXT_PUBLIC_ONBOARDING_LANDING_URL (o NEXT_PUBLIC_LANDING_URL) no está configurada.',
-      }
-    }
-
-    if (!isResendConfigured()) {
-      return {
-        ok: false,
-        error: 'email_failed',
-        message: 'Resend no está configurado. No se pudo enviar el correo al cliente.',
       }
     }
 
@@ -386,6 +413,11 @@ export async function createAltaAutonomoAccessLinkCore(
       })
       await recordOnboardingEmailSent(created.token, emailId)
     } catch (emailError) {
+      console.error(
+        '[solicitudes] Fallo al enviar el correo; revocando token.',
+        { token: created.token, recipientEmail },
+        emailError
+      )
       await revokeOnboardingFormAccessToken(created.token).catch(() => undefined)
       const mapped = mapDirectoryEmailError(emailError)
       return {
@@ -393,7 +425,9 @@ export async function createAltaAutonomoAccessLinkCore(
         error: 'email_failed',
         message:
           (!mapped.ok ? mapped.message : undefined) ??
-          'No se pudo enviar el correo con el enlace al cliente.',
+          (emailError instanceof Error
+            ? `No se pudo enviar el correo: ${emailError.message}`
+            : 'No se pudo enviar el correo con el enlace al cliente.'),
       }
     }
 
@@ -405,10 +439,11 @@ export async function createAltaAutonomoAccessLinkCore(
       emailSent: true,
     }
   } catch (error) {
+    console.error('[solicitudes] Error inesperado creando la solicitud.', error)
     return {
       ok: false,
       error: 'unknown',
-      message: error instanceof Error ? error.message : undefined,
+      message: error instanceof Error ? error.message : 'Error desconocido.',
     }
   }
 }

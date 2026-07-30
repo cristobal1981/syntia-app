@@ -15,11 +15,21 @@ function isAuthorizedRequest(request: Request): boolean {
   const secret = getWebhookSecret()
   if (!secret) {
     console.error(
-      '[odoo-webhook] ODOO_SOLICITUD_WEBHOOK_SECRET missing in solicitudes endpoint.'
+      '[odoo-webhook] ODOO_SOLICITUD_WEBHOOK_SECRET no está configurada en este entorno.'
     )
     return false
   }
-  return request.headers.get('x-odoo-solicitud-secret') === secret
+
+  const header = request.headers.get('x-odoo-solicitud-secret')
+  if (!header) {
+    console.error('[odoo-webhook] Falta la cabecera X-Odoo-Solicitud-Secret.')
+    return false
+  }
+  if (header !== secret) {
+    console.error('[odoo-webhook] X-Odoo-Solicitud-Secret no coincide con el secreto configurado.')
+    return false
+  }
+  return true
 }
 
 function parsePartnerId(value: unknown): number | undefined {
@@ -35,8 +45,17 @@ type ParsedLeadPayload = {
   odooPartnerId: number
 }
 
-function parseLeadPayload(body: unknown): ParsedLeadPayload | null {
-  if (!body || typeof body !== 'object') return null
+type ParseLeadPayloadResult =
+  | { ok: true; lead: ParsedLeadPayload }
+  | { ok: false; message: string }
+
+function parseLeadPayload(body: unknown): ParseLeadPayloadResult {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      ok: false,
+      message: 'El body debe ser un objeto JSON (recibido: ' + typeof body + ').',
+    }
+  }
   const record = body as Record<string, unknown>
 
   const email = String(record.email ?? record.email_from ?? '')
@@ -47,50 +66,101 @@ function parseLeadPayload(body: unknown): ParsedLeadPayload | null {
   ).trim()
   const odooPartnerId = parsePartnerId(record.partner_id)
 
-  if (!email || !odooPartnerId) return null
+  const missing: string[] = []
+  if (!email) missing.push('email (o email_from)')
+  if (!odooPartnerId) missing.push('partner_id')
 
-  return { email, label: label || email, odooPartnerId }
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message: `Faltan campos obligatorios: ${missing.join(', ')}. Recibido: ${JSON.stringify(
+        Object.keys(record)
+      )}.`,
+    }
+  }
+
+  return { ok: true, lead: { email, label: label || email, odooPartnerId: odooPartnerId! } }
 }
 
 export async function POST(request: Request) {
-  if (!isAuthorizedRequest(request)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
-
-  let body: unknown
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ ok: false, error: 'validation' }, { status: 400 })
-  }
+    if (!isAuthorizedRequest(request)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'unauthorized',
+          message:
+            'Falta o no coincide la cabecera X-Odoo-Solicitud-Secret. Revisa los logs del servidor para más detalle.',
+        },
+        { status: 401 }
+      )
+    }
 
-  const lead = parseLeadPayload(body)
-  if (!lead) {
+    const rawBody = await request.text()
+    let body: unknown
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {}
+    } catch (parseError) {
+      console.error('[odoo-webhook] Body no es JSON válido.', {
+        rawBody: rawBody.slice(0, 500),
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'validation',
+          message:
+            parseError instanceof Error
+              ? `Body no es JSON válido: ${parseError.message}`
+              : 'Body no es JSON válido.',
+        },
+        { status: 400 }
+      )
+    }
+
+    const parsed = parseLeadPayload(body)
+    if (!parsed.ok) {
+      console.error('[odoo-webhook] Payload inválido.', { body })
+      return NextResponse.json(
+        { ok: false, error: 'validation', message: parsed.message },
+        { status: 400 }
+      )
+    }
+
+    const result = await createAltaAutonomoAccessLinkCore(
+      {
+        odooPartnerId: parsed.lead.odooPartnerId,
+        label: parsed.lead.label,
+        contactEmail: parsed.lead.email,
+      },
+      { role: 'admin', userId: ODOO_WEBHOOK_CREATED_BY }
+    )
+
+    if (result.ok) {
+      return NextResponse.json({ ok: true })
+    }
+
+    console.error('[odoo-webhook] createAltaAutonomoAccessLinkCore devolvió error.', result)
+
+    const status =
+      result.error === 'invalid_client'
+        ? 400
+        : result.error === 'email_failed'
+          ? 502
+          : 500
+
     return NextResponse.json(
-      { ok: false, error: 'validation', message: 'Faltan email o partner_id.' },
-      { status: 400 }
+      { ok: false, error: result.error, message: result.message },
+      { status }
+    )
+  } catch (error) {
+    console.error('[odoo-webhook] Error inesperado no controlado.', error)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'unknown',
+        message: error instanceof Error ? error.message : 'Error desconocido.',
+      },
+      { status: 500 }
     )
   }
-
-  const result = await createAltaAutonomoAccessLinkCore(
-    {
-      odooPartnerId: lead.odooPartnerId,
-      label: lead.label,
-      contactEmail: lead.email,
-    },
-    { role: 'admin', userId: ODOO_WEBHOOK_CREATED_BY }
-  )
-
-  if (result.ok) {
-    return NextResponse.json({ ok: true })
-  }
-
-  const status =
-    result.error === 'invalid_client'
-      ? 400
-      : result.error === 'email_failed'
-        ? 502
-        : 500
-
-  return NextResponse.json({ ok: false, error: result.error }, { status })
 }
