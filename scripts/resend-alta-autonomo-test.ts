@@ -63,7 +63,6 @@ async function main() {
   const email = buildAltaAutonomoAccessEmail({
     accessLink,
     clientEmail: 'cliente-prueba@ejemplo.com',
-    clientFirstName: 'Guillermo',
     expiresAt,
     isOverrideRecipient: Boolean(override),
   })

@@ -4,7 +4,6 @@ import { renderBrandedEmail } from '@/src/modules/email/application/render-brand
 type AltaAutonomoAccessEmailParams = {
   accessLink: string
   clientEmail: string
-  clientFirstName?: string | null
   expiresAt: string
   isOverrideRecipient: boolean
 }
@@ -29,23 +28,15 @@ export function formatAltaAutonomoExpiryLabel(expiresAt: string): string {
   }).format(date)
 }
 
-function resolveGreetingFirstName(firstName?: string | null): string | null {
-  const cleaned = firstName?.trim().split(/\s+/)[0] ?? ''
-  if (!cleaned) return null
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-}
-
 export function buildAltaAutonomoAccessEmail({
   accessLink,
   clientEmail,
-  clientFirstName,
   expiresAt,
   isOverrideRecipient,
 }: AltaAutonomoAccessEmailParams) {
   const subject = 'Completa tu solicitud de alta de autónomo'
   const expiresLabel = formatAltaAutonomoExpiryLabel(expiresAt)
-  const firstName = resolveGreetingFirstName(clientFirstName)
-  const saludo = firstName ? `Hola, ${firstName}` : 'Hola'
+  const saludo = 'Hola'
 
   const bloques: EmailBlock[] = []
 

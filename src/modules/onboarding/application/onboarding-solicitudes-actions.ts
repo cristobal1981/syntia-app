@@ -7,10 +7,7 @@ import {
 } from '@/src/modules/directory/application/directory-queries'
 import type { ClientRecord, DirectoryListScope } from '@/src/modules/directory/domain/types'
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
-import {
-  resolvePortalEmailFromOdoo,
-  splitOdooLabelToNameFields,
-} from '@/src/modules/directory/domain/odoo-partner-import'
+import { resolvePortalEmailFromOdoo } from '@/src/modules/directory/domain/odoo-partner-import'
 import {
   deriveOnboardingTokenStatus,
   type OnboardingTokenStatus,
@@ -247,11 +244,6 @@ export async function resendOnboardingSolicitudLinkAction(
     }
 
     const recipientName = matchedClient?.name ?? tokenRecord.recipient_name ?? undefined
-    const clientFirstName =
-      matchedClient?.firstName ??
-      (recipientName
-        ? splitOdooLabelToNameFields(recipientName, 'given-first').firstName
-        : null)
 
     const url = buildOnboardingAccessUrl(tokenRecord.token)
     if (!url) {
@@ -274,7 +266,6 @@ export async function resendOnboardingSolicitudLinkAction(
     try {
       const { emailId } = await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
-        clientFirstName,
         accessLink: url,
         expiresAt: tokenRecord.expires_at,
       })
@@ -364,9 +355,6 @@ export async function createAltaAutonomoAccessLinkCore(
     }
 
     const recipientName = matchedClient?.name ?? partner.label
-    const clientFirstName =
-      matchedClient?.firstName ??
-      splitOdooLabelToNameFields(partner.label, 'given-first').firstName
 
     let created: Awaited<ReturnType<typeof createOnboardingFormAccessToken>>
     try {
@@ -407,7 +395,6 @@ export async function createAltaAutonomoAccessLinkCore(
     try {
       const { emailId } = await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
-        clientFirstName,
         accessLink: url,
         expiresAt: created.expires_at,
       })
