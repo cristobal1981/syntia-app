@@ -342,12 +342,10 @@ function OnboardingSolicitudRowActions({
         onClick={() => setDeleteConfirmOpen(true)}
         disabled={pendingAction !== null}
         aria-label={pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
-        className="h-8 gap-1 px-2 text-destructive hover:text-destructive"
+        title={pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
+        className="h-8 w-8 px-0 text-destructive hover:text-destructive"
       >
         <Trash2 className="size-3.5" aria-hidden />
-        <span className="hidden sm:inline">
-          {pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
-        </span>
       </Button>
       <PortalConfirmDialog
         open={deleteConfirmOpen}

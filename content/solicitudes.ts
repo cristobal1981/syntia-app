@@ -100,6 +100,14 @@ export const solicitudes = {
       },
     },
     notSentYet: 'Aún no se ha enviado ningún correo para esta solicitud.',
+    nav: {
+      previous: 'Anterior',
+      next: 'Siguiente',
+      previousHint: 'Solicitud anterior',
+      nextHint: 'Solicitud siguiente',
+      buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
+      buttonHintActive: '{action} ({shortcut})',
+    },
     infoTitle: 'Datos de la solicitud',
     fields: {
       client: 'Contacto',

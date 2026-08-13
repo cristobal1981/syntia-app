@@ -13,6 +13,7 @@ import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-toolt
 type OnboardingTokenSecretProps = {
   token: string
   className?: string
+  size?: 'sm' | 'lg'
 }
 
 function maskToken(token: string): string {
@@ -24,9 +25,11 @@ function maskToken(token: string): string {
 export function OnboardingTokenSecret({
   token,
   className,
+  size = 'sm',
 }: OnboardingTokenSecretProps) {
   const copy = solicitudes.list.token
   const [visible, setVisible] = useState(false)
+  const isLarge = size === 'lg'
 
   async function handleCopy() {
     const copied = await copyTextToClipboard(token)
@@ -40,12 +43,22 @@ export function OnboardingTokenSecret({
   return (
     <div className={cn('flex min-w-[12rem] items-center gap-1', className)}>
       {visible ? (
-        <code className="flex-1 truncate font-mono text-xs text-foreground">
+        <code
+          className={cn(
+            'flex-1 truncate font-mono text-foreground',
+            isLarge ? 'text-sm' : 'text-xs'
+          )}
+        >
           {token}
         </code>
       ) : (
         <PortalActionTooltip content={copy.hiddenHint}>
-          <code className="flex-1 truncate font-mono text-xs text-foreground">
+          <code
+            className={cn(
+              'flex-1 truncate font-mono text-foreground',
+              isLarge ? 'text-sm' : 'text-xs'
+            )}
+          >
             {maskToken(token)}
           </code>
         </PortalActionTooltip>
@@ -55,14 +68,14 @@ export function OnboardingTokenSecret({
           type="button"
           variant="ghost"
           size="icon"
-          className="size-7 shrink-0"
+          className={cn('shrink-0', isLarge ? 'size-8' : 'size-7')}
           onClick={() => setVisible((current) => !current)}
           aria-label={visible ? copy.hide : copy.show}
         >
           {visible ? (
-            <EyeOff className="size-3.5" aria-hidden />
+            <EyeOff className={isLarge ? 'size-4' : 'size-3.5'} aria-hidden />
           ) : (
-            <Eye className="size-3.5" aria-hidden />
+            <Eye className={isLarge ? 'size-4' : 'size-3.5'} aria-hidden />
           )}
         </Button>
       </PortalActionTooltip>
@@ -71,11 +84,11 @@ export function OnboardingTokenSecret({
           type="button"
           variant="ghost"
           size="icon"
-          className="size-7 shrink-0"
+          className={cn('shrink-0', isLarge ? 'size-8' : 'size-7')}
           onClick={handleCopy}
           aria-label={copy.copy}
         >
-          <Copy className="size-3.5" aria-hidden />
+          <Copy className={isLarge ? 'size-4' : 'size-3.5'} aria-hidden />
         </Button>
       </PortalActionTooltip>
     </div>

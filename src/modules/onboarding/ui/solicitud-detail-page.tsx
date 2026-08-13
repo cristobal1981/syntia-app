@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation'
 
-import { getOnboardingSolicitudDetailAction } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
+import {
+  getOnboardingSolicitudDetailAction,
+  listOnboardingSolicitudesAction,
+} from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import { SolicitudDetailView } from '@/src/modules/onboarding/ui/solicitud-detail-view'
 
 type SolicitudDetailPageProps = {
@@ -8,10 +11,17 @@ type SolicitudDetailPageProps = {
 }
 
 export async function SolicitudDetailPage({ token }: SolicitudDetailPageProps) {
-  const result = await getOnboardingSolicitudDetailAction(token)
-  if (!result.ok) {
+  const [detailResult, listResult] = await Promise.all([
+    getOnboardingSolicitudDetailAction(token),
+    listOnboardingSolicitudesAction(),
+  ])
+  if (!detailResult.ok) {
     notFound()
   }
 
-  return <SolicitudDetailView initialRow={result.row} />
+  const navTokens = listResult.ok
+    ? listResult.rows.map((row) => row.token)
+    : []
+
+  return <SolicitudDetailView initialRow={detailResult.row} navTokens={navTokens} />
 }
