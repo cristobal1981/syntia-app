@@ -146,9 +146,21 @@ export function PortalRecordTable<T>({
               key={rowKey(row)}
               className={cn(
                 'border-b border-border transition-colors last:border-b-0 dark:border-border/50',
-                onRowClick && 'cursor-pointer hover:bg-muted/40 dark:hover:bg-muted/20'
+                onRowClick &&
+                  'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-muted/20'
               )}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? 'button' : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return
+                      event.preventDefault()
+                      onRowClick(row)
+                    }
+                  : undefined
+              }
             >
               {columns.map((column) => (
                 <td

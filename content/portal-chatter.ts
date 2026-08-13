@@ -31,7 +31,7 @@ export const portalChatter = {
   mockBadge: 'Vista de prueba (sin Odoo)',
   errors: {
     forbidden: 'No tienes permiso para ver esta conversación.',
-    not_linked: 'Tu cuenta no está vinculada con Odoo.',
+    not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
     not_found: 'No encontramos el trámite solicitado.',
     odoo_unavailable: 'No pudimos acceder a la conversación. Inténtalo de nuevo.',
     odoo_rate_limited:

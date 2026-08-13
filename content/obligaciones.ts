@@ -34,6 +34,7 @@ export const obligaciones = {
   guideLink: '¿Para qué sirve cada modelo?',
   taskStates: {
     inProgress: 'En curso',
+    changesRequested: 'Cambios solicitados',
     done: 'Presentado',
     canceled: 'Cancelado',
   },

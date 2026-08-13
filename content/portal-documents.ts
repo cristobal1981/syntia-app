@@ -22,7 +22,7 @@ export const portalDocuments = {
   stageLabel: 'Estado',
   errors: {
     forbidden: 'No tienes permiso para ver estos documentos.',
-    not_linked: 'Tu cuenta no está vinculada con Odoo.',
+    not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
     not_found: 'No encontramos el documento solicitado.',
     odoo_unavailable: 'No pudimos acceder a los documentos. Inténtalo de nuevo.',
     odoo_rate_limited:

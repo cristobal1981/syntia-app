@@ -6,6 +6,7 @@ import {
 
 const OBLIGACION_STATE_LABELS: Record<TaskStateBadgeVariant, string> = {
   inProgress: obligaciones.taskStates.inProgress,
+  changesRequested: obligaciones.taskStates.changesRequested,
   done: obligaciones.taskStates.done,
   canceled: obligaciones.taskStates.canceled,
   unknown: '—',

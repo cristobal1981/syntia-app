@@ -1,10 +1,16 @@
 import { tramites } from '@/content/tramites'
 
-export type TaskStateBadgeVariant = 'inProgress' | 'done' | 'canceled' | 'unknown'
+export type TaskStateBadgeVariant =
+  | 'inProgress'
+  | 'changesRequested'
+  | 'done'
+  | 'canceled'
+  | 'unknown'
+
+const CHANGES_REQUESTED_STATES = new Set(['02_changes_requested'])
 
 const IN_PROGRESS_STATES = new Set([
   '01_in_progress',
-  '02_changes_requested',
   '03_approved',
   '04_waiting_normal',
 ])
@@ -18,6 +24,13 @@ export function getTaskStateBadge(state?: string): {
 } {
   if (!state) {
     return { label: '—', variant: 'unknown' }
+  }
+
+  if (CHANGES_REQUESTED_STATES.has(state)) {
+    return {
+      label: tramites.taskStates.changesRequested,
+      variant: 'changesRequested',
+    }
   }
 
   if (IN_PROGRESS_STATES.has(state)) {

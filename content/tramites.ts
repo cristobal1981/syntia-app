@@ -1,7 +1,7 @@
 export const tramites = {
   title: 'Trámites',
   description:
-    'Gestiones generales, consultas de soporte y documentación asociada. Por defecto ves solo lo que está en curso.',
+    'Gestiones generales, consultas de soporte y documentación asociada. Por defecto ves solo lo que sigue abierto.',
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
   createConsulta: {
@@ -29,9 +29,9 @@ export const tramites = {
       bodyRequired: 'La descripción es obligatoria.',
       bodyTooLong: 'La descripción no puede superar 2000 caracteres.',
       forbidden: 'No tienes permiso para crear consultas.',
-      not_linked: 'Tu cuenta no está vinculada con Odoo.',
+      not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
       odoo_unavailable: 'No pudimos crear la consulta. Inténtalo de nuevo.',
-      create_failed: 'No pudimos crear la consulta en Odoo.',
+      create_failed: 'No pudimos crear la consulta. Inténtalo de nuevo o contacta con tu asesor.',
       unknown: 'No pudimos crear la consulta. Inténtalo de nuevo.',
     },
   },
@@ -104,12 +104,12 @@ export const tramites = {
     notLinked: {
       title: 'Cuenta sin vincular',
       description:
-        'Tu perfil aún no está vinculado con Odoo. Contacta con tu asesor para activar tus trámites en el portal.',
+        'Tu perfil aún no está vinculado. Contacta con tu asesor para activar tus trámites en el portal.',
     },
     odooUnavailable: {
       title: 'No pudimos cargar tus trámites',
       description:
-        'El servicio de Odoo no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
+        'El servicio no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
     },
     odooRateLimited: {
       title: 'Demanda elevada',

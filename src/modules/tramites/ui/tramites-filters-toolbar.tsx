@@ -71,19 +71,24 @@ export function TramitesFiltersToolbar({
         </div>
 
         {showIncludeClosed ? (
-          <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={filters.includeClosed}
-              onChange={(event) => {
-                onChange(
-                  setTramitesIncludeClosed(filters, event.target.checked)
-                )
-              }}
-              className="size-4 rounded border border-border accent-primary"
-            />
-            {tramites.filters.includeClosed}
-          </label>
+          <div className="flex flex-col gap-1">
+            <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={filters.includeClosed}
+                onChange={(event) => {
+                  onChange(
+                    setTramitesIncludeClosed(filters, event.target.checked)
+                  )
+                }}
+                className="size-4 rounded border border-border accent-primary"
+              />
+              {tramites.filters.includeClosed}
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {tramites.filters.includeClosedHint}
+            </p>
+          </div>
         ) : null}
       </div>
 
