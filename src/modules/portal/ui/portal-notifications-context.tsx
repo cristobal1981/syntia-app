@@ -22,6 +22,7 @@ import type {
   ChatterReadStateMap,
   PortalNotification,
   PortalNotificationReason,
+  PortalNotificationsStats,
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
   chatterReadStateKey,
@@ -34,6 +35,7 @@ import {
   removePortalNotificationsByRecord,
   removePortalNotificationsByScope,
 } from '@/src/modules/portal/domain/compute-portal-notifications'
+import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
   getInitialPollIntervalMs,
@@ -80,6 +82,18 @@ type PortalNotificationsContextValue = {
   unread: PortalNotification[]
   unreadCount: number
   notificationsLoading: boolean
+  stats: PortalNotificationsStats | null
+  /**
+   * Último mensaje de chat que ESTA pestaña recibió de una pestaña hermana
+   * (broadcast de notifyRecordMutated con `message`). Un chat abierto para
+   * ese mismo scope/recordId debe pintarlo directamente, sin pedir nada a
+   * Odoo — ya viene completo desde la pestaña que lo envió.
+   */
+  lastRecordMessage: {
+    scope: 'tramite' | 'consulta' | 'obligacion'
+    recordId: number
+    message: PortalChatterMessage
+  } | null
   hasUnreadChatter: (recordKind: PortalRecordKind, recordId: number) => boolean
   hasTramiteNotification: (
     item: { kind: 'tramite' | 'consulta'; id: number },
@@ -103,11 +117,23 @@ type PortalNotificationsContextValue = {
     scope: 'tramite' | 'consulta' | 'obligacion',
     recordId: number
   ) => Promise<void>
+  /**
+   * Avisa a las demás pestañas de que ESTA pestaña acaba de modificar un
+   * registro (subida propia, mensaje propio) para que refresquen sus datos.
+   * Los cambios detectados en Odoo por terceros ya llegan vía poll; esto
+   * cubre el caso de la propia acción del usuario en otra pestaña.
+   */
+  notifyRecordMutated: (
+    scope: 'tramite' | 'consulta' | 'obligacion',
+    recordId: number,
+    message?: PortalChatterMessage
+  ) => void
   openNotification: (notification: PortalNotification) => void
   refreshNotifications: () => Promise<void>
   initializeNotifications: (payload: {
     unread: PortalNotification[]
     readState: ChatterReadStateMap
+    stats?: PortalNotificationsStats
   }) => void
 }
 
@@ -174,6 +200,9 @@ export function PortalNotificationsProvider({
   const [portalRefreshPending, startPortalRefresh] = useTransition()
   const [unread, setUnread] = useState<PortalNotification[]>([])
   const [notificationsLoading, setNotificationsLoading] = useState(enabled)
+  const [stats, setStats] = useState<PortalNotificationsStats | null>(null)
+  const [lastRecordMessage, setLastRecordMessage] =
+    useState<PortalNotificationsContextValue['lastRecordMessage']>(null)
   const unreadRef = useRef<PortalNotification[]>([])
   const readStateRef = useRef<ChatterReadStateMap>({})
   const pollingRef = useRef(false)
@@ -186,6 +215,11 @@ export function PortalNotificationsProvider({
   const rateLimitedRef = useRef(false)
   const pendingFirmaIdsRef = useRef<number[]>([])
   const pendingMainScrollRestoreRef = useRef<number | null>(null)
+  const pathnameRef = useRef(pathname)
+
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
 
   const commitUnread = useCallback((nextUnread: PortalNotification[]) => {
     const pruned = pruneResolvedFirmaNotifications(
@@ -239,6 +273,24 @@ export function PortalNotificationsProvider({
     })
   }, [])
 
+  const notifyRecordMutated = useCallback(
+    (
+      scope: 'tramite' | 'consulta' | 'obligacion',
+      recordId: number,
+      message?: PortalChatterMessage
+    ) => {
+      const coordinator = coordinatorRef.current
+      if (!coordinator) return
+      coordinator.broadcastRecordMutated({
+        sourceTabId: coordinator.getTabId(),
+        scope,
+        recordId,
+        ...(message ? { message } : {}),
+      })
+    },
+    []
+  )
+
   const applyRemoteState = useCallback(
     (payload: PortalNotificationsStateSyncPayload) => {
       pendingFirmaIdsRef.current = payload.pendingFirmaIds
@@ -256,6 +308,7 @@ export function PortalNotificationsProvider({
     (payload: {
       unread: PortalNotification[]
       readState: ChatterReadStateMap
+      stats?: PortalNotificationsStats
     }) => {
       if (ssrHydratedRef.current) return
       ssrHydratedRef.current = true
@@ -265,6 +318,9 @@ export function PortalNotificationsProvider({
       )
       saveReadStateToStorage(readStateRef.current)
       commitUnread(payload.unread)
+      if (payload.stats) {
+        setStats(payload.stats)
+      }
       setNotificationsLoading(false)
     },
     [commitUnread]
@@ -279,6 +335,7 @@ export function PortalNotificationsProvider({
       options?: { fromBroadcast?: boolean; refreshPages?: boolean }
     ) => {
       pendingFirmaIdsRef.current = result.pendingFirmaIds
+      setStats(result.stats)
       const beforeSignature = notificationsSignature(unreadRef.current)
       applyReadState(result.readState)
 
@@ -305,12 +362,12 @@ export function PortalNotificationsProvider({
       if (
         options?.refreshPages &&
         hadChanges &&
-        shouldRefreshPortalPageOnNotificationPoll(pathname)
+        shouldRefreshPortalPageOnNotificationPoll(pathnameRef.current)
       ) {
         refreshPortalPages()
       }
     },
-    [applyReadState, commitUnread, pathname, refreshPortalPages]
+    [applyReadState, commitUnread, refreshPortalPages]
   )
 
   const refreshNotifications = useCallback(
@@ -348,6 +405,7 @@ export function PortalNotificationsProvider({
           readState: result.readState,
           pendingFirmaIds: result.pendingFirmaIds,
           hasChanges: result.hasChanges,
+          stats: result.stats,
           polledAt: Date.now(),
         })
       } finally {
@@ -407,6 +465,7 @@ export function PortalNotificationsProvider({
           readState: payload.readState,
           pendingFirmaIds: payload.pendingFirmaIds,
           hasChanges: payload.hasChanges,
+          stats: payload.stats,
         },
         { fromBroadcast: true, refreshPages: payload.hasChanges }
       )
@@ -416,6 +475,19 @@ export function PortalNotificationsProvider({
     const unsubscribeStateSync = coordinator.onStateSync((payload) => {
       applyRemoteState(payload)
       setNotificationsLoading(false)
+    })
+
+    const unsubscribeRecordMutated = coordinator.onRecordMutated((payload) => {
+      if (payload.message) {
+        setLastRecordMessage({
+          scope: payload.scope,
+          recordId: payload.recordId,
+          message: payload.message,
+        })
+      }
+      if (shouldRefreshPortalPageOnNotificationPoll(pathnameRef.current)) {
+        refreshPortalPages()
+      }
     })
 
     const unsubscribePollRequest = coordinator.onPollRequest(() => {
@@ -460,6 +532,7 @@ export function PortalNotificationsProvider({
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       unsubscribePollResult()
       unsubscribeStateSync()
+      unsubscribeRecordMutated()
       unsubscribePollRequest()
       coordinator.destroy()
       coordinatorRef.current = null
@@ -469,6 +542,7 @@ export function PortalNotificationsProvider({
     applyRemoteState,
     enabled,
     refreshNotifications,
+    refreshPortalPages,
     scheduleNextPoll,
   ])
 
@@ -723,12 +797,15 @@ export function PortalNotificationsProvider({
       unread,
       unreadCount: unread.length,
       notificationsLoading,
+      stats,
+      lastRecordMessage,
       hasUnreadChatter,
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
       ackDocumentsSeen,
       ackStatusChangeSeen,
+      notifyRecordMutated,
       openNotification,
       refreshNotifications: refreshNotificationsPublic,
       initializeNotifications,
@@ -736,12 +813,15 @@ export function PortalNotificationsProvider({
     [
       unread,
       notificationsLoading,
+      stats,
+      lastRecordMessage,
       hasUnreadChatter,
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
       ackDocumentsSeen,
       ackStatusChangeSeen,
+      notifyRecordMutated,
       openNotification,
       refreshNotificationsPublic,
       initializeNotifications,

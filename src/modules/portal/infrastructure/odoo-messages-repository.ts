@@ -57,7 +57,7 @@ function buildBatchMessageDomain(
 function buildMessageDomain(
   resModel: string,
   recordId: number,
-  beforeId?: number
+  options?: { beforeId?: number; afterId?: number }
 ): unknown[] {
   const domain: unknown[] = [
     ['model', '=', resModel],
@@ -69,8 +69,12 @@ function buildMessageDomain(
     domain.push(['is_internal', '=', false])
   }
 
-  if (typeof beforeId === 'number' && beforeId > 0) {
-    domain.push(['id', '<', beforeId])
+  if (typeof options?.beforeId === 'number' && options.beforeId > 0) {
+    domain.push(['id', '<', options.beforeId])
+  }
+
+  if (typeof options?.afterId === 'number' && options.afterId > 0) {
+    domain.push(['id', '>', options.afterId])
   }
 
   return domain
@@ -150,7 +154,7 @@ export async function listPortalMessagesPage(input: {
 
   while (visible.length <= pageSize && !exhausted) {
     const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
-      domain: buildMessageDomain(input.resModel, input.recordId, cursor),
+      domain: buildMessageDomain(input.resModel, input.recordId, { beforeId: cursor }),
       fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
       order: 'id desc',
       limit: Math.max(pageSize + 1, 20),
@@ -189,6 +193,42 @@ export async function listPortalMessagesPage(input: {
     .reverse()
 
   return { messages, hasMore }
+}
+
+/**
+ * Trae solo los mensajes posteriores a `afterId` para un registro. Pensado
+ * para refrescar un chat ya abierto sin repetir toda la conversación:
+ * se dispara puntualmente cuando el poll de novedades (que ya corre igual)
+ * detecta un mensaje nuevo para ese registro, no en cada tick.
+ */
+export async function listNewerPortalMessages(input: {
+  resModel: string
+  recordId: number
+  clientPartnerId: number
+  afterId: number
+}): Promise<PortalChatterMessage[]> {
+  const excludedPartnerIds = getChatterExcludedPartnerIds()
+
+  const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
+    domain: buildMessageDomain(input.resModel, input.recordId, {
+      afterId: input.afterId,
+    }),
+    fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
+    order: 'id asc',
+    limit: 50,
+  })
+
+  if (!rows.length) return []
+
+  const filtered = filterOdooMailMessageRows(rows, {
+    clientPartnerId: input.clientPartnerId,
+    excludedPartnerIds,
+  })
+
+  const attachmentMeta = await resolveAttachmentMetaForRows(filtered)
+  return filtered
+    .map((row) => mapOdooRowToPortalMessage(row, input.clientPartnerId, attachmentMeta))
+    .filter((message): message is PortalChatterMessage => message !== null)
 }
 
 async function readPortalMessageById(

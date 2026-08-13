@@ -28,7 +28,6 @@ export const portalChatter = {
   attachFile: 'Adjuntar archivo',
   removeAttachment: 'Quitar {name}',
   uploading: 'Subiendo…',
-  previousMessage: 'Mensaje anterior',
   mockBadge: 'Vista de prueba (sin Odoo)',
   errors: {
     forbidden: 'No tienes permiso para ver esta conversación.',

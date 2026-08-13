@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 
 import { portalChatter } from '@/content/portal-chatter'
 import {
+  listNewerRecordMessagesAction,
   listRecordMessagesAction,
   postRecordMessageAction,
 } from '@/src/modules/portal/application/portal-chatter-actions'
@@ -41,6 +42,7 @@ import {
   buildParentPreview,
   ChatterMessageItem,
 } from '@/src/modules/portal/ui/chatter-message-item'
+import { ChatterTypingIndicator } from '@/src/modules/portal/ui/chatter-typing-indicator'
 import { ChatterPendingAttachments } from '@/src/modules/portal/ui/chatter-pending-attachments'
 import { ChatterReplyBanner } from '@/src/modules/portal/ui/chatter-reply-banner'
 import {
@@ -61,6 +63,13 @@ type RecordChatterPanelProps = {
   onConversationViewed?: (latestMessageId: number) => void
   onOpenAttachment?: (attachment: PortalChatterAttachmentRef) => void
   onAttachmentsChanged?: (attachmentCount: number) => void
+  /**
+   * Id del último mensaje que el poll de novedades ya sabe que existe para
+   * este registro. Cuando sube por encima de lo que este panel tiene
+   * cargado, se pide a Odoo solo lo nuevo (no toda la conversación) para
+   * reflejarlo sin necesidad de cerrar y reabrir el drawer.
+   */
+  latestKnownMessageId?: number
 }
 
 function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
@@ -92,6 +101,7 @@ export function RecordChatterPanel({
   onConversationViewed,
   onOpenAttachment,
   onAttachmentsChanged,
+  latestKnownMessageId,
 }: RecordChatterPanelProps) {
   const router = useRouter()
   const notifications = usePortalNotificationsOptional()
@@ -234,6 +244,55 @@ export function RecordChatterPanel({
     void loadInitial()
   }, [active, recordId, loadInitial])
 
+  const loadingNewerRef = useRef(false)
+  const [loadingNewer, setLoadingNewer] = useState(false)
+
+  useEffect(() => {
+    if (chatterMockEnabled || !active || loadingInitial || recordId <= 0) return
+    if (!latestKnownMessageId || loadingNewerRef.current) return
+
+    const maxLoadedId = messages.length ? messages[messages.length - 1]!.id : 0
+    if (latestKnownMessageId <= maxLoadedId) return
+
+    loadingNewerRef.current = true
+    setLoadingNewer(true)
+    void listNewerRecordMessagesAction({ kind, recordId, afterId: maxLoadedId })
+      .then((result) => {
+        if (!result.ok || !result.messages.length) return
+        setMessages((current) => {
+          const existingIds = new Set(current.map((message) => message.id))
+          const newer = result.messages.filter((message) => !existingIds.has(message.id))
+          if (!newer.length) return current
+          return enrichPortalChatterMessages([...current, ...newer])
+        })
+      })
+      .finally(() => {
+        loadingNewerRef.current = false
+        setLoadingNewer(false)
+      })
+  }, [active, kind, latestKnownMessageId, loadingInitial, messages, recordId])
+
+  // Mensaje propio enviado desde OTRA pestaña del mismo usuario: ya llega
+  // completo por el broadcast (notifyRecordMutated), no hace falta pedir
+  // nada a Odoo para pintarlo aquí.
+  useEffect(() => {
+    const broadcast = notifications?.lastRecordMessage
+    if (!broadcast) return
+    if (
+      broadcast.scope !== recordScopeFromKind(kind) ||
+      broadcast.recordId !== recordId
+    ) {
+      return
+    }
+
+    setMessages((current) => {
+      if (current.some((message) => message.id === broadcast.message.id)) {
+        return current
+      }
+      return enrichPortalChatterMessages([...current, broadcast.message])
+    })
+  }, [kind, notifications?.lastRecordMessage, recordId])
+
   useEffect(() => {
     if (!active || loadingInitial || !markReadOnView || !messages.length) return
     notifyConversationViewed(messages)
@@ -244,7 +303,15 @@ export function RecordChatterPanel({
     if (shouldStickToBottomRef.current) {
       scrollToBottom()
     }
-  }, [active, loadingInitial, messages, pendingFiles.length, replyTarget, scrollToBottom])
+  }, [
+    active,
+    loadingInitial,
+    loadingNewer,
+    messages,
+    pendingFiles.length,
+    replyTarget,
+    scrollToBottom,
+  ])
 
   useLayoutEffect(() => {
     if (!active || loadingInitial || scrollPin <= 0) return
@@ -448,6 +515,12 @@ export function RecordChatterPanel({
           return enrichPortalChatterMessages([...current, postedMessage])
         })
 
+        notifications?.notifyRecordMutated(
+          recordScopeFromKind(kind),
+          recordId,
+          postedMessage
+        )
+
         if (hadAttachments && typeof result.attachmentCount === 'number') {
           queueMicrotask(() => {
             invalidateAttachmentsClientCache(kind, recordId)
@@ -532,6 +605,7 @@ export function RecordChatterPanel({
                 onOpenAttachment={onOpenAttachment}
               />
             ))}
+            {loadingNewer ? <ChatterTypingIndicator /> : null}
           </ul>
         ) : null}
       </div>

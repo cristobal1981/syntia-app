@@ -120,7 +120,14 @@ export function RecordAttachmentsPanel({
 
     const cacheKey = attachmentsCacheKey(kind, recordId)
     const cached = attachmentsClientCache.get(cacheKey)
-    if (cached && Date.now() - cached.at < ATTACHMENTS_CLIENT_CACHE_MS && refreshToken === 0) {
+    const cacheMatchesKnownCount =
+      knownAttachmentCount === undefined || knownAttachmentCount === cached?.attachments.length
+    if (
+      cached &&
+      cacheMatchesKnownCount &&
+      Date.now() - cached.at < ATTACHMENTS_CLIENT_CACHE_MS &&
+      refreshToken === 0
+    ) {
       setLoading(false)
       setError(null)
       setAttachments(cached.attachments)

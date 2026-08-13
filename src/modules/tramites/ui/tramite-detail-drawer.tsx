@@ -117,14 +117,21 @@ export function TramiteDetailDrawer({
     notifications?.dismissNewTramiteNotification
   const ackStatusChangeSeen = notifications?.ackStatusChangeSeen
 
+  // Calculado en el render (no solo dentro del efecto) para que el valor
+  // llegue a RecordChatterPanel como prop antes de que el ack de abajo lo
+  // retire de `unread` — evita una carrera entre "marcar visto" y "cargar
+  // el mensaje nuevo en el chat ya abierto".
+  const chatterNotification = item
+    ? notifications?.unread.find(
+        (notification) =>
+          notification.reason === 'unread_chatter' &&
+          notificationMatchesTramiteRecord(notification, recordKind, item.id)
+      )
+    : undefined
+
   useEffect(() => {
     if (!open || !item) return
 
-    const chatterNotification = notifications?.unread.find(
-      (notification) =>
-        notification.reason === 'unread_chatter' &&
-        notificationMatchesTramiteRecord(notification, recordKind, item.id)
-    )
     if (chatterNotification?.latestMessageId) {
       void markConversationSeen?.(
         recordKind,
@@ -138,10 +145,10 @@ export function TramiteDetailDrawer({
     }
   }, [
     ackStatusChangeSeen,
+    chatterNotification,
     item,
     markConversationSeen,
     notifications?.hasTramiteNotification,
-    notifications?.unread,
     open,
     recordKind,
   ])
@@ -335,6 +342,7 @@ export function TramiteDetailDrawer({
               onConversationViewed={handleConversationViewed}
               onOpenAttachment={handleOpenAttachment}
               onAttachmentsChanged={handleAttachmentsChanged}
+              latestKnownMessageId={chatterNotification?.latestMessageId}
             />
           ) : (
             <section

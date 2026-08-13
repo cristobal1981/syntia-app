@@ -75,6 +75,12 @@ export type ListRecordMessagesInput = {
   beforeId?: number
 }
 
+export type ListNewerRecordMessagesInput = {
+  kind: PortalRecordKind
+  recordId: number
+  afterId: number
+}
+
 export type PostRecordMessageInput = {
   kind: PortalRecordKind
   recordId: number
