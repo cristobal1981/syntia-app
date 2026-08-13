@@ -36,6 +36,9 @@ export const guias = {
       'Guías prácticas sobre impuestos, plazos y trámites habituales. Si tienes dudas sobre tu caso concreto, tu asesor te orientará.',
     searchLabel: 'Buscar en las guías',
     searchPlaceholder: 'Ej.: renta, IVA, autónomo…',
+    clearSearch: 'Borrar búsqueda',
+    resultCountOne: '1 guía encontrada',
+    resultCountMany: '{count} guías encontradas',
     nowTitle: 'Ahora toca',
     nowDescription: 'Plazos abiertos o a punto de abrirse.',
     activeBadge: 'Plazo abierto',
@@ -43,6 +46,7 @@ export const guias = {
     relatedGuidesLabel: 'Guías relacionadas',
     relatedModelsLabel: 'Modelos',
     allTitle: 'Todas las guías',
+    readGuide: 'Leer guía',
     noResultsTitle: 'Sin resultados',
     noResultsDescription:
       'No encontramos guías con ese término. Prueba con otra palabra.',

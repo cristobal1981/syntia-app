@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { CalendarClock, Search } from 'lucide-react'
+import { AlarmClock, CalendarClock, ChevronRight, Search, X } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { guias, type GuideEntry } from '@/content/guias'
 import { cn } from '@/lib/utils'
 import { formatKeywordHashtag } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
+import { GUIDE_CATEGORY_ICON } from '@/src/modules/guias/ui/guide-category-icon'
 import type { RelevantTaxWindow } from '@/src/modules/guias/domain/tax-calendar'
 import {
   getGuidesByCategory,
@@ -29,7 +30,7 @@ function GuideCard({ entry }: GuideCardProps) {
         'portal-home-card portal-home-card-interactive group flex h-full flex-col rounded-xl px-5 py-4 md:px-6 md:py-5',
         'transition-[box-shadow,border-color,background-color] duration-300 ease-out',
         'hover:border-primary/70 hover:bg-primary/[0.04] hover:shadow-[0_0_0_1px_var(--primary)]',
-        'dark:hover:border-primary/60 dark:hover:bg-muted/25',
+        'dark:hover:border-transparent dark:hover:shadow-none',
         'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         'motion-reduce:transition-none'
       )}
@@ -40,18 +41,29 @@ function GuideCard({ entry }: GuideCardProps) {
       <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
         {entry.description}
       </p>
-      {entry.tags.length ? (
-        <ul className="mt-4 flex flex-wrap gap-1.5" aria-hidden>
-          {entry.tags.map((tag) => (
-            <li
-              key={tag}
-              className="inline-flex items-center rounded-full border border-foreground/15 bg-foreground/[0.06] px-2.5 py-0.5 text-xs font-semibold text-foreground dark:border-border dark:bg-input/40"
-            >
-              {formatKeywordHashtag(tag)}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <div className="mt-4 flex items-end justify-between gap-3">
+        {entry.tags.length ? (
+          <ul className="flex flex-wrap gap-1.5" aria-hidden>
+            {entry.tags.map((tag) => (
+              <li
+                key={tag}
+                className="inline-flex items-center rounded-full border border-foreground/15 bg-foreground/[0.06] px-2.5 py-0.5 text-xs font-semibold text-foreground dark:border-border dark:bg-input/40"
+              >
+                {formatKeywordHashtag(tag)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span aria-hidden />
+        )}
+        <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold text-primary">
+          {copy.readGuide}
+          <ChevronRight
+            className="size-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
+            aria-hidden
+          />
+        </span>
+      </div>
     </Link>
   )
 }
@@ -145,6 +157,11 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
       .filter((group) => group.entries.length > 0)
   }, [trimmedQuery])
 
+  const resultCount = useMemo(
+    () => visibleGroups.reduce((total, group) => total + group.entries.length, 0),
+    [visibleGroups]
+  )
+
   return (
     <div className="flex flex-col gap-8">
       <header>
@@ -173,21 +190,47 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
             placeholder={copy.searchPlaceholder}
             autoComplete="off"
             spellCheck={false}
-            className="pl-9"
+            className="pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
             onChange={(event) => setQuery(event.target.value)}
           />
+          {isSearching ? (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <X className="size-3.5" aria-hidden />
+              <span className="sr-only">{copy.clearSearch}</span>
+            </button>
+          ) : null}
         </div>
+        {isSearching ? (
+          <p className="mt-2 text-xs text-muted-foreground" role="status">
+            {resultCount === 1
+              ? copy.resultCountOne
+              : copy.resultCountMany.replace('{count}', String(resultCount))}
+          </p>
+        ) : null}
       </div>
 
       {!isSearching && relevantWindows.length ? (
-        <section aria-labelledby="guias-now-title">
-          <h2
-            id="guias-now-title"
-            className="font-sans text-lg font-semibold text-foreground"
-          >
-            {copy.nowTitle}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">{copy.nowDescription}</p>
+        <section
+          aria-labelledby="guias-now-title"
+          className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-5 md:p-6 dark:border-primary/25 dark:bg-primary/[0.06]"
+        >
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <AlarmClock className="size-4" aria-hidden />
+            </span>
+            <h2
+              id="guias-now-title"
+              className="font-sans text-lg font-semibold text-foreground"
+            >
+              {copy.nowTitle}
+            </h2>
+            <div aria-hidden />
+            <p className="text-sm text-muted-foreground">{copy.nowDescription}</p>
+          </div>
           <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {relevantWindows.map((relevant) => (
               <li key={relevant.window.id} className="min-w-0">
@@ -200,23 +243,36 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
 
       {visibleGroups.length ? (
         <div className="flex flex-col gap-8">
-          {visibleGroups.map((group) => (
-            <section key={group.category} aria-labelledby={`guias-${group.category}`}>
-              <h2
-                id={`guias-${group.category}`}
-                className="font-sans text-lg font-semibold text-foreground"
-              >
-                {group.label}
-              </h2>
-              <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {group.entries.map((entry) => (
-                  <li key={entry.slug} className="min-w-0">
-                    <GuideCard entry={entry} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+          {visibleGroups.map((group) => {
+            const CategoryIcon = GUIDE_CATEGORY_ICON[group.category]
+            return (
+              <section key={group.category} aria-labelledby={`guias-${group.category}`}>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <CategoryIcon className="size-4" aria-hidden />
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <h2
+                      id={`guias-${group.category}`}
+                      className="font-sans text-lg font-semibold text-foreground"
+                    >
+                      {group.label}
+                    </h2>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {group.entries.length}
+                    </span>
+                  </div>
+                </div>
+                <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {group.entries.map((entry) => (
+                    <li key={entry.slug} className="min-w-0">
+                      <GuideCard entry={entry} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
         </div>
       ) : (
         <div className="portal-home-card rounded-xl px-6 py-10 text-center">
