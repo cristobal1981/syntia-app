@@ -1,4 +1,5 @@
-export { DashboardHomeSkeleton } from '@/src/modules/portal/ui/skeletons/dashboard-home-skeleton'
+export { ClientHomeSkeleton } from '@/src/modules/portal/ui/skeletons/client-home-skeleton'
+export { StaffHomeBentoSkeleton } from '@/src/modules/portal/ui/skeletons/staff-home-bento-skeleton'
 export { DirectoryListPageSkeleton } from '@/src/modules/portal/ui/skeletons/directory-list-page-skeleton'
 export { IntegrationsSkeleton } from '@/src/modules/portal/ui/skeletons/integrations-skeleton'
 export { PersonListSkeleton } from '@/src/modules/portal/ui/skeletons/person-list-skeleton'

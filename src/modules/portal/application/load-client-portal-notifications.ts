@@ -8,6 +8,7 @@ import {
 } from '@/src/modules/portal/domain/compute-portal-notifications'
 import type {
   PortalNotificationsCheckResult,
+  PortalNotificationsStats,
   ChatterReadStateMap,
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
@@ -301,6 +302,22 @@ export async function loadClientPortalNotifications(input: {
         watchUpdates.length > 0 ||
         tramitesBaselineInitialized)
 
+    const openObligaciones = obligSnap.leaves.filter((leaf) => !isTaskClosed(leaf.state))
+    const nextObligacion =
+      openObligaciones
+        .filter(
+          (leaf): leaf is typeof leaf & { deadline: string } => Boolean(leaf.deadline)
+        )
+        .sort((a, b) => a.deadline.localeCompare(b.deadline))
+        .map((leaf) => ({ name: leaf.name, deadline: leaf.deadline }))[0] ?? null
+
+    const stats: PortalNotificationsStats = {
+      activeTramitesAndConsultas: openItems.length,
+      obligacionesInProgress: openObligaciones.length,
+      pendingSignatures: firmasSnap.requests.length,
+      nextObligacion,
+    }
+
     return {
       ok: true,
       unread: allUnread,
@@ -311,6 +328,7 @@ export async function loadClientPortalNotifications(input: {
         newTramiteNotifications.length > 0 ||
         recordDeltas.notifications.length > 0 ||
         firmaDeltas.notifications.length > 0,
+      stats,
     }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }

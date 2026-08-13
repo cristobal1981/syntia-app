@@ -36,35 +36,15 @@ export async function ClientHome({ user }: ClientHomeProps) {
       <section aria-labelledby="client-quick-links">
         <h2
           id="client-quick-links"
-          className="mb-4 font-sans text-lg font-semibold text-foreground"
+          className="mb-4 font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase"
         >
           {copy.quickLinksTitle}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickLinkCard
-            href="/documentos"
-            label="Documentos"
-            description="Consulta y sube archivos"
-            icon={FileText}
-          />
-          <QuickLinkCard
-            href="/obligaciones"
-            label="Obligaciones"
-            description="Modelos tributarios por periodo"
-            icon={Scale}
-          />
-          <QuickLinkCard
-            href="/tramites"
-            label="Trámites"
-            description="Gestiones y soporte"
-            icon={ClipboardList}
-          />
-          <QuickLinkCard
-            href="/guias"
-            label="Guías"
-            description="Guías prácticas y plazos fiscales"
-            icon={BookOpen}
-          />
+        <div className="flex flex-wrap gap-x-2 gap-y-1">
+          <QuickLinkCard href="/documentos" label="Documentos" icon={FileText} />
+          <QuickLinkCard href="/obligaciones" label="Obligaciones" icon={Scale} />
+          <QuickLinkCard href="/tramites" label="Trámites" icon={ClipboardList} />
+          <QuickLinkCard href="/guias" label="Guías" icon={BookOpen} />
         </div>
       </section>
       <PortalDashboardReady />

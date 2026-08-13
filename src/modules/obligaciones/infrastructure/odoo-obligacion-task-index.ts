@@ -7,6 +7,7 @@ export type ObligacionTaskIndexLeaf = {
   name: string
   state?: string
   modifiedAt: string
+  deadline?: string
 }
 
 export type ObligacionTaskIndex = {
@@ -24,6 +25,7 @@ type OdooLeafRow = {
   name: string
   state?: string | false | null
   write_date?: string | false | null
+  date_deadline?: string | false | null
 }
 
 export async function buildObligacionTaskIndex(
@@ -65,7 +67,7 @@ export async function buildObligacionTaskIndex(
 
   const leafRows = await odooSearchRead<OdooLeafRow>('project.task', {
     domain: [['parent_id', 'in', periodIds]],
-    fields: ['id', 'name', 'state', 'write_date'],
+    fields: ['id', 'name', 'state', 'write_date', 'date_deadline'],
     order: 'name asc, id asc',
     limit: 200,
   })
@@ -75,6 +77,7 @@ export async function buildObligacionTaskIndex(
     name: typeof row.name === 'string' ? row.name : `Obligación ${row.id}`,
     state: typeof row.state === 'string' && row.state ? row.state : undefined,
     modifiedAt: parseOdooDateTime(row.write_date) ?? new Date().toISOString(),
+    deadline: parseOdooDateTime(row.date_deadline) || undefined,
   }))
 
   const leafIds = leaves.map((leaf) => leaf.id)

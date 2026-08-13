@@ -84,13 +84,16 @@ function NavLink({
         nested && !collapsed && 'ml-2 pl-4',
         isPending && !isActive && 'text-subtle-foreground',
         isActive
-          ? 'bg-sidebar-active font-medium text-sidebar-active-foreground shadow-sm'
+          ? 'bg-sidebar-active font-medium text-sidebar-foreground shadow-sm'
           : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
       )}
       aria-current={isActive ? 'page' : undefined}
       aria-busy={isPending || undefined}
     >
-      <PortalNavIcon icon={icon} className="size-4 shrink-0" />
+      <PortalNavIcon
+        icon={icon}
+        className={cn('size-4 shrink-0', isActive && 'text-sidebar-active-foreground')}
+      />
       {!collapsed ? <span className="truncate">{label}</span> : null}
       {collapsed ? <span className="sr-only">{label}</span> : null}
     </Link>
@@ -161,11 +164,14 @@ function NavGroup({
         className={cn(
           'flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
           groupActive
-            ? 'text-sidebar-active-foreground'
+            ? 'text-sidebar-foreground'
             : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
         )}
       >
-        <PortalNavIcon icon={item.icon} className="size-4 shrink-0" />
+        <PortalNavIcon
+          icon={item.icon}
+          className={cn('size-4 shrink-0', groupActive && 'text-sidebar-active-foreground')}
+        />
         <span className="flex-1 truncate">{item.label}</span>
         <ChevronDown
           className={cn(

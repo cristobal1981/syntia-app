@@ -28,6 +28,18 @@ export type PortalNotification = {
 
 export type ChatterReadStateMap = Record<string, number>
 
+/**
+ * Stats resumen del home de cliente, calculadas a partir de los mismos
+ * snapshots (tramites/obligaciones/firmas) que ya se leen para novedades,
+ * para no duplicar peticiones a Odoo.
+ */
+export type PortalNotificationsStats = {
+  activeTramitesAndConsultas: number
+  obligacionesInProgress: number
+  pendingSignatures: number
+  nextObligacion: { name: string; deadline: string } | null
+}
+
 export type PortalNotificationsCheckResult =
   | {
       ok: true
@@ -35,6 +47,7 @@ export type PortalNotificationsCheckResult =
       readState: ChatterReadStateMap
       pendingFirmaIds: number[]
       hasChanges: boolean
+      stats: PortalNotificationsStats
     }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' | 'odoo_rate_limited' }
 

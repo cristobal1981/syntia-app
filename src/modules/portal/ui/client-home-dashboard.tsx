@@ -35,16 +35,22 @@ export function ClientHomeDashboard({
     notifications.initializeNotifications({
       unread: initialNotifications.unread,
       readState: initialNotifications.readState,
+      stats: initialNotifications.stats,
     })
   }, [initialNotifications, notifications])
 
   const notificationsLoading =
     (notifications?.notificationsLoading ?? true) && !initialNotifications?.ok
 
+  // Preferir las stats en vivo del poll (sincronizadas entre pestañas vía
+  // BroadcastChannel) sobre el snapshot estático del SSR, para que este
+  // contador no se quede desfasado frente al de novedades.
+  const liveSnapshot = notifications?.stats ?? snapshot
+
   return (
     <div className="flex flex-col gap-8">
-      {snapshot ? (
-        <ClientHomeStats data={snapshot} />
+      {liveSnapshot ? (
+        <ClientHomeStats data={liveSnapshot} />
       ) : (
         <ClientHomeStatsUnavailable error={snapshotError} />
       )}
