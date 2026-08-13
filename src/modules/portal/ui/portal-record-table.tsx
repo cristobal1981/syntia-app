@@ -21,6 +21,8 @@ export type PortalRecordTableColumn<T> = {
   sortable?: boolean
   headerClassName?: string
   cellClassName?: string
+  /** En la tarjeta móvil, omite la etiqueta muda y pinta el valor solo. */
+  hideLabelInCard?: boolean
   render: (row: T) => ReactNode
 }
 
@@ -92,88 +94,145 @@ export function PortalRecordTable<T>({
     onSortChange({ columnId: column.id, direction: 'asc' })
   }
 
+  function handleRowKeyDown(event: React.KeyboardEvent, row: T) {
+    if (!onRowClick) return
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    onRowClick(row)
+  }
+
+  const rowInteractionProps = (row: T) => ({
+    onClick: onRowClick ? () => onRowClick(row) : undefined,
+    tabIndex: onRowClick ? 0 : undefined,
+    role: onRowClick ? 'button' : undefined,
+    onKeyDown: onRowClick ? (event: React.KeyboardEvent) => handleRowKeyDown(event, row) : undefined,
+  })
+
+  const titleColumn = columns[0]
+  const secondaryColumns = columns.slice(1)
+
   return (
     <div
       className={cn(
-        embedded ? 'overflow-x-auto' : 'portal-home-card overflow-x-auto rounded-xl'
+        embedded ? undefined : 'portal-home-card rounded-xl'
       )}
     >
-      <table
-        className="w-full text-left text-sm"
-        style={{ minWidth }}
-      >
-        <thead className={chromeClassName}>
-          <tr className="border-b border-border dark:border-border/50">
-            {columns.map((column) => {
-              const isSortable = Boolean(column.sortable && onSortChange)
-              const ariaSort =
-                sort?.columnId === column.id
-                  ? sort.direction === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : undefined
+      <div className={cn('overflow-x-auto', !embedded && 'hidden sm:block')}>
+        <table
+          className="w-full text-left text-sm"
+          style={{ minWidth }}
+        >
+          <thead className={chromeClassName}>
+            <tr className="border-b border-border dark:border-border/50">
+              {columns.map((column) => {
+                const isSortable = Boolean(column.sortable && onSortChange)
+                const ariaSort =
+                  sort?.columnId === column.id
+                    ? sort.direction === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : undefined
 
-              return (
-                <th
-                  key={column.id}
-                  scope="col"
-                  aria-sort={ariaSort}
-                  className={cn(
-                    'px-4 py-3 font-sans font-medium text-muted-foreground',
-                    column.headerClassName
-                  )}
-                >
-                  {isSortable ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSort(column)}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {column.header}
-                      <SortIndicator columnId={column.id} sort={sort} />
-                    </button>
-                  ) : (
-                    column.header
-                  )}
-                </th>
-              )
-            })}
-          </tr>
-        </thead>
-        <tbody className={embedded ? undefined : 'bg-card'}>
-          {paginatedRows.map((row) => (
-            <tr
-              key={rowKey(row)}
-              className={cn(
-                'border-b border-border transition-colors last:border-b-0 dark:border-border/50',
-                onRowClick &&
-                  'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-muted/20'
-              )}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-              tabIndex={onRowClick ? 0 : undefined}
-              role={onRowClick ? 'button' : undefined}
-              onKeyDown={
-                onRowClick
-                  ? (event) => {
-                      if (event.key !== 'Enter' && event.key !== ' ') return
-                      event.preventDefault()
-                      onRowClick(row)
-                    }
-                  : undefined
-              }
-            >
-              {columns.map((column) => (
-                <td
-                  key={column.id}
-                  className={cn('px-4 py-3', column.cellClassName)}
-                >
-                  {column.render(row)}
-                </td>
-              ))}
+                return (
+                  <th
+                    key={column.id}
+                    scope="col"
+                    aria-sort={ariaSort}
+                    className={cn(
+                      'px-4 py-3 font-sans font-medium text-muted-foreground',
+                      column.headerClassName
+                    )}
+                  >
+                    {isSortable ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSort(column)}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {column.header}
+                        <SortIndicator columnId={column.id} sort={sort} />
+                      </button>
+                    ) : (
+                      column.header
+                    )}
+                  </th>
+                )
+              })}
             </tr>
+          </thead>
+          <tbody className={embedded ? undefined : 'bg-card'}>
+            {paginatedRows.map((row) => (
+              <tr
+                key={rowKey(row)}
+                className={cn(
+                  'border-b border-border transition-colors last:border-b-0 dark:border-border/50',
+                  onRowClick &&
+                    'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-muted/20'
+                )}
+                {...rowInteractionProps(row)}
+              >
+                {columns.map((column) => (
+                  <td
+                    key={column.id}
+                    className={cn('px-4 py-3', column.cellClassName)}
+                  >
+                    {column.render(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {!embedded ? (
+        <ul className="flex flex-col gap-3 p-3 sm:hidden">
+          {paginatedRows.map((row) => (
+            <li key={rowKey(row)}>
+              <article
+                className={cn(
+                  'flex flex-col gap-2.5 rounded-lg border border-border bg-card p-4',
+                  onRowClick &&
+                    'cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
+                )}
+                {...rowInteractionProps(row)}
+              >
+                {titleColumn ? (
+                  <div className="text-sm font-medium text-foreground">
+                    {titleColumn.render(row)}
+                  </div>
+                ) : null}
+                {secondaryColumns.map((column) =>
+                  column.hideLabelInCard ? (
+                    <div
+                      key={column.id}
+                      className="flex flex-wrap items-center gap-1.5"
+                    >
+                      {column.render(row)}
+                    </div>
+                  ) : (
+                    <div
+                      key={column.id}
+                      className={cn(
+                        'flex items-center gap-3 text-sm',
+                        column.header ? 'justify-between' : 'justify-end'
+                      )}
+                    >
+                      {column.header ? (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {column.header}
+                        </span>
+                      ) : null}
+                      <span className="min-w-0">{column.render(row)}</span>
+                    </div>
+                  )
+                )}
+              </article>
+            </li>
           ))}
-        </tbody>
-      </table>
+        </ul>
+      ) : null}
+
       {onPageChange ? (
         <ListPagination
           id={paginationId}

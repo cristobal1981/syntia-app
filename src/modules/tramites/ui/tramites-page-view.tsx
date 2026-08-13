@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronRight, Paperclip } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { tramites } from '@/content/tramites'
 import { cn } from '@/lib/utils'
 import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
@@ -24,25 +24,27 @@ import { parseTramiteOpenParam } from '@/src/modules/portal/domain/chatter-notif
 import {
   type TramitesListSeenState,
 } from '@/src/modules/tramites/domain/tramites-list-seen-state'
-import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
 import {
   paginateItems,
   PORTAL_LIST_PAGE_SIZE,
 } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
 import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
+import { TramiteActivityBadge } from '@/src/modules/tramites/ui/tramite-activity-badge'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
-import { TramiteListNotificationIcons } from '@/src/modules/tramites/ui/tramite-list-notification-icons'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 import { TramitesFiltersToolbar } from '@/src/modules/tramites/ui/tramites-filters-toolbar'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
+import {
+  getTramiteActivitySignal,
+  sortTramiteListByActivity,
+} from '@/src/modules/tramites/domain/tramite-activity-signal'
 import { useTramitesListNewKeys } from '@/src/modules/tramites/ui/use-tramites-list-new-keys'
 
 type TramitesListSectionProps = {
   items: TramiteListItem[]
   newItemKeys: readonly string[]
-  tagFilterActive: boolean
   filteredEmpty: boolean
   selectedItem: TramiteListItem | null
   onSelectedItemChange: (item: TramiteListItem | null) => void
@@ -53,7 +55,6 @@ type TramitesListSectionProps = {
 function TramitesListSection({
   items,
   newItemKeys,
-  tagFilterActive,
   filteredEmpty,
   selectedItem,
   onSelectedItemChange,
@@ -61,6 +62,7 @@ function TramitesListSection({
   drawerInitialTab = 'conversation',
 }: TramitesListSectionProps) {
   const copy = tramites.list
+  const notifications = usePortalNotificationsOptional()
   const [page, setPage] = useState(1)
   const paginationId = 'tramites-pagination-label'
 
@@ -96,77 +98,69 @@ function TramitesListSection({
       {
         id: 'name',
         header: copy.columns.name,
-        cellClassName: 'max-w-[240px] font-medium text-foreground',
+        cellClassName: 'max-w-[360px] text-foreground',
         render: (item: TramiteListItem) => (
-          <div className="flex min-w-0 items-start gap-2">
-            <TramiteListNotificationIcons item={item} newItemKeys={newItemKeys} />
-            <span className="line-clamp-2 min-w-0">{item.name}</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span className="line-clamp-2 min-w-0 font-semibold" title={item.name}>
+              {item.name}
+            </span>
+            <TramiteActivityBadge
+              signal={getTramiteActivitySignal(
+                item,
+                notifications?.unread ?? [],
+                newItemKeys
+              )}
+            />
+            {item.attachmentCount > 0 ? (
+              <span
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                aria-label={`${item.attachmentCount} ${copy.columns.documents}`}
+              >
+                <Paperclip className="size-3.5" aria-hidden />
+                <span className="tabular-nums">{item.attachmentCount}</span>
+              </span>
+            ) : null}
           </div>
         ),
       },
       {
-        id: 'type',
-        header: copy.columns.type,
-        render: (item: TramiteListItem) => <TramiteTypeBadge kind={item.kind} />,
-      },
-      {
-        id: 'state',
-        header: copy.columns.state,
+        id: 'tags',
+        header: copy.columns.tags,
         cellClassName: 'whitespace-nowrap',
+        hideLabelInCard: true,
         render: (item: TramiteListItem) => {
           const stateBadge = getTramiteListItemStateBadge(item)
           return (
-            <TaskStateBadge label={stateBadge.label} variant={stateBadge.variant} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <TramiteTypeBadge kind={item.kind} />
+              <TaskStateBadge label={stateBadge.label} variant={stateBadge.variant} />
+            </div>
           )
         },
       },
       {
-        id: 'documents',
-        header: copy.columns.documents,
-        render: (item: TramiteListItem) => (
-          <PortalDocumentsCell count={item.attachmentCount} />
-        ),
-      },
-      {
         id: 'actions',
         header: '',
-        headerClassName: 'w-px px-2',
-        cellClassName: 'w-px whitespace-nowrap px-2 text-right',
-        render: (item: TramiteListItem) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation()
-              onSelectedItemChange(item)
-            }}
-            aria-label={`${copy.viewItem}: ${item.name}`}
-          >
-            {copy.viewItem}
-          </Button>
+        headerClassName: 'w-px px-4',
+        cellClassName: 'w-px whitespace-nowrap px-4 text-right',
+        render: () => (
+          <ChevronRight
+            className="ml-auto size-4 text-muted-foreground"
+            aria-hidden
+          />
         ),
       },
     ],
-    [copy, newItemKeys, onSelectedItemChange]
+    [copy, newItemKeys, notifications?.unread]
   )
 
   if (!items.length) {
     return (
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-sans text-lg font-semibold text-foreground">
-            {copy.title}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
-          {tagFilterActive ? (
-            <p className="mt-2 text-xs text-muted-foreground">{copy.tagFilterNote}</p>
-          ) : null}
-        </div>
         <div className="portal-home-card rounded-xl px-6 py-10 text-center">
-          <h3 className="font-sans text-base font-semibold text-foreground">
+          <h2 className="font-sans text-base font-semibold text-foreground">
             {filteredEmpty ? tramites.filters.noResultsTitle : copy.emptyTitle}
-          </h3>
+          </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {filteredEmpty
               ? tramites.filters.noResultsDescription
@@ -179,16 +173,6 @@ function TramitesListSection({
 
   return (
     <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="font-sans text-lg font-semibold text-foreground">
-          {copy.title}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
-        {tagFilterActive ? (
-          <p className="mt-2 text-xs text-muted-foreground">{copy.tagFilterNote}</p>
-        ) : null}
-      </div>
-
       <PortalRecordTable
         columns={columns}
         rows={items}
@@ -224,7 +208,7 @@ type TramitesPageViewProps = {
 export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
   const [filters, setFilters] = useState<TramitesListFilters>(
     defaultTramitesListFilters
   )
@@ -387,6 +371,29 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
     [allItems, filters]
   )
 
+  const liveSortedItems = useMemo(
+    () =>
+      sortTramiteListByActivity(
+        filteredItems,
+        notifications?.unread ?? [],
+        displayNewItemKeys
+      ),
+    [filteredItems, notifications?.unread, displayNewItemKeys]
+  )
+
+  // Con el drawer abierto, el orden se congela: si reordenáramos en
+  // caliente (p. ej. al marcar una notificación como vista al entrar en
+  // el trámite), la fila saltaría de sitio bajo el usuario sin que cierre
+  // nada. Solo se recalcula al volver a la vista completa (drawer cerrado).
+  const [sortedItems, setSortedItems] = useState<TramiteListItem[]>(
+    () => liveSortedItems
+  )
+  useEffect(() => {
+    if (selectedItem === null) {
+      setSortedItems(liveSortedItems)
+    }
+  }, [liveSortedItems, selectedItem])
+
   const filtersActive = hasActiveTramitesFilters(filters)
 
   return (
@@ -411,9 +418,8 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
       />
 
       <TramitesListSection
-        items={filteredItems}
+        items={sortedItems}
         newItemKeys={displayNewItemKeys}
-        tagFilterActive={data.tagFilterActive}
         filteredEmpty={filtersActive && filteredItems.length === 0}
         selectedItem={selectedItem}
         onSelectedItemChange={handleSelectItem}

@@ -1,5 +1,5 @@
 export const portalDocuments = {
-  tabLabel: 'Documentos',
+  tabLabel: 'Adjuntos',
   attachmentsTitle: 'Documentos',
   loadingAttachments: 'Cargando documentos…',
   emptyAttachments: 'No hay documentos adjuntos en este registro.',

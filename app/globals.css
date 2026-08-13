@@ -522,6 +522,14 @@ html.dark.hc {
     color: #fdba74;
     box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.48);
   }
+  .badge-status-unread-message {
+    @apply bg-primary/20 text-accent-on-light;
+  }
+  .dark .badge-status-unread-message {
+    background-color: rgba(1, 222, 162, 0.22);
+    color: #5eead4;
+    box-shadow: inset 0 0 0 1px rgba(1, 222, 162, 0.48);
+  }
   .badge-type-tramite {
     @apply bg-service-contable/20 text-agua;
   }

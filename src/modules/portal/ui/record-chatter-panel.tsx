@@ -1,9 +1,11 @@
 'use client'
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -70,6 +72,13 @@ type RecordChatterPanelProps = {
    * reflejarlo sin necesidad de cerrar y reabrir el drawer.
    */
   latestKnownMessageId?: number
+  /**
+   * Id del último mensaje ya leído justo ANTES de abrir esta vez (0 si no
+   * había nada leído todavía). Pinta un separador "Mensajes nuevos" antes
+   * del primer mensaje no leído — pero solo si además hay algún mensaje
+   * anterior ya leído; si todo es nuevo (o nada lo es), no se pinta nada.
+   */
+  lastSeenMessageIdBeforeOpen?: number
 }
 
 function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
@@ -102,6 +111,7 @@ export function RecordChatterPanel({
   onOpenAttachment,
   onAttachmentsChanged,
   latestKnownMessageId,
+  lastSeenMessageIdBeforeOpen = 0,
 }: RecordChatterPanelProps) {
   const router = useRouter()
   const notifications = usePortalNotificationsOptional()
@@ -117,6 +127,7 @@ export function RecordChatterPanel({
   const replyParentIdRef = useRef<number | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
+  const [dividerDismissed, setDividerDismissed] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
@@ -200,6 +211,7 @@ export function RecordChatterPanel({
     setMessages([])
     setHasMore(false)
     setSendError(null)
+    setDividerDismissed(false)
     resetComposerState()
     shouldStickToBottomRef.current = true
 
@@ -292,6 +304,17 @@ export function RecordChatterPanel({
       return enrichPortalChatterMessages([...current, broadcast.message])
     })
   }, [kind, notifications?.lastRecordMessage, recordId])
+
+  // Solo se marca frontera si hay mensajes leídos Y no leídos a la vez —
+  // si todo es nuevo (primera visita) o nada lo es, un separador no aporta
+  // nada y solo añade ruido.
+  const firstUnreadIndex = useMemo(() => {
+    if (!lastSeenMessageIdBeforeOpen || dividerDismissed) return -1
+    const index = messages.findIndex(
+      (message) => message.id > lastSeenMessageIdBeforeOpen
+    )
+    return index > 0 ? index : -1
+  }, [messages, lastSeenMessageIdBeforeOpen, dividerDismissed])
 
   useEffect(() => {
     if (!active || loadingInitial || !markReadOnView || !messages.length) return
@@ -477,6 +500,7 @@ export function RecordChatterPanel({
           }
           resetComposerState()
           shouldStickToBottomRef.current = true
+          setDividerDismissed(true)
           setMessages((current) => [...current, newMessage])
           return
         }
@@ -503,6 +527,7 @@ export function RecordChatterPanel({
 
         resetComposerState()
         shouldStickToBottomRef.current = true
+        setDividerDismissed(true)
         const postedMessage = effectiveReplyParentId
           ? result.message
           : (({ parentId: _parentId, parentPreview: _preview, ...message }) => message)(
@@ -595,15 +620,25 @@ export function RecordChatterPanel({
 
         {!loadingInitial && !error && messages.length > 0 ? (
           <ul className="flex flex-col gap-3">
-            {messages.map((message) => (
-              <ChatterMessageItem
-                key={message.id}
-                message={message}
-                canReply={canReply}
-                formatDate={formatMessageDate}
-                onReply={handleReply}
-                onOpenAttachment={onOpenAttachment}
-              />
+            {messages.map((message, index) => (
+              <Fragment key={message.id}>
+                {index === firstUnreadIndex ? (
+                  <li className="flex items-center gap-3 py-1" role="separator">
+                    <span className="h-px flex-1 bg-primary/30" aria-hidden />
+                    <span className="shrink-0 text-xs font-medium text-primary">
+                      {portalChatter.newMessagesDivider}
+                    </span>
+                    <span className="h-px flex-1 bg-primary/30" aria-hidden />
+                  </li>
+                ) : null}
+                <ChatterMessageItem
+                  message={message}
+                  canReply={canReply}
+                  formatDate={formatMessageDate}
+                  onReply={handleReply}
+                  onOpenAttachment={onOpenAttachment}
+                />
+              </Fragment>
             ))}
             {loadingNewer ? <ChatterTypingIndicator /> : null}
           </ul>

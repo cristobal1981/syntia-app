@@ -95,6 +95,7 @@ type PortalNotificationsContextValue = {
     message: PortalChatterMessage
   } | null
   hasUnreadChatter: (recordKind: PortalRecordKind, recordId: number) => boolean
+  getLastSeenMessageId: (recordKind: PortalRecordKind, recordId: number) => number
   hasTramiteNotification: (
     item: { kind: 'tramite' | 'consulta'; id: number },
     reason: Extract<PortalNotificationReason, 'new_document' | 'status_change'>
@@ -778,6 +779,20 @@ export function PortalNotificationsProvider({
     [unread]
   )
 
+  /**
+   * Id del último mensaje ya visto ANTES de la lectura actual, para pintar
+   * un separador "mensajes nuevos" en el chat. Lee el ref directamente (no
+   * `unread`/estado) para poder llamarse desde un `useMemo` en el
+   * consumidor y capturar el valor justo antes de que el ack de apertura
+   * lo sobrescriba — el mismo truco que ya usa `chatterNotification` en
+   * tramite-detail-drawer.tsx.
+   */
+  const getLastSeenMessageId = useCallback(
+    (recordKind: PortalRecordKind, recordId: number) =>
+      readStateRef.current[chatterReadStateKey(recordKind, recordId)] ?? 0,
+    []
+  )
+
   const hasTramiteNotification = useCallback(
     (
       item: { kind: 'tramite' | 'consulta'; id: number },
@@ -800,6 +815,7 @@ export function PortalNotificationsProvider({
       stats,
       lastRecordMessage,
       hasUnreadChatter,
+      getLastSeenMessageId,
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
@@ -816,6 +832,7 @@ export function PortalNotificationsProvider({
       stats,
       lastRecordMessage,
       hasUnreadChatter,
+      getLastSeenMessageId,
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,

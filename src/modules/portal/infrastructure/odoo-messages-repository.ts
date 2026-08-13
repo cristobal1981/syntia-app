@@ -443,11 +443,43 @@ export async function findUnreadChatterCandidatesForRecords(input: {
       const maxVisibleId = Math.max(...recordRows.map((row) => row.id))
 
       if (lastSeen === undefined) {
-        bootstrapUpdates.push({
-          recordKind: group.recordKind,
-          recordId: record.recordId,
-          lastSeenMessageId: maxVisibleId,
+        // El baseline recién creado evita marcar como "sin leer" el propio
+        // primer mensaje del cliente en un registro que nunca tuvo lectura
+        // — pero si quien escribió primero fue el asesor (el cliente nunca
+        // abrió esto y ya tiene algo pendiente), el baseline se ancla justo
+        // antes de ese mensaje en vez de al final: así sigue apareciendo
+        // como "sin leer" en los polls siguientes en lugar de desaparecer
+        // solo tras el primer aviso, hasta que el cliente abra de verdad
+        // la conversación.
+        const latestFromGestorOnFirstSeen = recordRows.find((row) => {
+          const authorId = mapOdooMany2OneId(row.author_id)
+          return !isClientChatterAuthor(authorId, input.clientPartnerId)
         })
+
+        if (latestFromGestorOnFirstSeen) {
+          bootstrapUpdates.push({
+            recordKind: group.recordKind,
+            recordId: record.recordId,
+            lastSeenMessageId: latestFromGestorOnFirstSeen.id - 1,
+          })
+
+          unread.push({
+            recordKind: group.recordKind,
+            recordId: record.recordId,
+            latestMessageId: latestFromGestorOnFirstSeen.id,
+            latestDate:
+              typeof latestFromGestorOnFirstSeen.date === 'string'
+                ? latestFromGestorOnFirstSeen.date
+                : '',
+          })
+        } else {
+          bootstrapUpdates.push({
+            recordKind: group.recordKind,
+            recordId: record.recordId,
+            lastSeenMessageId: maxVisibleId,
+          })
+        }
+
         continue
       }
 

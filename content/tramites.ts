@@ -1,5 +1,5 @@
 export const tramites = {
-  title: 'Trámites',
+  title: 'Tus trámites',
   description:
     'Gestiones generales, consultas de soporte y documentación asociada. Por defecto ves solo lo que sigue abierto.',
   refreshButton: 'Actualizar',
@@ -41,18 +41,21 @@ export const tramites = {
     pageLabel: 'Página',
     ofLabel: 'de',
   },
+  activity: {
+    extraCount: '+{count} más',
+  },
   filters: {
     searchLabel: 'Buscar trámites',
     searchPlaceholder: 'Buscar por nombre…',
     includeClosed: 'Incluir cerrados',
     includeClosedHint:
       'En «Todos» muestra abiertos y cerrados. Con otros filtros activos, marca Hecho y Cancelado.',
+    typeLabel: 'Tipo',
+    stateLabel: 'Estado',
+    clearFilters: 'Limpiar filtros',
     views: {
-      label: 'Filtrar trámites',
-      all: 'Todos',
       tramites: 'Trámites',
       consultas: 'Consultas',
-      inProgress: 'En curso',
       done: 'Hecho',
       canceled: 'Cancelado',
       withDocuments: 'Con documentos',
@@ -62,26 +65,21 @@ export const tramites = {
       'No hay trámites que coincidan con los filtros actuales. Prueba otra búsqueda, cambia el filtro o activa «Incluir cerrados».',
   },
   list: {
-    title: 'Tus trámites',
-    description:
-      'Trámites de proyecto y consultas de soporte en un solo listado.',
-    tagFilterNote:
-      'Las tareas de proyecto se muestran si están marcadas para Syntia, junto con sus subtareas.',
     emptyTitle: 'Sin trámites',
     emptyDescription: 'No hay trámites en curso en tu cuenta en este momento.',
     columns: {
       name: 'Trámite',
-      type: 'Tipo',
-      state: 'Estado',
-      documents: 'Documentos',
-      actions: 'Detalle',
+      tags: 'Etiquetas',
+      documents: 'adjuntos',
     },
-    viewItem: 'Ver detalles',
-    newItemBadge: 'Nuevo',
     downloadZip: 'Descargar todo',
     detailNav: {
       previous: 'Anterior de la lista',
       next: 'Siguiente de la lista',
+      previousHint: 'Trámite anterior',
+      nextHint: 'Trámite siguiente',
+      buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
+      buttonHintActive: '{action} ({shortcut})',
       positionLabel: 'Trámite {current} de {total} en esta página',
     },
     types: {

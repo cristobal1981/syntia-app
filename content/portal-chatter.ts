@@ -3,6 +3,7 @@ export const portalChatter = {
   tabConversation: 'Conversación',
   loading: 'Cargando mensajes…',
   loadingOlder: 'Cargando mensajes anteriores…',
+  newMessagesDivider: 'Mensajes nuevos',
   empty: 'Todavía no hay mensajes en este trámite.',
   composerPlaceholder: 'Escribe un mensaje…',
   formatBold: 'Negrita',

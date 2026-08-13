@@ -308,17 +308,19 @@ export function computeFirmaWatchDeltas(input: {
 export function mergeAndSortPortalNotifications(
   ...groups: PortalNotification[][]
 ): PortalNotification[] {
-  const newTramiteIds = new Set(
+  // Un trámite recién creado con mensaje del gestor sin leer es ambas cosas
+  // a la vez; se queda solo con "mensaje sin leer" (más accionable, gana en
+  // REASON_PRIORITY) para no duplicar entrada en la campana de avisos.
+  const unreadChatterTramiteIds = new Set(
     groups
       .flat()
-      .filter((item) => item.reason === 'new_tramite')
+      .filter((item) => item.reason === 'unread_chatter' && item.listKind === 'tramite')
       .map((item) => item.recordId)
   )
 
   const merged = groups.flat().filter((item) => {
-    if (item.reason !== 'unread_chatter') return true
-    if (item.listKind !== 'tramite') return true
-    return !newTramiteIds.has(item.recordId)
+    if (item.reason !== 'new_tramite') return true
+    return !unreadChatterTramiteIds.has(item.recordId)
   })
 
   return merged.sort((a, b) =>

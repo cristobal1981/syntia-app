@@ -1,3 +1,5 @@
+import { revalidateTag } from 'next/cache'
+
 import {
   computeFirmaWatchDeltas,
   computeRecordWatchDeltas,
@@ -26,6 +28,7 @@ import {
   getFreshPendingSignaturesSnapshotSafe,
   getFreshTramitesSnapshotSafe,
   getFreshUnreadChatterCandidates,
+  tramitesSnapshotCacheTag,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import {
@@ -39,7 +42,6 @@ import {
 import { ensureTramitesListSeenInitialized } from '@/src/modules/tramites/application/tramites-list-seen-actions'
 import { fetchTramitesListSeenState } from '@/src/modules/tramites/infrastructure/tramites-list-seen-state.supabase'
 import {
-  formatTramiteListItemKey,
   getTramiteListItemKey,
   getTramiteListRecordKind,
   mergeTramitesList,
@@ -230,13 +232,6 @@ export async function loadClientPortalNotifications(input: {
 
     const newTramiteKeys = new Set(computeNewTramiteListItemKeys(items, seenState))
 
-    const unreadChatterFiltered = unreadChatterWithMeta.filter((item) => {
-      if (item.listKind !== 'tramite') return true
-      return !newTramiteKeys.has(
-        formatTramiteListItemKey('tramite', item.recordId)
-      )
-    })
-
     const newTramiteNotifications = items
       .filter(
         (item) =>
@@ -268,7 +263,7 @@ export async function loadClientPortalNotifications(input: {
     }
 
     const allUnread = mergeAndSortPortalNotifications(
-      unreadChatterFiltered,
+      unreadChatterWithMeta,
       newTramiteNotifications,
       recordDeltas.notifications,
       firmaDeltas.notifications
@@ -301,6 +296,20 @@ export async function loadClientPortalNotifications(input: {
       (bootstrapUpdates.length > 0 ||
         watchUpdates.length > 0 ||
         tramitesBaselineInitialized)
+
+    // El snapshot de trámites vive en unstable_cache (90s) para no repetir
+    // peticiones a Odoo en cada render; sin esto, un cambio de estado
+    // detectado aquí tardaría hasta 90s en reflejarse en /tramites pese a
+    // que el poll ya fuerza un router.refresh() justo después.
+    const tramitesChanged =
+      newTramiteNotifications.length > 0 ||
+      recordDeltas.notifications.some(
+        (notification) =>
+          notification.scope === 'tramite' || notification.scope === 'consulta'
+      )
+    if (persist && tramitesChanged) {
+      revalidateTag(tramitesSnapshotCacheTag(input.partnerId), { expire: 0 })
+    }
 
     const openObligaciones = obligSnap.leaves.filter((leaf) => !isTaskClosed(leaf.state))
     const nextObligacion =
