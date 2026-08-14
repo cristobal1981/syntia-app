@@ -388,29 +388,6 @@ html.dark.hc {
 }
 
 @layer utilities {
-  /* Resaltado temporal al llegar a un modelo concreto desde una guía */
-  .guide-card-flash {
-    animation: guide-card-flash 2s ease-out;
-  }
-
-  @keyframes guide-card-flash {
-    0%,
-    35% {
-      box-shadow: 0 0 0 3px var(--primary);
-      background-color: color-mix(in oklch, var(--primary) 10%, transparent);
-    }
-    100% {
-      box-shadow: 0 0 0 0 transparent;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .guide-card-flash {
-      animation: none;
-      box-shadow: 0 0 0 3px var(--primary);
-    }
-  }
-
   .portal-menu-corner::after {
     content: '';
     pointer-events: none;

@@ -1,10 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
-import { AlarmClock, CalendarClock, ChevronRight, Search, X } from 'lucide-react'
+import { useMemo } from 'react'
+import { AlarmClock, CalendarClock, ChevronRight } from 'lucide-react'
 
-import { Input } from '@/components/ui/input'
 import { guias, type GuideEntry } from '@/content/guias'
 import { cn } from '@/lib/utils'
 import { formatKeywordHashtag } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
@@ -13,7 +12,6 @@ import type { RelevantTaxWindow } from '@/src/modules/guias/domain/tax-calendar'
 import {
   getGuidesByCategory,
   getGuidesForWindowSlugs,
-  guideMatchesQuery,
 } from '@/src/modules/guias/domain/guide-search'
 
 const copy = guias.hub
@@ -139,28 +137,7 @@ type GuiasHubViewProps = {
 }
 
 export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
-  const [query, setQuery] = useState('')
-  const trimmedQuery = query.trim()
-  const isSearching = trimmedQuery.length > 0
-
-  const visibleGroups = useMemo(() => {
-    const groups = getGuidesByCategory()
-    if (!trimmedQuery) return groups
-
-    return groups
-      .map((group) => ({
-        ...group,
-        entries: group.entries.filter((entry) =>
-          guideMatchesQuery(entry, trimmedQuery)
-        ),
-      }))
-      .filter((group) => group.entries.length > 0)
-  }, [trimmedQuery])
-
-  const resultCount = useMemo(
-    () => visibleGroups.reduce((total, group) => total + group.entries.length, 0),
-    [visibleGroups]
-  )
+  const visibleGroups = useMemo(() => getGuidesByCategory(), [])
 
   return (
     <div className="flex flex-col gap-8">
@@ -173,47 +150,7 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
         </p>
       </header>
 
-      <div>
-        <label htmlFor="guias-search" className="sr-only">
-          {copy.searchLabel}
-        </label>
-        <div className="relative max-w-xl">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            id="guias-search"
-            type="search"
-            name="guias-search"
-            value={query}
-            placeholder={copy.searchPlaceholder}
-            autoComplete="off"
-            spellCheck={false}
-            className="pr-9 pl-9 [&::-webkit-search-cancel-button]:appearance-none"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {isSearching ? (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <X className="size-3.5" aria-hidden />
-              <span className="sr-only">{copy.clearSearch}</span>
-            </button>
-          ) : null}
-        </div>
-        {isSearching ? (
-          <p className="mt-2 text-xs text-muted-foreground" role="status">
-            {resultCount === 1
-              ? copy.resultCountOne
-              : copy.resultCountMany.replace('{count}', String(resultCount))}
-          </p>
-        ) : null}
-      </div>
-
-      {!isSearching && relevantWindows.length ? (
+      {relevantWindows.length ? (
         <section
           aria-labelledby="guias-now-title"
           className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-5 md:p-6 dark:border-primary/25 dark:bg-primary/[0.06]"
@@ -241,49 +178,38 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
         </section>
       ) : null}
 
-      {visibleGroups.length ? (
-        <div className="flex flex-col gap-8">
-          {visibleGroups.map((group) => {
-            const CategoryIcon = GUIDE_CATEGORY_ICON[group.category]
-            return (
-              <section key={group.category} aria-labelledby={`guias-${group.category}`}>
-                <div className="flex items-center gap-2.5">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <CategoryIcon className="size-4" aria-hidden />
+      <div className="flex flex-col gap-8">
+        {visibleGroups.map((group) => {
+          const CategoryIcon = GUIDE_CATEGORY_ICON[group.category]
+          return (
+            <section key={group.category} aria-labelledby={`guias-${group.category}`}>
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <CategoryIcon className="size-4" aria-hidden />
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <h2
+                    id={`guias-${group.category}`}
+                    className="font-sans text-lg font-semibold text-foreground"
+                  >
+                    {group.label}
+                  </h2>
+                  <span className="text-sm tabular-nums text-muted-foreground">
+                    {group.entries.length}
                   </span>
-                  <div className="flex items-baseline gap-1.5">
-                    <h2
-                      id={`guias-${group.category}`}
-                      className="font-sans text-lg font-semibold text-foreground"
-                    >
-                      {group.label}
-                    </h2>
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      {group.entries.length}
-                    </span>
-                  </div>
                 </div>
-                <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {group.entries.map((entry) => (
-                    <li key={entry.slug} className="min-w-0">
-                      <GuideCard entry={entry} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="portal-home-card rounded-xl px-6 py-10 text-center">
-          <h2 className="font-sans text-base font-semibold text-foreground">
-            {copy.noResultsTitle}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {copy.noResultsDescription}
-          </p>
-        </div>
-      )}
+              </div>
+              <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {group.entries.map((entry) => (
+                  <li key={entry.slug} className="min-w-0">
+                    <GuideCard entry={entry} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowRight, ArrowUpRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -14,8 +14,20 @@ export const appLinkClassName =
 export const appLinkPortalClassName =
   'text-agua underline decoration-agua/50 hover:decoration-agua dark:text-primary dark:decoration-primary/50 dark:hover:decoration-primary'
 
-export const appLinkArrowClassName =
-  'size-3.5 shrink-0 text-subtle-foreground transition-[transform,color] duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none group-hover/app-link:translate-x-px group-hover/app-link:-translate-y-px group-hover/app-link:text-foreground'
+const appLinkArrowBaseClassName =
+  'size-3.5 shrink-0 text-subtle-foreground transition-[transform,color] duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none group-hover/app-link:text-foreground'
+
+/** Enlace externo: sale de la app. La flecha apunta en diagonal (↗). */
+export const appLinkArrowExternalClassName = cn(
+  appLinkArrowBaseClassName,
+  'group-hover/app-link:translate-x-px group-hover/app-link:-translate-y-px'
+)
+
+/** Enlace interno: navega dentro de la app. La flecha apunta a la derecha (→). */
+export const appLinkArrowInternalClassName = cn(
+  appLinkArrowBaseClassName,
+  'group-hover/app-link:translate-x-px'
+)
 
 type AppLinkProps = {
   href: string
@@ -37,13 +49,17 @@ export function AppLink({
   title,
 }: AppLinkProps) {
   const isExternal = external ?? isExternalHref(href)
+  const ArrowIcon = isExternal ? ArrowUpRight : ArrowRight
 
   const content = (
     <>
       <span>{children}</span>
       {showArrow ? (
-        <ArrowUpRight
-          className={cn(appLinkArrowClassName, arrowClassName)}
+        <ArrowIcon
+          className={cn(
+            isExternal ? appLinkArrowExternalClassName : appLinkArrowInternalClassName,
+            arrowClassName
+          )}
           aria-hidden
         />
       ) : null}
