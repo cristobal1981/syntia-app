@@ -201,37 +201,14 @@ function FiscalModelDetailPane({ entry, searchQuery, onKeywordClick }: FiscalMod
   )
 }
 
-/** Ficha de un modelo en la lista apilada (móvil, sin maestro-detalle). */
-function FiscalModelDetailSection({ entry, searchQuery, onKeywordClick }: FiscalModelDetailProps) {
-  return (
-    <section className="border-b border-border/60 py-6 first:pt-0 last:border-b-0 last:pb-0">
-      <div className="flex items-start gap-3">
-        <span
-          className="flex shrink-0 items-center justify-center rounded-lg bg-primary px-3 py-2.5 text-white dark:bg-primary/15 dark:text-primary"
-          aria-hidden
-        >
-          <span className="font-sans text-xl font-bold tabular-nums">{entry.code}</span>
-        </span>
-        <h2 className="min-w-0 flex-1 pt-1 font-sans text-base font-semibold leading-snug text-foreground">
-          <span className="sr-only">{entry.label}. </span>
-          {entry.title}
-        </h2>
-      </div>
-      <p className="mt-3 max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
-        {entry.description}
-      </p>
-      <FiscalModelFilingInfo entry={entry} />
-      <FiscalModelRelatedGuides code={entry.code} />
-      <FiscalModelKeywords entry={entry} searchQuery={searchQuery} onKeywordClick={onKeywordClick} />
-      <FiscalModelSourceLine authority={entry.authority} className="mt-4" />
-    </section>
-  )
-}
-
 export function FiscalModelsGuideView() {
   const copy = fiscalModelsGuide
   const [query, setQuery] = useState('')
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
+  // Solo se usa en móvil: el maestro-detalle de desktop siempre muestra
+  // índice + panel a la vez, pero en una pantalla estrecha son dos vistas
+  // separadas (lista o ficha), no dos columnas.
+  const [mobileShowDetail, setMobileShowDetail] = useState(false)
   const indexRef = useRef<HTMLDivElement>(null)
 
   const trimmedQuery = query.trim()
@@ -251,6 +228,7 @@ export function FiscalModelsGuideView() {
       url.searchParams.delete('modelo')
       window.history.replaceState(null, '', url)
       setSelectedCode(paramCode)
+      setMobileShowDetail(true)
     }
   }, [])
 
@@ -363,16 +341,50 @@ export function FiscalModelsGuideView() {
             </div>
           </div>
 
-          {/* Móvil: lista completa apilada, sin maestro-detalle. */}
+          {/* Móvil: lista o ficha, nunca las dos a la vez. */}
           <div className="md:hidden">
-            {visibleModels.map((entry) => (
-              <FiscalModelDetailSection
-                key={entry.code}
-                entry={entry}
-                searchQuery={query}
-                onKeywordClick={setQuery}
-              />
-            ))}
+            {mobileShowDetail && selectedEntry ? (
+              <div className="portal-home-card flex flex-col overflow-hidden rounded-xl">
+                <div className="border-b border-border/60 p-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMobileShowDetail(false)}
+                  >
+                    <ArrowLeft className="size-4" aria-hidden />
+                    <span className="ml-2">Volver a la lista</span>
+                  </Button>
+                </div>
+                <div className="p-4">
+                  <FiscalModelDetailPane
+                    entry={selectedEntry}
+                    searchQuery={query}
+                    onKeywordClick={setQuery}
+                  />
+                </div>
+                <FiscalModelSourceLine
+                  authority={selectedEntry.authority}
+                  className="border-t border-border/60 px-4 py-3"
+                />
+              </div>
+            ) : (
+              <div className="portal-home-card rounded-xl p-2">
+                <nav className="flex flex-col gap-0.5">
+                  {visibleModels.map((entry) => (
+                    <FiscalModelIndexItem
+                      key={entry.code}
+                      entry={entry}
+                      active={effectiveSelectedCode === entry.code}
+                      onSelect={(code) => {
+                        setSelectedCode(code)
+                        setMobileShowDetail(true)
+                      }}
+                    />
+                  ))}
+                </nav>
+              </div>
+            )}
           </div>
         </>
       ) : (
