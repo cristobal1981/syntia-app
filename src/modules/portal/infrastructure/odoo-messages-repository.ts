@@ -27,6 +27,7 @@ import {
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveAttachmentMetaByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
+import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 
 type OdooMailMessageBatchRow = OdooMailMessageRow & {
   res_id?: number | false | null
@@ -116,7 +117,7 @@ function mapOdooRowToPortalMessage(
   return {
     id: row.id,
     bodyHtml: hasBody ? formatChatterBodyFromOdoo(body) : '',
-    date,
+    date: parseOdooDateTime(date) || date,
     authorName,
     ...(isFromClient || !authorId ? {} : { authorPartnerId: authorId }),
     isFromClient,
@@ -469,7 +470,8 @@ export async function findUnreadChatterCandidatesForRecords(input: {
             latestMessageId: latestFromGestorOnFirstSeen.id,
             latestDate:
               typeof latestFromGestorOnFirstSeen.date === 'string'
-                ? latestFromGestorOnFirstSeen.date
+                ? parseOdooDateTime(latestFromGestorOnFirstSeen.date) ||
+                  latestFromGestorOnFirstSeen.date
                 : '',
           })
         } else {
@@ -492,7 +494,9 @@ export async function findUnreadChatterCandidatesForRecords(input: {
       if (!latestFromGestor) continue
 
       const latestDate =
-        typeof latestFromGestor.date === 'string' ? latestFromGestor.date : ''
+        typeof latestFromGestor.date === 'string'
+          ? parseOdooDateTime(latestFromGestor.date) || latestFromGestor.date
+          : ''
 
       unread.push({
         recordKind: group.recordKind,
