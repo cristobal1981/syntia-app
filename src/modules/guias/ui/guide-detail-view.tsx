@@ -126,7 +126,7 @@ export function GuideDetailView({ guide }: GuideDetailViewProps) {
                     <li key={model.code}>
                       <Link
                         href={`/guias/modelos-aeat?modelo=${model.code}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-foreground/[0.06] px-3 py-1 text-xs font-semibold text-foreground hover:border-primary/55 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:border-border dark:bg-input/40"
+                        className="inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-foreground/[0.06] px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:border-primary/55 hover:bg-primary/[0.06] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:border-foreground/20 dark:bg-foreground/10"
                       >
                         <span className="tabular-nums">{model.code}</span>
                         <span className="font-normal text-muted-foreground">

@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { AlarmClock, CalendarClock, ChevronRight } from 'lucide-react'
 
 import { guias, type GuideEntry } from '@/content/guias'
+import { appLinkPortalClassName } from '@/components/ui/app-link'
 import { cn } from '@/lib/utils'
 import { formatKeywordHashtag } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
 import { GUIDE_CATEGORY_ICON } from '@/src/modules/guias/ui/guide-category-icon'
@@ -45,7 +46,7 @@ function GuideCard({ entry }: GuideCardProps) {
             {entry.tags.map((tag) => (
               <li
                 key={tag}
-                className="inline-flex items-center rounded-full border border-foreground/15 bg-foreground/[0.06] px-2.5 py-0.5 text-xs font-semibold text-foreground dark:border-border dark:bg-input/40"
+                className="inline-flex items-center rounded-full border border-foreground/15 bg-foreground/[0.06] px-2.5 py-0.5 text-xs font-semibold text-foreground dark:border-foreground/20 dark:bg-foreground/10"
               >
                 {formatKeywordHashtag(tag)}
               </li>
@@ -54,7 +55,12 @@ function GuideCard({ entry }: GuideCardProps) {
         ) : (
           <span aria-hidden />
         )}
-        <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold text-primary">
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold',
+            appLinkPortalClassName
+          )}
+        >
           {copy.readGuide}
           <ChevronRight
             className="size-3.5 transition-transform duration-300 group-hover:translate-x-0.5"

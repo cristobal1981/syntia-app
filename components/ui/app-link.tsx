@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -9,10 +9,10 @@ function isExternalHref(href: string): boolean {
 }
 
 export const appLinkClassName =
-  'group/app-link inline-flex cursor-pointer items-center gap-1 font-medium text-primary underline-offset-4 transition-colors hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'group/app-link inline-flex cursor-pointer items-center gap-1 font-medium text-primary underline-offset-4 transition-colors hover:underline [text-decoration-skip-ink:none] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 export const appLinkPortalClassName =
-  'text-agua underline decoration-agua/50 hover:decoration-agua dark:text-primary dark:decoration-primary/50 dark:hover:decoration-primary'
+  'text-agua underline decoration-agua/50 hover:decoration-agua [text-decoration-skip-ink:none] dark:text-primary dark:decoration-primary/50 dark:hover:decoration-primary'
 
 const appLinkArrowBaseClassName =
   'size-3.5 shrink-0 text-subtle-foreground transition-[transform,color] duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none group-hover/app-link:text-foreground'
@@ -23,7 +23,7 @@ export const appLinkArrowExternalClassName = cn(
   'group-hover/app-link:translate-x-px group-hover/app-link:-translate-y-px'
 )
 
-/** Enlace interno: navega dentro de la app. La flecha apunta a la derecha (→). */
+/** Enlace interno: navega dentro de la app. Caret hacia la derecha (›). */
 export const appLinkArrowInternalClassName = cn(
   appLinkArrowBaseClassName,
   'group-hover/app-link:translate-x-px'
@@ -49,7 +49,7 @@ export function AppLink({
   title,
 }: AppLinkProps) {
   const isExternal = external ?? isExternalHref(href)
-  const ArrowIcon = isExternal ? ArrowUpRight : ArrowRight
+  const ArrowIcon = isExternal ? ArrowUpRight : ChevronRight
 
   const content = (
     <>
