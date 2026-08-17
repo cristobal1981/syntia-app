@@ -73,7 +73,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           ref={buttonRef}
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="relative flex size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9"
+          className="relative flex size-8 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9"
           aria-label={unreadCount > 0 ? `${copy.label}: ${tooltipContent}` : copy.label}
           aria-expanded={open}
           aria-haspopup="true"
@@ -90,7 +90,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
       {open ? (
         <div
           ref={panelRef}
-          className="absolute top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg ltr:right-0 rtl:left-0 max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto"
+          className="absolute top-full right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto"
           role="dialog"
           aria-label={copy.label}
         >

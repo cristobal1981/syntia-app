@@ -220,6 +220,14 @@ html.dark.hc {
   text-underline-offset: 0.2em;
 }
 
+/* Sin hover real (táctil): Radix sigue abriendo el tooltip al tocar,
+   pero aquí no se llega a pintar — evita el parpadeo momentáneo en móvil. */
+@media (hover: none) {
+  [data-slot='tooltip-content'] {
+    display: none;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-host-grotesk), system-ui, sans-serif;
   --font-body: var(--font-archivo), system-ui, sans-serif;
@@ -430,8 +438,8 @@ html.dark.hc {
   }
 
   .dark .portal-home-card-interactive:hover {
-    border-color: transparent;
-    background-color: color-mix(in oklch, var(--muted) 30%, var(--card));
+    border-color: color-mix(in oklch, var(--primary) 40%, transparent);
+    background-color: color-mix(in oklch, var(--primary) 6%, var(--card));
   }
 
   .dark .portal-surface {
