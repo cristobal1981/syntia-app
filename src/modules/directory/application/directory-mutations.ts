@@ -14,6 +14,7 @@ import {
 } from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
+  CreateClientInput,
   PersonStatus,
   UpdateClientInput,
   UpdateGestorInput,
@@ -182,6 +183,49 @@ export async function createGestorAction(
   }
 }
 
+/**
+ * Núcleo de la creación de un cliente, sin sesión de asesor — lo usa tanto la
+ * action de la UI (`createClientAction`) como el webhook público de Odoo
+ * (`app/api/odoo/clientes/route.ts`) para dar de alta el acceso al portal
+ * (y disparar el email de invitación/restablecimiento de contraseña) desde
+ * fuera de la aplicación.
+ */
+export async function createClientCore(
+  input: CreateClientInput
+): Promise<DirectoryUpdateResult> {
+  try {
+    const fieldErrors = validateClientForm(input)
+    if (Object.keys(fieldErrors).length) {
+      return { ok: false, error: 'validation', fieldErrors }
+    }
+
+    const result = await getDirectoryRepository().createClient(input)
+    updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
+    return { ok: true, inviteSent: result.inviteSent }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {
+      return {
+        ok: false,
+        error: 'validation',
+        fieldErrors: { email: 'Ya existe un usuario con ese correo.' },
+      }
+    }
+    const emailError = mapDirectoryEmailError(error)
+    if (!emailError.ok) {
+      return {
+        ok: false,
+        error: emailError.error === 'not_found' ? 'unknown' : emailError.error,
+        message: emailError.message,
+      }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
 export async function createClientAction(
   _prev: DirectoryUpdateResult | null,
   formData: FormData
@@ -199,32 +243,10 @@ export async function createClientAction(
       input.advisorId = scope.userId
     }
 
-    const fieldErrors = validateClientForm(input)
-    if (Object.keys(fieldErrors).length) {
-      return { ok: false, error: 'validation', fieldErrors }
-    }
-
-    const result = await getDirectoryRepository().createClient(input)
-    updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
-    return { ok: true, inviteSent: result.inviteSent }
+    return await createClientCore(input)
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }
-    }
-    if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {
-      return {
-        ok: false,
-        error: 'validation',
-        fieldErrors: { email: 'Ya existe un usuario con ese correo.' },
-      }
-    }
-    const emailError = mapDirectoryEmailError(error)
-    if (!emailError.ok) {
-      return {
-        ok: false,
-        error: emailError.error === 'not_found' ? 'unknown' : emailError.error,
-        message: emailError.message,
-      }
     }
     return {
       ok: false,
