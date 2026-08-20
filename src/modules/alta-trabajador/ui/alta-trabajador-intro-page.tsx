@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Clock } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { altaTrabajadorWizard } from '@/content/alta-trabajador-wizard'
@@ -46,11 +46,14 @@ export function AltaTrabajadorIntroPage() {
         <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
           {copy.description}
         </p>
-        <p className="text-sm text-muted-foreground">{copy.durationHint}</p>
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Clock className="size-4 shrink-0" aria-hidden />
+          {copy.durationHint}
+        </p>
       </header>
 
       <section className="rounded-xl border border-border bg-card p-5 md:p-6 dark:border-transparent">
-        <h2 className="text-sm font-semibold text-foreground">
+        <h2 className="font-sans text-base font-semibold text-foreground">
           {copy.whatYouNeedTitle}
         </h2>
         <ul className="mt-3 space-y-2">
@@ -70,7 +73,7 @@ export function AltaTrabajadorIntroPage() {
       </section>
 
       {resumeStepId ? (
-        <div className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 dark:border-transparent dark:bg-primary/8">
+        <div className="flex flex-col gap-4 rounded-xl border-2 border-dashed border-primary bg-primary/5 p-5 dark:bg-primary/8">
           <p className="text-sm text-muted-foreground">{copy.draftHint}</p>
           <div className="flex flex-wrap gap-3">
             <Button
@@ -84,7 +87,7 @@ export function AltaTrabajadorIntroPage() {
             <Button
               type="button"
               variant="outline"
-              className="cursor-pointer"
+              className="cursor-pointer border-primary hover:bg-background dark:border-primary dark:hover:bg-muted"
               onClick={handleStartFresh}
             >
               {copy.startFreshButton}
