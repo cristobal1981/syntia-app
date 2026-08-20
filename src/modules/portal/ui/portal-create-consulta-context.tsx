@@ -27,6 +27,7 @@ export type OpenCreateConsultaOptions = {
 
 type PortalCreateConsultaContextValue = {
   openCreateConsulta: (options?: OpenCreateConsultaOptions) => void
+  closeCreateConsulta: () => void
   isOpen: boolean
   isAvailable: boolean
 }
@@ -105,9 +106,14 @@ export function PortalCreateConsultaProvider({
     }
   }
 
+  const closeCreateConsulta = useCallback(() => {
+    setOpen(false)
+    setInitialProcedure(null)
+  }, [])
+
   return (
     <PortalCreateConsultaContext.Provider
-      value={{ openCreateConsulta, isOpen: open, isAvailable }}
+      value={{ openCreateConsulta, closeCreateConsulta, isOpen: open, isAvailable }}
     >
       {children}
       {enabled ? (

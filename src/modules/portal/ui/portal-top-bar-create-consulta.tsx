@@ -3,7 +3,13 @@
 import { TramiteCreateConsultaButton } from '@/src/modules/tramites/ui/tramite-create-consulta-button'
 import { usePortalCreateConsultaOptional } from '@/src/modules/portal/ui/portal-create-consulta-context'
 
-export function PortalTopBarCreateConsulta() {
+type PortalTopBarCreateConsultaProps = {
+  dataTour?: string
+}
+
+export function PortalTopBarCreateConsulta({
+  dataTour,
+}: PortalTopBarCreateConsultaProps = {}) {
   const createConsulta = usePortalCreateConsultaOptional()
 
   if (!createConsulta?.isAvailable) {
@@ -15,6 +21,7 @@ export function PortalTopBarCreateConsulta() {
       compact
       onOpen={() => createConsulta.openCreateConsulta()}
       disabled={createConsulta.isOpen}
+      dataTour={dataTour}
     />
   )
 }

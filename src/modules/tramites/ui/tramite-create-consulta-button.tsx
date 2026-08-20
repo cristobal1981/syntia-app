@@ -16,12 +16,14 @@ type TramiteCreateConsultaButtonProps = {
   onOpen?: () => void
   disabled?: boolean
   compact?: boolean
+  dataTour?: string
 }
 
 export function TramiteCreateConsultaButton({
   onOpen,
   disabled = false,
   compact = false,
+  dataTour,
 }: TramiteCreateConsultaButtonProps) {
   const overlayActive = usePortalShortcutOverlay()
   const shortcutCopy = portal.shortcuts.createConsulta
@@ -50,6 +52,7 @@ export function TramiteCreateConsultaButton({
       tooltip={tooltip}
       ariaKeyshortcuts={shortcutLabel}
       overlayRingClassName="ring-2 ring-primary-foreground/25"
+      dataTour={dataTour}
     />
   )
 }

@@ -196,6 +196,50 @@ export const portal = {
       },
     },
   },
+  onboardingTour: {
+    skip: 'Saltar',
+    next: 'Siguiente',
+    prev: 'Anterior',
+    finish: 'Entendido',
+    stepCounter: 'Paso {current} de {total}',
+    replayLabel: 'Ver tutorial de nuevo',
+    steps: {
+      home: {
+        title: 'Tu resumen',
+        description:
+          'Aquí verás de un vistazo el estado de tus trámites y las novedades de tu asesoría.',
+      },
+      tramites: {
+        title: 'Trámites',
+        description:
+          'Aquí sigues cada trámite y consulta que gestionamos por ti, con su estado siempre actualizado.',
+      },
+      firmas: {
+        title: 'Firmas',
+        description: 'Si te llega una solicitud de firma, la encontrarás aquí.',
+      },
+      guias: {
+        title: 'Guías',
+        description:
+          'Si tienes dudas sobre modelos o plazos fiscales, consulta las guías antes de preguntar.',
+      },
+      nuevaConsulta: {
+        title: 'Nueva consulta',
+        description:
+          '¿No encuentras la respuesta? Envía una consulta directa a tu asesor asignado.',
+      },
+      buscador: {
+        title: 'Buscador',
+        description:
+          'Busca cualquier trámite, documento o guía desde aquí, en cualquier momento.',
+      },
+      replay: {
+        title: '¿Necesitas repasarlo?',
+        description:
+          'Puedes volver a ver este tutorial cuando quieras desde aquí, en tu perfil.',
+      },
+    },
+  },
   authLoading: {
     signOutMessage: '¡Hasta pronto! Vuelve cuando quieras.',
     signOutMinDisplayMs: 500,
