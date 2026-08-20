@@ -24,7 +24,8 @@
  * dark: subtle-foreground #b0cdd2 on background #062a33 — ~5.5:1
  * dark: border #072d36 on card #041d23 — subtle surface step (not accent)
  * dark: primary #01dea2 on sidebar-active #0a3540 — ~7:1 (Verde Syntia, immutable)
- * dark: destructive-foreground on destructive #ff6b6b — ~7:1
+ * dark: destructive-foreground on destructive #ff8080 — ~7.2:1
+ * dark: destructive #ff8080 (as text) on card #0c3b46 — ~5:1
  * info-text #1a4f8f on surface-light — ~7.8:1
  * dark: info-text #bfe0ff on card #0c3b46 — ~10.8:1
  */
@@ -46,8 +47,11 @@
   --foreground: var(--on-light);
   --card: #ffffff;
   --card-foreground: var(--on-light);
+  /* Form-control fill; dialogs/drawers override this to stay distinct from their own bg-card panel. */
+  --field-bg: var(--card);
   --popover: #ffffff;
   --popover-foreground: var(--on-light);
+  --popover-border: var(--border);
   --primary: #01dea2;
   --primary-foreground: #041d23;
   --secondary: #01635c;
@@ -118,8 +122,17 @@
   --foreground: var(--on-dark);
   --card: var(--surface-raised);
   --card-foreground: var(--on-dark);
-  --popover: var(--surface-raised);
+  /* Form-control fill; dialogs/drawers override this to --background for contrast against their bg-card panel. */
+  --field-bg: var(--card);
+  /* One step lighter than --card: Radix portals (Select/Popover/DropdownMenu) render outside the
+     dialog DOM subtree, so they can't inherit a context override — stay distinct from --card via a
+     static step instead (dark-mode elevation relies on lightness, shadows barely read here). */
+  --popover: #15424e;
   --popover-foreground: var(--on-dark);
+  /* Bg-vs-bg contrast against --card tops out around 1.5:1 without breaking the tonal dark
+     palette (measured); the border carries the real edge definition here instead, at 3:1+
+     against --popover so the panel reads as a distinct surface even without strong fill contrast. */
+  --popover-border: #4a9dae;
   --primary: #01dea2;
   --primary-foreground: #041d23;
   --secondary: #01635c;
@@ -128,7 +141,7 @@
   --muted-foreground: var(--muted-on-dark);
   --accent: #0a3540;
   --accent-foreground: var(--on-dark);
-  --destructive: #ff6b6b;
+  --destructive: #ff8080;
   --destructive-foreground: #041d23;
   --border: #072d36;
   --border-subtle: color-mix(in oklch, var(--border) 45%, var(--card));
@@ -245,8 +258,10 @@ html.dark.hc {
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-field: var(--field-bg);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-popover-border: var(--popover-border);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);

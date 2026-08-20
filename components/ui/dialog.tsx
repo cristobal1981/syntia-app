@@ -58,20 +58,20 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-card p-6 shadow-lg outline-none sm:max-w-md',
+          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-card p-6 shadow-lg outline-none sm:max-w-md [--field-bg:var(--background)]',
           className
         )}
         {...props}
       >
-        {children}
         {showCloseButton ? (
           <DialogPrimitive.Close
-            className="absolute top-4 right-4 rounded-sm text-subtle-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="absolute top-4 right-4 cursor-pointer rounded-sm p-1 text-subtle-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             aria-label="Cerrar"
           >
             <XIcon className="size-4" />
           </DialogPrimitive.Close>
         ) : null}
+        {children}
       </DialogPrimitive.Content>
     </DialogPortal>
   )

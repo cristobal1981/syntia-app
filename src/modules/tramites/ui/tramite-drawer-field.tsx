@@ -122,7 +122,7 @@ export function TramiteDrawerSelect({
           aria-label={label}
           aria-invalid={Boolean(error)}
           aria-describedby={errorId}
-          className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border/80"
+          className="h-10 w-full rounded-md border border-border bg-field px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border/80"
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>

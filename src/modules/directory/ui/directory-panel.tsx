@@ -47,10 +47,16 @@ export function DirectoryPanel({
         <DialogPrimitive.Content
           data-slot="dialog-content"
           className={cn(
-            'fixed top-0 right-0 left-auto z-50 grid h-dvh max-h-dvh w-full max-w-lg translate-x-0 translate-y-0 gap-4 overflow-y-auto rounded-none border-l bg-card p-6 shadow-lg outline-none sm:rounded-none sm:max-w-lg',
+            'fixed top-0 right-0 left-auto z-50 grid h-dvh max-h-dvh w-full max-w-lg translate-x-0 translate-y-0 gap-4 overflow-y-auto rounded-none border-l bg-card p-6 shadow-lg outline-none sm:rounded-none sm:max-w-lg [--field-bg:var(--background)]',
             motionClass
           )}
         >
+          <DialogClose
+            className="absolute top-4 right-4 cursor-pointer rounded-sm p-1 text-subtle-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            aria-label="Cerrar"
+          >
+            <XIcon className="size-4" />
+          </DialogClose>
           <div className="flex flex-col gap-2 text-left">
             <DialogTitle>{title}</DialogTitle>
             {description ? (
@@ -58,12 +64,6 @@ export function DirectoryPanel({
             ) : null}
           </div>
           {children}
-          <DialogClose
-            className="absolute top-4 right-4 rounded-sm text-subtle-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            aria-label="Cerrar"
-          >
-            <XIcon className="size-4" />
-          </DialogClose>
         </DialogPrimitive.Content>
       </DialogPortal>
     </Dialog>
