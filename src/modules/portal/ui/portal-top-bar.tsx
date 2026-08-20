@@ -103,13 +103,13 @@ export function PortalTopBar({
         <PortalTopBarCreateConsulta />
       </div>
 
-      {/* Desktop: nueva consulta → notificaciones → reportar problema → accesibilidad → tema. */}
+      {/* Desktop: nueva consulta → notificaciones → accesibilidad → tema → reportar problema. */}
       <div className="hidden shrink-0 items-center gap-2 lg:flex">
         <PortalTopBarCreateConsulta />
         <NotificationBell />
-        <PortalTopBarReportProblem />
         <AccessibilityMenu className="shrink-0" />
         <ThemeToggle className="shrink-0" />
+        <PortalTopBarReportProblem />
       </div>
     </header>
   )
