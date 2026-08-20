@@ -8,6 +8,7 @@ import type { PortalRole } from '@/src/modules/auth/domain/types'
 import { AccessibilityMenu } from '@/src/modules/portal/ui/accessibility-menu'
 import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
 import { PortalTopBarCreateConsulta } from '@/src/modules/portal/ui/portal-top-bar-create-consulta'
+import { PortalTopBarReportProblem } from '@/src/modules/portal/ui/portal-top-bar-report-problem'
 import { PortalTopBarSearch } from '@/src/modules/portal/ui/portal-top-bar-search'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
@@ -102,10 +103,11 @@ export function PortalTopBar({
         <PortalTopBarCreateConsulta />
       </div>
 
-      {/* Desktop: nueva consulta → notificaciones → accesibilidad → tema. */}
+      {/* Desktop: nueva consulta → notificaciones → reportar problema → accesibilidad → tema. */}
       <div className="hidden shrink-0 items-center gap-2 lg:flex">
         <PortalTopBarCreateConsulta />
         <NotificationBell />
+        <PortalTopBarReportProblem />
         <AccessibilityMenu className="shrink-0" />
         <ThemeToggle className="shrink-0" />
       </div>
