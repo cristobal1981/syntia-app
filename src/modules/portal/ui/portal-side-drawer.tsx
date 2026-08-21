@@ -17,6 +17,7 @@ type PortalSideDrawerProps = {
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
   size?: 'default' | 'wide'
+  dataTour?: string
 }
 
 export function PortalSideDrawer({
@@ -24,6 +25,7 @@ export function PortalSideDrawer({
   onOpenChange,
   children,
   size = 'default',
+  dataTour,
 }: PortalSideDrawerProps) {
   const reducedMotion = usePrefersReducedMotion()
 
@@ -43,6 +45,7 @@ export function PortalSideDrawer({
         <DialogOverlay className={overlayMotionClass} />
         <DialogPrimitive.Content
           data-slot="dialog-content"
+          data-tour={dataTour}
           className={cn(
             'fixed inset-y-0 right-0 left-auto z-50 flex h-full max-h-dvh w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden overscroll-contain rounded-none border-y-0 border-r-0 bg-card p-0 shadow-lg outline-none dark:shadow-none [--field-bg:var(--background)]',
             widthClass,

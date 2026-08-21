@@ -196,19 +196,13 @@ export const portal = {
       },
     },
   },
-  onboardingTour: {
-    skip: 'Saltar',
-    next: 'Siguiente',
-    prev: 'Anterior',
-    finish: 'Entendido',
-    stepCounter: 'Paso {current} de {total}',
-    replayLabel: 'Ver tutorial de nuevo',
+  onboardingChecklist: {
+    title: 'Primeros pasos',
+    progressLabel: '{completed} de {total}',
+    dismiss: 'Listo',
+    reopenLabel: 'Ver primeros pasos de nuevo',
+    tipDismissLabel: 'Cerrar aviso',
     steps: {
-      home: {
-        title: 'Tu resumen',
-        description:
-          'Aquí verás de un vistazo el estado de tus trámites y las novedades de tu asesoría.',
-      },
       tramites: {
         title: 'Trámites',
         description:
@@ -223,20 +217,15 @@ export const portal = {
         description:
           'Si tienes dudas sobre modelos o plazos fiscales, consulta las guías antes de preguntar.',
       },
-      nuevaConsulta: {
-        title: 'Nueva consulta',
-        description:
-          '¿No encuentras la respuesta? Envía una consulta directa a tu asesor asignado.',
-      },
       buscador: {
         title: 'Buscador',
         description:
           'Busca cualquier trámite, documento o guía desde aquí, en cualquier momento.',
       },
-      replay: {
-        title: '¿Necesitas repasarlo?',
+      nuevaConsulta: {
+        title: 'Nueva consulta',
         description:
-          'Puedes volver a ver este tutorial cuando quieras desde aquí, en tu perfil.',
+          '¿No encuentras la respuesta? Envía una consulta directa a tu asesor asignado.',
       },
     },
   },

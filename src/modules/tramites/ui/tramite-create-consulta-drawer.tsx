@@ -347,7 +347,12 @@ export function TramiteCreateConsultaDrawer({
 
   return (
     <>
-      <PortalSideDrawer open={open} onOpenChange={handleOpenChange} size="wide">
+      <PortalSideDrawer
+        open={open}
+        onOpenChange={handleOpenChange}
+        size="wide"
+        dataTour="tour-nueva-consulta-drawer"
+      >
         <div className="flex h-full min-h-0 flex-col">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4 pr-12 text-left">
             {step !== 'picker' ? (

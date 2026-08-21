@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { PORTAL_CREATE_CONSULTA_SHORTCUT } from '@/src/modules/portal/domain/portal-shortcuts'
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import { acknowledgeTramiteListItemSeenAction } from '@/src/modules/tramites/application/tramites-list-seen-actions'
 import {
   formatTramiteListItemKey,
@@ -27,7 +28,6 @@ export type OpenCreateConsultaOptions = {
 
 type PortalCreateConsultaContextValue = {
   openCreateConsulta: (options?: OpenCreateConsultaOptions) => void
-  closeCreateConsulta: () => void
   isOpen: boolean
   isAvailable: boolean
 }
@@ -61,6 +61,7 @@ export function PortalCreateConsultaProvider({
   const router = useRouter()
   const pathname = usePathname()
   const notifications = useChatterNotificationsOptional()
+  const onboardingChecklist = useOnboardingChecklistOptional()
   const [open, setOpen] = useState(false)
   const [initialProcedure, setInitialProcedure] =
     useState<ProcedureTicketType | null>(null)
@@ -71,6 +72,7 @@ export function PortalCreateConsultaProvider({
   const openCreateConsulta = useCallback(
     (options?: OpenCreateConsultaOptions) => {
       if (!isAvailable) return
+      onboardingChecklist?.markStepComplete('nuevaConsulta')
       if (options?.procedure === 'alta-trabajador') {
         router.push('/alta-trabajador')
         return
@@ -78,7 +80,7 @@ export function PortalCreateConsultaProvider({
       setInitialProcedure(options?.procedure ?? null)
       setOpen(true)
     },
-    [isAvailable, router]
+    [isAvailable, onboardingChecklist, router]
   )
 
   usePortalShortcut(
@@ -106,14 +108,9 @@ export function PortalCreateConsultaProvider({
     }
   }
 
-  const closeCreateConsulta = useCallback(() => {
-    setOpen(false)
-    setInitialProcedure(null)
-  }, [])
-
   return (
     <PortalCreateConsultaContext.Provider
-      value={{ openCreateConsulta, closeCreateConsulta, isOpen: open, isAvailable }}
+      value={{ openCreateConsulta, isOpen: open, isAvailable }}
     >
       {children}
       {enabled ? (

@@ -23,7 +23,7 @@ import type {
 import { ProfileAssignedAdvisorCard } from '@/src/modules/profile/ui/profile-assigned-advisor-card'
 import { ProfileChangeDrawer } from '@/src/modules/profile/ui/profile-change-drawer'
 import { ProfileFieldRow } from '@/src/modules/profile/ui/profile-field-row'
-import { useOnboardingTourOptional } from '@/src/modules/portal/ui/onboarding-tour-context'
+import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 
 type ProfileSummaryViewProps = {
   initialProfile: ClientProfile
@@ -61,7 +61,7 @@ export function ProfileSummaryView({
   assignedAdvisor,
 }: ProfileSummaryViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const onboardingTour = useOnboardingTourOptional()
+  const onboardingChecklist = useOnboardingChecklistOptional()
   const hasIban = Boolean(initialProfile.iban.trim())
   const displayIban = hasIban ? maskIban(initialProfile.iban) : ''
   const { address } = initialProfile
@@ -86,14 +86,13 @@ export function ProfileSummaryView({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            {onboardingTour ? (
+            {onboardingChecklist ? (
               <Button
                 type="button"
                 variant="outline"
-                data-tour="tour-replay"
-                onClick={onboardingTour.start}
+                onClick={onboardingChecklist.start}
               >
-                {portal.onboardingTour.replayLabel}
+                {portal.onboardingChecklist.reopenLabel}
               </Button>
             ) : null}
             <Button

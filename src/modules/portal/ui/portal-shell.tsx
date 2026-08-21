@@ -15,7 +15,7 @@ import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
 import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
-import { OnboardingTourProvider } from '@/src/modules/portal/ui/onboarding-tour-context'
+import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import {
   PortalEntryLoadingProvider,
   usePortalEntryLoading,
@@ -112,9 +112,9 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
     <ChatterNotificationsProvider enabled={user.role === 'client'}>
+    <OnboardingChecklistProvider enabled={user.role === 'client'}>
     <PortalCreateConsultaProvider enabled={user.role === 'client'}>
     <PortalReportProblemProvider enabled={user.role === 'client'}>
-    <OnboardingTourProvider enabled={user.role === 'client'}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -225,9 +225,9 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
     </PortalEntryLoadingProvider>
     </Suspense>
     </PortalRouteLoadingProvider>
-    </OnboardingTourProvider>
     </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
+    </OnboardingChecklistProvider>
     </ChatterNotificationsProvider>
     </TooltipProvider>
     </PortalShortcutOverlayProvider>

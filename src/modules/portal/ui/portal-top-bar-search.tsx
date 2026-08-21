@@ -36,6 +36,7 @@ import {
   formatPortalShortcutLabel,
   PORTAL_SEARCH_SHORTCUT,
 } from '@/src/modules/portal/domain/portal-shortcuts'
+import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import { usePortalCreateConsultaOptional } from '@/src/modules/portal/ui/portal-create-consulta-context'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalShortcutHint } from '@/src/modules/portal/ui/portal-shortcut-hint'
@@ -232,6 +233,7 @@ export function PortalTopBarSearch({
   const listboxId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const createConsulta = usePortalCreateConsultaOptional()
+  const onboardingChecklist = useOnboardingChecklistOptional()
   const overlayActive = usePortalShortcutOverlay()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -282,7 +284,10 @@ export function PortalTopBarSearch({
     return [...pages, ...procedureActionItems, ...quickActions]
   }, [createConsultaItem, index, procedureActionItems, query, role])
 
-  const openSearch = useCallback(() => setOpen(true), [])
+  const openSearch = useCallback(() => {
+    setOpen(true)
+    onboardingChecklist?.markStepComplete('buscador')
+  }, [onboardingChecklist])
 
   usePortalShortcut(PORTAL_SEARCH_SHORTCUT, openSearch)
 
