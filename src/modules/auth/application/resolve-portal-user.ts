@@ -9,7 +9,7 @@ import {
   isSupabaseServiceRoleConfigured,
 } from '@/src/modules/directory/infrastructure/supabase-admin'
 
-const VALID_ROLES: PortalRole[] = ['advisor', 'admin', 'client']
+const VALID_ROLES: PortalRole[] = ['advisor', 'admin', 'client', 'worker']
 
 type PortalAccountRow = {
   id: string

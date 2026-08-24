@@ -1,4 +1,6 @@
-import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { maskStatsForWorker } from '@/src/modules/colaboradores/application/mask-dashboard-for-worker'
 import { countPendingSignaturesForPartner } from '@/src/modules/firmas/infrastructure/count-pending-signatures-for-partner'
 import {
   countObligacionesInProgressForPartner,
@@ -23,7 +25,7 @@ export type ClientDashboardSnapshotResult =
 export async function getClientDashboardSnapshot(
   user: PortalUser
 ): Promise<ClientDashboardSnapshotResult> {
-  if (user.role !== 'client') {
+  if (!isClientOrWorkerRole(user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 
@@ -49,15 +51,19 @@ export async function getClientDashboardSnapshot(
       nextObligacionForPartner(partnerId),
     ])
 
-    return {
-      ok: true,
-      data: {
-        activeTramitesAndConsultas,
-        obligacionesInProgress,
-        pendingSignatures,
-        nextObligacion,
-      },
+    const data = {
+      activeTramitesAndConsultas,
+      obligacionesInProgress,
+      pendingSignatures,
+      nextObligacion,
     }
+
+    if (user.role === 'worker') {
+      const allowedSections = await getAllowedSectionsForWorker(user)
+      return { ok: true, data: maskStatsForWorker(data, allowedSections) }
+    }
+
+    return { ok: true, data }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }
   }

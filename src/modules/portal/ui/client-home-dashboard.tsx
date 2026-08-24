@@ -2,6 +2,8 @@
 
 import { useLayoutEffect } from 'react'
 
+import type { PortalRole } from '@/src/modules/auth/domain/types'
+import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import type {
   ClientDashboardSnapshot,
   ClientDashboardSnapshotResult,
@@ -15,6 +17,8 @@ import { ClientHomeUnreadFeed } from '@/src/modules/portal/ui/client-home-unread
 import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
 
 type ClientHomeDashboardProps = {
+  role: PortalRole
+  allowedSections?: Set<WorkerSectionHref>
   snapshot: ClientDashboardSnapshot | null
   snapshotError?: Extract<
     ClientDashboardSnapshotResult,
@@ -24,6 +28,8 @@ type ClientHomeDashboardProps = {
 }
 
 export function ClientHomeDashboard({
+  role,
+  allowedSections,
   snapshot,
   snapshotError = null,
   initialNotifications,
@@ -50,7 +56,7 @@ export function ClientHomeDashboard({
   return (
     <div className="flex flex-col gap-8">
       {liveSnapshot ? (
-        <ClientHomeStats data={liveSnapshot} />
+        <ClientHomeStats data={liveSnapshot} role={role} allowedSections={allowedSections} />
       ) : (
         <ClientHomeStatsUnavailable error={snapshotError} />
       )}

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
-import { SESSION_COOKIE_NAME } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, SESSION_COOKIE_NAME } from '@/src/modules/auth/domain/types'
 import { getSessionFromToken } from '@/src/modules/auth/infrastructure/session-cookie'
 import { ClientHomeSkeleton, StaffHomeBentoSkeleton } from '@/src/modules/portal/ui/skeletons'
 
@@ -12,7 +12,7 @@ export default async function DashboardLoading() {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
   const session = await getSessionFromToken(token)
 
-  if (session?.user.role === 'client') {
+  if (session && isClientOrWorkerRole(session.user.role)) {
     return <ClientHomeSkeleton />
   }
 

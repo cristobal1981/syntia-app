@@ -11,6 +11,7 @@ import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/r
 import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 
 const SUBJECT_MAX_LENGTH = 120
 
@@ -39,7 +40,7 @@ export async function createTicketAction(input: {
   body: string
 }): Promise<CreateTicketResult> {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

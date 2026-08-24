@@ -3,6 +3,7 @@ import type { IntegrationId } from '@/src/modules/portal/domain/types'
 
 const INTEGRATIONS_BY_ROLE: Record<PortalRole, IntegrationId[]> = {
   client: [],
+  worker: [],
   admin: ['odoo', 'google', 'n8n'],
   advisor: ['odoo', 'google'],
 }

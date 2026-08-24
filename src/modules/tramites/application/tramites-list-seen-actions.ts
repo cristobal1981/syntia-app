@@ -1,6 +1,7 @@
 'use server'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import type { TramitesListSeenState } from '@/src/modules/tramites/domain/tramites-list-seen-state'
 import {
@@ -19,7 +20,7 @@ import {
 
 async function resolveTramitesListSeenActorId(): Promise<string | null> {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return null
   }
 

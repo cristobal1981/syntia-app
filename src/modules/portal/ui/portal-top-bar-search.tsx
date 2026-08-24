@@ -21,7 +21,7 @@ import {
 import { portal } from '@/content/portal'
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { cn } from '@/lib/utils'
-import type { PortalRole } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalRole } from '@/src/modules/auth/domain/types'
 import {
   buildPortalSearchActions,
   buildPortalSearchIndex,
@@ -31,6 +31,7 @@ import {
   getPortalSearchSuggestions,
 } from '@/src/modules/portal/application/filter-portal-search'
 import type { PortalSearchItem } from '@/src/modules/portal/domain/portal-search-types'
+import type { NavItem } from '@/src/modules/portal/domain/types'
 import type { ProcedureTicketType } from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
   formatPortalShortcutLabel,
@@ -45,8 +46,20 @@ import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
 type PortalTopBarSearchProps = {
   role: PortalRole
+  navItems: NavItem[]
   className?: string
   onNavigate?: (href: string) => void
+}
+
+function collectNavHrefs(items: NavItem[]): Set<string> {
+  const hrefs = new Set<string>()
+  for (const item of items) {
+    if (item.href) hrefs.add(item.href)
+    for (const child of item.children ?? []) {
+      if (child.href) hrefs.add(child.href)
+    }
+  }
+  return hrefs
 }
 
 const PROCEDURE_SEARCH_ACTIONS: Array<{
@@ -226,6 +239,7 @@ function SearchResultsList({
 
 export function PortalTopBarSearch({
   role,
+  navItems,
   className,
   onNavigate,
 }: PortalTopBarSearchProps) {
@@ -239,10 +253,17 @@ export function PortalTopBarSearch({
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
 
-  const index = useMemo(() => buildPortalSearchIndex(role), [role])
+  const allowedHrefs = useMemo(
+    () => (role === 'worker' ? collectNavHrefs(navItems) : undefined),
+    [navItems, role]
+  )
+  const index = useMemo(
+    () => buildPortalSearchIndex(role, navItems, allowedHrefs),
+    [allowedHrefs, navItems, role]
+  )
 
   const createConsultaItem = useMemo<PortalSearchItem | null>(() => {
-    if (role !== 'client' || !createConsulta?.isAvailable) return null
+    if (!isClientOrWorkerRole(role) || !createConsulta?.isAvailable) return null
 
     return {
       id: 'action:create-consulta',
@@ -277,12 +298,12 @@ export function PortalTopBarSearch({
       ? filterPortalSearchItems(index, trimmed)
       : getPortalSearchSuggestions(index)
 
-    const queryActions = buildPortalSearchActions(role, query)
+    const queryActions = buildPortalSearchActions(role, query, allowedHrefs)
     const quickActions =
       !trimmed && createConsultaItem ? [createConsultaItem] : queryActions
 
     return [...pages, ...procedureActionItems, ...quickActions]
-  }, [createConsultaItem, index, procedureActionItems, query, role])
+  }, [allowedHrefs, createConsultaItem, index, procedureActionItems, query, role])
 
   const openSearch = useCallback(() => {
     setOpen(true)

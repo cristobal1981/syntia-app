@@ -1,4 +1,4 @@
-import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
 import type { ObligacionesResult } from '@/src/modules/obligaciones/domain/types'
 import { fetchObligacionesFromOdoo } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
@@ -7,7 +7,7 @@ import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/r
 export async function getObligacionesForClient(
   user: PortalUser
 ): Promise<ObligacionesResult> {
-  if (user.role !== 'client') {
+  if (!isClientOrWorkerRole(user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

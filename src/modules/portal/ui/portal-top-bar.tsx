@@ -5,6 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import type { PortalRole } from '@/src/modules/auth/domain/types'
+import type { NavItem } from '@/src/modules/portal/domain/types'
 import { AccessibilityMenu } from '@/src/modules/portal/ui/accessibility-menu'
 import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
 import { PortalTopBarCreateConsulta } from '@/src/modules/portal/ui/portal-top-bar-create-consulta'
@@ -16,6 +17,7 @@ import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
 type PortalTopBarProps = {
   className?: string
   role: PortalRole
+  navItems: NavItem[]
   mobileNavOpen: boolean
   onMobileNavToggle: () => void
   sidebarCollapsed: boolean
@@ -26,6 +28,7 @@ type PortalTopBarProps = {
 export function PortalTopBar({
   className,
   role,
+  navItems,
   mobileNavOpen,
   onMobileNavToggle,
   sidebarCollapsed,
@@ -93,7 +96,7 @@ export function PortalTopBar({
         </PortalActionTooltip>
       </div>
 
-      <PortalTopBarSearch role={role} onNavigate={onNavigate} />
+      <PortalTopBarSearch role={role} navItems={navItems} onNavigate={onNavigate} />
 
       <div className="min-w-2 flex-1" aria-hidden />
 

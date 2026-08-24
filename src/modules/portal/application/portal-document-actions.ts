@@ -3,6 +3,7 @@
 import JSZip from 'jszip'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import type {
   PortalAttachmentDownloadResult,
   PortalAttachmentsZipResult,
@@ -25,7 +26,7 @@ async function resolveClientPartnerId(): Promise<
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

@@ -6,6 +6,7 @@ import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/p
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import {
   formatProcedureRecordDescriptionHtml,
   formatProcedureTicketChatterMessage,
@@ -47,7 +48,7 @@ export async function createProcedureTicketAction(
   payload: ProcedureTicketPayload
 ): Promise<CreateProcedureTicketResult> {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

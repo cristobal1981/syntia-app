@@ -32,6 +32,7 @@ import {
   fetchClientIntegrationMap,
   upsertClientIntegration,
 } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
+import { propagateOwnerIntegrationToWorkers } from '@/src/modules/colaboradores/infrastructure/worker-grants.supabase'
 import {
   shouldSkipClientInviteEmail,
   shouldUseResendClientInvite,
@@ -134,7 +135,7 @@ function resolveAdvisorDisplayName(source: DirectoryPersonSource): string {
   return source.user.email ?? ''
 }
 
-async function upsertProfile(userId: string, fields: Partial<ProfileRow>) {
+export async function upsertProfile(userId: string, fields: Partial<ProfileRow>) {
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase.from('profiles').upsert(
     {
@@ -150,7 +151,7 @@ async function upsertProfile(userId: string, fields: Partial<ProfileRow>) {
   }
 }
 
-async function rollbackCreatedPortalUser(
+export async function rollbackCreatedPortalUser(
   authUserId: string,
   portalUserId?: string
 ) {
@@ -164,7 +165,7 @@ async function rollbackCreatedPortalUser(
   await supabase.auth.admin.deleteUser(authUserId)
 }
 
-function isDuplicateEmailError(message: string): boolean {
+export function isDuplicateEmailError(message: string): boolean {
   const normalized = message.toLowerCase()
   return (
     normalized.includes('already registered') ||
@@ -235,7 +236,9 @@ async function createAuthUserWithResendInvite(
   return { authUserId: data.user.id, inviteSent: true }
 }
 
-async function createAuthUserForClient(email: string): Promise<AuthUserCreation> {
+export async function createAuthUserForClient(
+  email: string
+): Promise<AuthUserCreation> {
   if (shouldSkipClientInviteEmail()) {
     return createAuthUserWithoutInvite(email)
   }
@@ -533,10 +536,12 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       advisor_id: input.advisorId ?? null,
     })
 
-    await upsertClientIntegration(input.id, {
+    const integrationFields = {
       odoo_partner_id: parseOdooPartnerId(input.odooPartnerId),
       drive_folder_id: input.driveFolderId?.trim() || null,
-    })
+    }
+    await upsertClientIntegration(input.id, integrationFields)
+    await propagateOwnerIntegrationToWorkers(input.id, integrationFields)
 
     const updated = await this.getClient(input.id)
     if (!updated) throw new Error('Cliente no encontrado tras actualizar')

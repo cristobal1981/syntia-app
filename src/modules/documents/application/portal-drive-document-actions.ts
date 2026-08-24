@@ -1,6 +1,7 @@
 'use server'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { resolveClientDriveRootId } from '@/src/modules/documents/application/resolve-client-drive-root'
 import {
   createMockDriveFolder,
@@ -43,7 +44,7 @@ async function resolveClientDriveAccess(): Promise<
   | { ok: false; error: DriveDocumentErrorCode }
 > {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

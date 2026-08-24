@@ -19,6 +19,7 @@ import type {
 import { portalWatchStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
@@ -58,7 +59,7 @@ async function resolveClientPartnerId(): Promise<
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

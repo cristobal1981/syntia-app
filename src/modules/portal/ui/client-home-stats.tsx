@@ -10,17 +10,22 @@ import {
 
 import { cn } from '@/lib/utils'
 import { portal } from '@/content/portal'
+import type { PortalRole } from '@/src/modules/auth/domain/types'
+import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import type {
   ClientDashboardSnapshot,
   ClientDashboardSnapshotResult,
 } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
 import {
   resolveClientHomeHeadlineCase,
+  resolveWorkerHomeHeadlineCase,
   type ClientHomeHeadlineCase,
 } from '@/src/modules/portal/domain/resolve-client-home-headline'
 
 type ClientHomeStatsProps = {
   data: ClientDashboardSnapshot
+  role: PortalRole
+  allowedSections?: Set<WorkerSectionHref>
 }
 
 function formatDeadline(value: string): string {
@@ -65,6 +70,12 @@ const HEADLINE_ICON: Record<ClientHomeHeadlineCase['kind'], LucideIcon> = {
 
 type SecondaryMetric = 'tramites' | 'obligaciones' | 'firmas'
 
+const SECONDARY_METRIC_HREF: Record<SecondaryMetric, WorkerSectionHref> = {
+  tramites: '/tramites',
+  obligaciones: '/obligaciones',
+  firmas: '/firmas',
+}
+
 /** Qué métrica ya quedó reflejada en el titular, para no repetirla abajo. */
 function metricCoveredByHeadline(headlineCase: ClientHomeHeadlineCase): SecondaryMetric | null {
   switch (headlineCase.kind) {
@@ -80,9 +91,10 @@ function metricCoveredByHeadline(headlineCase: ClientHomeHeadlineCase): Secondar
   }
 }
 
-export function ClientHomeStats({ data }: ClientHomeStatsProps) {
+export function ClientHomeStats({ data, role, allowedSections }: ClientHomeStatsProps) {
   const copy = portal.home.client
-  const headlineCase = resolveClientHomeHeadlineCase(data)
+  const headlineCase =
+    role === 'worker' ? resolveWorkerHomeHeadlineCase(data) : resolveClientHomeHeadlineCase(data)
   const headlineText = buildHeadlineText(headlineCase)
   const covered = metricCoveredByHeadline(headlineCase)
 
@@ -110,7 +122,11 @@ export function ClientHomeStats({ data }: ClientHomeStatsProps) {
               href: '/firmas',
             },
           ] as const
-        ).filter((stat) => stat.key !== covered)
+        ).filter(
+          (stat) =>
+            stat.key !== covered &&
+            (!allowedSections || allowedSections.has(SECONDARY_METRIC_HREF[stat.key]))
+        )
 
   const Icon = HEADLINE_ICON[headlineCase.kind]
   const isClickable = headlineCase.kind !== 'allClear'

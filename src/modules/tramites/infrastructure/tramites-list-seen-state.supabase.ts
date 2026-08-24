@@ -35,6 +35,30 @@ export async function fetchTramitesListSeenState(
   }
 }
 
+/** Ver `cloneChatterReadStateForUser`: mismo motivo, misma herencia titular → colaborador. */
+export async function cloneTramitesListSeenStateForUser(
+  fromUserId: string,
+  toUserId: string
+): Promise<void> {
+  const state = await fetchTramitesListSeenState(fromUserId)
+  if (!state?.initialized) return
+
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase.from('tramites_list_seen_state').upsert(
+    {
+      user_id: toUserId,
+      open_item_keys: state.openItemKeys,
+      initialized: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  )
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
 export async function upsertTramitesListSeenState(
   userId: string,
   openItemKeys: string[]

@@ -59,6 +59,47 @@ export async function upsertChatterReadState(
   }
 }
 
+/**
+ * Un colaborador nuevo hereda el baseline de lectura del titular en vez de
+ * arrancar en blanco: si no, el bootstrap de `findUnreadChatterCandidatesForRecords`
+ * marca como "sin leer" el último mensaje del gestor en cada trámite abierto,
+ * aunque el titular ya lo hubiera leído hace tiempo.
+ */
+export async function cloneChatterReadStateForUser(
+  fromUserId: string,
+  toUserId: string
+): Promise<void> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('chatter_read_state')
+    .select('record_kind, record_id, last_seen_message_id')
+    .eq('user_id', fromUserId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  if (!data?.length) return
+
+  const now = new Date().toISOString()
+  const { error: upsertError } = await supabase.from('chatter_read_state').upsert(
+    (data as Pick<
+      ChatterReadStateRow,
+      'record_kind' | 'record_id' | 'last_seen_message_id'
+    >[]).map((row) => ({
+      user_id: toUserId,
+      record_kind: row.record_kind,
+      record_id: row.record_id,
+      last_seen_message_id: row.last_seen_message_id,
+      updated_at: now,
+    })),
+    { onConflict: 'user_id,record_kind,record_id' }
+  )
+
+  if (upsertError) {
+    throw new Error(upsertError.message)
+  }
+}
+
 export async function upsertChatterReadStateBatch(
   userId: string,
   entries: Array<{

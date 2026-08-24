@@ -1,4 +1,4 @@
-import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
 import type { PendingSignaturesResult } from '@/src/modules/firmas/domain/types'
 import { getCachedPendingSignaturesSnapshot } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
@@ -10,7 +10,7 @@ import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/r
 export async function getPendingSignaturesForClient(
   user: PortalUser
 ): Promise<PendingSignaturesResult> {
-  if (user.role !== 'client') {
+  if (!isClientOrWorkerRole(user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

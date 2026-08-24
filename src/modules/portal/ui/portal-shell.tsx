@@ -80,6 +80,7 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   const [navPending, setNavPending] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = navItemsProp ?? getNavForRole(user.role)
+  const isClientOrWorker = user.role === 'client' || user.role === 'worker'
   const roleLabel = portal.roles[user.role]
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
@@ -111,10 +112,10 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   return (
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
-    <ChatterNotificationsProvider enabled={user.role === 'client'}>
+    <ChatterNotificationsProvider enabled={isClientOrWorker}>
     <OnboardingChecklistProvider enabled={user.role === 'client'}>
-    <PortalCreateConsultaProvider enabled={user.role === 'client'}>
-    <PortalReportProblemProvider enabled={user.role === 'client'}>
+    <PortalCreateConsultaProvider enabled={isClientOrWorker}>
+    <PortalReportProblemProvider enabled={isClientOrWorker}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -182,6 +183,7 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip bg-background">
         <PortalTopBar
           role={user.role}
+          navItems={navItems}
           mobileNavOpen={mobileOpen}
           onMobileNavToggle={() => setMobileOpen((open) => !open)}
           sidebarCollapsed={sidebarCollapsed}

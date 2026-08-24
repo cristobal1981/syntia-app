@@ -1,4 +1,9 @@
-import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import {
+  filterNotificationsForWorker,
+  maskStatsForWorker,
+} from '@/src/modules/colaboradores/application/mask-dashboard-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import type { ChatterNotificationsCheckResult } from '@/src/modules/portal/domain/chatter-notifications-types'
 import { loadClientPortalNotifications } from '@/src/modules/portal/application/load-client-portal-notifications'
@@ -16,7 +21,7 @@ export type ClientHomeData = {
 }
 
 export async function getClientHomeData(user: PortalUser): Promise<ClientHomeData> {
-  if (user.role !== 'client') {
+  if (!isClientOrWorkerRole(user.role)) {
     return {
       snapshot: null,
       snapshotError: 'forbidden',
@@ -53,6 +58,20 @@ export async function getClientHomeData(user: PortalUser): Promise<ClientHomeDat
       cache: false,
       persist: false,
     })
+
+    if (user.role === 'worker' && notifications.ok) {
+      const allowedSections = await getAllowedSectionsForWorker(user)
+      const maskedNotifications = {
+        ...notifications,
+        stats: maskStatsForWorker(notifications.stats, allowedSections),
+        unread: filterNotificationsForWorker(notifications.unread, allowedSections),
+      }
+      return {
+        snapshot: maskedNotifications.stats,
+        snapshotError: null,
+        notifications: maskedNotifications,
+      }
+    }
 
     const snapshot: ClientDashboardSnapshot | null = notifications.ok
       ? notifications.stats

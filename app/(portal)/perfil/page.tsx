@@ -5,6 +5,8 @@ import { getAssignedAdvisorForClient } from '@/src/modules/profile/application/g
 import { getClientProfileForClient } from '@/src/modules/profile/application/get-client-profile-for-client'
 import { ClientProfilePage } from '@/src/modules/profile/ui'
 import { ProfileStateView } from '@/src/modules/profile/ui/profile-state-view'
+import { listWorkersForOwner } from '@/src/modules/colaboradores/application/list-workers'
+import { getWorkersFeatureForClient } from '@/src/modules/colaboradores/application/workers-feature-toggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +20,11 @@ export default async function PerfilPage() {
     redirect('/dashboard')
   }
 
-  const [result, assignedAdvisor] = await Promise.all([
+  const [result, assignedAdvisor, workersFeature, workers] = await Promise.all([
     getClientProfileForClient(session.user),
     getAssignedAdvisorForClient(session.user),
+    getWorkersFeatureForClient(session.user),
+    listWorkersForOwner(session.user),
   ])
 
   if (!result.ok) {
@@ -31,6 +35,10 @@ export default async function PerfilPage() {
     <ClientProfilePage
       initialProfile={result.profile}
       assignedAdvisor={assignedAdvisor}
+      ownerEmail={session.user.email}
+      workersEnabled={workersFeature.workers_enabled}
+      maxWorkers={workersFeature.max_workers}
+      workers={workers}
     />
   )
 }

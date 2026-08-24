@@ -115,6 +115,16 @@ export const portal = {
           keywords: ['modelos', 'iva', 'irpf', 'guía', 'fiscal', 'tributario'],
         },
       ],
+      worker: [
+        {
+          id: 'extra:guias',
+          label: 'Guías',
+          description: 'Guías prácticas y plazos fiscales',
+          href: '/guias',
+          icon: 'guides' as const,
+          keywords: ['guías', 'guias', 'plazos', 'calendario fiscal', 'ayuda'],
+        },
+      ],
       admin: [],
       advisor: [],
     },
@@ -291,6 +301,7 @@ export const portal = {
     advisor: 'Asesor Syntia',
     admin: 'Administrador',
     client: 'Cliente',
+    worker: 'Colaborador',
   } satisfies Record<PortalRole, string>,
   nav: {
     client: [
@@ -306,6 +317,19 @@ export const portal = {
       { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
       { label: 'Guías', href: '/guias', implemented: true, icon: 'guides' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
+    ],
+    worker: [
+      { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
+      {
+        label: 'Obligaciones',
+        href: '/obligaciones',
+        implemented: true,
+        icon: 'obligations',
+      },
+      { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
+      { label: 'Documentos', href: '/documentos', implemented: true, icon: 'documents' },
+      { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
+      { label: 'Guías', href: '/guias', implemented: true, icon: 'guides' },
     ],
     admin: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },

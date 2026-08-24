@@ -1,6 +1,7 @@
 'use server'
 
 import { onboarding } from '@/content/onboarding'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import {
   buildDirectoryScope,
   requireDirectorySession,
@@ -120,7 +121,7 @@ function mapTokenToRow(
 
 async function requireSolicitudesSession() {
   const session = await requireDirectorySession()
-  if (session.user.role === 'client') {
+  if (isClientOrWorkerRole(session.user.role)) {
     throw new Error('forbidden')
   }
   return session

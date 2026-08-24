@@ -71,6 +71,54 @@ export async function fetchWatchStateForUser(
   return map
 }
 
+/** Ver `cloneChatterReadStateForUser`: mismo motivo, misma herencia titular → colaborador. */
+export async function cloneWatchStateForUser(
+  fromUserId: string,
+  toUserId: string
+): Promise<void> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('portal_record_watch_state')
+    .select(
+      'record_scope, record_id, last_state, last_is_closed, last_attachment_count, firma_due_soon_notified, initialized'
+    )
+    .eq('user_id', fromUserId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  if (!data?.length) return
+
+  const now = new Date().toISOString()
+  const { error: upsertError } = await supabase.from('portal_record_watch_state').upsert(
+    (data as Pick<
+      PortalRecordWatchStateRow,
+      | 'record_scope'
+      | 'record_id'
+      | 'last_state'
+      | 'last_is_closed'
+      | 'last_attachment_count'
+      | 'firma_due_soon_notified'
+      | 'initialized'
+    >[]).map((row) => ({
+      user_id: toUserId,
+      record_scope: row.record_scope,
+      record_id: row.record_id,
+      last_state: row.last_state,
+      last_is_closed: row.last_is_closed,
+      last_attachment_count: row.last_attachment_count,
+      firma_due_soon_notified: row.firma_due_soon_notified,
+      initialized: row.initialized,
+      updated_at: now,
+    })),
+    { onConflict: 'user_id,record_scope,record_id' }
+  )
+
+  if (upsertError) {
+    throw new Error(upsertError.message)
+  }
+}
+
 export async function upsertWatchStateBatch(
   userId: string,
   entries: PortalRecordWatchStateUpsert[]
