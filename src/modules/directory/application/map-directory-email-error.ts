@@ -21,6 +21,14 @@ export function mapDirectoryEmailError(error: unknown): DirectoryEmailActionResu
         'Este cliente no tiene cuenta de acceso vinculada. Contacta con soporte.',
     }
   }
+  if (error instanceof Error && error.message === 'ACCOUNT_ARCHIVED') {
+    return {
+      ok: false,
+      error: 'unknown',
+      message:
+        'Esta cuenta está archivada. Reactívala antes de reenviar el acceso.',
+    }
+  }
   if (error instanceof Error && error.message === 'PASSWORD_RESET_FAILED') {
     return {
       ok: false,

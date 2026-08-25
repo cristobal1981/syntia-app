@@ -88,6 +88,17 @@ async function linkAuthUserId(accountId: string, authUserId: string) {
   }
 }
 
+/**
+ * `archived` es el único estado que bloquea el acceso — cualquier otro
+ * valor (incluido uno corrupto/desconocido) se trata como "todavía no
+ * activado" y se activa aquí, igual que antes. El acceso a la plataforma
+ * no es libre: solo se activa una cuenta al primer login legítimo, nunca
+ * al archivarla.
+ */
+function isAccountArchived(status: string | null): boolean {
+  return status?.toLowerCase() === 'archived'
+}
+
 async function activatePortalAccountIfInvited(
   accountId: string,
   status: string | null
@@ -128,18 +139,38 @@ async function fetchProfileName(
   return (data as PortalProfileNameRow | null) ?? null
 }
 
+/**
+ * `null` significa "esta identidad no tiene acceso, punto" — ni sesión
+ * nueva, ni sesión existente que sobreviva. Tres casos, todos comprobados
+ * ANTES de cualquier escritura (link/activar) o de resolver el perfil:
+ *  - la fila `users` ya no existe (cuenta eliminada);
+ *  - la fila existe pero `status = 'archived'`;
+ *  - la fila existe pero `role` no es uno de los roles válidos (columna
+ *    corrupta/vaciada) — ya no se hereda el rol de la sesión anterior en
+ *    ese caso: un dato que no sabemos interpretar deniega, no mantiene el
+ *    último privilegio conocido.
+ */
 export async function resolvePortalUser(
   authUserId: string,
   email: string,
   fallback: PortalUser
-): Promise<PortalUser> {
+): Promise<PortalUser | null> {
   if (!isSupabaseServiceRoleConfigured()) {
     return fallback
   }
 
   const account = await fetchPortalAccount(authUserId, email)
   if (!account) {
-    return fallback
+    return null
+  }
+
+  if (isAccountArchived(account.status)) {
+    return null
+  }
+
+  const role = parsePortalRole(account.role)
+  if (!role) {
+    return null
   }
 
   if (!account.auth_user_id) {
@@ -149,7 +180,6 @@ export async function resolvePortalUser(
   await activatePortalAccountIfInvited(account.id, account.status)
 
   const profile = await fetchProfileName(account.id)
-  const role = parsePortalRole(account.role) ?? fallback.role
 
   return {
     id: authUserId,
@@ -162,11 +192,15 @@ export async function resolvePortalUser(
   }
 }
 
-export async function resolvePortalUserFromAuth(user: User): Promise<PortalUser> {
+export async function resolvePortalUserFromAuth(
+  user: User
+): Promise<PortalUser | null> {
   const fallback = mapSupabaseUser(user)
   return resolvePortalUser(user.id, user.email ?? '', fallback)
 }
 
-export async function refreshPortalUser(user: PortalUser): Promise<PortalUser> {
+export async function refreshPortalUser(
+  user: PortalUser
+): Promise<PortalUser | null> {
   return resolvePortalUser(user.id, user.email, user)
 }

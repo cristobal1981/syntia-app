@@ -9,6 +9,7 @@ import {
   getSiteUrl,
   isSupabaseConfigured,
 } from '@/src/modules/auth/infrastructure/supabase/env'
+import { getWorkerAccessStatus } from '@/src/modules/colaboradores/application/get-worker-access-status'
 
 export async function signInWithGoogleIdTokenAction(credential: string): Promise<void> {
   if (!isSupabaseConfigured()) {
@@ -25,7 +26,19 @@ export async function signInWithGoogleIdTokenAction(credential: string): Promise
     redirect('/login?error=oauth_failed')
   }
 
-  await establishPortalSession(await resolvePortalUserFromAuth(data.user))
+  const user = await resolvePortalUserFromAuth(data.user)
+  if (!user) {
+    redirect('/login?error=account_disabled')
+  }
+
+  if (user.role === 'worker') {
+    const { active } = await getWorkerAccessStatus(user)
+    if (!active) {
+      redirect('/login?error=worker_access_disabled')
+    }
+  }
+
+  await establishPortalSession(user)
   redirect('/dashboard')
 }
 

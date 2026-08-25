@@ -46,6 +46,12 @@ export async function listWorkersForOwner(
         ? buildDisplayName(profile.first_name, profile.first_surname, profile.second_surname)
         : user.email ?? 'Sin nombre'
 
+      // El estado del worker aquí es solo "¿ya aceptó la invitación?" — no es
+      // un control de acceso (ese vive en `grant.is_enabled`), así que
+      // `archived` (que sí es un control de acceso, ver resolve-portal-user.ts)
+      // no tiene representación propia en esta lista todavía.
+      const personStatus = mapStatusToPersonStatus(user.status)
+
       return {
         id: user.id,
         name,
@@ -53,7 +59,7 @@ export async function listWorkersForOwner(
         firstSurname: profile?.first_surname ?? '',
         secondSurname: profile?.second_surname || undefined,
         email: user.email ?? '',
-        status: mapStatusToPersonStatus(user.status),
+        status: personStatus === 'active' ? 'active' : 'invited',
         isEnabled: grant.is_enabled,
         allowedSections: grant.allowed_sections as WorkerRecord['allowedSections'],
       }

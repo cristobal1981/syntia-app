@@ -9,8 +9,14 @@ import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase
 
 export async function signOutAction(): Promise<void> {
   if (isSupabaseConfigured()) {
-    const supabase = await createSupabaseServerClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = await createSupabaseServerClient()
+      await supabase.auth.signOut()
+    } catch {
+      // La cookie de sesión del portal es la que de verdad controla el
+      // acceso (ver get-session.ts) — si Supabase falla al cerrar su propia
+      // sesión, no por eso dejamos a alguien con la sesión local abierta.
+    }
   }
 
   const cookieStore = await cookies()

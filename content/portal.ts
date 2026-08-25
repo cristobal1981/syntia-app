@@ -23,6 +23,10 @@ export const portal = {
         'El acceso con Google aún no está configurado. Contacta con tu administrador.',
       oauth_failed: 'No pudimos conectar con Google. Inténtalo de nuevo.',
       auth_callback: 'No pudimos completar el acceso. Vuelve a intentarlo.',
+      worker_access_disabled:
+        'Tu acceso como colaborador ha sido desactivado. Contacta con el titular de la cuenta.',
+      account_disabled:
+        'Esta cuenta no tiene acceso a la plataforma. Contacta con tu asesoría.',
     },
   },
   recovery: {
@@ -79,6 +83,8 @@ export const portal = {
       mismatch: 'Las contraseñas no coinciden.',
       same_password: 'La nueva contraseña debe ser distinta a la actual.',
       unknown: 'No pudimos actualizar la contraseña. Inténtalo de nuevo.',
+      account_disabled:
+        'Esta cuenta no tiene acceso a la plataforma. Contacta con tu asesoría.',
     },
   },
   search: {

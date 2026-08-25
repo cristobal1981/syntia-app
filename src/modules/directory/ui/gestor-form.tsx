@@ -105,17 +105,21 @@ export function GestorForm({
       }
 
   const [roleValue, setRoleValue] = useState<string>(gestor?.role ?? 'advisor')
+  const [prevGestorRole, setPrevGestorRole] = useState(gestor?.role)
+  if (gestor?.role !== prevGestorRole) {
+    setPrevGestorRole(gestor?.role)
+    setRoleValue(gestor?.role ?? 'advisor')
+  }
+
   const [statusValue, setStatusValue] = useState<string>(
     gestor?.status ?? 'invited'
   )
-
-  useEffect(() => {
-    setRoleValue(gestor?.role ?? 'advisor')
-  }, [gestor?.role])
-
-  useEffect(() => {
+  const [prevGestorStatus, setPrevGestorStatus] = useState(gestor?.status)
+  if (gestor?.status !== prevGestorStatus) {
+    setPrevGestorStatus(gestor?.status)
     setStatusValue(gestor?.status ?? 'invited')
-  }, [gestor?.status])
+  }
+
   const onSuccessRef = useRef(onSuccess)
   const handledStateRef = useRef<DirectoryUpdateResult | null>(null)
 
@@ -367,6 +371,9 @@ export function GestorForm({
                 <SelectItem value="active">{equipo.status.active}</SelectItem>
                 <SelectItem value="invited">
                   {equipo.status.invited}
+                </SelectItem>
+                <SelectItem value="archived">
+                  {equipo.status.archived}
                 </SelectItem>
               </SelectContent>
             </Select>

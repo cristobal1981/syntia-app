@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import type { AdvisorPresenceStatus } from '@/src/modules/profile/domain/advisor-presence'
 import { isCachedAdvisorPartner } from '@/src/modules/portal/infrastructure/cached-partner-avatar'
 import { fetchAdvisorPresenceFromOdoo } from '@/src/modules/portal/infrastructure/odoo-advisor-presence'
@@ -17,7 +18,7 @@ export async function GET(
   context: { params: Promise<{ partnerId: string }> }
 ) {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return new NextResponse(null, { status: 401 })
   }
 

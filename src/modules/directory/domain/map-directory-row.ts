@@ -87,11 +87,14 @@ export function mapStatusToPersonStatus(
   status: string | null | undefined
 ): PersonStatus {
   if (!status) return 'invited'
-  return status.toLowerCase() === 'active' ? 'active' : 'invited'
+  const normalized = status.toLowerCase()
+  if (normalized === 'active') return 'active'
+  if (normalized === 'archived') return 'archived'
+  return 'invited'
 }
 
 export function mapPersonStatusToDb(status: PersonStatus): string {
-  return status === 'active' ? 'active' : 'invited'
+  return status
 }
 
 export function sanitizeNullable(value: string | null | undefined): string | undefined {

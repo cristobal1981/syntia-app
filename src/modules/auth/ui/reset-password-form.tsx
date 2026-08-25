@@ -165,7 +165,10 @@ export function ResetPasswordForm({ onStatusChange }: ResetPasswordFormProps) {
     }
 
     markPortalEntryPending()
-    await finalizeRecoverySessionAction()
+    const result = await finalizeRecoverySessionAction()
+    if (!result.ok && result.error === 'account_disabled') {
+      setSubmitError(portal.reset.errors.account_disabled)
+    }
     setPending(false)
   }
 

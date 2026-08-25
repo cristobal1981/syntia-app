@@ -2,6 +2,7 @@
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { resolveClientDriveRootId } from '@/src/modules/documents/application/resolve-client-drive-root'
 import {
   createMockDriveFolder,
@@ -46,6 +47,13 @@ async function resolveClientDriveAccess(): Promise<
   const session = await getSession()
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  if (session.user.role === 'worker') {
+    const allowed = await getAllowedSectionsForWorker(session.user)
+    if (!allowed.has('/documentos')) {
+      return { ok: false, error: 'forbidden' }
+    }
   }
 
   if (shouldUseMockDrive()) {

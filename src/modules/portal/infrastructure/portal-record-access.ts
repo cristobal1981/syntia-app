@@ -1,3 +1,4 @@
+import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import {
   getCachedObligacionTaskIndex,
   getCachedTramitesSnapshot,
@@ -116,6 +117,33 @@ export async function verifyClientRecordAccess(
   }
 
   return verifyRecordBelongsToPartner(kind, recordId, partnerId)
+}
+
+/**
+ * Un `project.task` es la sección `/tramites` o la sección `/obligaciones`
+ * indistintamente — Odoo no lo distingue por modelo, solo por en qué
+ * snapshot cacheado del cliente aparece. Necesario para que un colaborador
+ * con, p. ej., solo `/obligaciones` concedida no pueda descargar adjuntos de
+ * un trámite ajeno a su grant conociendo el `recordId`. Reutiliza los
+ * mismos snapshots cacheados que `verifyClientRecordAccess`, así que no
+ * añade llamadas a Odoo.
+ */
+export async function resolveTaskWorkerSection(
+  taskId: number,
+  partnerId: number
+): Promise<WorkerSectionHref | null> {
+  const [tramites, obligIndex] = await Promise.all([
+    getCachedTramitesSnapshot(partnerId),
+    getCachedObligacionTaskIndex(partnerId),
+  ])
+
+  if (tramites.tasks.some((task) => task.id === taskId)) {
+    return '/tramites'
+  }
+  if (obligIndex.leaves.some((leaf) => leaf.id === taskId)) {
+    return '/obligaciones'
+  }
+  return null
 }
 
 export function getOdooModelForRecordKind(kind: 'task' | 'ticket'): string {

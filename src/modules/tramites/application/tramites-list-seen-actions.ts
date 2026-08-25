@@ -2,17 +2,10 @@
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
-import type { TramitesListSeenState } from '@/src/modules/tramites/domain/tramites-list-seen-state'
-import {
-  computeNewTramiteListItemKeys,
-  getOpenTramiteListItemKeys,
-} from '@/src/modules/tramites/domain/tramites-list-seen-state'
-import {
-  mergeTramitesList,
-  type TramiteListItem,
-} from '@/src/modules/tramites/domain/merge-tramites-list'
-import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
+import { getOpenTramiteListItemKeys } from '@/src/modules/tramites/domain/tramites-list-seen-state'
+import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import {
   fetchTramitesListSeenState,
   upsertTramitesListSeenState,
@@ -24,27 +17,14 @@ async function resolveTramitesListSeenActorId(): Promise<string | null> {
     return null
   }
 
-  return resolveDirectoryActorId(session.user)
-}
-
-export async function resolveNewTramiteListItemKeys(
-  actorId: string,
-  items: TramiteListItem[]
-): Promise<string[]> {
-  try {
-    const seen = await fetchTramitesListSeenState(actorId)
-    return computeNewTramiteListItemKeys(items, seen)
-  } catch {
-    return []
+  if (session.user.role === 'worker') {
+    const allowed = await getAllowedSectionsForWorker(session.user)
+    if (!allowed.has('/tramites')) {
+      return null
+    }
   }
-}
 
-export async function resolveNewTramiteListItemKeysFromSnapshot(
-  actorId: string,
-  snapshot: TramitesSnapshot
-): Promise<string[]> {
-  const items = mergeTramitesList(snapshot.tasks, snapshot.tickets)
-  return resolveNewTramiteListItemKeys(actorId, items)
+  return resolveDirectoryActorId(session.user)
 }
 
 export async function acknowledgeTramitesListSeenAction(
@@ -80,20 +60,6 @@ export async function acknowledgeTramiteListItemSeenAction(
   } catch {
     // Sin tabla aún o error transitorio: no bloquear navegación.
   }
-}
-
-export async function ensureTramitesListSeenInitialized(
-  actorId: string,
-  openItemKeys: string[]
-): Promise<TramitesListSeenState> {
-  const seen = await fetchTramitesListSeenState(actorId)
-  if (seen?.initialized) {
-    return seen
-  }
-
-  const keys = [...new Set(openItemKeys)]
-  await upsertTramitesListSeenState(actorId, keys)
-  return { openItemKeys: keys, initialized: true }
 }
 
 export async function acknowledgeTramitesListSeenFromItemsAction(

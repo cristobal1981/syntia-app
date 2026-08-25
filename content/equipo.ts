@@ -40,6 +40,7 @@ export const equipo = {
   status: {
     active: 'Activo',
     invited: 'Invitado',
+    archived: 'Archivado',
   },
   roles: {
     advisor: 'Asesor',

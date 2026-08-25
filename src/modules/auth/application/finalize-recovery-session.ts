@@ -9,7 +9,7 @@ import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase
 
 export type FinalizeRecoveryResult =
   | { ok: true }
-  | { ok: false; error: 'not_configured' | 'no_session' }
+  | { ok: false; error: 'not_configured' | 'no_session' | 'account_disabled' }
 
 export async function finalizeRecoverySessionAction(): Promise<FinalizeRecoveryResult> {
   if (!isSupabaseConfigured()) {
@@ -25,6 +25,11 @@ export async function finalizeRecoverySessionAction(): Promise<FinalizeRecoveryR
     return { ok: false, error: 'no_session' }
   }
 
-  await establishPortalSession(await resolvePortalUserFromAuth(user))
+  const portalUser = await resolvePortalUserFromAuth(user)
+  if (!portalUser) {
+    return { ok: false, error: 'account_disabled' }
+  }
+
+  await establishPortalSession(portalUser)
   redirect('/dashboard')
 }

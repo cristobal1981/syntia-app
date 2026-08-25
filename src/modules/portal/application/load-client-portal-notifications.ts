@@ -39,7 +39,7 @@ import {
   fetchWatchStateForUser,
   upsertWatchStateBatch,
 } from '@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
-import { ensureTramitesListSeenInitialized } from '@/src/modules/tramites/application/tramites-list-seen-actions'
+import { ensureTramitesListSeenInitialized } from '@/src/modules/tramites/application/tramites-list-seen-loader'
 import { fetchTramitesListSeenState } from '@/src/modules/tramites/infrastructure/tramites-list-seen-state.supabase'
 import {
   getTramiteListItemKey,

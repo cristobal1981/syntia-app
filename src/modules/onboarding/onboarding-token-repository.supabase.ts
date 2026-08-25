@@ -104,26 +104,32 @@ export async function createOnboardingFormAccessToken(
   const supabase = createSupabaseAdminClient()
   const revokeAt = new Date().toISOString()
 
-  let revokeQuery = supabase
-    .from('onboarding_form_access_tokens')
-    .update({ revoked_at: revokeAt })
-    .eq('form_kind', formKind)
-    .is('used_at', null)
-    .is('revoked_at', null)
+  // Dos updates independientes en vez de un .or() con la cadena interpolada:
+  // recipientEmail no está validado como email estricto en este punto, y
+  // construir el filtro de Postgrest por interpolación permitiría inyectar
+  // condiciones extra (p. ej. una coma en el valor) en la cláusula OR.
+  async function revokeMatching(
+    column: 'recipient_email' | 'odoo_partner_id',
+    value: string | number
+  ) {
+    const { error } = await supabase
+      .from('onboarding_form_access_tokens')
+      .update({ revoked_at: revokeAt })
+      .eq('form_kind', formKind)
+      .is('used_at', null)
+      .is('revoked_at', null)
+      .eq(column, value)
 
-  if (recipientEmail && odooPartnerId !== null) {
-    revokeQuery = revokeQuery.or(
-      `recipient_email.eq.${recipientEmail},odoo_partner_id.eq.${odooPartnerId}`
-    )
-  } else if (recipientEmail) {
-    revokeQuery = revokeQuery.eq('recipient_email', recipientEmail)
-  } else {
-    revokeQuery = revokeQuery.eq('odoo_partner_id', odooPartnerId as number)
+    if (error) {
+      throw new Error(error.message)
+    }
   }
 
-  const { error: revokeError } = await revokeQuery
-  if (revokeError) {
-    throw new Error(revokeError.message)
+  if (recipientEmail) {
+    await revokeMatching('recipient_email', recipientEmail)
+  }
+  if (odooPartnerId !== null) {
+    await revokeMatching('odoo_partner_id', odooPartnerId)
   }
 
   const token = crypto.randomUUID()

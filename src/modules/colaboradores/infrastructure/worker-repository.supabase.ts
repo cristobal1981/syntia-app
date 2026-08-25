@@ -62,7 +62,7 @@ export async function createWorkerAccount(
       .single()
 
     if (userError || !userRow) {
-      if (userError && isDuplicateEmailError(userError.message)) {
+      if (userError && isDuplicateEmailError(userError)) {
         throw new Error('DUPLICATE_EMAIL')
       }
       throw new Error(userError?.message ?? 'No se pudo crear la cuenta.')

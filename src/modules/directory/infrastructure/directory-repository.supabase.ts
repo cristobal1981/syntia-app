@@ -165,7 +165,30 @@ export async function rollbackCreatedPortalUser(
   await supabase.auth.admin.deleteUser(authUserId)
 }
 
-export function isDuplicateEmailError(message: string): boolean {
+/**
+ * Códigos de error estables (Supabase Auth: `email_exists`/`user_already_exists`;
+ * Postgres: `23505` unique_violation vía Postgrest) — mucho más fiables que
+ * el texto de `message`, que puede cambiar de redacción entre versiones sin
+ * previo aviso (el propio SDK de Postgrest lo advierte explícitamente:
+ * "Branch on [code] rather than on message text"). El matching de texto
+ * queda solo como red de seguridad para cuando no hay `code` disponible.
+ */
+const DUPLICATE_EMAIL_ERROR_CODES = new Set([
+  'email_exists',
+  'user_already_exists',
+  '23505',
+])
+
+export function isDuplicateEmailError(
+  error: { message: string; code?: string | null } | string
+): boolean {
+  const { message, code } =
+    typeof error === 'string' ? { message: error, code: undefined } : error
+
+  if (code && DUPLICATE_EMAIL_ERROR_CODES.has(code)) {
+    return true
+  }
+
   const normalized = message.toLowerCase()
   return (
     normalized.includes('already registered') ||
@@ -204,7 +227,7 @@ async function createAuthUserWithoutInvite(
   })
 
   if (error || !data.user) {
-    if (error && isDuplicateEmailError(error.message)) {
+    if (error && isDuplicateEmailError(error)) {
       throw new Error('DUPLICATE_EMAIL')
     }
     throw new Error(error?.message ?? 'No se pudo crear el usuario de auth.')
@@ -225,7 +248,7 @@ async function createAuthUserWithResendInvite(
   })
 
   if (error || !data.user) {
-    if (error && isDuplicateEmailError(error.message)) {
+    if (error && isDuplicateEmailError(error)) {
       throw new Error('DUPLICATE_EMAIL')
     }
     throw new Error(error?.message ?? 'No se pudo generar la invitación.')
@@ -266,7 +289,7 @@ export async function createAuthUserForClient(
     throw new Error('EMAIL_RATE_LIMIT')
   }
 
-  if (error && isDuplicateEmailError(error.message)) {
+  if (error && isDuplicateEmailError(error)) {
     throw new Error('DUPLICATE_EMAIL')
   }
 
@@ -376,7 +399,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
         .single()
 
       if (userError || !userRow) {
-        if (userError && isDuplicateEmailError(userError.message)) {
+        if (userError && isDuplicateEmailError(userError)) {
           throw new Error('DUPLICATE_EMAIL')
         }
         throw new Error(userError?.message ?? 'No se pudo crear la cuenta.')
@@ -441,7 +464,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
         .single()
 
       if (userError || !userRow) {
-        if (userError && isDuplicateEmailError(userError.message)) {
+        if (userError && isDuplicateEmailError(userError)) {
           throw new Error('DUPLICATE_EMAIL')
         }
         throw new Error(userError?.message ?? 'No se pudo crear la cuenta.')
@@ -638,6 +661,10 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       throw new Error('NO_AUTH_ACCOUNT')
     }
 
+    if (userRow.status === 'archived') {
+      throw new Error('ACCOUNT_ARCHIVED')
+    }
+
     if (userRow.status === 'active') {
       const { error: passwordError } = await supabase.auth.admin.updateUserById(
         String(userRow.auth_user_id),
@@ -669,6 +696,10 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
 
     if (!userRow.auth_user_id) {
       throw new Error('NO_AUTH_ACCOUNT')
+    }
+
+    if (userRow.status === 'archived') {
+      throw new Error('ACCOUNT_ARCHIVED')
     }
 
     if (userRow.status === 'active') {

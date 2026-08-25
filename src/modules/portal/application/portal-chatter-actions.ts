@@ -20,6 +20,7 @@ import { portalWatchStateKey } from '@/src/modules/portal/domain/portal-notifica
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
@@ -61,6 +62,19 @@ async function resolveClientPartnerId(): Promise<
   const session = await getSession()
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  /**
+   * Toda esta acción es chatter de trámites/tickets — ambos viven bajo
+   * `/tramites` (ver `recordScopeFromKind`). Un colaborador sin esa sección
+   * concedida no debe poder leer ni escribir mensajes aquí, aunque conozca
+   * el `recordId`.
+   */
+  if (session.user.role === 'worker') {
+    const allowed = await getAllowedSectionsForWorker(session.user)
+    if (!allowed.has('/tramites')) {
+      return { ok: false, error: 'forbidden' }
+    }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)
