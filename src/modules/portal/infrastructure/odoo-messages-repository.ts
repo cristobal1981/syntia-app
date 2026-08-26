@@ -46,6 +46,7 @@ function buildBatchMessageDomain(
 
   if (shouldFilterInternalChatterMessages()) {
     domain.push(['is_internal', '=', false])
+    domain.push(['subtype_id.internal', '=', false])
   }
 
   if (typeof afterId === 'number' && afterId > 0) {
@@ -68,6 +69,7 @@ function buildMessageDomain(
 
   if (shouldFilterInternalChatterMessages()) {
     domain.push(['is_internal', '=', false])
+    domain.push(['subtype_id.internal', '=', false])
   }
 
   if (typeof options?.beforeId === 'number' && options.beforeId > 0) {
