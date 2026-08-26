@@ -10,8 +10,16 @@ const { createSupabaseAdminClient } = vi.hoisted(() => ({
   createSupabaseAdminClient: vi.fn(),
 }))
 
+const { resolvePortalAccountGroup } = vi.hoisted(() => ({
+  resolvePortalAccountGroup: vi.fn(),
+}))
+
 vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
   createSupabaseAdminClient,
+}))
+
+vi.mock('@/src/modules/colaboradores/application/get-portal-account-group', () => ({
+  resolvePortalAccountGroup,
 }))
 
 type QueryResult = { data?: unknown; error?: { message: string } | null }
@@ -29,6 +37,9 @@ function chainFor(result: QueryResult) {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  resolvePortalAccountGroup.mockImplementation((actorId: string) =>
+    Promise.resolve([actorId])
+  )
 })
 
 describe('fetchWatchStateForUser', () => {
@@ -164,6 +175,44 @@ describe('upsertWatchStateBatch', () => {
 
     expect(chain.upsert).toHaveBeenCalledWith(
       [expect.objectContaining({ last_state: null })],
+      { onConflict: 'user_id,record_scope,record_id' }
+    )
+  })
+})
+
+describe('upsertWatchStateBatch — grupo titular + colaboradores', () => {
+  it('replica el mismo snapshot a todos los miembros del grupo devuelto por resolvePortalAccountGroup', async () => {
+    resolvePortalAccountGroup.mockResolvedValue(['owner-1', 'worker-1'])
+    const chain = chainFor({ error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertWatchStateBatch('worker-1', [
+      {
+        scope: 'tramite',
+        recordId: 1,
+        lastState: 'cerrado',
+        lastIsClosed: true,
+        lastAttachmentCount: 2,
+        firmaDueSoonNotified: false,
+        initialized: true,
+      },
+    ])
+
+    expect(chain.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          user_id: 'owner-1',
+          record_scope: 'tramite',
+          record_id: 1,
+          last_state: 'cerrado',
+        }),
+        expect.objectContaining({
+          user_id: 'worker-1',
+          record_scope: 'tramite',
+          record_id: 1,
+          last_state: 'cerrado',
+        }),
+      ],
       { onConflict: 'user_id,record_scope,record_id' }
     )
   })

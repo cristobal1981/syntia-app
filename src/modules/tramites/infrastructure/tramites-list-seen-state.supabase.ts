@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import type { TramitesListSeenState } from '@/src/modules/tramites/domain/tramites-list-seen-state'
+import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
 
 type TramitesListSeenStateRow = {
   user_id: string
@@ -59,20 +60,52 @@ export async function cloneTramitesListSeenStateForUser(
   }
 }
 
+/**
+ * Titular y colaboradores comparten bandeja (ver `resolvePortalAccountGroup`):
+ * se une `openItemKeys` con lo que cada miembro del grupo ya tuviera visto,
+ * en vez de sobrescribirlo, para no resucitar el badge de "nuevo" en un
+ * miembro que ya había visto más trámites que quien dispara este ack.
+ */
 export async function upsertTramitesListSeenState(
   userId: string,
   openItemKeys: string[]
 ): Promise<void> {
+  const group = await resolvePortalAccountGroup(userId)
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('tramites_list_seen_state').upsert(
-    {
-      user_id: userId,
-      open_item_keys: openItemKeys,
-      initialized: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  )
+
+  const { data, error: fetchError } = await supabase
+    .from('tramites_list_seen_state')
+    .select('user_id, open_item_keys')
+    .in('user_id', group)
+
+  if (fetchError) {
+    throw new Error(fetchError.message)
+  }
+
+  const existingByUser = new Map<string, string[]>()
+  for (const row of (data ?? []) as Pick<
+    TramitesListSeenStateRow,
+    'user_id' | 'open_item_keys'
+  >[]) {
+    existingByUser.set(
+      row.user_id,
+      Array.isArray(row.open_item_keys) ? row.open_item_keys : []
+    )
+  }
+
+  const now = new Date().toISOString()
+  const rows = group.map((memberId) => ({
+    user_id: memberId,
+    open_item_keys: [
+      ...new Set([...(existingByUser.get(memberId) ?? []), ...openItemKeys]),
+    ],
+    initialized: true,
+    updated_at: now,
+  }))
+
+  const { error } = await supabase
+    .from('tramites_list_seen_state')
+    .upsert(rows, { onConflict: 'user_id' })
 
   if (error) {
     throw new Error(error.message)

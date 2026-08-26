@@ -1,6 +1,7 @@
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { chatterReadStateKey } from '@/src/modules/portal/domain/chatter-notifications-types'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
+import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
 
 export type ChatterReadStateRow = {
   user_id: string
@@ -42,21 +43,9 @@ export async function upsertChatterReadState(
   recordId: number,
   lastSeenMessageId: number
 ): Promise<void> {
-  const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('chatter_read_state').upsert(
-    {
-      user_id: userId,
-      record_kind: recordKind,
-      record_id: recordId,
-      last_seen_message_id: lastSeenMessageId,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,record_kind,record_id' }
-  )
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  await upsertChatterReadStateBatch(userId, [
+    { recordKind, recordId, lastSeenMessageId },
+  ])
 }
 
 /**
@@ -100,6 +89,12 @@ export async function cloneChatterReadStateForUser(
   }
 }
 
+/**
+ * Titular y colaboradores comparten bandeja (ver `resolvePortalAccountGroup`):
+ * el nuevo `last_seen_message_id` se propaga a todo el grupo, tomando el
+ * máximo con lo que cada miembro ya tuviera para no retroceder su lectura si
+ * había avanzado más que `userId` en ese hilo.
+ */
 export async function upsertChatterReadStateBatch(
   userId: string,
   entries: Array<{
@@ -110,18 +105,50 @@ export async function upsertChatterReadStateBatch(
 ): Promise<void> {
   if (!entries.length) return
 
+  const group = await resolvePortalAccountGroup(userId)
   const supabase = createSupabaseAdminClient()
+
+  const { data, error: fetchError } = await supabase
+    .from('chatter_read_state')
+    .select('user_id, record_kind, record_id, last_seen_message_id')
+    .in('user_id', group)
+
+  if (fetchError) {
+    throw new Error(fetchError.message)
+  }
+
+  const existing = new Map<string, number>()
+  for (const row of (data ?? []) as Pick<
+    ChatterReadStateRow,
+    'user_id' | 'record_kind' | 'record_id' | 'last_seen_message_id'
+  >[]) {
+    existing.set(
+      `${row.user_id}:${chatterReadStateKey(row.record_kind, row.record_id)}`,
+      row.last_seen_message_id
+    )
+  }
+
   const now = new Date().toISOString()
-  const { error } = await supabase.from('chatter_read_state').upsert(
-    entries.map((entry) => ({
-      user_id: userId,
-      record_kind: entry.recordKind,
-      record_id: entry.recordId,
-      last_seen_message_id: entry.lastSeenMessageId,
-      updated_at: now,
-    })),
-    { onConflict: 'user_id,record_kind,record_id' }
+  const rows = group.flatMap((memberId) =>
+    entries.map((entry) => {
+      const current =
+        existing.get(
+          `${memberId}:${chatterReadStateKey(entry.recordKind, entry.recordId)}`
+        ) ?? 0
+
+      return {
+        user_id: memberId,
+        record_kind: entry.recordKind,
+        record_id: entry.recordId,
+        last_seen_message_id: Math.max(current, entry.lastSeenMessageId),
+        updated_at: now,
+      }
+    })
   )
+
+  const { error } = await supabase
+    .from('chatter_read_state')
+    .upsert(rows, { onConflict: 'user_id,record_kind,record_id' })
 
   if (error) {
     throw new Error(error.message)
