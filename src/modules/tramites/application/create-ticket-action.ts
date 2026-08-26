@@ -12,6 +12,7 @@ import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/ca
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 
 const SUBJECT_MAX_LENGTH = 120
 
@@ -42,6 +43,19 @@ export async function createTicketAction(input: {
   const session = await getSession()
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  /**
+   * Crear una consulta es una acción sobre /tramites: un colaborador sin esa
+   * sección concedida (o con el grant/la funcionalidad desactivados) no debe
+   * poder crearla aunque conozca el endpoint — ver `resolveClientPartnerId`
+   * en portal-chatter-actions.ts para el mismo patrón sobre el chatter.
+   */
+  if (session.user.role === 'worker') {
+    const allowed = await getAllowedSectionsForWorker(session.user)
+    if (!allowed.has('/tramites')) {
+      return { ok: false, error: 'forbidden' }
+    }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)

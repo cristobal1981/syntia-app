@@ -81,6 +81,16 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = navItemsProp ?? getNavForRole(user.role)
   const isClientOrWorker = user.role === 'client' || user.role === 'worker'
+  /**
+   * Para un colaborador, `navItems` ya llega filtrado por sus secciones
+   * concedidas (ver `filterNavForWorker` en get-nav-for-user.ts) — incluye
+   * que el grant o la funcionalidad estén desactivados, caso en el que el
+   * worker no ve ningún item salvo /dashboard. Reutilizar esa misma fuente
+   * evita mostrar "Nueva consulta" a quien no tiene /tramites concedido.
+   */
+  const canCreateConsulta =
+    user.role === 'client' ||
+    (user.role === 'worker' && navItems.some((item) => item.href === '/tramites'))
   const roleLabel = portal.roles[user.role]
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
@@ -114,7 +124,7 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
     <TooltipProvider>
     <ChatterNotificationsProvider enabled={isClientOrWorker}>
     <OnboardingChecklistProvider enabled={user.role === 'client'}>
-    <PortalCreateConsultaProvider enabled={isClientOrWorker}>
+    <PortalCreateConsultaProvider enabled={canCreateConsulta}>
     <PortalReportProblemProvider enabled={isClientOrWorker}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>

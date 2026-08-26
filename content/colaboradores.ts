@@ -45,6 +45,12 @@ export const colaboradores = {
     successCreate: 'Colaborador invitado. Se ha enviado la invitación por correo.',
     successUpdate: 'Colaborador actualizado.',
     successDelete: 'Colaborador eliminado.',
+    successActivate: 'Colaborador activado.',
+    successDeactivate: 'Colaborador desactivado.',
+    activateButton: 'Activar',
+    deactivateButton: 'Desactivar',
+    editAriaLabel: 'Editar colaborador',
+    deleteAriaLabel: 'Eliminar colaborador',
     confirmDelete: '¿Seguro que quieres eliminar a este colaborador?',
     errors: {
       forbidden: 'No tienes permiso para hacer esto.',

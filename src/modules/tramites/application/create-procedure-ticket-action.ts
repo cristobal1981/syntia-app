@@ -7,6 +7,7 @@ import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-js
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import {
   formatProcedureRecordDescriptionHtml,
   formatProcedureTicketChatterMessage,
@@ -50,6 +51,14 @@ export async function createProcedureTicketAction(
   const session = await getSession()
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  /** Ver `create-ticket-action.ts`: mismo motivo, mismo guard de sección. */
+  if (session.user.role === 'worker') {
+    const allowed = await getAllowedSectionsForWorker(session.user)
+    if (!allowed.has('/tramites')) {
+      return { ok: false, error: 'forbidden' }
+    }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)

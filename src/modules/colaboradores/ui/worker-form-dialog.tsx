@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { colaboradores } from '@/content/colaboradores'
 import {
   createWorkerAction,
@@ -171,12 +173,11 @@ export function WorkerFormDialog({
               {copy.sectionsLabel}
             </legend>
             {WORKER_SECTION_HREFS.map((href) => (
-              <label key={href} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+              <label key={href} className="flex items-center gap-2 text-sm text-foreground">
+                <Checkbox
                   checked={sections.has(href)}
-                  onChange={() => toggleSection(href)}
-                  className="size-4 rounded border-input"
+                  onCheckedChange={() => toggleSection(href)}
+                  aria-label={colaboradores.sections[href]}
                 />
                 {colaboradores.sections[href]}
               </label>
@@ -184,14 +185,13 @@ export function WorkerFormDialog({
           </fieldset>
 
           {!isCreate ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={isEnabled}
-                onChange={(event) => setIsEnabled(event.target.checked)}
-                className="size-4 rounded border-input"
-              />
+            <label className="flex items-center gap-2 text-sm text-foreground">
               {copy.isEnabledLabel}
+              <Switch
+                checked={isEnabled}
+                onCheckedChange={setIsEnabled}
+                aria-label={copy.isEnabledLabel}
+              />
             </label>
           ) : null}
 
