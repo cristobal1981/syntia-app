@@ -4,8 +4,8 @@ export const site = {
     claim: "Digitaliza. Innova. Crece.",
     byLine: "By tenaasesores",
     logoSrc: "/brand/syntia-isotipo.svg",
-    logoHorizontalNegativo: "/brand/syntia-logo_horizontal-negativo.png",
-    logoHorizontalPositivo: "/brand/syntia-logo_horizontal-positivo.png",
+    logoHorizontalNegativo: "/brand/syntia-logo_horizontal-negativo.webp",
+    logoHorizontalPositivo: "/brand/syntia-logo_horizontal-positivo.webp",
     description:
       "Plataforma digital de asesoría: clara, moderna y cercana.",
   },
