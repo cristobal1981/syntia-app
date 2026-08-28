@@ -51,7 +51,7 @@ export function AltaTrabajadorWizardShell({
 }: AltaTrabajadorWizardShellProps) {
   const router = useRouter()
   const headingId = useId()
-  const { values, completeSubmission } = useAltaTrabajadorWizard()
+  const { values, attachment, completeSubmission } = useAltaTrabajadorWizard()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -78,7 +78,7 @@ export function AltaTrabajadorWizardShell({
     setSubmitError(null)
 
     const payload = normalizeProcedureTicketPayload(
-      buildAltaTrabajadorPayload(values)
+      buildAltaTrabajadorPayload(values, attachment)
     )
     const validationErrors = validateProcedureTicketPayload(payload)
     if (Object.keys(validationErrors).length > 0) {
@@ -92,9 +92,11 @@ export function AltaTrabajadorWizardShell({
       const result = await createProcedureTicketAction(payload)
 
       if (!result.ok) {
-        if (result.error !== 'validation') {
-          setSubmitError(mapProcedureActionError(result.error))
-        }
+        setSubmitError(
+          result.error === 'validation'
+            ? tramiteSolicitudes.errors.unknown
+            : mapProcedureActionError(result.error)
+        )
         setIsSubmitting(false)
         return
       }

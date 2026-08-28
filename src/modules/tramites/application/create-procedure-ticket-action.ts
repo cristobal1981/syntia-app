@@ -5,6 +5,8 @@ import { updateTag } from 'next/cache'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
+import { createAttachmentsForRecord } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
@@ -77,6 +79,18 @@ export async function createProcedureTicketAction(
     return { ok: false, error: 'validation', fieldErrors }
   }
 
+  if (
+    normalized.type === 'alta-trabajador' &&
+    normalized.identityDocument &&
+    !validateChatterUploadFiles([normalized.identityDocument]).ok
+  ) {
+    return {
+      ok: false,
+      error: 'validation',
+      fieldErrors: { identityDocument: 'attachmentRequired' },
+    }
+  }
+
   const subject = formatProcedureTicketSubject(normalized)
   const description = formatProcedureRecordDescriptionHtml(normalized)
   const recordKind = procedureRecordKind(normalized)
@@ -106,6 +120,19 @@ export async function createProcedureTicketAction(
       clientPartnerId: partnerId,
       htmlBody,
     })
+
+    if (normalized.type === 'alta-trabajador' && normalized.identityDocument) {
+      try {
+        await createAttachmentsForRecord({
+          resModel: getOdooModelForRecordKind(recordKind),
+          resId: recordId,
+          files: [normalized.identityDocument],
+        })
+      } catch {
+        // Best-effort: la tarea ya se creó correctamente; el gestor puede pedir el
+        // documento por chat si el adjunto no llega a subirse.
+      }
+    }
 
     updateTag(tramitesSnapshotCacheTag(partnerId))
 

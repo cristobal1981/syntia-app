@@ -29,7 +29,7 @@ export function AltaTrabajadorIntroPage() {
 
   const handleStartFresh = () => {
     startFresh()
-    router.push(getAltaTrabajadorStepPath('datos-trabajador'))
+    router.push(getAltaTrabajadorStepPath('datos-personales'))
   }
 
   const handleResume = () => {

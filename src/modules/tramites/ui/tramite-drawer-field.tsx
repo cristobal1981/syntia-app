@@ -26,6 +26,32 @@ export function TramiteFieldError({
   )
 }
 
+export function TramiteRequiredMark() {
+  return (
+    <span className="text-turquesa dark:text-primary text-base align-middle" aria-hidden="true">
+      {' '}
+      *
+    </span>
+  )
+}
+
+export function TramiteFieldLabel({
+  htmlFor,
+  required,
+  children,
+}: {
+  htmlFor?: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
+      {children}
+      {required ? <TramiteRequiredMark /> : null}
+    </label>
+  )
+}
+
 export function TramiteDrawerField({
   id,
   label,
@@ -36,6 +62,7 @@ export function TramiteDrawerField({
   autoComplete,
   placeholder,
   disabled,
+  required,
   min,
   max,
   className,
@@ -50,6 +77,7 @@ export function TramiteDrawerField({
   autoComplete?: string
   placeholder?: string
   disabled?: boolean
+  required?: boolean
   min?: string
   max?: string
   className?: string
@@ -59,9 +87,9 @@ export function TramiteDrawerField({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-sm font-medium text-foreground">
+      <TramiteFieldLabel htmlFor={id} required={required}>
         {label}
-      </label>
+      </TramiteFieldLabel>
       <Input
         id={id}
         name={name}
@@ -73,6 +101,7 @@ export function TramiteDrawerField({
         min={min}
         max={max}
         aria-invalid={Boolean(error)}
+        aria-required={required}
         aria-describedby={errorId}
         onChange={(event) => onChange(event.target.value)}
         className="h-10"
@@ -90,6 +119,7 @@ export function TramiteDrawerSelect({
   error,
   placeholder,
   disabled,
+  required,
   options,
   className,
   onChange,
@@ -101,6 +131,7 @@ export function TramiteDrawerSelect({
   error?: string
   placeholder: string
   disabled?: boolean
+  required?: boolean
   options: Record<string, string>
   className?: string
   onChange: (value: string) => void
@@ -109,9 +140,9 @@ export function TramiteDrawerSelect({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-sm font-medium text-foreground">
+      <TramiteFieldLabel htmlFor={id} required={required}>
         {label}
-      </label>
+      </TramiteFieldLabel>
       <Select
         value={value}
         onValueChange={(next) => onChange(next)}
@@ -121,6 +152,7 @@ export function TramiteDrawerSelect({
           id={id}
           aria-label={label}
           aria-invalid={Boolean(error)}
+          aria-required={required}
           aria-describedby={errorId}
           className="h-10 w-full rounded-md border border-border bg-field px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border/80"
         >

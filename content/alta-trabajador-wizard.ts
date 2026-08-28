@@ -12,12 +12,13 @@ export const altaTrabajadorWizard = {
     resumeButton: 'Continuar donde lo dejé',
     startFreshButton: 'Empezar de nuevo',
     draftHint: 'Tienes un borrador guardado de una solicitud anterior.',
-    durationHint: 'Unos 5 minutos · puedes pausar y volver cuando quieras',
+    durationHint: 'Unos 10 minutos · puedes pausar y volver cuando quieras',
     whatYouNeedTitle: 'Qué necesitarás',
     whatYouNeedItems: [
-      'DNI o NIE del trabajador',
-      'Fecha de alta y tipo de contrato',
-      'Puesto y salario bruto anual',
+      'DNI o NIE, dirección y datos de contacto del trabajador',
+      'Fecha de alta, tipo de contrato y puesto',
+      'Ocupación SEPE y nivel de estudios del puesto',
+      'Documentación identificativa (si aplica autorización de trabajo temporal)',
     ],
   },
   progress: {
@@ -32,17 +33,33 @@ export const altaTrabajadorWizard = {
     submitPending: tramiteSolicitudes.common.creating,
   },
   steps: {
-    datosTrabajador: {
-      title: tramiteSolicitudes.common.sections.worker,
-      description: 'Identificación de la persona que vas a dar de alta.',
+    datosPersonales: {
+      title: 'Datos personales',
+      description: 'Identificación y contacto de la persona que vas a dar de alta.',
+    },
+    domicilio: {
+      title: 'Domicilio habitual',
+      description: 'Fecha de nacimiento y dirección del trabajador.',
+    },
+    puestoOcupacion: {
+      title: 'Puesto y ocupación',
+      description: 'Fecha de alta, puesto, ocupación SEPE y nivel de estudios.',
     },
     contrato: {
       title: tramiteSolicitudes.common.sections.details,
-      description: 'Condiciones del contrato y del puesto.',
+      description: 'Condiciones del contrato.',
     },
-    observaciones: {
-      title: tramiteSolicitudes.common.sections.observations,
-      description: 'Cualquier detalle adicional para tu asesoría.',
+    teletrabajo: {
+      title: 'Teletrabajo',
+      description: 'Indica si el trabajador va a realizar teletrabajo.',
+    },
+    retribucionHorario: {
+      title: 'Retribución y horario',
+      description: 'Salario y horario de trabajo semanal.',
+    },
+    documentacion: {
+      title: 'Documentación y observaciones',
+      description: 'Documentación identificativa y cualquier detalle adicional.',
     },
     resumen: {
       title: 'Resumen',
@@ -57,10 +74,30 @@ export const altaTrabajadorWizard = {
     },
     contractEndDate: {
       label: 'Fecha de fin de contrato',
-      hint: 'Obligatoria para contratos temporales o por obra/servicio.',
+      hint: 'Obligatoria para contratos de formación, otros, o temporales por incremento de tareas u otras causas.',
     },
   },
+  occupationCombobox: {
+    placeholder: 'Busca por código o descripción',
+    searchPlaceholder: 'Escribe para buscar…',
+    emptyResults: 'Sin resultados',
+    moreResultsHint: 'Sigue escribiendo para acotar la búsqueda',
+  },
+  attachment: {
+    selectButton: 'Seleccionar archivo',
+    removeButton: 'Quitar',
+    noFileSelected: 'Ningún archivo seleccionado',
+  },
   resumen: {
-    notAnswered: 'Sin responder',
+    notAnswered: '—',
+    sections: {
+      personal: 'Datos personales',
+      domicilio: 'Domicilio',
+      puesto: 'Puesto y ocupación',
+      contrato: tramiteSolicitudes.common.sections.details,
+      teletrabajo: 'Teletrabajo',
+      retribucion: 'Retribución y horario',
+      documentacion: 'Documentación',
+    },
   },
 } as const

@@ -20,6 +20,7 @@ import {
   type AltaTrabajadorFormValues,
 } from '@/src/modules/alta-trabajador/domain/alta-trabajador-form-types'
 import type { AltaTrabajadorStepId } from '@/src/modules/alta-trabajador/domain/alta-trabajador-steps'
+import type { PortalChatterUploadFile } from '@/src/modules/portal/domain/portal-chatter-types'
 
 type AltaTrabajadorWizardContextValue = {
   values: AltaTrabajadorFormValues
@@ -35,8 +36,11 @@ type AltaTrabajadorWizardContextValue = {
   resumeDraft: () => AltaTrabajadorStepId
   startFresh: () => void
   reset: () => void
-  /** Tras envío correcto: borra borrador sin vaciar el formulario en pantalla. */
+  /** Tras envío correcto: borra el borrador y vacía el formulario en memoria. */
   completeSubmission: () => void
+  /** Adjunto de documentación identificativa. No se persiste en el borrador (sessionStorage). */
+  attachment: PortalChatterUploadFile | null
+  setAttachment: (file: PortalChatterUploadFile | null) => void
 }
 
 const AltaTrabajadorWizardContext =
@@ -47,8 +51,9 @@ export function AltaTrabajadorWizardProvider({ children }: { children: ReactNode
     EMPTY_ALTA_TRABAJADOR_FORM
   )
   const [lastStepId, setLastStepIdState] =
-    useState<AltaTrabajadorStepId>('datos-trabajador')
+    useState<AltaTrabajadorStepId>('datos-personales')
   const [sessionActive, setSessionActive] = useState(false)
+  const [attachment, setAttachment] = useState<PortalChatterUploadFile | null>(null)
 
   useEffect(() => {
     if (!sessionActive) return
@@ -80,7 +85,7 @@ export function AltaTrabajadorWizardProvider({ children }: { children: ReactNode
   const resumeDraft = useCallback(() => {
     const draft = readAltaTrabajadorDraft()
     const nextValues = draft?.values ?? EMPTY_ALTA_TRABAJADOR_FORM
-    const nextStep = draft?.lastStepId ?? 'datos-trabajador'
+    const nextStep = draft?.lastStepId ?? 'datos-personales'
     setValuesState(nextValues)
     setLastStepIdState(nextStep)
     setSessionActive(true)
@@ -89,20 +94,30 @@ export function AltaTrabajadorWizardProvider({ children }: { children: ReactNode
 
   const startFresh = useCallback(() => {
     setValuesState(EMPTY_ALTA_TRABAJADOR_FORM)
-    setLastStepIdState('datos-trabajador')
+    setLastStepIdState('datos-personales')
     setSessionActive(true)
+    setAttachment(null)
     clearAltaTrabajadorDraft()
   }, [])
 
   const reset = useCallback(() => {
     setValuesState(EMPTY_ALTA_TRABAJADOR_FORM)
-    setLastStepIdState('datos-trabajador')
+    setLastStepIdState('datos-personales')
     setSessionActive(false)
+    setAttachment(null)
     clearAltaTrabajadorDraft()
   }, [])
 
   const completeSubmission = useCallback(() => {
+    // Vaciar `values` (no solo borrar el borrador) es necesario: mientras el
+    // router.push de éxito completa la transición, este provider sigue montado
+    // y useAltaTrabajadorStepSession puede reactivar sessionActive al ver que
+    // ya no hay borrador, lo que reescribiría `values` como borrador nuevo. Al
+    // quedar vacío, hasAltaTrabajadorDraftContent lo descarta igualmente.
+    setValuesState(EMPTY_ALTA_TRABAJADOR_FORM)
+    setLastStepIdState('datos-personales')
     setSessionActive(false)
+    setAttachment(null)
     clearAltaTrabajadorDraft()
   }, [])
 
@@ -119,6 +134,8 @@ export function AltaTrabajadorWizardProvider({ children }: { children: ReactNode
       startFresh,
       reset,
       completeSubmission,
+      attachment,
+      setAttachment,
     }),
     [
       values,
@@ -132,6 +149,7 @@ export function AltaTrabajadorWizardProvider({ children }: { children: ReactNode
       startFresh,
       reset,
       completeSubmission,
+      attachment,
     ]
   )
 

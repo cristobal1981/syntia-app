@@ -1,7 +1,11 @@
 export const ALTA_TRABAJADOR_STEP_IDS = [
-  'datos-trabajador',
+  'datos-personales',
+  'domicilio',
+  'puesto-ocupacion',
   'contrato',
-  'observaciones',
+  'teletrabajo',
+  'retribucion-horario',
+  'documentacion',
   'resumen',
 ] as const
 
@@ -14,16 +18,20 @@ export type AltaTrabajadorStepDefinition = {
 }
 
 export const ALTA_TRABAJADOR_STEPS: AltaTrabajadorStepDefinition[] = [
-  {
-    id: 'datos-trabajador',
-    path: '/alta-trabajador/datos-trabajador',
-    label: 'Trabajador',
-  },
+  { id: 'datos-personales', path: '/alta-trabajador/datos-personales', label: 'Datos' },
+  { id: 'domicilio', path: '/alta-trabajador/domicilio', label: 'Domicilio' },
+  { id: 'puesto-ocupacion', path: '/alta-trabajador/puesto-ocupacion', label: 'Puesto' },
   { id: 'contrato', path: '/alta-trabajador/contrato', label: 'Contrato' },
+  { id: 'teletrabajo', path: '/alta-trabajador/teletrabajo', label: 'Teletrabajo' },
   {
-    id: 'observaciones',
-    path: '/alta-trabajador/observaciones',
-    label: 'Observaciones',
+    id: 'retribucion-horario',
+    path: '/alta-trabajador/retribucion-horario',
+    label: 'Retribución',
+  },
+  {
+    id: 'documentacion',
+    path: '/alta-trabajador/documentacion',
+    label: 'Documentación',
   },
   { id: 'resumen', path: '/alta-trabajador/resumen', label: 'Resumen' },
 ]

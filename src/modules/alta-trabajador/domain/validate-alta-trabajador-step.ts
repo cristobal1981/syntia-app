@@ -1,71 +1,80 @@
-import {
-  applyFieldRule,
-  isValidPositiveInteger,
-  requireIsoDate,
-  trim,
-} from '@/lib/validation'
 import type { AltaTrabajadorStepId } from '@/src/modules/alta-trabajador/domain/alta-trabajador-steps'
 import type { AltaTrabajadorFormValues } from '@/src/modules/alta-trabajador/domain/alta-trabajador-form-types'
-import {
-  buildAltaTrabajadorPayload,
-  showsContractEndDate,
-  showsPartialWeeklyHours,
-} from '@/src/modules/alta-trabajador/domain/build-alta-trabajador-payload'
+import { buildAltaTrabajadorPayload } from '@/src/modules/alta-trabajador/domain/build-alta-trabajador-payload'
 import {
   validateProcedureTicketPayload,
   type ProcedureFieldErrorKey,
 } from '@/src/modules/tramites/domain/validate-procedure-ticket'
 
+const STEP_FIELDS: Record<AltaTrabajadorStepId, readonly string[]> = {
+  'datos-personales': ['firstName', 'lastName', 'dni', 'naf', 'email', 'phone', 'iban'],
+  domicilio: [
+    'birthDate',
+    'addressStreet',
+    'addressNumber',
+    'addressCity',
+    'addressProvince',
+    'addressPostalCode',
+  ],
+  'puesto-ocupacion': [
+    'startDate',
+    'workCenter',
+    'position',
+    'jobDuties',
+    'sepeOccupationCode',
+    'studiesLevel',
+  ],
+  contrato: [
+    'contractType',
+    'temporaryReason',
+    'temporaryIncreaseCauses',
+    'temporaryDurationReason',
+    'vacationSubstitutionDetails',
+    'employeeToSubstitute',
+    'otherTemporaryReasonDetail',
+    'trainingType',
+    'trainingHasScholarship',
+    'trainingScholarshipAmount',
+    'trainingScholarshipPayer',
+    'otherContractReason',
+    'contractEndDate',
+  ],
+  teletrabajo: [
+    'isTelework',
+    'teleworkAddressStreet',
+    'teleworkAddressNumber',
+    'teleworkAddressCity',
+    'teleworkAddressProvince',
+    'teleworkAddressPostalCode',
+    'teleworkEquipment',
+    'teleworkAmountAgreed',
+    'teleworkFullTime',
+    'teleworkDaysRemote',
+    'teleworkDaysOnsite',
+  ],
+  'retribucion-horario': [
+    'salaryType',
+    'grossSalary',
+    'workSchedule',
+    'partialWeeklyHours',
+    'workDays',
+    'workHoursDescription',
+  ],
+  documentacion: ['observations', 'requiresWorkAuthorization', 'identityDocument'],
+  resumen: [],
+}
+
 export function validateAltaTrabajadorStep(
   stepId: AltaTrabajadorStepId,
-  values: AltaTrabajadorFormValues
+  values: AltaTrabajadorFormValues,
+  attachment?: { name: string; mimetype: string; dataBase64: string } | null
 ): Record<string, ProcedureFieldErrorKey> {
-  const payload = buildAltaTrabajadorPayload(values)
+  const payload = buildAltaTrabajadorPayload(values, attachment)
   const allErrors = validateProcedureTicketPayload(payload)
 
-  if (stepId === 'datos-trabajador') {
-    return pickErrors(allErrors, ['fullName', 'dni'] as const)
-  }
+  if (stepId === 'resumen') return allErrors
 
-  if (stepId === 'contrato') {
-    const fields = [
-      'startDate',
-      'contractType',
-      'workSchedule',
-      'position',
-      'grossSalary',
-    ] as const
-    const errors = pickErrors(allErrors, fields)
-
-    if (showsPartialWeeklyHours(values)) {
-      const hours = trim(values.partialWeeklyHours)
-      if (!hours) {
-        errors.partialWeeklyHours = 'daysRequired'
-      } else if (!isValidPositiveInteger(hours, { maxDigits: 2 })) {
-        errors.partialWeeklyHours = 'daysInvalid'
-      }
-    }
-
-    if (showsContractEndDate(values)) {
-      applyFieldRule(
-        errors,
-        'contractEndDate',
-        requireIsoDate(
-          values.contractEndDate,
-          'dateRequired',
-          'dateInvalid'
-        )
-      )
-    }
-
-    return errors
-  }
-
-  if (stepId === 'observaciones') {
-    return pickErrors(allErrors, ['observations'])
-  }
-
-  return allErrors
+  return pickErrors(allErrors, STEP_FIELDS[stepId])
 }
 
 function pickErrors(
