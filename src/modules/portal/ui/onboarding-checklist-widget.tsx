@@ -61,7 +61,10 @@ export function OnboardingChecklistWidget({
         // `bg-sidebar` as the topbar/sidebar in every theme (its CSS var is the
         // same dark teal regardless of light/dark, no `dark:` prefix needed)
         // reads clearly as "chrome" against any page content, light or dark.
-        className="fixed right-4 bottom-4 z-30 flex cursor-pointer items-center gap-2 rounded-full border border-sidebar-border bg-sidebar py-2 pr-4 pl-3 text-sm font-medium text-sidebar-foreground shadow-lg transition-colors hover:bg-sidebar-accent"
+        // bottom offset clears the mobile bottombar (portal-bottom-bar.tsx,
+        // min-h-14 + safe-area, client role only) below `lg`; desktop has no
+        // bottombar so it reverts to a flush bottom-4.
+        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex cursor-pointer items-center gap-2 rounded-full border border-sidebar-border bg-sidebar py-2 pr-4 pl-3 text-sm font-medium text-sidebar-foreground shadow-lg transition-colors hover:bg-sidebar-accent lg:bottom-4"
       >
         <ListChecks className="size-4 text-primary" aria-hidden />
         {formatProgress(completedCount, steps.length)}
@@ -73,7 +76,7 @@ export function OnboardingChecklistWidget({
     <div
       role="region"
       aria-label={copy.title}
-      className="fixed right-4 bottom-4 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-sidebar-border bg-sidebar p-4 shadow-lg"
+      className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-sidebar-border bg-sidebar p-4 shadow-lg lg:bottom-4"
     >
       <div className="flex items-start justify-between gap-2">
         <div>

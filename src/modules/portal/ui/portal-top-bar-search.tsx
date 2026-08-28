@@ -405,7 +405,7 @@ export function PortalTopBarSearch({
         type="button"
         onClick={openSearch}
         className={cn(
-          'flex h-8 w-full max-w-md cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-sm transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:border-border dark:bg-sidebar-accent lg:max-w-lg',
+          'flex size-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9 lg:h-8 lg:w-full lg:max-w-md lg:justify-start lg:rounded-md lg:border lg:border-border lg:bg-background lg:px-2.5 lg:text-sm lg:text-foreground lg:hover:bg-background lg:hover:border-border lg:hover:text-foreground dark:lg:border-border dark:lg:bg-sidebar-accent lg:max-w-lg',
           overlayActive && 'ring-2 ring-primary/35',
           className
         )}
@@ -413,11 +413,13 @@ export function PortalTopBarSearch({
         aria-keyshortcuts={formatPortalShortcutLabel(PORTAL_SEARCH_SHORTCUT)}
         aria-haspopup="dialog"
       >
-        <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">
+        <Search className="size-4 shrink-0 lg:size-3.5 lg:text-muted-foreground" aria-hidden />
+        <span className="hidden min-w-0 flex-1 truncate text-left text-muted-foreground lg:block">
           {portal.shell.searchPlaceholder}
         </span>
-        <PortalShortcutHint shortcut={PORTAL_SEARCH_SHORTCUT} />
+        <span className="hidden lg:block">
+          <PortalShortcutHint shortcut={PORTAL_SEARCH_SHORTCUT} />
+        </span>
       </button>
 
       <Dialog
@@ -432,7 +434,11 @@ export function PortalTopBarSearch({
       >
         <DialogContent
           showCloseButton={false}
-          className="gap-0 overflow-hidden bg-background p-0 sm:max-w-xl"
+          // Anchored near the top below `sm`: centered (the shadcn default)
+          // sits behind the mobile keyboard once it opens, since the layout
+          // viewport `top-1/2` is measured against doesn't shrink for it on
+          // most mobile browsers.
+          className="top-4 translate-y-0 gap-0 overflow-hidden bg-background p-0 sm:top-1/2 sm:max-w-xl sm:-translate-y-1/2"
         >
           <DialogTitle className="sr-only">
             {portal.search.dialogTitle}

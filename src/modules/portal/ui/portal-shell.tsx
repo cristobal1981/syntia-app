@@ -22,6 +22,7 @@ import {
 } from '@/src/modules/portal/ui/portal-entry-loading-context'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { renderNavItem } from '@/src/modules/portal/ui/portal-nav-items'
+import { PortalBottomBar } from '@/src/modules/portal/ui/portal-bottom-bar'
 import { PortalMobileMenu } from '@/src/modules/portal/ui/portal-mobile-menu'
 import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import {
@@ -33,6 +34,12 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 
 const SIDEBAR_STORAGE_KEY = 'syntia-sidebar-collapsed'
 const menuEase = [0.22, 1, 0.36, 1] as const
+/**
+ * Bottombar solo para client/worker (uso móvil real). Admin/advisor siguen
+ * con el drawer completo — sus ítems tienen children anidados y el uso es
+ * mayoritariamente desktop.
+ */
+const BOTTOM_BAR_HREFS = ['/dashboard', '/tramites', '/obligaciones', '/documentos', '/firmas']
 
 type PortalShellProps = {
   user: PortalUser
@@ -91,6 +98,14 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   const canCreateConsulta =
     user.role === 'client' ||
     (user.role === 'worker' && navItems.some((item) => item.href === '/tramites'))
+  const bottomBarItems = isClientOrWorker
+    ? BOTTOM_BAR_HREFS.map((href) => navItems.find((item) => item.href === href)).filter(
+        (item): item is NavItem => item != null
+      )
+    : []
+  const moreNavItems = isClientOrWorker
+    ? navItems.filter((item) => !BOTTOM_BAR_HREFS.includes(item.href ?? ''))
+    : navItems
   const roleLabel = portal.roles[user.role]
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
@@ -218,7 +233,7 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
                 transition={{ duration: reducedMotion ? 0 : 0.2, ease: menuEase }}
               >
                 <PortalMobileMenu
-                  navItems={navItems}
+                  navItems={moreNavItems}
                   pathname={pathname}
                   pendingHref={pendingHref}
                   user={user}
@@ -231,7 +246,20 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
           </AnimatePresence>
         </LazyMotion>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
+        <main
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto p-4 sm:p-10',
+            isClientOrWorker && 'pb-24 lg:pb-10'
+          )}
+        >
+          {children}
+        </main>
+
+        <PortalBottomBar
+          items={bottomBarItems}
+          pendingHref={pendingHref}
+          onNavStart={handleNavStart}
+        />
       </div>
     </div>
     </PortalEntryLoadingProvider>

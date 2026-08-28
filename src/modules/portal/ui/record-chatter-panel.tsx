@@ -344,6 +344,11 @@ export function RecordChatterPanel({
 
   useEffect(() => {
     if (!active || !canReply || loadingInitial || sending) return
+    // En táctil, enfocar el editor aquí (navegación pasiva entre récords, no
+    // una acción explícita del usuario) abre el teclado y hace saltar la
+    // vista en cada flecha ← → de la lista. En "responder" (handleReply) el
+    // foco sí es intencional y se mantiene en cualquier dispositivo.
+    if (window.matchMedia('(pointer: coarse)').matches) return
     queueMicrotask(() => composerRef.current?.focus())
   }, [active, canReply, loadingInitial, sending, kind, recordId, scrollPin])
 
