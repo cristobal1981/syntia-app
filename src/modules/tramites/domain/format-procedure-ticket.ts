@@ -345,9 +345,3 @@ export function formatProcedureTicketChatterMessage(input: {
     `<p><em>Solicitado el ${escapeHtml(formatRequestedAt(requestedAt))}</em></p>`
   )
 }
-
-export function procedureRecordKind(
-  payload: ProcedureTicketPayload
-): 'task' | 'ticket' {
-  return payload.type === 'alta-trabajador' ? 'task' : 'ticket'
-}

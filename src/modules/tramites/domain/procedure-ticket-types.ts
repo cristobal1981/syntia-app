@@ -96,3 +96,8 @@ export type ProcedureTicketPayload =
   | TrabajadorAltaPayload
   | TrabajadorBajaPayload
   | CartaVacacionesPayload
+
+/** Tipos que siguen creando un ticket genérico vía `createProcedureTicketAction`
+ * (con mensaje de chatter). Alta-trabajador tiene su propio método,
+ * `createAltaTrabajadorTaskAction` — ver esa acción para el motivo. */
+export type GenericProcedureTicketPayload = TrabajadorBajaPayload | CartaVacacionesPayload

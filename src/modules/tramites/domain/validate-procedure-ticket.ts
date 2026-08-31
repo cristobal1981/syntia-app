@@ -457,11 +457,11 @@ function normalizeAltaTrabajadorPayload(payload: TrabajadorAltaPayload): Trabaja
   }
 }
 
-export function normalizeProcedureTicketPayload(
-  payload: ProcedureTicketPayload
-): ProcedureTicketPayload {
+export function normalizeProcedureTicketPayload<T extends ProcedureTicketPayload>(
+  payload: T
+): T {
   if (payload.type === 'alta-trabajador') {
-    return normalizeAltaTrabajadorPayload(payload)
+    return normalizeAltaTrabajadorPayload(payload) as T
   }
 
   const base = {
@@ -476,7 +476,7 @@ export function normalizeProcedureTicketPayload(
       ...base,
       endDate: trim(payload.endDate),
       reason: trim(payload.reason),
-    }
+    } as T
   }
 
   return {
@@ -486,5 +486,5 @@ export function normalizeProcedureTicketPayload(
     periodEnd: trim(payload.periodEnd),
     days: trim(payload.days),
     vacationYear: trim(payload.vacationYear),
-  }
+  } as T
 }

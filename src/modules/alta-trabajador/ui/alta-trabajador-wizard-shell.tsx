@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { altaTrabajadorWizard } from '@/content/alta-trabajador-wizard'
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
-import { createProcedureTicketAction } from '@/src/modules/tramites/application/create-procedure-ticket-action'
+import { createAltaTrabajadorTaskAction } from '@/src/modules/alta-trabajador/application/create-alta-trabajador-task-action'
 import {
   getAltaTrabajadorPreviousStep,
   type AltaTrabajadorStepId,
@@ -89,7 +89,7 @@ export function AltaTrabajadorWizardShell({
     setIsSubmitting(true)
 
     try {
-      const result = await createProcedureTicketAction(payload)
+      const result = await createAltaTrabajadorTaskAction(payload)
 
       if (!result.ok) {
         setSubmitError(
