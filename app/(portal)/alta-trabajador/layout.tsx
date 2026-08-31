@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { assertSectionAccess } from '@/src/modules/colaboradores/application/assert-section-access'
 import { AltaTrabajadorLayoutClient } from '@/src/modules/alta-trabajador/ui/alta-trabajador-layout-client'
 
 export default async function AltaTrabajadorLayout({
@@ -13,9 +14,7 @@ export default async function AltaTrabajadorLayout({
     redirect('/login')
   }
 
-  if (session.user.role !== 'client') {
-    redirect('/dashboard')
-  }
+  await assertSectionAccess(session, '/tramites')
 
   return (
     <div className="flex flex-1 flex-col py-6 md:py-8">
