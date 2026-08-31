@@ -1,10 +1,9 @@
 /**
- * Catálogo de Ocupaciones SEPE (CNO), usado en el campo "Seleccionar ocupación del SEPE"
+ * Catálogo de Ocupaciones SEPE (CNO-2011), usado en el campo "Seleccionar ocupación del SEPE"
  * del wizard de alta de trabajador. Extraído de OCUPACIONES.pdf (listado oficial de
- * "Comunicación de Contratos"). Aviso: ~15-20 descripciones de las ~500 quedaron
- * truncadas a mitad de frase por una limitación del PDF original (columna Descripción
- * demasiado estrecha en descripciones largas). No bloqueante para producción; pulir
- * contra el listado oficial CNO-2011 del INE/SEPE si se necesita precisión total.
+ * "Comunicación de Contratos"); las 15 descripciones que quedaron truncadas a mitad de
+ * frase por una limitación del PDF original se completaron contra el listado oficial
+ * CNO-2011 del INE (ine.es/daco/daco42/clasificaciones/cno11_notas.pdf).
  */
 export type SepeOcupacion = {
   code: string
@@ -21,7 +20,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '1120', label: 'Directores generales y presidentes ejecutivos' },
   { code: '1211', label: 'Directores financieros' },
   { code: '1212', label: 'Directores de recursos humanos' },
-  { code: '1219', label: 'Directores de políticas y planificación y de otros departamentos administrativos no clasificados' },
+  { code: '1219', label: 'Directores de políticas y planificación y de otros departamentos administrativos no clasificados bajo otros epígrafes' },
   { code: '1221', label: 'Directores comerciales y de ventas' },
   { code: '1222', label: 'Directores de publicidad y relaciones públicas' },
   { code: '1223', label: 'Directores de investigación y desarrollo' },
@@ -47,7 +46,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '1431', label: 'Directores y gerentes de empresas de comercio al por mayor' },
   { code: '1432', label: 'Directores y gerentes de empresas de comercio al por menor' },
   { code: '1501', label: 'Directores y gerentes de empresas de actividades recreativas, culturales y deportivas' },
-  { code: '1509', label: 'Directores y gerentes de empresas de gestión de residuos y de otras empresas de servicios no' },
+  { code: '1509', label: 'Directores y gerentes de empresas de gestión de residuos y de otras empresas de servicios no clasificados bajo otros epígrafes' },
   { code: '2111', label: 'Médicos de familia' },
   { code: '2112', label: 'Otros médicos especialistas' },
   { code: '2121', label: 'Enfermeros no especializados' },
@@ -179,7 +178,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '3128', label: 'Técnicos en metalurgia y minas' },
   { code: '3129', label: 'Otros técnicos de las ciencias físicas, químicas, medioambientales y de las ingenierías' },
   { code: '3131', label: 'Técnicos en instalaciones de producción de energía' },
-  { code: '3132', label: 'Técnicos en instalaciones de tratamiento de residuos, de aguas y otros operadores en plantas' },
+  { code: '3132', label: 'Técnicos en instalaciones de tratamiento de residuos, de aguas y otros operadores en plantas similares' },
   { code: '3133', label: 'Técnicos en control de instalaciones de procesamiento de productos químicos' },
   { code: '3134', label: 'Técnicos de refinerías de petróleo y gas natural' },
   { code: '3135', label: 'Técnicos en control de procesos de producción de metales' },
@@ -216,7 +215,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '3326', label: 'Técnicos en prevención de riesgos laborales y salud ambiental' },
   { code: '3327', label: 'Ayudantes de veterinaria' },
   { code: '3329', label: 'Técnicos de la sanidad no clasificados bajo otros epígrafes' },
-  { code: '3331', label: 'Profesionales de la acupuntura, la naturopatía, la homeopatía, la medicina tradicional china y' },
+  { code: '3331', label: 'Profesionales de la acupuntura, la naturopatía, la homeopatía, la medicina tradicional china y la ayurveda' },
   { code: '3339', label: 'Otros profesionales de las terapias alternativas' },
   { code: '3401', label: 'Profesionales de apoyo e intermediarios de cambio, bolsa y finanzas' },
   { code: '3402', label: 'Comerciales de préstamos y créditos' },
@@ -229,10 +228,10 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '3523', label: 'Consignatarios' },
   { code: '3531', label: 'Representantes de aduanas' },
   { code: '3532', label: 'Organizadores de conferencias y eventos' },
-  { code: '3533', label: 'Agentes o intermediarios en la contratación de la mano de obra (excepto representantes de' },
+  { code: '3533', label: 'Agentes o intermediarios en la contratación de la mano de obra (excepto representantes de espectáculos)' },
   { code: '3534', label: 'Agentes y administradores de la propiedad inmobiliaria' },
   { code: '3535', label: 'Portavoces y agentes de relaciones públicas' },
-  { code: '3539', label: 'Representantes artísticos y deportivos y otros agentes de servicios comerciales no clasificados' },
+  { code: '3539', label: 'Representantes artísticos y deportivos y otros agentes de servicios comerciales no clasificados bajo otros epígrafes' },
   { code: '3611', label: 'Supervisores de secretaría' },
   { code: '3612', label: 'Asistentes jurídico-legales' },
   { code: '3613', label: 'Asistentes de dirección y administrativos' },
@@ -240,7 +239,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '3621', label: 'Profesionales de apoyo de la Administración Pública de tributos' },
   { code: '3622', label: 'Profesionales de apoyo de la Administración Pública de servicios sociales' },
   { code: '3623', label: 'Profesionales de apoyo de la Administración Pública de servicios de expedición de licencias' },
-  { code: '3629', label: 'Otros profesionales de apoyo de la Administración Pública para tareas de inspección y control y' },
+  { code: '3629', label: 'Otros profesionales de apoyo de la Administración Pública para tareas de inspección y control y tareas similares' },
   { code: '3631', label: 'Técnicos de la policía nacional, autonómica y local' },
   { code: '3632', label: 'Suboficiales de la guardia civil' },
   { code: '3711', label: 'Profesionales de apoyo de servicios jurídicos y servicios similares' },
@@ -311,7 +310,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '5612', label: 'Auxiliares de enfermería de atención primaria' },
   { code: '5621', label: 'Técnicos auxiliares de farmacia' },
   { code: '5622', label: 'Técnicos de emergencias sanitarias' },
-  { code: '5629', label: 'Trabajadores de los cuidados a las personas en servicios de salud no clasificados bajo otros' },
+  { code: '5629', label: 'Trabajadores de los cuidados a las personas en servicios de salud no clasificados bajo otros epígrafes' },
   { code: '5710', label: 'Trabajadores de los cuidados personales a domicilio' },
   { code: '5721', label: 'Cuidadores de niños en guarderías y centros educativos' },
   { code: '5722', label: 'Cuidadores de niños en domicilios' },
@@ -344,7 +343,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '5992', label: 'Bañistas-socorristas' },
   { code: '5993', label: 'Agentes forestales y medioambientales' },
   { code: '5999', label: 'Trabajadores de los servicios de protección y seguridad no clasificados bajo otros epígrafes' },
-  { code: '6110', label: 'Trabajadores cualificados en actividades agrícolas (excepto en huertas, invernaderos, viveros y' },
+  { code: '6110', label: 'Trabajadores cualificados en actividades agrícolas (excepto en huertas, invernaderos, viveros y jardines)' },
   { code: '6120', label: 'Trabajadores cualificados en huertas, invernaderos, viveros y jardines' },
   { code: '6201', label: 'Trabajadores cualificados en actividades ganaderas de vacuno' },
   { code: '6202', label: 'Trabajadores cualificados en actividades ganaderas de ovino y caprino' },
@@ -363,11 +362,11 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '7121', label: 'Albañiles' },
   { code: '7122', label: 'Canteros, tronzadores, labrantes y grabadores de piedras' },
   { code: '7131', label: 'Carpinteros (excepto ebanistas)' },
-  { code: '7132', label: 'Instaladores de cerramientos metálicos y carpinteros metálicos (excepto montadores de' },
+  { code: '7132', label: 'Instaladores de cerramientos metálicos y carpinteros metálicos (excepto montadores de estructuras metálicas)' },
   { code: '7191', label: 'Mantenedores de edificios' },
   { code: '7192', label: 'Instaladores de fachadas técnicas' },
   { code: '7193', label: 'Instaladores de sistemas de impermeabilización en edificios' },
-  { code: '7199', label: 'Otros trabajadores de las obras estructurales de construcción no clasificados bajo otros' },
+  { code: '7199', label: 'Otros trabajadores de las obras estructurales de construcción no clasificados bajo otros epígrafes' },
   { code: '7211', label: 'Escayolistas' },
   { code: '7212', label: 'Aplicadores de revestimientos de pasta y mortero' },
   { code: '7221', label: 'Fontaneros' },
@@ -388,7 +387,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '7314', label: 'Montadores de estructuras metálicas' },
   { code: '7315', label: 'Montadores de estructuras cableadas y empalmadores de cables' },
   { code: '7321', label: 'Herreros y forjadores' },
-  { code: '7322', label: 'Trabajadores de la fabricación de herramientas, mecánico-ajustadores, modelistas, matriceros y' },
+  { code: '7322', label: 'Trabajadores de la fabricación de herramientas, mecánico-ajustadores, modelistas, matriceros y afines' },
   { code: '7323', label: 'Ajustadores y operadores de máquinas-herramienta' },
   { code: '7324', label: 'Pulidores de metales y afiladores de herramientas' },
   { code: '7401', label: 'Mecánicos y ajustadores de vehículos de motor' },
@@ -409,7 +408,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '7615', label: 'Sopladores, modeladores, laminadores, cortadores y pulidores de vidrio' },
   { code: '7616', label: 'Rotulistas, grabadores de vidrio, pintores decorativos de artículos diversos' },
   { code: '7617', label: 'Artesanos en madera y materiales similares; cesteros, bruceros y trabajadores afines' },
-  { code: '7618', label: 'Artesanos en tejidos, cueros y materiales similares, preparadores de fibra y tejedores con' },
+  { code: '7618', label: 'Artesanos en tejidos, cueros y materiales similares, preparadores de fibra y tejedores con telares artesanos o de tejidos de punto y afines' },
   { code: '7619', label: 'Artesanos no clasificados bajo otros epígrafes' },
   { code: '7621', label: 'Trabajadores de procesos de preimpresión' },
   { code: '7622', label: 'Trabajadores de procesos de impresión' },
@@ -418,7 +417,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '7702', label: 'Trabajadores de las industrias del pescado' },
   { code: '7703', label: 'Panaderos, pasteleros y confiteros' },
   { code: '7704', label: 'Trabajadores del tratamiento de la leche y elaboración de productos lácteos (incluidos helados)' },
-  { code: '7705', label: 'Trabajadores conserveros de frutas y hortalizas y trabajadores de la elaboración de bebidas no' },
+  { code: '7705', label: 'Trabajadores conserveros de frutas y hortalizas y trabajadores de la elaboración de bebidas no alcohólicas' },
   { code: '7706', label: 'Trabajadores de la elaboración de bebidas alcohólicas distintas del vino' },
   { code: '7707', label: 'Trabajadores de la elaboración del vino' },
   { code: '7708', label: 'Preparadores y elaboradores del tabaco y sus productos' },
@@ -450,7 +449,7 @@ export const SEPE_OCUPACIONES: SepeOcupacion[] = [
   { code: '8141', label: 'Operadores de máquinas para fabricar productos de caucho y derivados de resinas naturales' },
   { code: '8142', label: 'Operadores de máquinas para fabricar productos de material plástico' },
   { code: '8143', label: 'Operadores de máquinas para fabricar productos de papel y cartón' },
-  { code: '8144', label: 'Operadores de serrerías, de máquinas de fabricación de tableros y de instalaciones afines para' },
+  { code: '8144', label: 'Operadores de serrerías, de máquinas de fabricación de tableros y de instalaciones afines para el tratamiento de la madera y el corcho' },
   { code: '8145', label: 'Operadores en instalaciones para la preparación de pasta de papel y fabricación de papel' },
   { code: '8151', label: 'Operadores de máquinas para preparar fibras, hilar y devanar' },
   { code: '8152', label: 'Operadores de telares y otras máquinas tejedoras' },
