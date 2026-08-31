@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition, type FormEvent } from 'react'
+import { useState, useTransition, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -127,15 +127,22 @@ export function AutomationCreateDrawer({
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): resiembra/limpia el
+  // formulario cada vez que el diálogo cambia de abierto/cerrado o de
+  // automatización a editar.
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevAutomation, setPrevAutomation] = useState(automation)
+  if (open !== prevOpen || automation !== prevAutomation) {
+    setPrevOpen(open)
+    setPrevAutomation(automation)
     if (!open) {
       setForm(EMPTY_FORM)
       setFieldError(null)
-      return
+    } else {
+      setForm(automation ? formFromAutomation(automation) : EMPTY_FORM)
+      setFieldError(null)
     }
-    setForm(automation ? formFromAutomation(automation) : EMPTY_FORM)
-    setFieldError(null)
-  }, [open, automation])
+  }
 
   function patchForm(patch: Partial<FormState>) {
     setForm((current) => ({ ...current, ...patch }))

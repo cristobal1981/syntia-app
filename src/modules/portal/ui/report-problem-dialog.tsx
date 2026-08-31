@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, useTransition, type RefObject } from 'react'
+import { useId, useRef, useState, useTransition, type RefObject } from 'react'
 import { usePathname } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -76,14 +76,19 @@ export function ReportProblemDialog({ open, onOpenChange }: ReportProblemDialogP
   const [areaOpen, setAreaOpen] = useState(false)
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
-  useEffect(() => {
-    if (open) return
-    setValues(EMPTY_STATE)
-    setFieldErrors({})
-    setFormError(null)
-    setAreaOpen(false)
-    setDiscardConfirmOpen(false)
-  }, [open])
+  // Ajuste durante el render (no en un efecto): limpia el formulario al
+  // cerrar el diálogo.
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (!open) {
+      setValues(EMPTY_STATE)
+      setFieldErrors({})
+      setFormError(null)
+      setAreaOpen(false)
+      setDiscardConfirmOpen(false)
+    }
+  }
 
   const hasUnsavedContent =
     values.area.trim().length > 0 ||

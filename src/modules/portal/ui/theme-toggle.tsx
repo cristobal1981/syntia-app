@@ -30,6 +30,8 @@ export function ThemeToggle({ className, variant = 'icon' }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
+  // El tema real de next-themes solo se conoce tras hidratar (evita mismatch SSR).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), [])
 
   if (!mounted) {

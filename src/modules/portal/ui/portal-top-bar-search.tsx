@@ -312,9 +312,13 @@ export function PortalTopBarSearch({
 
   usePortalShortcut(PORTAL_SEARCH_SHORTCUT, openSearch)
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): vuelve al primer resultado
+  // cuando cambia la búsqueda o el conjunto de resultados visibles.
+  const [prevResetKey, setPrevResetKey] = useState([query, visibleItems.length])
+  if (query !== prevResetKey[0] || visibleItems.length !== prevResetKey[1]) {
+    setPrevResetKey([query, visibleItems.length])
     setActiveIndex(0)
-  }, [query, visibleItems.length])
+  }
 
   useEffect(() => {
     if (!open) return
@@ -462,6 +466,7 @@ export function PortalTopBarSearch({
               aria-label={portal.shell.searchPlaceholder}
               aria-controls={listboxId}
               aria-autocomplete="list"
+              aria-expanded={visibleItems.length > 0}
               role="combobox"
               autoComplete="off"
               className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground md:text-sm"

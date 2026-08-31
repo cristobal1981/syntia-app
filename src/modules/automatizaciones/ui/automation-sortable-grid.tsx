@@ -133,6 +133,9 @@ export function AutomationSortableGrid({
   const [dndMounted, setDndMounted] = useState(false)
 
   useEffect(() => {
+    // dnd-kit necesita esperar a la hidratación del cliente (mismatch SSR
+    // conocido de la librería) — no hay forma de saberlo durante el render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDndMounted(true)
   }, [])
 

@@ -66,7 +66,13 @@ function TramitesListSection({
   const [page, setPage] = useState(1)
   const paginationId = 'tramites-pagination-label'
 
+  // Dos efectos coordinados a propósito (orden de declaración importa: el
+  // reset a página 1 corre primero, luego el salto a la página del
+  // seleccionado lo sobrescribe si aplica) — reescribirlo como ajuste
+  // durante el render exigiría reproducir esa combinación a mano sin tests
+  // que lo verifiquen; se documenta y se acepta tal cual.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1)
   }, [items])
 
@@ -78,6 +84,7 @@ function TramitesListSection({
     )
     if (index < 0) return
     const itemPage = Math.floor(index / PORTAL_LIST_PAGE_SIZE) + 1
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage((current) => (current === itemPage ? current : itemPage))
   }, [items, selectedItem])
 
@@ -224,6 +231,9 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
     const q = searchParams.get('q')
     if (!q) return
 
+    // Semilla única desde el query param de la URL, y limpia la URL con
+    // router.replace (efecto externo real, no puede hacerse en el render).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilters((prev) => ({ ...prev, query: q }))
     router.replace('/tramites', { scroll: false })
   }, [router, searchParams])
@@ -239,6 +249,11 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
   }, [attachmentCountOverrides, data.tasks, data.tickets])
 
   useEffect(() => {
+    // Refresca el item seleccionado con los datos recién llegados de Odoo
+    // (adjuntos/estado/fecha) sin perder la identidad de "cuál está
+    // seleccionado" — no es estado derivable en render porque `selectedItem`
+    // también cambia por acción directa del usuario (clic en fila).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedItem((current) => {
       if (!current) return current
       const fresh = allItems.find(
@@ -318,6 +333,9 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
     handledOpenParamRef.current = openParam
     pendingOpenUrlCleanupRef.current = true
     const tabParam = searchParams.get('tab')
+    // Abre el drawer desde el query param `open`/`tab` de la URL; el efecto
+    // de abajo limpia esa URL (router.replace) — efecto externo real.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrawerInitialTab(tabParam === 'documents' ? 'documents' : 'conversation')
     markItemSeen(item)
     setSelectedItem(item)
@@ -388,11 +406,9 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
   const [sortedItems, setSortedItems] = useState<TramiteListItem[]>(
     () => liveSortedItems
   )
-  useEffect(() => {
-    if (selectedItem === null) {
-      setSortedItems(liveSortedItems)
-    }
-  }, [liveSortedItems, selectedItem])
+  if (selectedItem === null && sortedItems !== liveSortedItems) {
+    setSortedItems(liveSortedItems)
+  }
 
   const filtersActive = hasActiveTramitesFilters(filters)
 

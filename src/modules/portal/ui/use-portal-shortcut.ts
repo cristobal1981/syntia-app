@@ -28,7 +28,10 @@ export function usePortalShortcut(
   const enabled = options?.enabled ?? true
   const allowInEditableTarget = options?.allowInEditableTarget ?? false
   const onTriggerRef = useRef(onTrigger)
-  onTriggerRef.current = onTrigger
+
+  useEffect(() => {
+    onTriggerRef.current = onTrigger
+  })
 
   useEffect(() => {
     if (!enabled) return

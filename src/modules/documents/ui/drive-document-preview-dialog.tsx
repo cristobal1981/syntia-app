@@ -84,6 +84,10 @@ export function DriveDocumentPreviewDialog({
 
   useEffect(() => {
     if (!open || !item) {
+      // Reset al cerrar + fetch al abrir (patrón fetch-on-open estándar de
+      // este repo, sin librería de fetching): no es estado derivable en
+      // render, depende de cuándo se abre/cierra el diálogo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPayload(null)
       setError(null)
       setLoading(false)

@@ -23,7 +23,9 @@ export function AltaTrabajadorIntroPage() {
   const copy = altaTrabajadorWizard.intro
 
   useEffect(() => {
+    // sessionStorage solo existe en cliente — no se puede leer durante SSR.
     const draft = readAltaTrabajadorDraft()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResumeStepId(draft?.lastStepId ?? null)
   }, [])
 

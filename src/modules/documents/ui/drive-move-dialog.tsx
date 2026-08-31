@@ -61,6 +61,8 @@ export function DriveMoveDialog({
 
   useEffect(() => {
     if (!open) return
+    // Dispara la carga inicial de la carpeta al abrir (fetch-on-open).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadBrowseFolder()
   }, [open, loadBrowseFolder])
 

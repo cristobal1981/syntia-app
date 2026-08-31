@@ -62,6 +62,10 @@ function AltaAutonomoCreateDialog({
 
   useEffect(() => {
     if (!open) {
+      // Reset al cerrar + fetch al abrir (patrón fetch-on-open estándar de
+      // este repo, sin librería de fetching): no es estado derivable en
+      // render, depende de cuándo se abre/cierra el diálogo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedPartnerId(null)
       setLinkUrl('')
       setLoadState('idle')
@@ -375,10 +379,13 @@ function OnboardingSolicitudTable({
   const router = useRouter()
   const pathname = usePathname()
   const [navigatingToken, setNavigatingToken] = useState<string | null>(null)
-
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): limpia el estado "navegando"
+  // en cuanto la URL realmente cambia (navegación confirmada).
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setNavigatingToken(null)
-  }, [pathname])
+  }
 
   function handleRowOpen(token: string) {
     if (navigatingToken) return

@@ -87,7 +87,9 @@ export function OnboardingChecklistProvider({
 
   useEffect(() => {
     if (!enabled) return
+    // localStorage solo existe en cliente — no se puede leer durante SSR.
     const stored = readStoredState()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCompleted(new Set(stored.completed))
     setDismissed(stored.dismissed)
     setLoaded(true)
@@ -127,6 +129,9 @@ export function OnboardingChecklistProvider({
       (id) => CHECKLIST_ROUTE_STEPS[id] === pathname
     )
     if (!step) return
+    // Reacciona a la navegación (pathname) marcando el paso visitado — estado
+    // acumulado a lo largo del tiempo, no derivable en render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     completeStep(step)
     // completeStep intentionally omitted: it changes identity with `completed`
     // on every completion, which would refire this on unrelated steps too.

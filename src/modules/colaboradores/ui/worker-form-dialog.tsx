@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -61,15 +61,23 @@ export function WorkerFormDialog({
   const [isEnabled, setIsEnabled] = useState(worker?.isEnabled ?? true)
   const [pending, setPending] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setFirstName(worker?.firstName ?? '')
-    setFirstSurname(worker?.firstSurname ?? '')
-    setSecondSurname(worker?.secondSurname ?? '')
-    setEmail(worker?.email ?? '')
-    setSections(new Set(worker?.allowedSections ?? []))
-    setIsEnabled(worker?.isEnabled ?? true)
-  }, [open, worker])
+  // Ajuste durante el render (no en un efecto): resiembra el formulario con
+  // el `worker` actual cada vez que el diálogo se abre (o cambia el
+  // registro a editar mientras está abierto).
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevWorker, setPrevWorker] = useState(worker)
+  if (open !== prevOpen || worker !== prevWorker) {
+    setPrevOpen(open)
+    setPrevWorker(worker)
+    if (open) {
+      setFirstName(worker?.firstName ?? '')
+      setFirstSurname(worker?.firstSurname ?? '')
+      setSecondSurname(worker?.secondSurname ?? '')
+      setEmail(worker?.email ?? '')
+      setSections(new Set(worker?.allowedSections ?? []))
+      setIsEnabled(worker?.isEnabled ?? true)
+    }
+  }
 
   const ownerDomain = emailDomain(ownerEmail)
   const candidateDomain = emailDomain(email)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
@@ -27,12 +27,15 @@ export function ClientsPageView({
   const router = useRouter()
   const copy = equipo.clientes
   const [clients, setClients] = useState(initialClients)
+  // Ajuste durante el render (no en un efecto) cuando router.refresh() trae
+  // una nueva versión de initialClients desde el servidor.
+  const [prevInitialClients, setPrevInitialClients] = useState(initialClients)
+  if (initialClients !== prevInitialClients) {
+    setPrevInitialClients(initialClients)
+    setClients(initialClients)
+  }
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-
-  useEffect(() => {
-    setClients(initialClients)
-  }, [initialClients])
 
   const items = useMemo<PersonListItem[]>(
     () =>

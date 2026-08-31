@@ -110,14 +110,20 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
   useEffect(() => {
+    // localStorage solo existe en cliente — no se puede leer durante SSR.
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === 'true') setSidebarCollapsed(true)
   }, [])
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): limpia el indicador de
+  // navegación pendiente en cuanto la URL realmente cambia.
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setNavPending(false)
     setPendingHref(null)
-  }, [pathname])
+  }
 
   const handleNavStart = (href: string) => {
     if (href !== pathname) {

@@ -158,16 +158,22 @@ export function TramiteCreateConsultaDrawer({
     setFormError(null)
   }, [initialProcedure])
 
-  useEffect(() => {
-    if (!open) {
-      resetForm()
-    }
-  }, [open, resetForm])
+  // Ajustes durante el render (no en efectos): limpia el formulario al
+  // cerrar, y fija el paso inicial al abrir (o si cambia initialProcedure
+  // mientras está abierto).
+  const [prevOpenForReset, setPrevOpenForReset] = useState(open)
+  if (open !== prevOpenForReset) {
+    setPrevOpenForReset(open)
+    if (!open) resetForm()
+  }
 
-  useEffect(() => {
-    if (!open) return
-    setStep(procedureStepFromInitial(initialProcedure))
-  }, [open, initialProcedure])
+  const [prevOpenForStep, setPrevOpenForStep] = useState(open)
+  const [prevInitialProcedure, setPrevInitialProcedure] = useState(initialProcedure)
+  if (open !== prevOpenForStep || initialProcedure !== prevInitialProcedure) {
+    setPrevOpenForStep(open)
+    setPrevInitialProcedure(initialProcedure)
+    if (open) setStep(procedureStepFromInitial(initialProcedure))
+  }
 
   useEffect(() => {
     if (!open) return

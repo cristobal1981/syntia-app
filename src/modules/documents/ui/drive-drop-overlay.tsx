@@ -55,15 +55,27 @@ export function DriveDropOverlay({
   const isSuccess = uploadPhase === 'success'
   const isDragMode = !isUploading && !isSuccess
 
-  useEffect(() => {
-    if (!active) {
-      setHovering(false)
-    }
-  }, [active])
+  // Ajustes durante el render (no en efectos): resetear el hover al
+  // desactivarse y saltar a 100% al completar, ambos derivables de sus
+  // props sin async ni suscripción externa.
+  const [prevActive, setPrevActiveForHover] = useState(active)
+  if (active !== prevActive) {
+    setPrevActiveForHover(active)
+    if (!active) setHovering(false)
+  }
+
+  const [prevIsSuccess, setPrevIsSuccess] = useState(isSuccess)
+  if (isSuccess !== prevIsSuccess) {
+    setPrevIsSuccess(isSuccess)
+    if (isSuccess) setProgress(100)
+  }
 
   useEffect(() => {
     if (!isUploading) return
 
+    // Animación de progreso falsa con setInterval — efecto externo real
+    // (temporizador), no una derivación de render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProgress(8)
     const interval = window.setInterval(() => {
       setProgress((current) => {
@@ -75,12 +87,6 @@ export function DriveDropOverlay({
 
     return () => window.clearInterval(interval)
   }, [isUploading])
-
-  useEffect(() => {
-    if (isSuccess) {
-      setProgress(100)
-    }
-  }, [isSuccess])
 
   if (!active) return null
 

@@ -59,6 +59,9 @@ export function PreviewPdf({ mimetype, dataBase64, title }: PreviewPdfProps) {
 
   useEffect(() => {
     const url = base64ToBlobUrl(mimetype, dataBase64)
+    // El blob URL necesita liberarse en el cleanup — efecto externo real
+    // (recurso del navegador), no una simple derivación de render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSrc(url)
     return () => revokeBlobUrl(url)
   }, [mimetype, dataBase64])

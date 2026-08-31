@@ -422,6 +422,13 @@ export function PortalNotificationsProvider({
     [refreshNotifications]
   )
 
+  /** Se autoprograma de forma recurrente (setTimeout que vuelve a llamarse a
+   * sí mismo) — se referencia vía ref, no por el nombre de su propio
+   * `useCallback`, para que cada timeout pendiente siempre dispare la
+   * versión más reciente en vez de quedar atado a la que existía cuando se
+   * programó. */
+  const scheduleNextPollRef = useRef<() => void>(() => {})
+
   const scheduleNextPoll = useCallback(() => {
     if (pollTimerRef.current !== null) {
       window.clearTimeout(pollTimerRef.current)
@@ -430,24 +437,32 @@ export function PortalNotificationsProvider({
     pollTimerRef.current = window.setTimeout(() => {
       pollTimerRef.current = null
       if (document.visibilityState !== 'visible') {
-        scheduleNextPoll()
+        scheduleNextPollRef.current()
         return
       }
 
       const coordinator = coordinatorRef.current
       if (coordinator && !coordinator.getIsLeader()) {
-        scheduleNextPoll()
+        scheduleNextPollRef.current()
         return
       }
 
       void refreshNotifications().finally(() => {
-        scheduleNextPoll()
+        scheduleNextPollRef.current()
       })
     }, pollIntervalRef.current)
   }, [refreshNotifications])
 
   useEffect(() => {
+    scheduleNextPollRef.current = scheduleNextPoll
+  })
+
+  useEffect(() => {
     if (!enabled) {
+      // Efecto de montaje que arranca/desmonta el coordinador de pestañas
+      // (BroadcastChannel) y localStorage — sistema externo real de punta a
+      // punta, no una simple derivación de render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotificationsLoading(false)
       return
     }

@@ -226,7 +226,10 @@ export function FiscalModelsGuideView() {
     if (paramCode) {
       const url = new URL(window.location.href)
       url.searchParams.delete('modelo')
+      // Limpia el query param del historial del navegador (efecto externo
+      // real) antes de fijar la selección inicial.
       window.history.replaceState(null, '', url)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCode(paramCode)
       setMobileShowDetail(true)
     }

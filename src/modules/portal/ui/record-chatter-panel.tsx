@@ -253,6 +253,8 @@ export function RecordChatterPanel({
 
   useEffect(() => {
     if (!active || recordId <= 0) return
+    // Dispara la carga inicial del chatter (fetch-on-mount/active).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadInitial()
   }, [active, recordId, loadInitial])
 
@@ -267,6 +269,8 @@ export function RecordChatterPanel({
     if (latestKnownMessageId <= maxLoadedId) return
 
     loadingNewerRef.current = true
+    // Dispara el fetch de mensajes más recientes (polling) — no derivable.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingNewer(true)
     void listNewerRecordMessagesAction({ kind, recordId, afterId: maxLoadedId })
       .then((result) => {
@@ -297,6 +301,9 @@ export function RecordChatterPanel({
       return
     }
 
+    // Reacciona a un broadcast entre pestañas (BroadcastChannel) — sistema
+    // externo real, no una simple derivación de render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages((current) => {
       if (current.some((message) => message.id === broadcast.message.id)) {
         return current
@@ -319,6 +326,11 @@ export function RecordChatterPanel({
   useEffect(() => {
     if (!active || loadingInitial || !markReadOnView || !messages.length) return
     notifyConversationViewed(messages)
+    // Depende de `messages.length`, no de `messages`: solo debe reavisar cuando
+    // cambia la CANTIDAD de mensajes, no cuando el array se reemplaza por
+    // identidad (enriquecido) con el mismo contenido — evitar el aviso
+    // duplicado importa aquí (coste de Odoo).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, loadingInitial, markReadOnView, messages.length, notifyConversationViewed])
 
   useLayoutEffect(() => {
@@ -535,9 +547,12 @@ export function RecordChatterPanel({
         setDividerDismissed(true)
         const postedMessage = effectiveReplyParentId
           ? result.message
-          : (({ parentId: _parentId, parentPreview: _preview, ...message }) => message)(
-              result.message
-            )
+          : (() => {
+              const stripped = { ...result.message }
+              delete stripped.parentId
+              delete stripped.parentPreview
+              return stripped
+            })()
         setMessages((current) => {
           if (current.some((message) => message.id === postedMessage.id)) {
             return current

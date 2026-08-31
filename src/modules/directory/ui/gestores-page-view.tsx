@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { equipo } from '@/content/equipo'
@@ -23,12 +23,15 @@ export function GestoresPageView({
   const router = useRouter()
   const copy = equipo.gestores
   const [gestores, setGestores] = useState(initialGestores)
+  // Ajuste durante el render (no en un efecto) cuando router.refresh() trae
+  // una nueva versión de initialGestores desde el servidor.
+  const [prevInitialGestores, setPrevInitialGestores] = useState(initialGestores)
+  if (initialGestores !== prevInitialGestores) {
+    setPrevInitialGestores(initialGestores)
+    setGestores(initialGestores)
+  }
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-
-  useEffect(() => {
-    setGestores(initialGestores)
-  }, [initialGestores])
 
   const items = useMemo<PersonListItem[]>(
     () =>

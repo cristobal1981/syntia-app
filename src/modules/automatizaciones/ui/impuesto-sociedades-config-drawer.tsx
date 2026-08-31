@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition, type FormEvent } from 'react'
+import { useState, useTransition, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -103,10 +103,17 @@ export function ImpuestoSociedadesConfigDrawer({
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [pending, startTransition] = useTransition()
 
-  useEffect(() => {
-    if (!open) return
-    setForm(config ? formFromConfig(config) : EMPTY_FORM)
-  }, [open, config])
+  // Ajuste durante el render (no en un efecto): resiembra el formulario
+  // cada vez que el diálogo se abre o cambia la config a editar.
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevConfig, setPrevConfig] = useState(config)
+  if (open !== prevOpen || config !== prevConfig) {
+    setPrevOpen(open)
+    setPrevConfig(config)
+    if (open) {
+      setForm(config ? formFromConfig(config) : EMPTY_FORM)
+    }
+  }
 
   function updateForm(patch: Partial<FormState>) {
     setForm((current) => ({ ...current, ...patch }))

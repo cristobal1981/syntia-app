@@ -53,9 +53,13 @@ function YearAccordion({
     return groupObligacionesByModel(filteredRows)
   }, [year, searchQuery, selectedModel])
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): vuelve a la página 1 cuando
+  // cambia el resultado filtrado.
+  const [prevPageResetKey, setPrevPageResetKey] = useState([groups.length, searchQuery])
+  if (groups.length !== prevPageResetKey[0] || searchQuery !== prevPageResetKey[1]) {
+    setPrevPageResetKey([groups.length, searchQuery])
     setPage(1)
-  }, [groups.length, searchQuery])
+  }
 
   if (!groups.length) {
     return null
@@ -116,6 +120,9 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
     const q = searchParams.get('q')
     if (!q) return
 
+    // Semilla única desde el query param de la URL, y limpia la URL con
+    // router.replace (efecto externo real, no puede hacerse en el render).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery(q)
     router.replace('/obligaciones', { scroll: false })
   }, [router, searchParams])
@@ -159,6 +166,9 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
     if (!task) return
 
     handledOpenParamRef.current = openParam
+    // Abre el drawer desde el query param `open` de la URL y la limpia con
+    // router.replace (efecto externo real, no puede hacerse en el render).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTask(task)
     router.replace('/obligaciones', { scroll: false })
   }, [allTasks, router, searchParams])

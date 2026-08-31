@@ -54,6 +54,9 @@ export function PortalEntryLoadingProvider({ children }: { children: ReactNode }
 
     if (!pending) return
 
+    // Depende de sessionStorage/searchParams (solo legibles en cliente, tras
+    // montar) — no es estado derivable durante el render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEntryLoading(true)
     setEntryInitialized(true)
 

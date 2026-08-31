@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { equipo } from '@/content/equipo'
 import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
@@ -31,12 +31,16 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
   const [clientKind, setClientKind] = useState(
     kind === 'client' && record ? record.clientKind : 'person'
   )
-
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto) cuando cambia `record`: React
+  // recomienda esto para "sincronizar estado con una prop" — evita un
+  // re-render extra respecto a hacerlo en un useEffect.
+  const [prevRecord, setPrevRecord] = useState(record)
+  if (record !== prevRecord) {
+    setPrevRecord(record)
     if (kind === 'client' && record) {
       setClientKind(record.clientKind)
     }
-  }, [kind, record])
+  }
 
   const clientFormKey =
     kind === 'client' && record

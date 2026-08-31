@@ -93,10 +93,18 @@ export function TramiteDetailDrawer({
   const [liveAttachmentCount, setLiveAttachmentCount] = useState(0)
   const [attachmentsRefreshToken, setAttachmentsRefreshToken] = useState(0)
 
-  useEffect(() => {
-    if (!item) return
-    setLiveAttachmentCount(item.attachmentCount)
-  }, [item?.attachmentCount, item?.id])
+  // Ajuste durante el render (no en un efecto): refleja el contador de
+  // adjuntos del item actual cuando cambia.
+  const [prevItemIdForCount, setPrevItemIdForCount] = useState(item?.id)
+  const [prevAttachmentCount, setPrevAttachmentCount] = useState(item?.attachmentCount)
+  if (item?.id !== prevItemIdForCount || item?.attachmentCount !== prevAttachmentCount) {
+    setPrevItemIdForCount(item?.id)
+    setPrevAttachmentCount(item?.attachmentCount)
+    const attachmentCount = item?.attachmentCount
+    if (attachmentCount !== undefined) {
+      setLiveAttachmentCount(attachmentCount)
+    }
+  }
 
   const ackDocumentsIfNeeded = useCallback(
     (item: TramiteListItem) => {
@@ -112,15 +120,30 @@ export function TramiteDetailDrawer({
     [liveAttachmentCount, notifications]
   )
 
+  // Ajuste durante el render (no en un efecto): reinicia el estado local del
+  // drawer al cambiar de item.
+  const [prevResetKey, setPrevResetKey] = useState([item?.id, item?.kind, initialTab])
+  if (
+    item?.id !== prevResetKey[0] ||
+    item?.kind !== prevResetKey[1] ||
+    initialTab !== prevResetKey[2]
+  ) {
+    setPrevResetKey([item?.id, item?.kind, initialTab])
+    if (item?.id !== undefined) {
+      setActiveTab(initialTab)
+      setScrollPin(0)
+      setZipError(null)
+      setHighlightAttachmentId(null)
+      setPreviewAttachment(null)
+      setPreviewOpen(false)
+    }
+  }
+
+  // El ref (a diferencia del estado de arriba) solo puede escribirse fuera
+  // del render — un efecto aparte, mismo disparador.
   useEffect(() => {
-    if (!item) return
-    setActiveTab(initialTab)
-    setScrollPin(0)
-    setZipError(null)
+    if (item?.id === undefined) return
     documentsAckRef.current = null
-    setHighlightAttachmentId(null)
-    setPreviewAttachment(null)
-    setPreviewOpen(false)
   }, [item?.id, item?.kind, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
@@ -172,7 +195,7 @@ export function TramiteDetailDrawer({
     chatterNotification,
     item,
     markConversationSeen,
-    notifications?.hasTramiteNotification,
+    notifications,
     open,
     recordKind,
   ])
@@ -186,8 +209,9 @@ export function TramiteDetailDrawer({
   )
 
   useEffect(() => {
-    if (!open || !item || item.kind !== 'tramite') return
-    dismissNewTramiteNotification?.(recordKind, item.id)
+    const itemId = item?.id
+    if (!open || item?.kind !== 'tramite' || itemId === undefined) return
+    dismissNewTramiteNotification?.(recordKind, itemId)
   }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
 
   useEffect(() => {

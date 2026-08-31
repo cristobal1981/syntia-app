@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -160,11 +160,15 @@ export function ProfileChangeDrawer({
     setFieldErrors({})
   }, [initialProfile])
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): limpia el formulario al
+  // cerrar el diálogo.
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (!open) {
       resetForm()
     }
-  }, [open, resetForm])
+  }
 
   const hasUnsavedChanges =
     formValues.name !== initialProfile.name ||

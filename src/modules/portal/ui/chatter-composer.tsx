@@ -184,7 +184,9 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
       },
     })
 
-    editorRef.current = editor
+    useEffect(() => {
+      editorRef.current = editor
+    })
 
     useImperativeHandle(
       ref,
@@ -210,7 +212,10 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
 
     useEffect(() => {
       if (!editor) return
+      // Comando imperativo sobre el editor Tiptap (sistema externo real) —
+      // el setState que sigue solo refleja ese resultado.
       editor.commands.clearContent(true)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsEmpty(true)
       onEmptyChangeRef.current?.(true)
     }, [editor, resetToken])

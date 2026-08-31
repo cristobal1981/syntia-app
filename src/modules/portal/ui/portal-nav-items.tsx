@@ -2,7 +2,7 @@
 
 import { ChevronDown } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/src/modules/portal/domain/types'
@@ -118,10 +118,14 @@ function NavGroup({
   const children = item.children ?? []
   const groupActive = isNavGroupActive(pathname, item)
   const [open, setOpen] = useState(groupActive)
-
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): al entrar en una ruta del
+  // grupo se auto-expande; el usuario puede volver a colapsarlo después sin
+  // que un efecto lo reabra.
+  const [prevGroupActive, setPrevGroupActive] = useState(groupActive)
+  if (groupActive !== prevGroupActive) {
+    setPrevGroupActive(groupActive)
     if (groupActive) setOpen(true)
-  }, [groupActive])
+  }
 
   if (collapsed) {
     return (

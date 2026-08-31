@@ -150,6 +150,9 @@ export function DriveBrowser() {
   }
 
   useEffect(() => {
+    // localStorage/matchMedia solo existen en cliente — no se puede leer
+    // durante SSR.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewMode(readInitialViewMode())
   }, [])
 
@@ -191,6 +194,8 @@ export function DriveBrowser() {
   }, [])
 
   useEffect(() => {
+    // Dispara la carga inicial de la carpeta (patrón fetch-on-mount).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadFolder()
   }, [loadFolder])
 

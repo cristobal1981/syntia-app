@@ -42,6 +42,9 @@ export function useAdvisorPresence(partnerId?: number) {
   }, [partnerId])
 
   useEffect(() => {
+    // Dispara el fetch inicial de presencia; setLoading(true) dentro de
+    // refresh() corre antes del await (patrón estándar de fetch-on-mount).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
   }, [refresh])
 

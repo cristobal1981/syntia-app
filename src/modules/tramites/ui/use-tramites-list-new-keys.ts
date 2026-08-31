@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   acknowledgeTramiteListItemSeenAction,
@@ -30,10 +30,7 @@ export function useTramitesListNewKeys(
   seenState: TramitesListSeenState | null
 ) {
   const baselineRef = useRef<Set<string> | null>(null)
-  const allItemsRef = useRef(allItems)
   const [revision, setRevision] = useState(0)
-
-  allItemsRef.current = allItems
 
   useEffect(() => {
     if (baselineRef.current !== null) return
@@ -90,12 +87,17 @@ export function useTramitesListNewKeys(
     setRevision((value) => value + 1)
   }, [])
 
-  const newItemKeys = useMemo(() => {
-    const baseline = baselineRef.current
-    if (!baseline) return []
+  const [newItemKeys, setNewItemKeys] = useState<string[]>([])
 
-    return getOpenTramiteOnlyListItemKeys(allItems).filter(
-      (key) => !baseline.has(key)
+  useEffect(() => {
+    const baseline = baselineRef.current
+    if (!baseline) {
+      setNewItemKeys([])
+      return
+    }
+
+    setNewItemKeys(
+      getOpenTramiteOnlyListItemKeys(allItems).filter((key) => !baseline.has(key))
     )
   }, [allItems, revision])
 

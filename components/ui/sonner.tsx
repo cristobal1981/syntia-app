@@ -11,6 +11,9 @@ export function Toaster({ ...props }: ToasterProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // Portal solo puede montarse tras hidratar (necesita document.body) — no hay
+    // forma de conocer "estamos en cliente" durante el render sin desajustar SSR.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
   }, [])
 
