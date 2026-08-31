@@ -13,8 +13,12 @@ const {
 } = vi.hoisted(() => ({
   createWorkerAccount: vi.fn(),
   listWorkerGrantsForOwner: vi.fn(),
-  sanitizeAllowedSections: vi.fn((sections: string[]) =>
-    sections.filter((s) => ['/tramites', '/documentos', '/obligaciones', '/firmas', '/guias'].includes(s))
+  sanitizeAllowedSections: vi.fn((sections: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(sections).filter(([href]) =>
+        ['/tramites', '/documentos', '/obligaciones', '/firmas', '/guias'].includes(href)
+      )
+    )
   ),
   getWorkerSettings: vi.fn(),
   resolveDirectoryActorId: vi.fn(),
@@ -47,7 +51,7 @@ const baseInput: CreateWorkerInput = {
   firstName: 'New',
   firstSurname: 'Worker',
   secondSurname: '',
-  allowedSections: ['/tramites'],
+  allowedSections: { '/tramites': 'write' },
 }
 
 beforeEach(() => {
@@ -101,14 +105,18 @@ describe('createWorkerForOwner', () => {
 
     await createWorkerForOwner(clientA, {
       ...baseInput,
-      // @ts-expect-error deliberately malformed input to prove sanitization holds
-      allowedSections: ['/tramites', '/__proto__', '/admin', 'not-a-section'],
+      allowedSections: {
+        '/tramites': 'write',
+        '/__proto__': 'write',
+        '/admin': 'write',
+        'not-a-section': 'write',
+      } as never,
     })
 
     expect(createWorkerAccount).toHaveBeenCalledWith(
       'portal-client-a',
       'Acme',
-      expect.objectContaining({ allowedSections: ['/tramites'] })
+      expect.objectContaining({ allowedSections: { '/tramites': 'write' } })
     )
   })
 

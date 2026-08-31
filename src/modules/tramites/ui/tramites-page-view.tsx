@@ -50,6 +50,7 @@ type TramitesListSectionProps = {
   onSelectedItemChange: (item: TramiteListItem | null) => void
   onAttachmentCountChange?: (item: TramiteListItem, attachmentCount: number) => void
   drawerInitialTab?: 'conversation' | 'documents'
+  canWriteTramites: boolean
 }
 
 function TramitesListSection({
@@ -60,6 +61,7 @@ function TramitesListSection({
   onSelectedItemChange,
   onAttachmentCountChange,
   drawerInitialTab = 'conversation',
+  canWriteTramites,
 }: TramitesListSectionProps) {
   const copy = tramites.list
   const notifications = usePortalNotificationsOptional()
@@ -202,6 +204,7 @@ function TramitesListSection({
         onOpenChange={(open) => {
           if (!open) onSelectedItemChange(null)
         }}
+        canWriteTramites={canWriteTramites}
       />
     </section>
   )
@@ -210,9 +213,14 @@ function TramitesListSection({
 type TramitesPageViewProps = {
   data: TramitesSnapshot
   seenState: TramitesListSeenState | null
+  canWriteTramites: boolean
 }
 
-export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
+export function TramitesPageView({
+  data,
+  seenState,
+  canWriteTramites,
+}: TramitesPageViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const notifications = usePortalNotificationsOptional()
@@ -441,6 +449,7 @@ export function TramitesPageView({ data, seenState }: TramitesPageViewProps) {
         onSelectedItemChange={handleSelectItem}
         onAttachmentCountChange={handleAttachmentCountChange}
         drawerInitialTab={drawerInitialTab}
+        canWriteTramites={canWriteTramites}
       />
     </div>
   )

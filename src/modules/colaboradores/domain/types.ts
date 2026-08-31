@@ -14,6 +14,39 @@ export function isWorkerSectionHref(value: string): value is WorkerSectionHref {
   return (WORKER_SECTION_HREFS as readonly string[]).includes(value)
 }
 
+export const WORKER_ACCESS_LEVELS = ['read', 'write'] as const
+
+export type WorkerAccessLevel = (typeof WORKER_ACCESS_LEVELS)[number]
+
+export function isWorkerAccessLevel(value: unknown): value is WorkerAccessLevel {
+  return (WORKER_ACCESS_LEVELS as readonly unknown[]).includes(value)
+}
+
+/** Ausente = sin acceso. Presente con 'read' o 'write' = nivel concedido en esa sección. */
+export type WorkerSectionGrants = Partial<Record<WorkerSectionHref, WorkerAccessLevel>>
+
+/**
+ * `/firmas` (la firma ocurre fuera, en Odoo Sign) y `/guias` (contenido
+ * estático) no tienen ninguna mutación propia en el portal — no tiene
+ * sentido ofrecer "gestionar" para ellas, solo se puede conceder 'read'.
+ */
+export const WORKER_SECTIONS_WITH_WRITE: readonly WorkerSectionHref[] = [
+  '/tramites',
+  '/obligaciones',
+  '/documentos',
+]
+
+export function hasSectionAccess(
+  grants: WorkerSectionGrants,
+  href: WorkerSectionHref,
+  required: WorkerAccessLevel
+): boolean {
+  const level = grants[href]
+  if (!level) return false
+  if (required === 'read') return true
+  return level === 'write'
+}
+
 export type WorkerStatus = 'active' | 'invited'
 
 export type WorkerRecord = PersonNameParts & {
@@ -22,16 +55,16 @@ export type WorkerRecord = PersonNameParts & {
   email: string
   status: WorkerStatus
   isEnabled: boolean
-  allowedSections: WorkerSectionHref[]
+  allowedSections: WorkerSectionGrants
 }
 
 export type CreateWorkerInput = PersonNameParts & {
   email: string
-  allowedSections: WorkerSectionHref[]
+  allowedSections: WorkerSectionGrants
 }
 
 export type UpdateWorkerGrantInput = {
   workerUserId: string
-  allowedSections: WorkerSectionHref[]
+  allowedSections: WorkerSectionGrants
   isEnabled: boolean
 }

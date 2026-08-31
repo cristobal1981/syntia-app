@@ -59,6 +59,8 @@ type RecordChatterPanelProps = {
   recordId: number
   active: boolean
   canReply: boolean
+  /** Por qué no se puede responder, para el copy del estado de solo lectura. */
+  readOnlyReason?: 'closed' | 'permission'
   notifyPartnerIds?: number[]
   scrollPin?: number
   markReadOnView?: boolean
@@ -104,6 +106,7 @@ export function RecordChatterPanel({
   recordId,
   active,
   canReply,
+  readOnlyReason = 'closed',
   notifyPartnerIds = [],
   scrollPin = 0,
   markReadOnView = false,
@@ -668,7 +671,9 @@ export function RecordChatterPanel({
       <div className="shrink-0 border-t border-border px-6 py-4 dark:border-border/50">
         {!canReply ? (
           <p className="text-sm text-muted-foreground">
-            {portalChatter.readOnlyClosedTicket}
+            {readOnlyReason === 'permission'
+              ? portalChatter.readOnlyNoWriteAccess
+              : portalChatter.readOnlyClosedTicket}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">

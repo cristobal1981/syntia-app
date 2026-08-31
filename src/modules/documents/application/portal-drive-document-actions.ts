@@ -3,6 +3,8 @@
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
+import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveClientDriveRootId } from '@/src/modules/documents/application/resolve-client-drive-root'
 import {
   createMockDriveFolder,
@@ -40,7 +42,9 @@ import {
   uploadDriveFile,
 } from '@/src/modules/documents/infrastructure/google-drive-repository'
 
-async function resolveClientDriveAccess(): Promise<
+async function resolveClientDriveAccess(
+  requiredLevel: WorkerAccessLevel = 'read'
+): Promise<
   | { ok: true; rootId: string }
   | { ok: false; error: DriveDocumentErrorCode }
 > {
@@ -50,8 +54,11 @@ async function resolveClientDriveAccess(): Promise<
   }
 
   if (session.user.role === 'worker') {
-    const allowed = await getAllowedSectionsForWorker(session.user)
-    if (!allowed.has('/documentos')) {
+    const sections =
+      requiredLevel === 'write'
+        ? await getWorkerWriteSections(session.user)
+        : await getAllowedSectionsForWorker(session.user)
+    if (!sections.has('/documentos')) {
       return { ok: false, error: 'forbidden' }
     }
   }
@@ -206,7 +213,7 @@ export async function getDriveDocumentsModeAction(): Promise<{ demo: boolean }> 
 export async function uploadDriveFilesAction(
   formData: FormData
 ): Promise<DriveUploadResult> {
-  const access = await resolveClientDriveAccess()
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }
@@ -298,7 +305,7 @@ export async function renameDriveItemAction(input: {
   itemId: string
   newName: string
 }): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess()
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }
@@ -329,7 +336,7 @@ export async function renameDriveItemAction(input: {
 export async function deleteDriveItemAction(input: {
   itemId: string
 }): Promise<DriveDeleteResult> {
-  const access = await resolveClientDriveAccess()
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }
@@ -364,7 +371,7 @@ export async function createDriveFolderAction(input: {
   parentFolderId: string
   name: string
 }): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess()
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }
@@ -397,7 +404,7 @@ export async function moveDriveItemAction(input: {
   targetFolderId: string
   sourceFolderId: string
 }): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess()
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }

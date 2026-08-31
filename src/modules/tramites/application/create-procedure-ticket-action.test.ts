@@ -6,14 +6,14 @@ import type { TrabajadorBajaPayload } from '@/src/modules/tramites/domain/proced
 
 const {
   getSession,
-  getAllowedSectionsForWorker,
+  getWorkerWriteSections,
   resolveClientOdooPartnerId,
   isOdooApiConfigured,
   createPartnerTicket,
   postRecordComment,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
-  getAllowedSectionsForWorker: vi.fn(),
+  getWorkerWriteSections: vi.fn(),
   resolveClientOdooPartnerId: vi.fn(),
   isOdooApiConfigured: vi.fn(),
   createPartnerTicket: vi.fn(),
@@ -21,8 +21,8 @@ const {
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
-vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({
-  getAllowedSectionsForWorker,
+vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
+  getWorkerWriteSections,
 }))
 vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({
   resolveClientOdooPartnerId,
@@ -69,9 +69,9 @@ beforeEach(() => {
 })
 
 describe('createProcedureTicketAction (/tramites section gate for colaboradores)', () => {
-  it('refuses a worker without /tramites granted before ever hitting Odoo', async () => {
+  it('refuses a worker without /tramites in write before ever hitting Odoo', async () => {
     getSession.mockResolvedValue(sessionFor('worker'))
-    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/documentos']))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/documentos']))
 
     const result = await createProcedureTicketAction(payload)
 
@@ -80,9 +80,9 @@ describe('createProcedureTicketAction (/tramites section gate for colaboradores)
     expect(createPartnerTicket).not.toHaveBeenCalled()
   })
 
-  it('lets a worker with /tramites granted create the procedure', async () => {
+  it('lets a worker with /tramites granted at "write" level create the procedure', async () => {
     getSession.mockResolvedValue(sessionFor('worker'))
-    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/tramites']))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/tramites']))
 
     const result = await createProcedureTicketAction(payload)
 
@@ -96,7 +96,7 @@ describe('createProcedureTicketAction (/tramites section gate for colaboradores)
     const result = await createProcedureTicketAction(payload)
 
     expect(result).toMatchObject({ ok: true })
-    expect(getAllowedSectionsForWorker).not.toHaveBeenCalled()
+    expect(getWorkerWriteSections).not.toHaveBeenCalled()
   })
 })
 

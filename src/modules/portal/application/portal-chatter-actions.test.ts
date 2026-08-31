@@ -1,29 +1,39 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import type { PortalSession } from '@/src/modules/auth/domain/types'
-import { listRecordMessagesAction } from '@/src/modules/portal/application/portal-chatter-actions'
+import {
+  listRecordMessagesAction,
+  postRecordMessageAction,
+} from '@/src/modules/portal/application/portal-chatter-actions'
 
 const {
   getSession,
   getAllowedSectionsForWorker,
+  getWorkerWriteSections,
   resolveClientOdooPartnerId,
   isOdooApiConfigured,
   verifyClientRecordAccess,
   listPortalMessagesPage,
+  postRecordComment,
   fetchChatterReplyLinks,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
+  getWorkerWriteSections: vi.fn(),
   resolveClientOdooPartnerId: vi.fn(),
   isOdooApiConfigured: vi.fn(),
   verifyClientRecordAccess: vi.fn(),
   listPortalMessagesPage: vi.fn(),
+  postRecordComment: vi.fn(),
   fetchChatterReplyLinks: vi.fn(),
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({
   getAllowedSectionsForWorker,
+}))
+vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
+  getWorkerWriteSections,
 }))
 vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({
   resolveClientOdooPartnerId,
@@ -40,8 +50,16 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 vi.mock('@/src/modules/portal/infrastructure/odoo-messages-repository', () => ({
   listPortalMessagesPage,
   listNewerPortalMessages: vi.fn(),
-  postRecordComment: vi.fn(),
-  verifyParentMessageBelongsToRecord: vi.fn(),
+  postRecordComment,
+  verifyParentMessageBelongsToRecord: vi.fn().mockResolvedValue(true),
+}))
+vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () => ({
+  createAttachmentsForRecord: vi.fn().mockResolvedValue([]),
+  countAttachmentsByRecordIds: vi.fn().mockResolvedValue(new Map()),
+}))
+vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
+  tramitesSnapshotCacheTag: (partnerId: number) => `tramites-snapshot:${partnerId}`,
+  chatterUnreadBatchCacheTag: (partnerId: number) => `chatter-unread-batch:${partnerId}`,
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase', () => ({
   fetchChatterReplyLinks,
@@ -54,6 +72,8 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
 vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({
   resolveDirectoryActorId: vi.fn().mockResolvedValue('actor-1'),
 }))
+vi.mock('next/server', () => ({ after: vi.fn() }))
+vi.mock('next/cache', () => ({ updateTag: vi.fn() }))
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
   return {
@@ -123,5 +143,65 @@ describe('portal-chatter-actions (/tramites section gate, covers both trámites 
     const result = await listRecordMessagesAction({ kind: 'task', recordId: 555 })
 
     expect(result).toMatchObject({ ok: false, error: 'not_found' })
+  })
+})
+
+describe('postRecordMessageAction (/tramites write gate for colaboradores)', () => {
+  it('refuses a worker who only has "read" on /tramites — view-only cannot post', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    getWorkerWriteSections.mockResolvedValue(new Set())
+
+    const result = await postRecordMessageAction({
+      kind: 'task',
+      recordId: 1,
+      body: '<p>hola</p>',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'forbidden' })
+    expect(postRecordComment).not.toHaveBeenCalled()
+    expect(verifyClientRecordAccess).not.toHaveBeenCalled()
+  })
+
+  it('lets a worker with /tramites granted at "write" level post a message', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/tramites']))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    postRecordComment.mockResolvedValue({
+      id: 10,
+      bodyHtml: '<p>hola</p>',
+      date: '2026-08-31',
+      authorName: 'Worker',
+      isFromClient: true,
+    })
+
+    const result = await postRecordMessageAction({
+      kind: 'task',
+      recordId: 1,
+      body: '<p>hola</p>',
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(postRecordComment).toHaveBeenCalled()
+  })
+
+  it('never write-section-checks a full client', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    postRecordComment.mockResolvedValue({
+      id: 10,
+      bodyHtml: '<p>hola</p>',
+      date: '2026-08-31',
+      authorName: 'Client',
+      isFromClient: true,
+    })
+
+    const result = await postRecordMessageAction({
+      kind: 'task',
+      recordId: 1,
+      body: '<p>hola</p>',
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(getWorkerWriteSections).not.toHaveBeenCalled()
   })
 })

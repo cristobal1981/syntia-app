@@ -64,6 +64,7 @@ type TramiteDetailDrawerProps = {
   pageItems?: TramiteListItem[]
   pageItemIndex?: number
   onNavigateItem?: (item: TramiteListItem) => void
+  canWriteTramites: boolean
 }
 
 export function TramiteDetailDrawer({
@@ -75,6 +76,7 @@ export function TramiteDetailDrawer({
   pageItems = [],
   pageItemIndex = -1,
   onNavigateItem,
+  canWriteTramites,
 }: TramiteDetailDrawerProps) {
   const notifications = useChatterNotificationsOptional()
   const [zipError, setZipError] = useState<string | null>(null)
@@ -252,7 +254,7 @@ export function TramiteDetailDrawer({
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
   const showZipButton = liveAttachmentCount > 1
-  const canReply = !(tramite.kind === 'consulta' && tramite.isClosed)
+  const canReply = canWriteTramites && !(tramite.kind === 'consulta' && tramite.isClosed)
   const conversationUnread =
     notifications?.hasUnreadChatter(recordKind, tramite.id) ?? false
   const navCopy = tramites.list.detailNav
@@ -429,6 +431,7 @@ export function TramiteDetailDrawer({
               recordId={tramite.id}
               active={open}
               canReply={canReply}
+              readOnlyReason={canWriteTramites ? 'closed' : 'permission'}
               notifyPartnerIds={tramite.assignedNotifyPartnerIds}
               scrollPin={scrollPin}
               markReadOnView={open && activeTab === 'conversation'}

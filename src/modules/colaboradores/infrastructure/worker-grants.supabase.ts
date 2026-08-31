@@ -2,24 +2,39 @@ import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructur
 import { upsertClientIntegration } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
 import {
   WORKER_SECTION_HREFS,
+  WORKER_SECTIONS_WITH_WRITE,
+  isWorkerAccessLevel,
   isWorkerSectionHref,
-  type WorkerSectionHref,
+  type WorkerSectionGrants,
 } from '@/src/modules/colaboradores/domain/types'
 
 export type WorkerGrantRow = {
   worker_user_id: string
   owner_user_id: string
-  allowed_sections: string[]
+  allowed_sections: WorkerSectionGrants
   is_enabled: boolean
 }
 
 const WORKER_GRANT_SELECT =
   'worker_user_id, owner_user_id, allowed_sections, is_enabled'
 
+/**
+ * Filtra a hrefs conocidos y niveles conocidos; `/firmas` y `/guias` no
+ * tienen mutación propia en el portal, así que un 'write' que llegue para
+ * ellas se degrada a 'read' (defensa en profundidad — la UI no debe
+ * ofrecer esa opción, pero esto no confía en que la UI sea la única entrada).
+ */
 export function sanitizeAllowedSections(
-  sections: readonly string[]
-): WorkerSectionHref[] {
-  return WORKER_SECTION_HREFS.filter((href) => sections.includes(href))
+  sections: WorkerSectionGrants
+): WorkerSectionGrants {
+  const result: WorkerSectionGrants = {}
+  for (const href of WORKER_SECTION_HREFS) {
+    const level = sections[href]
+    if (!isWorkerAccessLevel(level)) continue
+    const canWrite = (WORKER_SECTIONS_WITH_WRITE as readonly string[]).includes(href)
+    result[href] = level === 'write' && !canWrite ? 'read' : level
+  }
+  return result
 }
 
 export async function getWorkerGrant(
@@ -58,7 +73,7 @@ export async function listWorkerGrantsForOwner(
 export async function upsertWorkerGrant(input: {
   workerUserId: string
   ownerUserId: string
-  allowedSections: WorkerSectionHref[]
+  allowedSections: WorkerSectionGrants
   isEnabled: boolean
 }): Promise<void> {
   const supabase = createSupabaseAdminClient()
@@ -108,10 +123,26 @@ export async function propagateOwnerIntegrationToWorkers(
   )
 }
 
-export function parseAllowedSections(value: unknown): WorkerSectionHref[] {
-  if (!Array.isArray(value)) return []
-  return value.filter(
-    (item): item is WorkerSectionHref =>
-      typeof item === 'string' && isWorkerSectionHref(item)
-  )
+/**
+ * Acepta tanto el shape legacy (array de hrefs, acceso completo implícito)
+ * como el shape actual (objeto href→nivel), para columnas leídas en crudo
+ * (p. ej. JSON sin pasar por el cliente de Supabase) que aún no hayan
+ * pasado por el backfill de `colaboradores-schema.sql`.
+ */
+export function parseAllowedSections(value: unknown): WorkerSectionGrants {
+  if (Array.isArray(value)) {
+    const legacy: WorkerSectionGrants = {}
+    for (const item of value) {
+      if (typeof item === 'string' && isWorkerSectionHref(item)) {
+        legacy[item] = 'write'
+      }
+    }
+    return sanitizeAllowedSections(legacy)
+  }
+
+  if (value && typeof value === 'object') {
+    return sanitizeAllowedSections(value as WorkerSectionGrants)
+  }
+
+  return {}
 }

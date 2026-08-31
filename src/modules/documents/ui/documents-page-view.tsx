@@ -7,9 +7,10 @@ import { DriveBrowser } from '@/src/modules/documents/ui/drive-browser'
 
 type DocumentsPageViewProps = {
   demoMode?: boolean
+  canWrite: boolean
 }
 
-export function DocumentsPageView({ demoMode = false }: DocumentsPageViewProps) {
+export function DocumentsPageView({ demoMode = false, canWrite }: DocumentsPageViewProps) {
   return (
     <div className="flex flex-col gap-4">
       {demoMode ? (
@@ -29,7 +30,7 @@ export function DocumentsPageView({ demoMode = false }: DocumentsPageViewProps) 
         </div>
       ) : null}
 
-      <DriveBrowser />
+      <DriveBrowser canWrite={canWrite} />
     </div>
   )
 }

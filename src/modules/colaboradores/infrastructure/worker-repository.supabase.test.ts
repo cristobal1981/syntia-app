@@ -70,7 +70,7 @@ const baseInput: CreateWorkerInput = {
   firstName: 'W',
   firstSurname: 'One',
   secondSurname: '',
-  allowedSections: ['/tramites'],
+  allowedSections: { '/tramites': 'write' },
 }
 
 function usersChainFor(existingUser: unknown, insertResult: { data: unknown; error: unknown }) {
@@ -141,14 +141,14 @@ describe('createWorkerAccount', () => {
 
     const result = await createWorkerAccount('owner-1', 'Acme', {
       ...baseInput,
-      allowedSections: ['/documentos', '/firmas'],
+      allowedSections: { '/documentos': 'write', '/firmas': 'read' },
     })
 
     expect(result).toEqual({ workerUserId: 'new-worker-1', inviteSent: true })
     expect(upsertWorkerGrant).toHaveBeenCalledWith({
       workerUserId: 'new-worker-1',
       ownerUserId: 'owner-1',
-      allowedSections: ['/documentos', '/firmas'],
+      allowedSections: { '/documentos': 'write', '/firmas': 'read' },
       isEnabled: true,
     })
     expect(cloneChatterReadStateForUser).toHaveBeenCalledWith('owner-1', 'new-worker-1')

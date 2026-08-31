@@ -42,44 +42,49 @@ beforeEach(() => {
 })
 
 describe('sanitizeAllowedSections (write-time whitelist)', () => {
-  it('keeps only known section hrefs, dropping anything injected/unknown', () => {
+  it('keeps only known section hrefs with known levels, dropping anything injected/unknown', () => {
     expect(
-      sanitizeAllowedSections(['/tramites', '/admin', '__proto__', '/documentos'])
-    ).toEqual(['/tramites', '/documentos'])
+      sanitizeAllowedSections({
+        '/tramites': 'write',
+        '/admin': 'write',
+        __proto__: 'write',
+        '/documentos': 'read',
+      } as never)
+    ).toEqual({ '/tramites': 'write', '/documentos': 'read' })
   })
 
-  it('output is always in the CANONICAL order, regardless of input order', () => {
-    expect(sanitizeAllowedSections(['/guias', '/tramites', '/obligaciones'])).toEqual([
-      '/obligaciones',
-      '/tramites',
-      '/guias',
-    ])
+  it('drops entries with a level that is not "read" or "write"', () => {
+    expect(sanitizeAllowedSections({ '/tramites': 'admin' } as never)).toEqual({})
   })
 
-  it('de-duplicates repeated entries', () => {
-    expect(sanitizeAllowedSections(['/tramites', '/tramites', '/tramites'])).toEqual([
-      '/tramites',
-    ])
+  it('downgrades "write" to "read" for sections with no mutation of their own (/firmas, /guias)', () => {
+    expect(
+      sanitizeAllowedSections({ '/firmas': 'write', '/guias': 'write' })
+    ).toEqual({ '/firmas': 'read', '/guias': 'read' })
   })
 
   it('empty input yields empty output (no default "grant everything")', () => {
-    expect(sanitizeAllowedSections([])).toEqual([])
+    expect(sanitizeAllowedSections({})).toEqual({})
   })
 })
 
 describe('parseAllowedSections (read-time parsing, e.g. from a JSON column)', () => {
-  it('filters out non-string and unknown-section entries from an arbitrary array', () => {
-    expect(parseAllowedSections(['/tramites', 42, null, '/not-a-section', '/firmas'])).toEqual([
-      '/tramites',
-      '/firmas',
-    ])
+  it('accepts the legacy array shape, mapping each known href to "write" (preserves the old all-or-nothing access)', () => {
+    expect(
+      parseAllowedSections(['/tramites', 42, null, '/not-a-section', '/firmas'])
+    ).toEqual({ '/tramites': 'write', '/firmas': 'read' })
   })
 
-  it('returns [] for anything that is not an array at all (defensive against a malformed DB value)', () => {
-    expect(parseAllowedSections(null)).toEqual([])
-    expect(parseAllowedSections('/tramites')).toEqual([])
-    expect(parseAllowedSections(undefined)).toEqual([])
-    expect(parseAllowedSections({ 0: '/tramites' })).toEqual([])
+  it('accepts the current object shape and sanitizes it the same way as sanitizeAllowedSections', () => {
+    expect(parseAllowedSections({ '/tramites': 'read', '/admin': 'write' })).toEqual({
+      '/tramites': 'read',
+    })
+  })
+
+  it('returns {} for anything that is neither an array nor an object (defensive against a malformed DB value)', () => {
+    expect(parseAllowedSections(null)).toEqual({})
+    expect(parseAllowedSections('/tramites')).toEqual({})
+    expect(parseAllowedSections(undefined)).toEqual({})
   })
 })
 
@@ -128,7 +133,7 @@ describe('upsertWorkerGrant', () => {
     await upsertWorkerGrant({
       workerUserId: 'w1',
       ownerUserId: 'owner-1',
-      allowedSections: ['/tramites'],
+      allowedSections: { '/tramites': 'write' },
       isEnabled: true,
     })
 
@@ -136,7 +141,7 @@ describe('upsertWorkerGrant', () => {
       expect.objectContaining({
         worker_user_id: 'w1',
         owner_user_id: 'owner-1',
-        allowed_sections: ['/tramites'],
+        allowed_sections: { '/tramites': 'write' },
         is_enabled: true,
         updated_at: expect.any(String),
       }),

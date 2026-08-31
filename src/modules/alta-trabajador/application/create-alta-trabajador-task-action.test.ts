@@ -6,7 +6,7 @@ import type { TrabajadorAltaPayload } from '@/src/modules/tramites/domain/proced
 
 const {
   getSession,
-  getAllowedSectionsForWorker,
+  getWorkerWriteSections,
   resolveClientOdooPartnerId,
   isOdooApiConfigured,
   createPartnerTask,
@@ -14,7 +14,7 @@ const {
   createAttachmentsForRecord,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
-  getAllowedSectionsForWorker: vi.fn(),
+  getWorkerWriteSections: vi.fn(),
   resolveClientOdooPartnerId: vi.fn(),
   isOdooApiConfigured: vi.fn(),
   createPartnerTask: vi.fn(),
@@ -23,8 +23,8 @@ const {
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
-vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({
-  getAllowedSectionsForWorker,
+vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
+  getWorkerWriteSections,
 }))
 vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({
   resolveClientOdooPartnerId,
@@ -104,9 +104,9 @@ beforeEach(() => {
 })
 
 describe('createAltaTrabajadorTaskAction (/tramites section gate for colaboradores)', () => {
-  it('refuses a worker without /tramites granted before ever hitting Odoo', async () => {
+  it('refuses a worker without /tramites in write before ever hitting Odoo', async () => {
     getSession.mockResolvedValue(sessionFor('worker'))
-    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/documentos']))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/documentos']))
 
     const result = await createAltaTrabajadorTaskAction(altaTrabajadorPayload())
 
@@ -115,9 +115,9 @@ describe('createAltaTrabajadorTaskAction (/tramites section gate for colaborador
     expect(createPartnerTask).not.toHaveBeenCalled()
   })
 
-  it('lets a worker with /tramites granted create the task', async () => {
+  it('lets a worker with /tramites granted at "write" level create the task', async () => {
     getSession.mockResolvedValue(sessionFor('worker'))
-    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/tramites']))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/tramites']))
 
     const result = await createAltaTrabajadorTaskAction(altaTrabajadorPayload())
 
@@ -131,7 +131,7 @@ describe('createAltaTrabajadorTaskAction (/tramites section gate for colaborador
     const result = await createAltaTrabajadorTaskAction(altaTrabajadorPayload())
 
     expect(result).toMatchObject({ ok: true })
-    expect(getAllowedSectionsForWorker).not.toHaveBeenCalled()
+    expect(getWorkerWriteSections).not.toHaveBeenCalled()
   })
 })
 

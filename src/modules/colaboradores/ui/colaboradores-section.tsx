@@ -15,7 +15,7 @@ import {
   updateWorkerGrantAction,
 } from '@/src/modules/colaboradores/application/actions'
 import type { WorkerRecord } from '@/src/modules/colaboradores/domain/types'
-import { WorkerFormDialog } from '@/src/modules/colaboradores/ui/worker-form-dialog'
+import { WorkerFormDrawer } from '@/src/modules/colaboradores/ui/worker-form-drawer'
 
 type ColaboradoresSectionProps = {
   ownerEmail: string
@@ -177,12 +177,13 @@ export function ColaboradoresSection({
                 <p className="truncate text-sm font-medium text-foreground">{worker.name}</p>
                 <p className="truncate text-sm text-muted-foreground">{worker.email}</p>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {worker.allowedSections.map((href) => (
+                  {Object.entries(worker.allowedSections).map(([href, level]) => (
                     <span
                       key={href}
                       className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
                     >
-                      {colaboradores.sections[href]}
+                      {colaboradores.sections[href as keyof typeof colaboradores.sections]}
+                      {level === 'write' ? ` · ${colaboradores.form.levels.write}` : ''}
                     </span>
                   ))}
                 </div>
@@ -262,7 +263,7 @@ export function ColaboradoresSection({
       )}
 
       {dialogState ? (
-        <WorkerFormDialog
+        <WorkerFormDrawer
           mode={dialogState.mode}
           worker={dialogState.mode === 'edit' ? dialogState.worker : undefined}
           ownerEmail={ownerEmail}

@@ -21,6 +21,8 @@ import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
+import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
@@ -55,7 +57,9 @@ import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-ch
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
-async function resolveClientPartnerId(): Promise<
+async function resolveClientPartnerId(
+  requiredLevel: WorkerAccessLevel = 'read'
+): Promise<
   | { ok: true; partnerId: number; actorId: string }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
@@ -66,13 +70,16 @@ async function resolveClientPartnerId(): Promise<
 
   /**
    * Toda esta acción es chatter de trámites/tickets — ambos viven bajo
-   * `/tramites` (ver `recordScopeFromKind`). Un colaborador sin esa sección
-   * concedida no debe poder leer ni escribir mensajes aquí, aunque conozca
-   * el `recordId`.
+   * `/tramites` (ver `recordScopeFromKind`). Un colaborador sin ese nivel
+   * concedido no debe poder leer (o, si `requiredLevel` es 'write',
+   * escribir) mensajes aquí, aunque conozca el `recordId`.
    */
   if (session.user.role === 'worker') {
-    const allowed = await getAllowedSectionsForWorker(session.user)
-    if (!allowed.has('/tramites')) {
+    const sections =
+      requiredLevel === 'write'
+        ? await getWorkerWriteSections(session.user)
+        : await getAllowedSectionsForWorker(session.user)
+    if (!sections.has('/tramites')) {
       return { ok: false, error: 'forbidden' }
     }
   }
@@ -270,7 +277,7 @@ export async function listNewerRecordMessagesAction(
 export async function postRecordMessageAction(
   input: PostRecordMessageInput
 ): Promise<PortalChatterPostResult> {
-  const access = await resolveClientPartnerId()
+  const access = await resolveClientPartnerId('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }

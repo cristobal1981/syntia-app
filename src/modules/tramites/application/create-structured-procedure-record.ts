@@ -8,7 +8,7 @@ import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-att
 import type { PortalChatterUploadFile } from '@/src/modules/portal/domain/portal-chatter-types'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
-import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 import {
   formatProcedureRecordDescriptionHtml,
   formatProcedureTicketChatterMessage,
@@ -73,10 +73,10 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
     return { ok: false, error: 'forbidden' }
   }
 
-  /** Ver `create-ticket-action.ts`: mismo motivo, mismo guard de sección. */
+  /** Ver `create-ticket-action.ts`: mismo motivo, mismo guard de escritura. */
   if (session.user.role === 'worker') {
-    const allowed = await getAllowedSectionsForWorker(session.user)
-    if (!allowed.has('/tramites')) {
+    const writeSections = await getWorkerWriteSections(session.user)
+    if (!writeSections.has('/tramites')) {
       return { ok: false, error: 'forbidden' }
     }
   }

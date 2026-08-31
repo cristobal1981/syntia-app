@@ -7,7 +7,7 @@ const { getWorkerGrant, upsertWorkerGrant, sanitizeAllowedSections, resolveDirec
   vi.hoisted(() => ({
     getWorkerGrant: vi.fn(),
     upsertWorkerGrant: vi.fn(),
-    sanitizeAllowedSections: vi.fn((sections: string[]) => sections),
+    sanitizeAllowedSections: vi.fn((sections: Record<string, string>) => sections),
     resolveDirectoryActorId: vi.fn(),
   }))
 
@@ -32,7 +32,7 @@ describe('updateWorkerGrantForOwner (IDOR guard)', () => {
 
     const result = await updateWorkerGrantForOwner(worker, {
       workerUserId: 'worker-1',
-      allowedSections: ['/tramites'],
+      allowedSections: { '/tramites': 'write' },
       isEnabled: true,
     })
 
@@ -45,13 +45,13 @@ describe('updateWorkerGrantForOwner (IDOR guard)', () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'worker-of-b',
       owner_user_id: 'portal-client-b', // belongs to a different titular
-      allowed_sections: ['/tramites'],
+      allowed_sections: { '/tramites': 'write' },
       is_enabled: true,
     })
 
     const result = await updateWorkerGrantForOwner(clientA, {
       workerUserId: 'worker-of-b',
-      allowedSections: ['/documentos', '/firmas'],
+      allowedSections: { '/documentos': 'write', '/firmas': 'read' },
       isEnabled: false,
     })
 
@@ -65,7 +65,7 @@ describe('updateWorkerGrantForOwner (IDOR guard)', () => {
 
     const result = await updateWorkerGrantForOwner(clientA, {
       workerUserId: 'nonexistent',
-      allowedSections: ['/tramites'],
+      allowedSections: { '/tramites': 'write' },
       isEnabled: true,
     })
 
@@ -77,13 +77,13 @@ describe('updateWorkerGrantForOwner (IDOR guard)', () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'worker-of-a',
       owner_user_id: 'portal-client-a',
-      allowed_sections: ['/tramites'],
+      allowed_sections: { '/tramites': 'write' },
       is_enabled: true,
     })
 
     const result = await updateWorkerGrantForOwner(clientA, {
       workerUserId: 'worker-of-a',
-      allowedSections: ['/documentos'],
+      allowedSections: { '/documentos': 'write' },
       isEnabled: false,
     })
 
@@ -91,7 +91,7 @@ describe('updateWorkerGrantForOwner (IDOR guard)', () => {
     expect(upsertWorkerGrant).toHaveBeenCalledWith({
       workerUserId: 'worker-of-a',
       ownerUserId: 'portal-client-a',
-      allowedSections: ['/documentos'],
+      allowedSections: { '/documentos': 'write' },
       isEnabled: false,
     })
   })

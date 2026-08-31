@@ -17,6 +17,8 @@ export const portalChatter = {
   sending: 'Enviando…',
   readOnlyClosedTicket:
     'Esta consulta está cerrada. Puedes leer el historial, pero no enviar mensajes nuevos.',
+  readOnlyNoWriteAccess:
+    'No tienes permiso para enviar mensajes en esta sección. Puedes leer el historial.',
   youLabel: 'Tú',
   authorAvatarAlt: 'Foto de {name}',
   authorAvatarLoading: 'Cargando foto de {name}',

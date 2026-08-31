@@ -80,7 +80,11 @@ function errorMessage(code: keyof typeof clientDocuments.errors): string {
   return clientDocuments.errors[code] ?? clientDocuments.errors.drive_unavailable
 }
 
-export function DriveBrowser() {
+type DriveBrowserProps = {
+  canWrite: boolean
+}
+
+export function DriveBrowser({ canWrite }: DriveBrowserProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<DriveItem[]>([])
   const [breadcrumbs, setBreadcrumbs] = useState<DriveBreadcrumb[]>([])
@@ -200,6 +204,8 @@ export function DriveBrowser() {
   }, [loadFolder])
 
   useEffect(() => {
+    if (!canWrite) return
+
     const onDragEnter = (event: DragEvent) => {
       if (!isExternalFileDrag(event)) return
       event.preventDefault()
@@ -234,7 +240,7 @@ export function DriveBrowser() {
       window.removeEventListener('dragover', onDragOver)
       window.removeEventListener('drop', onDrop)
     }
-  }, [])
+  }, [canWrite])
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('es')
@@ -259,12 +265,12 @@ export function DriveBrowser() {
   }
 
   function handleUploadClick() {
-    if (loading || uploading || !currentFolderId) return
+    if (!canWrite || loading || uploading || !currentFolderId) return
     fileInputRef.current?.click()
   }
 
   function handleOpenNewFolderDialog() {
-    if (loading || !currentFolderId) return
+    if (!canWrite || loading || !currentFolderId) return
     setNewFolderValue('')
     setNewFolderOpen(true)
   }
@@ -273,10 +279,10 @@ export function DriveBrowser() {
     enabled: !loading && !dialogOpen,
   })
   usePortalShortcut(DRIVE_UPLOAD_SHORTCUT, handleUploadClick, {
-    enabled: !loading && !uploading && !dialogOpen && Boolean(currentFolderId),
+    enabled: canWrite && !loading && !uploading && !dialogOpen && Boolean(currentFolderId),
   })
   usePortalShortcut(DRIVE_NEW_FOLDER_SHORTCUT, handleOpenNewFolderDialog, {
-    enabled: !loading && !dialogOpen && Boolean(currentFolderId),
+    enabled: canWrite && !loading && !dialogOpen && Boolean(currentFolderId),
   })
   usePortalShortcut(DRIVE_TOGGLE_VIEW_SHORTCUT, handleToggleView, {
     enabled: !loading && !dialogOpen,
@@ -312,6 +318,7 @@ export function DriveBrowser() {
   }
 
   function handleUpload(files: FileList | File[], targetFolderId?: string) {
+    if (!canWrite) return
     const folderId = targetFolderId ?? currentFolderId
     if (!folderId) return
 
@@ -444,6 +451,7 @@ export function DriveBrowser() {
   }
 
   function handleFolderDrop(folder: DriveItem, event: React.DragEvent<HTMLElement>) {
+    if (!canWrite) return
     const internalPayload = event.dataTransfer.getData(DRIVE_ITEM_DRAG_MIME)
     if (!internalPayload || !currentFolderId) return
 
@@ -508,7 +516,7 @@ export function DriveBrowser() {
         type="file"
         multiple
         className="sr-only"
-        disabled={uploading || pending || loading || !currentFolderId}
+        disabled={!canWrite || uploading || pending || loading || !currentFolderId}
         onChange={(event) => {
           if (event.target.files?.length) {
             handleUpload(event.target.files)
@@ -530,33 +538,37 @@ export function DriveBrowser() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <PortalActionButton
-            label={clientDocuments.upload}
-            pendingLabel={clientDocuments.uploading}
-            pending={uploading}
-            disabled={loading || !currentFolderId}
-            onClick={handleUploadClick}
-            variant="outline"
-            size="sm"
-            icon={uploading ? Loader2 : Upload}
-            iconBehavior={uploading ? 'spinWhenPending' : 'static'}
-            shortcut={DRIVE_UPLOAD_SHORTCUT}
-            tooltip={overlayActive ? uploadTooltip.active : uploadTooltip.idle}
-            ariaKeyshortcuts={uploadShortcutLabel}
-            overlayRingClassName="ring-2 ring-primary/35"
-          />
-          <PortalActionButton
-            label={clientDocuments.newFolder}
-            disabled={loading || !currentFolderId}
-            onClick={handleOpenNewFolderDialog}
-            variant="outline"
-            size="sm"
-            icon={FolderPlus}
-            shortcut={DRIVE_NEW_FOLDER_SHORTCUT}
-            tooltip={overlayActive ? newFolderTooltip.active : newFolderTooltip.idle}
-            ariaKeyshortcuts={newFolderShortcutLabel}
-            overlayRingClassName="ring-2 ring-primary/35"
-          />
+          {canWrite ? (
+            <PortalActionButton
+              label={clientDocuments.upload}
+              pendingLabel={clientDocuments.uploading}
+              pending={uploading}
+              disabled={loading || !currentFolderId}
+              onClick={handleUploadClick}
+              variant="outline"
+              size="sm"
+              icon={uploading ? Loader2 : Upload}
+              iconBehavior={uploading ? 'spinWhenPending' : 'static'}
+              shortcut={DRIVE_UPLOAD_SHORTCUT}
+              tooltip={overlayActive ? uploadTooltip.active : uploadTooltip.idle}
+              ariaKeyshortcuts={uploadShortcutLabel}
+              overlayRingClassName="ring-2 ring-primary/35"
+            />
+          ) : null}
+          {canWrite ? (
+            <PortalActionButton
+              label={clientDocuments.newFolder}
+              disabled={loading || !currentFolderId}
+              onClick={handleOpenNewFolderDialog}
+              variant="outline"
+              size="sm"
+              icon={FolderPlus}
+              shortcut={DRIVE_NEW_FOLDER_SHORTCUT}
+              tooltip={overlayActive ? newFolderTooltip.active : newFolderTooltip.idle}
+              ariaKeyshortcuts={newFolderShortcutLabel}
+              overlayRingClassName="ring-2 ring-primary/35"
+            />
+          ) : null}
           <PortalActionButton
             label={clientDocuments.refresh}
             pendingLabel={clientDocuments.refreshing}
@@ -645,15 +657,17 @@ export function DriveBrowser() {
           <p className="max-w-md text-sm text-muted-foreground">
             {clientDocuments.emptyDescription}
           </p>
-          <Button
-            type="button"
-            className="cursor-pointer"
-            disabled={!currentFolderId || uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="size-4" aria-hidden />
-            {clientDocuments.emptyAction}
-          </Button>
+          {canWrite ? (
+            <Button
+              type="button"
+              className="cursor-pointer"
+              disabled={!currentFolderId || uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="size-4" aria-hidden />
+              {clientDocuments.emptyAction}
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div
@@ -681,25 +695,37 @@ export function DriveBrowser() {
                 item.kind === 'folder' ? handleOpenFolder(item) : handleOpenFile(item)
               }
               onDownload={item.kind !== 'folder' ? () => handleDownload(item) : undefined}
-              onRename={() => {
-                setRenameItem(item)
-                setRenameValue(item.name)
-              }}
-              onMove={() => {
-                setMoveItem(item)
-                setMoveOpen(true)
-              }}
-              onDelete={() => setDeleteItem(item)}
-              onDragStartItem={(event) => {
-                event.dataTransfer.setData(
-                  DRIVE_ITEM_DRAG_MIME,
-                  JSON.stringify({ id: item.id })
-                )
-                event.dataTransfer.effectAllowed = 'move'
-              }}
+              onRename={
+                canWrite
+                  ? () => {
+                      setRenameItem(item)
+                      setRenameValue(item.name)
+                    }
+                  : undefined
+              }
+              onMove={
+                canWrite
+                  ? () => {
+                      setMoveItem(item)
+                      setMoveOpen(true)
+                    }
+                  : undefined
+              }
+              onDelete={canWrite ? () => setDeleteItem(item) : undefined}
+              onDragStartItem={
+                canWrite
+                  ? (event) => {
+                      event.dataTransfer.setData(
+                        DRIVE_ITEM_DRAG_MIME,
+                        JSON.stringify({ id: item.id })
+                      )
+                      event.dataTransfer.effectAllowed = 'move'
+                    }
+                  : undefined
+              }
               onDragEndItem={clearInternalDragState}
               onFolderDragOver={
-                item.kind === 'folder'
+                canWrite && item.kind === 'folder'
                   ? (event) => {
                       if (getDriveDragKind(event) !== 'internal') return
                       event.preventDefault()
@@ -709,7 +735,7 @@ export function DriveBrowser() {
                   : undefined
               }
               onFolderDragLeave={
-                item.kind === 'folder'
+                canWrite && item.kind === 'folder'
                   ? () => {
                       setInternalDropTargetFolderId((current) =>
                         current === item.id ? null : current
@@ -718,7 +744,7 @@ export function DriveBrowser() {
                   : undefined
               }
               onFolderDrop={
-                item.kind === 'folder'
+                canWrite && item.kind === 'folder'
                   ? (event) => handleFolderDrop(item, event)
                   : undefined
               }

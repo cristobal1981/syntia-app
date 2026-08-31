@@ -46,7 +46,7 @@ describe('getWorkerAccessStatus', () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'portal-worker-1',
       owner_user_id: 'owner-1',
-      allowed_sections: ['/tramites', '/documentos'],
+      allowed_sections: { '/tramites': 'write', '/documentos': 'read' },
       is_enabled: false,
     })
     getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })
@@ -55,6 +55,7 @@ describe('getWorkerAccessStatus', () => {
 
     expect(status.active).toBe(false)
     expect(status.allowedSections.size).toBe(0)
+    expect(status.writeSections.size).toBe(0)
     expect(getWorkerSettings).not.toHaveBeenCalled()
   })
 
@@ -62,7 +63,7 @@ describe('getWorkerAccessStatus', () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'portal-worker-1',
       owner_user_id: 'owner-1',
-      allowed_sections: ['/tramites', '/documentos'],
+      allowed_sections: { '/tramites': 'write', '/documentos': 'read' },
       is_enabled: true,
     })
     getWorkerSettings.mockResolvedValue({ workers_enabled: false, max_workers: 5 })
@@ -71,13 +72,14 @@ describe('getWorkerAccessStatus', () => {
 
     expect(status.active).toBe(false)
     expect(status.allowedSections.size).toBe(0)
+    expect(status.writeSections.size).toBe(0)
   })
 
   it('is active with the exact granted sections when both the grant and the titular toggle are on', async () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'portal-worker-1',
       owner_user_id: 'owner-1',
-      allowed_sections: ['/tramites', '/obligaciones'],
+      allowed_sections: { '/tramites': 'write', '/obligaciones': 'read' },
       is_enabled: true,
     })
     getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })
@@ -88,11 +90,25 @@ describe('getWorkerAccessStatus', () => {
     expect([...status.allowedSections].sort()).toEqual(['/obligaciones', '/tramites'])
   })
 
+  it('writeSections only contains the sections granted at the "write" level', async () => {
+    getWorkerGrant.mockResolvedValue({
+      worker_user_id: 'portal-worker-1',
+      owner_user_id: 'owner-1',
+      allowed_sections: { '/tramites': 'write', '/obligaciones': 'read' },
+      is_enabled: true,
+    })
+    getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })
+
+    const status = await getWorkerAccessStatus(worker)
+
+    expect([...status.writeSections]).toEqual(['/tramites'])
+  })
+
   it('reports zero allowed sections (not "all sections") when the grant is active but has none checked', async () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'portal-worker-1',
       owner_user_id: 'owner-1',
-      allowed_sections: [],
+      allowed_sections: {},
       is_enabled: true,
     })
     getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })
@@ -107,7 +123,7 @@ describe('getWorkerAccessStatus', () => {
     getWorkerGrant.mockResolvedValue({
       worker_user_id: 'portal-worker-1',
       owner_user_id: 'owner-xyz',
-      allowed_sections: ['/tramites'],
+      allowed_sections: { '/tramites': 'write' },
       is_enabled: true,
     })
     getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })

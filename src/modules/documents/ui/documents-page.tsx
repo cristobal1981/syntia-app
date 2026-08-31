@@ -5,6 +5,7 @@ import {
   DocumentsStateView,
 } from '@/src/modules/documents/ui/documents-page-view'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 import { clientDocuments } from '@/content/client-documents'
 
 type DocumentsPageProps = {
@@ -12,10 +13,12 @@ type DocumentsPageProps = {
 }
 
 export async function DocumentsPage({ user }: DocumentsPageProps) {
-  void user
-
   const demoMode = shouldUseMockDrive()
-  const initial = await listDriveFolderAction()
+  const [initial, writeSections] = await Promise.all([
+    listDriveFolderAction(),
+    user.role === 'worker' ? getWorkerWriteSections(user) : null,
+  ])
+  const canWrite = user.role !== 'worker' || (writeSections?.has('/documentos') ?? false)
 
   if (!initial.ok) {
     const states = clientDocuments.states
@@ -46,5 +49,5 @@ export async function DocumentsPage({ user }: DocumentsPageProps) {
     }
   }
 
-  return <DocumentsPageView demoMode={demoMode} />
+  return <DocumentsPageView demoMode={demoMode} canWrite={canWrite} />
 }

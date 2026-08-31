@@ -9,6 +9,7 @@ import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
+import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
@@ -44,6 +45,7 @@ const BOTTOM_BAR_HREFS = ['/dashboard', '/tramites', '/obligaciones', '/document
 type PortalShellProps = {
   user: PortalUser
   navItems?: NavItem[]
+  workerWriteSections?: WorkerSectionHref[]
   children: React.ReactNode
 }
 
@@ -79,7 +81,12 @@ function PortalContentProgress({
   )
 }
 
-export function PortalShell({ user, navItems: navItemsProp, children }: PortalShellProps) {
+export function PortalShell({
+  user,
+  navItems: navItemsProp,
+  workerWriteSections,
+  children,
+}: PortalShellProps) {
   const pathname = usePathname()
   const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -89,15 +96,14 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   const navItems = navItemsProp ?? getNavForRole(user.role)
   const isClientOrWorker = user.role === 'client' || user.role === 'worker'
   /**
-   * Para un colaborador, `navItems` ya llega filtrado por sus secciones
-   * concedidas (ver `filterNavForWorker` en get-nav-for-user.ts) — incluye
-   * que el grant o la funcionalidad estén desactivados, caso en el que el
-   * worker no ve ningún item salvo /dashboard. Reutilizar esa misma fuente
-   * evita mostrar "Nueva consulta" a quien no tiene /tramites concedido.
+   * "Nueva consulta" crea un ticket/trámite — una mutación, no basta con
+   * tener /tramites en lectura (eso solo decide si `navItems` lo incluye).
+   * Si el grant o la funcionalidad de colaboradores están desactivados,
+   * `workerWriteSections` llega vacío igual que `navItems`.
    */
   const canCreateConsulta =
     user.role === 'client' ||
-    (user.role === 'worker' && navItems.some((item) => item.href === '/tramites'))
+    (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites'))
   const bottomBarItems = isClientOrWorker
     ? BOTTOM_BAR_HREFS.map((href) => navItems.find((item) => item.href === href)).filter(
         (item): item is NavItem => item != null
