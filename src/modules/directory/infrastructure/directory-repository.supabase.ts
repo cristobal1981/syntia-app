@@ -14,13 +14,7 @@ import {
   type ProfileRow,
   type UserRow,
 } from '@/src/modules/directory/domain/map-directory-row'
-import type {
-  ClientRecord,
-  DirectoryListScope,
-  GestorRecord,
-  UpdateClientInput,
-  UpdateGestorInput,
-} from '@/src/modules/directory/domain/types'
+import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
 import {
   deliverClientAccessEmail,

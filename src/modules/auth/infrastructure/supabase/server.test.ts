@@ -8,6 +8,9 @@ type CookiesConfig = {
 }
 
 const { createServerClient, cookies } = vi.hoisted(() => ({
+  // Los parámetros solo fijan la forma de `.mock.calls[n]` para los tests de
+  // abajo — no se usan dentro de la implementación.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   createServerClient: vi.fn((..._args: [string, string, { cookies: CookiesConfig }]) => ({
     fake: 'client',
   })),

@@ -10,7 +10,10 @@ const { createSupabaseAdminClient, odooSearchRead, unstable_cache, resolvePublic
     createSupabaseAdminClient: vi.fn(),
     odooSearchRead: vi.fn(),
     unstable_cache: vi.fn(
-      (fn: (...args: unknown[]) => unknown, _key: string[], _opts: unknown) => fn
+      // Los parámetros solo fijan la forma de `.mock.calls[n]` para el test de
+    // cache-key de abajo — no se usan dentro de la implementación.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (fn: (...args: unknown[]) => unknown, _key: string[], _opts: unknown) => fn
     ),
     resolvePublicDriveFolderMap: vi.fn(),
   }))
@@ -37,6 +40,9 @@ function chainFor(result: { data?: unknown; error?: { message: string } | null }
 beforeEach(() => {
   vi.resetAllMocks()
   unstable_cache.mockImplementation(
+    // Los parámetros solo fijan la forma de `.mock.calls[n]` para el test de
+    // cache-key de abajo — no se usan dentro de la implementación.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (fn: (...args: unknown[]) => unknown, _key: string[], _opts: unknown) => fn
   )
   resolvePublicDriveFolderMap.mockResolvedValue(new Map())

@@ -132,7 +132,8 @@ function sanitizeNotifyPartnerIds(partnerIds: number[] | undefined): number[] {
 
 function stripUntrustedParentId(message: PortalChatterMessage): PortalChatterMessage {
   if (!message.parentId) return message
-  const { parentId: _parentId, ...rest } = message
+  const rest = { ...message }
+  delete rest.parentId
   return rest
 }
 

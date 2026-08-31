@@ -94,7 +94,6 @@ function snippet(html, max = 120) {
 
 function classifyMessage(row) {
   const type = row.message_type
-  const subtype = m2oLabel(row.subtype_id)?.name ?? ''
   const authorName = (m2oLabel(row.author_id)?.name ?? '').toLowerCase()
   const fromEmail = typeof row.email_from === 'string' && row.email_from.includes('@')
   const hasNotif = m2mIds(row.notification_ids).length > 0
@@ -151,7 +150,7 @@ async function fetchMessagesForTask(taskId) {
       order: 'id asc',
       limit: 200,
     })
-  } catch (error) {
+  } catch {
     // notified_partner_ids puede no existir en todas las versiones
     const fallbackFields = fields.filter((f) => f !== 'notified_partner_ids')
     rows = await searchRead('mail.message', {

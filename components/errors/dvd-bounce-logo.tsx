@@ -119,6 +119,8 @@ export function DvdBounceLogo() {
         className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center"
         aria-hidden
       >
+        {/* next/image no aporta nada: SVG local sin optimización real, y aquí hace falta el <img> nativo para el ref de la animación de abajo */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={site.brand.logoSrc}
           alt=""
@@ -137,6 +139,7 @@ export function DvdBounceLogo() {
       className="pointer-events-none absolute inset-0 z-[5] overflow-hidden"
       aria-hidden
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- ver el <img> de arriba */}
       <img
         ref={markRef}
         src={site.brand.logoSrc}

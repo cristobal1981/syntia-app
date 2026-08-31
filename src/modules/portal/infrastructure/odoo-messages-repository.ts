@@ -234,28 +234,6 @@ export async function listNewerPortalMessages(input: {
     .filter((message): message is PortalChatterMessage => message !== null)
 }
 
-async function readPortalMessageById(
-  messageId: number,
-  clientPartnerId: number
-): Promise<PortalChatterMessage> {
-  const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
-    domain: [['id', '=', messageId]],
-    fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
-    limit: 1,
-  })
-
-  const attachmentMeta = await resolveAttachmentMetaForRows(rows)
-  const mapped = rows[0]
-    ? mapOdooRowToPortalMessage(rows[0], clientPartnerId, attachmentMeta)
-    : null
-
-  if (!mapped) {
-    throw new Error('ODOO_MESSAGE_NOT_FOUND')
-  }
-
-  return mapped
-}
-
 function buildPostedPortalMessage(input: {
   messageId: number
   htmlBody: string

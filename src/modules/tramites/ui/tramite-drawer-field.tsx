@@ -114,7 +114,6 @@ export function TramiteDrawerField({
 export function TramiteDrawerSelect({
   id,
   label,
-  name,
   value,
   error,
   placeholder,

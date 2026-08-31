@@ -231,7 +231,7 @@ export async function createClientAction(
   formData: FormData
 ): Promise<DirectoryUpdateResult> {
   try {
-    const session = await requireDirectorySession()
+    await requireDirectorySession()
     const scope = await buildDirectoryScope()
     if (scope.role === 'client') {
       return { ok: false, error: 'forbidden' }
@@ -293,7 +293,7 @@ export async function updateClientAction(
   formData: FormData
 ): Promise<DirectoryUpdateResult> {
   try {
-    const session = await requireDirectorySession()
+    await requireDirectorySession()
     const scope = await buildDirectoryScope()
     if (scope.role === 'client') {
       return { ok: false, error: 'forbidden' }

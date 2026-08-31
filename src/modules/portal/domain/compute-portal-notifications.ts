@@ -60,19 +60,6 @@ function getWatchableStateLabel(record: PortalWatchableRecord): string {
   return mapTaskStateLabel(record.state) ?? '—'
 }
 
-function tramiteListItemFromWatchable(record: PortalWatchableRecord): TramiteListItem {
-  return {
-    id: record.recordId,
-    name: record.name,
-    kind: record.scope === 'consulta' ? 'consulta' : 'tramite',
-    state: record.state,
-    isClosed: record.isClosed,
-    attachmentCount: record.attachmentCount,
-    modifiedAt: record.modifiedAt,
-    assignedNotifyPartnerIds: [],
-  }
-}
-
 function portalNotificationFromTramiteItem(
   item: TramiteListItem,
   reason: PortalNotification['reason'],

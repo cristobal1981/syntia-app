@@ -223,12 +223,13 @@ export function DriveItemCard({
 
   if (viewMode === 'list') {
     return (
-      <article className={listClasses} aria-selected={isSelected} {...dragProps}>
+      <article className={listClasses} {...dragProps}>
         <button
           type="button"
           onClick={onSelect}
           onDoubleClick={onOpen}
           aria-label={openButtonLabel}
+          aria-pressed={isSelected}
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <DriveItemIcon item={item} className="size-5 shrink-0" />
@@ -252,12 +253,13 @@ export function DriveItemCard({
   }
 
   return (
-    <article className={cardClasses} aria-selected={isSelected} {...dragProps}>
+    <article className={cardClasses} {...dragProps}>
       <button
         type="button"
         onClick={onSelect}
         onDoubleClick={onOpen}
         aria-label={openButtonLabel}
+        aria-pressed={isSelected}
         className="flex h-full min-h-36 cursor-pointer flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40 p-4">
