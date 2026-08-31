@@ -1,27 +1,8 @@
 'use server'
 
-import { updateTag } from 'next/cache'
-
-import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
-import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
-import { getSession } from '@/src/modules/auth/application/get-session'
-import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
-import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
-import {
-  formatProcedureRecordDescriptionHtml,
-  formatProcedureTicketChatterMessage,
-  formatProcedureTicketSubject,
-} from '@/src/modules/tramites/domain/format-procedure-ticket'
 import type { GenericProcedureTicketPayload } from '@/src/modules/tramites/domain/procedure-ticket-types'
-import {
-  normalizeProcedureTicketPayload,
-  validateProcedureTicketPayload,
-  type ProcedureFieldErrorKey,
-} from '@/src/modules/tramites/domain/validate-procedure-ticket'
-import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
-import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
-import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
+import type { ProcedureFieldErrorKey } from '@/src/modules/tramites/domain/validate-procedure-ticket'
+import { createStructuredProcedureRecord } from '@/src/modules/tramites/application/create-structured-procedure-record'
 
 export type CreateProcedureTicketResult =
   | {
@@ -45,77 +26,13 @@ export type CreateProcedureTicketResult =
 export async function createProcedureTicketAction(
   payload: GenericProcedureTicketPayload
 ): Promise<CreateProcedureTicketResult> {
-  const session = await getSession()
-  if (!session || !isClientOrWorkerRole(session.user.role)) {
-    return { ok: false, error: 'forbidden' }
-  }
-
-  /** Ver `create-ticket-action.ts`: mismo motivo, mismo guard de sección. */
-  if (session.user.role === 'worker') {
-    const allowed = await getAllowedSectionsForWorker(session.user)
-    if (!allowed.has('/tramites')) {
-      return { ok: false, error: 'forbidden' }
-    }
-  }
-
-  const partnerId = await resolveClientOdooPartnerId(session.user)
-  if (!partnerId) {
-    return { ok: false, error: 'not_linked' }
-  }
-
-  if (!isOdooApiConfigured()) {
-    return { ok: false, error: 'odoo_unavailable' }
-  }
-
-  const normalized = normalizeProcedureTicketPayload(payload)
-  const fieldErrors = validateProcedureTicketPayload(normalized)
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, error: 'validation', fieldErrors }
-  }
-
-  const subject = formatProcedureTicketSubject(normalized)
-  const description = formatProcedureRecordDescriptionHtml(normalized)
-  const requestedAt = new Date().toISOString()
-  const htmlBody = formatProcedureTicketChatterMessage({
-    payload: normalized,
-    requestedAt,
+  const result = await createStructuredProcedureRecord({
+    payload,
+    recordKind: 'ticket',
+    postChatterMessage: true,
   })
 
-  try {
-    const recordId = await createPartnerTicket({
-      partnerId,
-      subject,
-      description,
-    })
+  if (!result.ok) return result
 
-    await postRecordComment({
-      resModel: getOdooModelForRecordKind('ticket'),
-      recordId,
-      clientPartnerId: partnerId,
-      htmlBody,
-    })
-
-    updateTag(tramitesSnapshotCacheTag(partnerId))
-
-    return {
-      ok: true,
-      recordId,
-      ticketId: recordId,
-      name: subject,
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === 'ODOO_TICKET_TEAM_NOT_CONFIGURED') {
-        return { ok: false, error: 'odoo_unavailable' }
-      }
-      if (error.message === 'ODOO_CLIENT_PROJECT_NOT_FOUND') {
-        return { ok: false, error: 'not_linked' }
-      }
-      if (error.message === 'ODOO_TICKET_CREATE_FAILED') {
-        return { ok: false, error: 'create_failed' }
-      }
-    }
-    return { ok: false, error: 'odoo_unavailable' }
-  }
+  return { ...result, ticketId: result.recordId }
 }

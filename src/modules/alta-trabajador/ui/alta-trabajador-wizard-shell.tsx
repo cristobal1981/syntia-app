@@ -1,11 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useId, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
 import { altaTrabajadorWizard } from '@/content/alta-trabajador-wizard'
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { createAltaTrabajadorTaskAction } from '@/src/modules/alta-trabajador/application/create-alta-trabajador-task-action'
@@ -17,6 +15,7 @@ import { buildAltaTrabajadorPayload } from '@/src/modules/alta-trabajador/domain
 import { AltaTrabajadorStepProgress } from '@/src/modules/alta-trabajador/ui/alta-trabajador-step-progress'
 import { useAltaTrabajadorWizard } from '@/src/modules/alta-trabajador/ui/alta-trabajador-wizard-context'
 import { mapAltaTrabajadorFieldError } from '@/src/modules/alta-trabajador/ui/map-alta-trabajador-field-error'
+import { ProcedureWizardShell } from '@/src/modules/tramites/ui/procedure-wizard-shell'
 import {
   normalizeProcedureTicketPayload,
   validateProcedureTicketPayload,
@@ -50,7 +49,6 @@ export function AltaTrabajadorWizardShell({
   formError = null,
 }: AltaTrabajadorWizardShellProps) {
   const router = useRouter()
-  const headingId = useId()
   const { values, attachment, completeSubmission } = useAltaTrabajadorWizard()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -111,84 +109,21 @@ export function AltaTrabajadorWizardShell({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-      <AltaTrabajadorStepProgress currentStepId={stepId} />
-
-      <header className="space-y-2">
-        <h1
-          id={headingId}
-          className="font-sans text-2xl font-semibold tracking-tight text-foreground"
-        >
-          {title}
-        </h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      </header>
-
-      <div aria-labelledby={headingId}>{children}</div>
-
-      {displayError ? (
-        <p className="text-sm text-destructive" role="alert" aria-live="polite">
-          {displayError}
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
-        <Button
-          type="button"
-          variant="ghost"
-          className="cursor-pointer"
-          disabled={isSubmitting}
-          onClick={handleSaveAndExit}
-        >
-          {copy.saveAndExit}
-        </Button>
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="cursor-pointer"
-            disabled={isSubmitting}
-            onClick={handleBack}
-          >
-            {copy.back}
-          </Button>
-
-          {isResumen ? (
-            <Button
-              type="button"
-              className="cursor-pointer"
-              disabled={isSubmitting}
-              aria-busy={isSubmitting}
-              onClick={handleSubmit}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                  {copy.submitPending}
-                </>
-              ) : (
-                copy.submit
-              )}
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              form={formId}
-              className="cursor-pointer"
-              disabled={isSubmitting}
-            >
-              {copy.next}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
+    <ProcedureWizardShell
+      title={title}
+      description={description}
+      progress={<AltaTrabajadorStepProgress currentStepId={stepId} />}
+      formId={formId}
+      isLastStep={isResumen}
+      isSubmitting={isSubmitting}
+      displayError={displayError}
+      onBack={handleBack}
+      onSaveAndExit={handleSaveAndExit}
+      onSubmit={handleSubmit}
+      copy={copy}
+    >
+      {children}
+    </ProcedureWizardShell>
   )
 }
 

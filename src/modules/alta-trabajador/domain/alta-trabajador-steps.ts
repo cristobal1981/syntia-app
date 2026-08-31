@@ -1,3 +1,12 @@
+import {
+  getWizardNextStep,
+  getWizardPreviousStep,
+  getWizardStepById,
+  getWizardStepIndex,
+  isWizardStepId,
+  type ProcedureWizardStepDefinition,
+} from '@/src/modules/tramites/domain/procedure-wizard-steps'
+
 export const ALTA_TRABAJADOR_STEP_IDS = [
   'datos-personales',
   'domicilio',
@@ -11,11 +20,7 @@ export const ALTA_TRABAJADOR_STEP_IDS = [
 
 export type AltaTrabajadorStepId = (typeof ALTA_TRABAJADOR_STEP_IDS)[number]
 
-export type AltaTrabajadorStepDefinition = {
-  id: AltaTrabajadorStepId
-  path: `/alta-trabajador/${AltaTrabajadorStepId}`
-  label: string
-}
+export type AltaTrabajadorStepDefinition = ProcedureWizardStepDefinition<AltaTrabajadorStepId>
 
 export const ALTA_TRABAJADOR_STEPS: AltaTrabajadorStepDefinition[] = [
   { id: 'datos-personales', path: '/alta-trabajador/datos-personales', label: 'Datos' },
@@ -37,13 +42,13 @@ export const ALTA_TRABAJADOR_STEPS: AltaTrabajadorStepDefinition[] = [
 ]
 
 export function getAltaTrabajadorStepIndex(stepId: AltaTrabajadorStepId): number {
-  return ALTA_TRABAJADOR_STEP_IDS.indexOf(stepId)
+  return getWizardStepIndex(ALTA_TRABAJADOR_STEP_IDS, stepId)
 }
 
 export function getAltaTrabajadorStepById(
   stepId: AltaTrabajadorStepId
 ): AltaTrabajadorStepDefinition | undefined {
-  return ALTA_TRABAJADOR_STEPS.find((step) => step.id === stepId)
+  return getWizardStepById(ALTA_TRABAJADOR_STEPS, stepId)
 }
 
 export function getAltaTrabajadorStepPath(stepId: AltaTrabajadorStepId): string {
@@ -53,19 +58,15 @@ export function getAltaTrabajadorStepPath(stepId: AltaTrabajadorStepId): string 
 export function getAltaTrabajadorPreviousStep(
   stepId: AltaTrabajadorStepId
 ): AltaTrabajadorStepDefinition | null {
-  const index = getAltaTrabajadorStepIndex(stepId)
-  if (index <= 0) return null
-  return ALTA_TRABAJADOR_STEPS[index - 1] ?? null
+  return getWizardPreviousStep(ALTA_TRABAJADOR_STEP_IDS, ALTA_TRABAJADOR_STEPS, stepId)
 }
 
 export function getAltaTrabajadorNextStep(
   stepId: AltaTrabajadorStepId
 ): AltaTrabajadorStepDefinition | null {
-  const index = getAltaTrabajadorStepIndex(stepId)
-  if (index < 0 || index >= ALTA_TRABAJADOR_STEPS.length - 1) return null
-  return ALTA_TRABAJADOR_STEPS[index + 1] ?? null
+  return getWizardNextStep(ALTA_TRABAJADOR_STEP_IDS, ALTA_TRABAJADOR_STEPS, stepId)
 }
 
 export function isAltaTrabajadorStepId(value: string): value is AltaTrabajadorStepId {
-  return (ALTA_TRABAJADOR_STEP_IDS as readonly string[]).includes(value)
+  return isWizardStepId(ALTA_TRABAJADOR_STEP_IDS, value)
 }
