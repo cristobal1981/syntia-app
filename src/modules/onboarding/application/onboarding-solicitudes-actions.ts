@@ -41,6 +41,8 @@ export type OnboardingSolicitudRow = {
   emailClickedAt: string | null
   emailBouncedAt: string | null
   emailComplainedAt: string | null
+  emailSubject: string | null
+  emailHtml: string | null
 }
 
 export type CreateAltaAutonomoAccessLinkInput = {
@@ -58,6 +60,21 @@ export type CreateAltaAutonomoAccessLinkResult =
         | 'unauthorized'
         | 'forbidden'
         | 'not_found'
+        | 'invalid_client'
+        | 'email_failed'
+        | 'unknown'
+      message?: string
+    }
+
+export type RenewExpiredOnboardingSolicitudResult =
+  | { ok: true; url: string; token: string; expiresAt: string; emailSent: boolean }
+  | {
+      ok: false
+      error:
+        | 'unauthorized'
+        | 'forbidden'
+        | 'not_found'
+        | 'not_expired'
         | 'invalid_client'
         | 'email_failed'
         | 'unknown'
@@ -116,6 +133,8 @@ function mapTokenToRow(
     emailClickedAt: token.email_clicked_at,
     emailBouncedAt: token.email_bounced_at,
     emailComplainedAt: token.email_complained_at,
+    emailSubject: token.email_subject,
+    emailHtml: token.email_html,
   }
 }
 
@@ -265,17 +284,17 @@ export async function resendOnboardingSolicitudLinkAction(
     }
 
     try {
-      const { emailId } = await sendAltaAutonomoAccessEmail({
+      const { emailId, subject, html } = await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
         accessLink: url,
         expiresAt: tokenRecord.expires_at,
       })
-      await recordOnboardingEmailSent(
-        tokenRecord.token,
-        emailId,
+      await recordOnboardingEmailSent(tokenRecord.token, emailId, {
         recipientEmail,
-        recipientName
-      )
+        recipientName,
+        emailSubject: subject,
+        emailHtml: html,
+      })
     } catch (emailError) {
       const mapped = mapDirectoryEmailError(emailError)
       return {
@@ -394,12 +413,15 @@ export async function createAltaAutonomoAccessLinkCore(
     }
 
     try {
-      const { emailId } = await sendAltaAutonomoAccessEmail({
+      const { emailId, subject, html } = await sendAltaAutonomoAccessEmail({
         clientEmail: recipientEmail,
         accessLink: url,
         expiresAt: created.expires_at,
       })
-      await recordOnboardingEmailSent(created.token, emailId)
+      await recordOnboardingEmailSent(created.token, emailId, {
+        emailSubject: subject,
+        emailHtml: html,
+      })
     } catch (emailError) {
       console.error(
         '[solicitudes] Fallo al enviar el correo; revocando token.',
@@ -443,6 +465,63 @@ export async function createAltaAutonomoAccessLinkAction(
     await requireSolicitudesSession()
     const scope = await buildDirectoryScope()
     return await createAltaAutonomoAccessLinkCore(partner, scope)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'forbidden') {
+      return { ok: false, error: 'forbidden' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+/**
+ * Reenvío ágil para una solicitud CADUCADA: crea un enlace nuevo para el
+ * mismo contacto de Odoo sin pasar por el selector manual, reutilizando
+ * createAltaAutonomoAccessLinkCore (revoca el token muerto y manda el
+ * correo con el nuevo enlace). Deliberadamente NO extiende la caducidad
+ * del token viejo — un enlace caducado que ya pudo haber quedado expuesto
+ * (bandeja de correo antigua, etc.) debe seguir muerto para siempre; solo
+ * el enlace nuevo, recién enviado, funciona.
+ */
+export async function renewExpiredOnboardingSolicitudAction(
+  token: string
+): Promise<RenewExpiredOnboardingSolicitudResult> {
+  try {
+    await requireSolicitudesSession()
+    const scope = await buildDirectoryScope()
+
+    const tokenRecord = await getOnboardingFormAccessTokenByToken(token)
+    if (!tokenRecord || tokenRecord.form_kind !== onboarding.altaAutonomo.formKind) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    if (deriveOnboardingTokenStatus(tokenRecord) !== 'expired') {
+      return { ok: false, error: 'not_expired' }
+    }
+
+    if (tokenRecord.odoo_partner_id === null) {
+      return {
+        ok: false,
+        error: 'invalid_client',
+        message:
+          'Esta solicitud no tiene un contacto de Odoo vinculado. Créala de nuevo manualmente.',
+      }
+    }
+
+    return await createAltaAutonomoAccessLinkCore(
+      {
+        odooPartnerId: tokenRecord.odoo_partner_id,
+        label: tokenRecord.recipient_name ?? tokenRecord.recipient_email ?? 'Sin nombre',
+        contactEmail: tokenRecord.recipient_email ?? undefined,
+      },
+      scope
+    )
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

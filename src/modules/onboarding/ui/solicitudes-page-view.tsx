@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Copy, Loader2, Plus, Send, Trash2, XCircle } from 'lucide-react'
+import { Copy, Loader2, Plus, RefreshCw, Send, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ import {
   createAltaAutonomoAccessLinkAction,
   deleteOnboardingSolicitudAction,
   listOnboardingSolicitudesAction,
+  renewExpiredOnboardingSolicitudAction,
   resendOnboardingSolicitudLinkAction,
   revokeOnboardingSolicitudAction,
   type OnboardingSolicitudRow,
@@ -254,9 +255,9 @@ function OnboardingSolicitudRowActions({
   onUpdated: (rows: OnboardingSolicitudRow[]) => void
 }) {
   const copy = solicitudes.list
-  const [pendingAction, setPendingAction] = useState<'resend' | 'revoke' | 'delete' | null>(
-    null
-  )
+  const [pendingAction, setPendingAction] = useState<
+    'resend' | 'revoke' | 'delete' | 'renew' | null
+  >(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   async function refreshRows() {
@@ -275,6 +276,18 @@ function OnboardingSolicitudRowActions({
       return
     }
     toast.success(copy.resendSuccess)
+    await refreshRows()
+  }
+
+  async function handleRenew() {
+    setPendingAction('renew')
+    const result = await renewExpiredOnboardingSolicitudAction(row.token)
+    setPendingAction(null)
+    if (!result.ok) {
+      toast.error(result.message ?? copy.renewError)
+      return
+    }
+    toast.success(copy.renewSuccess)
     await refreshRows()
   }
 
@@ -320,6 +333,22 @@ function OnboardingSolicitudRowActions({
           <Send className="size-3.5" aria-hidden />
           <span className="hidden sm:inline">
             {pendingAction === 'resend' ? copy.actions.sendingLink : copy.actions.sendLink}
+          </span>
+        </Button>
+      ) : null}
+      {row.status === 'expired' ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleRenew}
+          disabled={pendingAction !== null}
+          aria-label={pendingAction === 'renew' ? copy.actions.renewing : copy.actions.renew}
+          className="h-8 gap-1 px-2"
+        >
+          <RefreshCw className="size-3.5" aria-hidden />
+          <span className="hidden sm:inline">
+            {pendingAction === 'renew' ? copy.actions.renewing : copy.actions.renew}
           </span>
         </Button>
       ) : null}

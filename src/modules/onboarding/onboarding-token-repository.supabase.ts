@@ -28,6 +28,8 @@ export type OnboardingFormAccessToken = {
   email_clicked_at: string | null
   email_bounced_at: string | null
   email_complained_at: string | null
+  email_subject: string | null
+  email_html: string | null
 }
 
 type CreateOnboardingFormAccessTokenInput = {
@@ -57,10 +59,12 @@ type OnboardingTokenRow = {
   email_clicked_at: string | null
   email_bounced_at: string | null
   email_complained_at: string | null
+  email_subject: string | null
+  email_html: string | null
 }
 
 const TOKEN_SELECT =
-  'id, token, form_kind, recipient_email, recipient_name, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at'
+  'id, token, form_kind, recipient_email, recipient_name, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at, email_subject, email_html'
 
 function normalizeEmail(value: string | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? ''
@@ -87,6 +91,8 @@ function toOnboardingToken(row: OnboardingTokenRow): OnboardingFormAccessToken {
     email_clicked_at: row.email_clicked_at,
     email_bounced_at: row.email_bounced_at,
     email_complained_at: row.email_complained_at,
+    email_subject: row.email_subject,
+    email_html: row.email_html,
   }
 }
 
@@ -251,8 +257,12 @@ export async function revokeOnboardingFormAccessToken(
 export async function recordOnboardingEmailSent(
   token: string,
   emailId: string | null,
-  recipientEmail?: string,
-  recipientName?: string
+  options?: {
+    recipientEmail?: string
+    recipientName?: string
+    emailSubject?: string
+    emailHtml?: string
+  }
 ): Promise<void> {
   const normalized = token.trim()
   if (!normalized) {
@@ -270,8 +280,16 @@ export async function recordOnboardingEmailSent(
       email_clicked_at: null,
       email_bounced_at: null,
       email_complained_at: null,
-      ...(recipientEmail !== undefined ? { recipient_email: recipientEmail } : {}),
-      ...(recipientName !== undefined ? { recipient_name: recipientName } : {}),
+      ...(options?.recipientEmail !== undefined
+        ? { recipient_email: options.recipientEmail }
+        : {}),
+      ...(options?.recipientName !== undefined
+        ? { recipient_name: options.recipientName }
+        : {}),
+      ...(options?.emailSubject !== undefined
+        ? { email_subject: options.emailSubject }
+        : {}),
+      ...(options?.emailHtml !== undefined ? { email_html: options.emailHtml } : {}),
     })
     .eq('token', normalized)
 

@@ -67,6 +67,8 @@ function tokenRow(overrides: Record<string, unknown> = {}) {
     email_clicked_at: null,
     email_bounced_at: null,
     email_complained_at: null,
+    email_subject: null,
+    email_html: null,
     ...overrides,
   }
 }
@@ -314,10 +316,38 @@ describe('recordOnboardingEmailSent', () => {
     const chain = chainFor({ error: null })
     createSupabaseAdminClient.mockReturnValue({ from: () => chain })
 
-    await recordOnboardingEmailSent('tok-abc', 'resend-id-1', '')
+    await recordOnboardingEmailSent('tok-abc', 'resend-id-1', { recipientEmail: '' })
 
     const payload = (chain.update as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(payload.recipient_email).toBe('')
+  })
+
+  it('persists the exact subject/html that were sent, for later preview', async () => {
+    const chain = chainFor({ error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await recordOnboardingEmailSent('tok-abc', 'resend-id-1', {
+      emailSubject: 'Completa tu solicitud de alta de autónomo',
+      emailHtml: '<html>hola</html>',
+    })
+
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email_subject: 'Completa tu solicitud de alta de autónomo',
+        email_html: '<html>hola</html>',
+      })
+    )
+  })
+
+  it('leaves email_subject/email_html UNTOUCHED when not explicitly provided', async () => {
+    const chain = chainFor({ error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await recordOnboardingEmailSent('tok-abc', 'resend-id-1')
+
+    const payload = (chain.update as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect('email_subject' in payload).toBe(false)
+    expect('email_html' in payload).toBe(false)
   })
 })
 

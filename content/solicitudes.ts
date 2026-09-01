@@ -64,6 +64,8 @@ export const solicitudes = {
       delete: 'Eliminar',
       revoking: 'Revocando…',
       deleting: 'Eliminando…',
+      renew: 'Renovar y reenviar',
+      renewing: 'Renovando…',
     },
     revokeSuccess: 'Solicitud revocada',
     revokeError: 'No se pudo revocar la solicitud',
@@ -73,6 +75,8 @@ export const solicitudes = {
       '¿Eliminar esta solicitud? El enlace dejará de existir y no se podrá recuperar.',
     resendSuccess: 'Enlace reenviado',
     resendError: 'No se pudo reenviar el enlace',
+    renewSuccess: 'Solicitud renovada y enlace reenviado',
+    renewError: 'No se pudo renovar la solicitud',
     unknownClient: 'Sin nombre',
   },
   detail: {
@@ -116,6 +120,12 @@ export const solicitudes = {
       status: 'Estado',
       created: 'Creada',
       expires: 'Caduca',
+    },
+    emailPreview: {
+      button: 'Ver correo enviado',
+      title: 'Correo enviado',
+      close: 'Cerrar',
+      empty: 'No se ha podido cargar el contenido del correo.',
     },
   },
 } as const

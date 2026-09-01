@@ -8,10 +8,12 @@ import {
   CheckCheck,
   ChevronLeft,
   ChevronRight,
+  Eye,
   KeyRound,
   Mail,
   MailOpen,
   MousePointerClick,
+  RefreshCw,
   Send,
   Trash2,
   User,
@@ -25,6 +27,7 @@ import { cn } from '@/lib/utils'
 import {
   deleteOnboardingSolicitudAction,
   getOnboardingSolicitudDetailAction,
+  renewExpiredOnboardingSolicitudAction,
   resendOnboardingSolicitudLinkAction,
   revokeOnboardingSolicitudAction,
   type OnboardingSolicitudRow,
@@ -39,6 +42,7 @@ import {
   ONBOARDING_SOLICITUD_PREV_SHORTCUT,
 } from '@/src/modules/onboarding/domain/onboarding-solicitud-shortcuts'
 import { formatOnboardingDateLong } from '@/src/modules/onboarding/ui/format-onboarding-date'
+import { OnboardingEmailPreviewDialog } from '@/src/modules/onboarding/ui/onboarding-email-preview-dialog'
 import { OnboardingTokenSecret } from '@/src/modules/onboarding/ui/onboarding-token-secret'
 import {
   statusClassName,
@@ -177,9 +181,10 @@ export function SolicitudDetailView({
   const router = useRouter()
   const [row, setRow] = useState(initialRow)
   const [pendingAction, setPendingAction] = useState<
-    'resend' | 'revoke' | 'delete' | null
+    'resend' | 'revoke' | 'delete' | 'renew' | null
   >(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
   const overlayActive = usePortalShortcutOverlay()
 
   const currentIndex = useMemo(
@@ -242,6 +247,18 @@ export function SolicitudDetailView({
     }
     toast.success(listCopy.resendSuccess)
     await refreshRow()
+  }
+
+  async function handleRenew() {
+    setPendingAction('renew')
+    const result = await renewExpiredOnboardingSolicitudAction(row.token)
+    setPendingAction(null)
+    if (!result.ok) {
+      toast.error(result.message ?? listCopy.renewError)
+      return
+    }
+    toast.success(listCopy.renewSuccess)
+    router.push(`/solicitudes/${result.token}`)
   }
 
   async function handleRevoke() {
@@ -414,6 +431,18 @@ export function SolicitudDetailView({
         </dl>
 
         <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-5 dark:border-border/50">
+          {row.emailHtml ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setEmailPreviewOpen(true)}
+            >
+              <Eye className="size-3.5" aria-hidden />
+              {copy.emailPreview.button}
+            </Button>
+          ) : null}
           {row.status === 'active' ? (
             <Button
               type="button"
@@ -427,6 +456,21 @@ export function SolicitudDetailView({
               {pendingAction === 'resend'
                 ? listCopy.actions.sendingLink
                 : listCopy.actions.sendLink}
+            </Button>
+          ) : null}
+          {row.status === 'expired' ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleRenew}
+              disabled={pendingAction !== null}
+            >
+              <RefreshCw className="size-3.5" aria-hidden />
+              {pendingAction === 'renew'
+                ? listCopy.actions.renewing
+                : listCopy.actions.renew}
             </Button>
           ) : null}
           {row.status === 'active' ? (
@@ -470,6 +514,13 @@ export function SolicitudDetailView({
         onConfirm={() => {
           void handleDelete()
         }}
+      />
+
+      <OnboardingEmailPreviewDialog
+        subject={row.emailSubject}
+        html={row.emailHtml}
+        open={emailPreviewOpen}
+        onOpenChange={setEmailPreviewOpen}
       />
     </div>
   )
