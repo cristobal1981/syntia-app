@@ -29,7 +29,7 @@ export function buildClientAccessEmail({
 
   const body =
     purpose === 'invite'
-      ? 'Te hemos dado acceso al portal de Syntia. Pulsa el botón para activar tu cuenta y elegir contraseña.'
+      ? 'Te hemos dado acceso al portal de Syntia, un portal interno desarrollado por tenaasesores donde podrás ver el estado de tus trámites. Pulsa el botón para activar tu cuenta y elegir contraseña.'
       : 'Hemos generado un enlace seguro para que actives o restablezcas tu acceso al portal de Syntia.'
 
   const cta = purpose === 'invite' ? 'Activar acceso al portal' : 'Restablecer acceso'

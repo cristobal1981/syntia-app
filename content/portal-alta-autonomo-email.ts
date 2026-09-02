@@ -50,7 +50,7 @@ export function buildAltaAutonomoAccessEmail({
 
   bloques.push({
     tipo: 'parrafo',
-    html: 'Tu asesoría te ha preparado un formulario para la solicitud de alta de autónomo. Pulsa el botón para abrirlo y completarlo con tus datos.',
+    html: 'Te hemos preparado un formulario para la solicitud de alta de autónomo. Pulsa el botón para abrirlo y completarlo con tus datos.',
   })
   bloques.push({
     tipo: 'caja',
@@ -72,13 +72,13 @@ export function buildAltaAutonomoAccessEmail({
   })
   bloques.push({
     tipo: 'parrafo',
-    html: '<span style="color:#5B6E6C;font-size:14px;">Si no esperabas este correo, puedes ignorarlo o avisar a tu asesoría.</span>',
+    html: '<span style="color:#5B6E6C;font-size:14px;">Si no esperabas este correo, puedes ignorarlo o avisarnos en contacto@tenaasesores.es.</span>',
   })
 
   const html = renderBrandedEmail({
     tipo: 'cliente',
     saludo,
-    despedida: 'Un cordial saludo,',
+    despedida: 'Gracias por confiar en nosotros. Un cordial saludo,',
     bloques,
   })
 
@@ -87,15 +87,15 @@ export function buildAltaAutonomoAccessEmail({
     isOverrideRecipient
       ? `Correo de prueba: enlace generado para ${clientEmail} (redirigido por RESEND_INVITE_OVERRIDE_TO).`
       : '',
-    'Tu asesoría te ha preparado un formulario para la solicitud de alta de autónomo.',
+    'Te hemos preparado un formulario para la solicitud de alta de autónomo.',
     `Tienes hasta el ${expiresLabel} para enviarlo. Pasada esa fecha el enlace caduca.`,
     accessLink,
     '',
     'Este formulario es único y personal. No lo compartas con nadie.',
     '',
-    'Si no esperabas este correo, puedes ignorarlo o avisar a tu asesoría.',
+    'Si no esperabas este correo, puedes ignorarlo o avisarnos en contacto@tenaasesores.es.',
     '',
-    'Un cordial saludo,',
+    'Gracias por confiar en nosotros. Un cordial saludo,',
     'Syntia',
   ]
     .filter(Boolean)
