@@ -1,6 +1,6 @@
 'use server'
 
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import {
@@ -154,7 +154,7 @@ export async function createGestorAction(
     }
 
     const result = await getDirectoryRepository().createGestor(input)
-    updateTag(ODOO_GESTOR_CATALOG_CACHE_TAG)
+    revalidateTag(ODOO_GESTOR_CATALOG_CACHE_TAG, 'max')
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
@@ -200,7 +200,7 @@ export async function createClientCore(
     }
 
     const result = await getDirectoryRepository().createClient(input)
-    updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
+    revalidateTag(ODOO_PARTNER_CATALOG_CACHE_TAG, 'max')
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
     if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {

@@ -76,7 +76,7 @@ vi.mock('@/src/modules/directory/infrastructure/get-directory-repository', () =>
     resendClientAccessEmail,
   }),
 }))
-vi.mock('next/cache', () => ({ updateTag: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
 
 function sessionFor(role: 'admin' | 'advisor' | 'client' | 'worker'): PortalSession {
   return {
