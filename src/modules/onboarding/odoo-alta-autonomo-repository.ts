@@ -91,6 +91,7 @@ function buildOdooPayload(
     [FIELD_MAP.firstName]: submission.firstName,
     [FIELD_MAP.lastName]: submission.lastName,
     [FIELD_MAP.nifNie]: submission.nifNie,
+    [FIELD_MAP.birthDate]: submission.birthDate,
     [FIELD_MAP.phone]: submission.phone,
     [FIELD_MAP.hasDigitalCertificate]: pickSelectionKey(
       FIELD_MAP.hasDigitalCertificate,
@@ -108,12 +109,17 @@ function buildOdooPayload(
     [FIELD_MAP.province]: input.provinceId,
     [FIELD_MAP.postalCode]: submission.postalCode,
     [FIELD_MAP.country]: input.countryId,
+    [FIELD_MAP.fiscalAddress]: submission.fiscalAddress,
+    [FIELD_MAP.notificationAddress]: submission.notificationAddress,
     [FIELD_MAP.activityDescription]: submission.activityDescription,
     [FIELD_MAP.annualIncomeEstimateEur]: submission.annualIncomeEstimateEur,
     [FIELD_MAP.iban]: submission.iban,
     [FIELD_MAP.comments]: submission.comments ?? '',
   }
 
+  if (submission.naf) {
+    payload[FIELD_MAP.naf] = submission.naf
+  }
   if (submission.startedAutonomoAt) {
     payload[FIELD_MAP.startedAutonomoAt] = submission.startedAutonomoAt
   }

@@ -4,12 +4,19 @@ const POSTAL_CODE_REGEX = /^\d{5}$/
 const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const IBAN_ES_REGEX = /^ES\d{22}$/
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
+const NAF_MIN_DIGITS = 9
+const NAF_MAX_DIGITS = 12
+const MIN_AGE_YEARS = 18
+const MAX_AGE_YEARS = 100
+const FULL_ADDRESS_MAX_LENGTH = 320
 
 /** Normalized submission used for Odoo create. */
 export type AltaAutonomoSubmission = {
   firstName: string
   lastName: string
   nifNie: string
+  naf?: string
+  birthDate: string
   phone: string
   email: string
   hasDigitalCertificate: boolean
@@ -24,6 +31,8 @@ export type AltaAutonomoSubmission = {
   provinceId: number
   postalCode: string
   countryId: number
+  fiscalAddress: string
+  notificationAddress: string
   activityDescription: string
   annualIncomeEstimateEur: number
   iban: string
@@ -73,6 +82,29 @@ function isValidIsoDate(value: string): boolean {
   if (!DATE_REGEX.test(value)) return false
   const date = new Date(`${value}T00:00:00.000Z`)
   return !Number.isNaN(date.getTime())
+}
+
+/** El NAF es opcional: una cadena vacía es válida, pero si se indica debe ser numérico. */
+function isValidNaf(value: string): boolean {
+  if (!value) return true
+  const digits = value.replace(/\D/g, '')
+  return (
+    digits.length >= NAF_MIN_DIGITS && digits.length <= NAF_MAX_DIGITS && digits === value
+  )
+}
+
+function isValidBirthDate(value: string): boolean {
+  if (!isValidIsoDate(value)) return false
+
+  const birthDate = new Date(`${value}T00:00:00.000Z`)
+  const now = new Date()
+  let age = now.getUTCFullYear() - birthDate.getUTCFullYear()
+  const hasHadBirthdayThisYear =
+    now.getUTCMonth() > birthDate.getUTCMonth() ||
+    (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() >= birthDate.getUTCDate())
+  if (!hasHadBirthdayThisYear) age -= 1
+
+  return age >= MIN_AGE_YEARS && age <= MAX_AGE_YEARS
 }
 
 function isValidDniNie(value: string): boolean {
@@ -134,6 +166,8 @@ export function validateAltaAutonomoSubmission(
   const nombre = normalizeText(raw.nombre)
   const apellidos = normalizeText(raw.apellidos)
   const nif = normalizeText(raw.nif).toUpperCase()
+  const naf = normalizeText(raw.naf).replace(/\s+/g, '')
+  const fechaNacimiento = normalizeText(raw.fecha_nacimiento)
   const telefono = normalizeText(raw.telefono).replace(/\s+/g, '')
   const email = normalizeText(raw.email).toLowerCase()
   const certificadoDigital = parseYesNo(raw.certificado_digital)
@@ -146,6 +180,8 @@ export function validateAltaAutonomoSubmission(
   const direccion = normalizeText(raw.direccion)
   const ciudad = normalizeText(raw.ciudad)
   const codigoPostal = normalizeText(raw.codigo_postal)
+  const direccionFiscal = normalizeText(raw.direccion_fiscal)
+  const direccionNotificacion = normalizeText(raw.direccion_notificacion)
   const actividad = normalizeText(raw.actividad)
   const iban = normalizeText(raw.iban).toUpperCase().replace(/\s+/g, '')
   const comentarios = normalizeText(raw.comentarios)
@@ -159,6 +195,16 @@ export function validateAltaAutonomoSubmission(
     fieldErrors.nif = 'El NIF/NIE es obligatorio.'
   } else if (!isValidDniNie(nif)) {
     fieldErrors.nif = 'El NIF/NIE no es válido.'
+  }
+
+  if (!isValidNaf(naf)) {
+    fieldErrors.naf = 'El NAF no es válido.'
+  }
+
+  if (!fechaNacimiento) {
+    fieldErrors.fecha_nacimiento = 'La fecha de nacimiento es obligatoria.'
+  } else if (!isValidBirthDate(fechaNacimiento)) {
+    fieldErrors.fecha_nacimiento = 'La fecha de nacimiento no es válida.'
   }
 
   if (!telefono) {
@@ -226,6 +272,19 @@ export function validateAltaAutonomoSubmission(
 
   const paisId = parsePositiveInt(raw.pais)
   if (!paisId) fieldErrors.pais = 'Selecciona un país válido.'
+
+  if (!direccionFiscal) {
+    fieldErrors.direccion_fiscal = 'La dirección fiscal es obligatoria.'
+  } else if (direccionFiscal.length > FULL_ADDRESS_MAX_LENGTH) {
+    fieldErrors.direccion_fiscal = 'La dirección fiscal es demasiado larga.'
+  }
+
+  if (!direccionNotificacion) {
+    fieldErrors.direccion_notificacion = 'La dirección de notificación es obligatoria.'
+  } else if (direccionNotificacion.length > FULL_ADDRESS_MAX_LENGTH) {
+    fieldErrors.direccion_notificacion = 'La dirección de notificación es demasiado larga.'
+  }
+
   if (!actividad) fieldErrors.actividad = 'La actividad es obligatoria.'
 
   if (ingresosAnuales === null) {
@@ -256,6 +315,8 @@ export function validateAltaAutonomoSubmission(
       firstName: nombre,
       lastName: apellidos,
       nifNie: nif,
+      naf: naf || undefined,
+      birthDate: fechaNacimiento,
       phone: telefono,
       email,
       hasDigitalCertificate: certificadoDigital === 'si',
@@ -270,6 +331,8 @@ export function validateAltaAutonomoSubmission(
         !isAlreadyAutonomo && fuisteAutonomo3Anos === 'si' ? fechaBaja : undefined,
       activityAddress: direccion,
       city: ciudad,
+      fiscalAddress: direccionFiscal,
+      notificationAddress: direccionNotificacion,
       provinceId: provinciaId as number,
       postalCode: codigoPostal,
       countryId: paisId as number,
