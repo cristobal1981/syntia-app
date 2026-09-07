@@ -20,7 +20,7 @@ type PersonEditDialogProps =
       kind: 'client'
       open: boolean
       record: ClientRecord | null
-      advisorOptions: Array<{ id: string; name: string }>
+      advisorOptions: Array<{ id: string; name: string; email: string }>
       canAssignAdvisor: boolean
       onOpenChange: (open: boolean) => void
       onSaved: () => void

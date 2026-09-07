@@ -25,7 +25,7 @@ import {
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
-type AdvisorOption = { id: string; name: string }
+type AdvisorOption = { id: string; name: string; email: string }
 
 type AutomatizacionesPageViewProps = {
   initialConfigured: boolean

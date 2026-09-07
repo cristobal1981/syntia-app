@@ -19,8 +19,14 @@ export async function SolicitudDetailPage({ token }: SolicitudDetailPageProps) {
     notFound()
   }
 
+  // El anterior/siguiente navega solo dentro del mismo bloque que la
+  // solicitud actual (pendiente vs. cerrada) para que sea coherente con las
+  // pestañas de la lista: nunca salta de una activa a una ya cerrada.
+  const isPending = detailResult.row.status === 'active'
   const navTokens = listResult.ok
-    ? listResult.rows.map((row) => row.token)
+    ? listResult.rows
+        .filter((row) => (isPending ? row.status === 'active' : row.status !== 'active'))
+        .map((row) => row.token)
     : []
 
   return <SolicitudDetailView initialRow={detailResult.row} navTokens={navTokens} />

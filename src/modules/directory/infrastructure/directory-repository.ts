@@ -23,5 +23,6 @@ export interface DirectoryRepository {
   deleteClient(id: string): Promise<void>
   resendClientAccessEmail(clientId: string): Promise<void>
   resendGestorAccessEmail(gestorId: string): Promise<void>
-  listAdvisorOptions(): Promise<Array<{ id: string; name: string }>>
+  listAdvisorOptions(): Promise<Array<{ id: string; name: string; email: string }>>
+  bulkAssignAdvisor(clientIds: string[], advisorId: string | null): Promise<void>
 }

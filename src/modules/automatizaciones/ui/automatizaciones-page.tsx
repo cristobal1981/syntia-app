@@ -26,6 +26,7 @@ export async function AutomatizacionesPage() {
   const advisorOptions = gestores.map((gestor) => ({
     id: gestor.id,
     name: gestor.name,
+    email: gestor.email,
   }))
 
   return (

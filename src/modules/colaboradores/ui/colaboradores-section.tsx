@@ -24,7 +24,7 @@ type ColaboradoresSectionProps = {
   workers: WorkerRecord[]
 }
 
-function WorkerStatusBadge({ worker }: { worker: WorkerRecord }) {
+export function WorkerStatusBadge({ worker }: { worker: WorkerRecord }) {
   if (!worker.isEnabled) {
     return (
       <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">

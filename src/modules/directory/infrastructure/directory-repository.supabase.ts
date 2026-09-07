@@ -711,6 +711,22 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
 
   async listAdvisorOptions() {
     const gestores = await this.listGestores()
-    return gestores.map((gestor) => ({ id: gestor.id, name: gestor.name }))
+    return gestores.map((gestor) => ({
+      id: gestor.id,
+      name: gestor.name,
+      email: gestor.email,
+    }))
+  },
+
+  async bulkAssignAdvisor(clientIds, advisorId) {
+    const supabase = createSupabaseAdminClient()
+    const { error } = await supabase
+      .from('profiles')
+      .update({ advisor_id: advisorId, updated_at: new Date().toISOString() })
+      .in('user_id', clientIds)
+
+    if (error) {
+      throw new Error(error.message)
+    }
   },
 }

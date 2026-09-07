@@ -10,6 +10,7 @@ import {
   Plug,
   Scale,
   Settings,
+  TrendingUp,
   UserCircle,
   Users,
   UsersRound,
@@ -35,6 +36,7 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   integrations: Plug,
   automations: Workflow,
   guides: BookOpen,
+  leads: TrendingUp,
 }
 
 type PortalNavIconProps = {

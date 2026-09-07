@@ -30,16 +30,25 @@ export const solicitudes = {
   },
   list: {
     filterPending: 'Pendientes',
-    filterAll: 'Todas',
+    filterClosed: 'Cerradas',
     emptyPendingTitle: 'Sin solicitudes pendientes',
     emptyPendingDescription:
       'Cuando generes un enlace activo para un contacto, aparecerá aquí.',
-    emptyAllTitle: 'Sin solicitudes',
-    emptyAllDescription: 'Aún no se ha generado ningún enlace de alta de autónomo.',
+    emptyClosedTitle: 'Sin solicitudes cerradas',
+    emptyClosedDescription:
+      'Aquí aparecerán las solicitudes completadas, caducadas o revocadas.',
+    searchLabel: 'Buscar solicitudes cerradas',
+    searchPlaceholder: 'Buscar por cliente o email',
+    searchClear: 'Borrar búsqueda',
+    groupByClientLabel: 'Agrupar por cliente',
+    noMatchesTitle: 'Sin resultados',
+    noMatchesDescription:
+      'No hay solicitudes cerradas que coincidan con la búsqueda.',
     columns: {
       client: 'Contacto',
       email: 'Email',
       token: 'Código',
+      status: 'Estado',
       expires: 'Caduca',
       actions: 'Acciones',
     },

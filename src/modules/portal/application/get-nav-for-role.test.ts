@@ -11,20 +11,22 @@ describe('getNavForRole', () => {
     }
   )
 
-  it('admin sees sections an advisor does NOT (Usuarios/Integraciones/Configuración)', () => {
-    const adminHrefsAndLabels = getNavForRole('admin').map((item) => item.label)
-    const advisorHrefsAndLabels = getNavForRole('advisor').map((item) => item.label)
+  it('admin sees "Usuarios", advisor does NOT', () => {
+    const adminLabels = getNavForRole('admin').map((item) => item.label)
+    const advisorLabels = getNavForRole('advisor').map((item) => item.label)
 
-    for (const adminOnlyLabel of ['Usuarios', 'Integraciones', 'Configuración']) {
-      expect(adminHrefsAndLabels).toContain(adminOnlyLabel)
-      expect(advisorHrefsAndLabels).not.toContain(adminOnlyLabel)
-    }
+    expect(adminLabels).toContain('Usuarios')
+    expect(advisorLabels).not.toContain('Usuarios')
   })
 
-  it('admin has a nested "Usuarios" group with Asesores/Clientes children; advisor has no such group', () => {
+  it('admin has a nested "Usuarios" group with Asesores/Clientes/Colaboradores children; advisor has no such group', () => {
     const usuarios = getNavForRole('admin').find((item) => item.label === 'Usuarios')
 
-    expect(usuarios?.children?.map((c) => c.label)).toEqual(['Asesores', 'Clientes'])
+    expect(usuarios?.children?.map((c) => c.label)).toEqual([
+      'Asesores',
+      'Clientes',
+      'Colaboradores',
+    ])
   })
 
   it('advisor sees "Clientes" as a direct top-level link (not nested), unlike admin', () => {
@@ -32,6 +34,20 @@ describe('getNavForRole', () => {
 
     expect(clientesItem?.href).toBe('/clientes')
     expect(clientesItem?.children).toBeUndefined()
+  })
+
+  it('advisor sees "Colaboradores" as a direct top-level link (its own href, not the admin /equipo one)', () => {
+    const colaboradoresItem = getNavForRole('advisor').find(
+      (item) => item.label === 'Colaboradores'
+    )
+
+    expect(colaboradoresItem?.href).toBe('/colaboradores')
+    expect(colaboradoresItem?.children).toBeUndefined()
+
+    const adminChild = getNavForRole('admin')
+      .find((item) => item.label === 'Usuarios')
+      ?.children?.find((child) => child.label === 'Colaboradores')
+    expect(adminChild?.href).toBe('/equipo/colaboradores')
   })
 
   it('DEFENSIVE COPY: mutating the returned top-level items does NOT affect the underlying content module', () => {

@@ -356,21 +356,32 @@ export const portal = {
             implemented: true,
             icon: 'clients',
           },
+          {
+            label: 'Colaboradores',
+            href: '/equipo/colaboradores',
+            implemented: true,
+            icon: 'clients',
+          },
         ],
       },
       { label: 'Solicitudes', href: '/solicitudes', implemented: true, icon: 'requests' },
+      { label: 'Oportunidades', href: '/oportunidades', implemented: true, icon: 'leads' },
       {
         label: 'Automatizaciones',
         href: '/automatizaciones',
         implemented: true,
         icon: 'automations',
       },
-      { label: 'Integraciones', href: '/integraciones', implemented: true, icon: 'integrations' },
-      { label: 'Configuración', href: '/proximamente', implemented: false, icon: 'settings' },
     ],
     advisor: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
       { label: 'Clientes', href: '/clientes', implemented: true, icon: 'clients' },
+      {
+        label: 'Colaboradores',
+        href: '/colaboradores',
+        implemented: true,
+        icon: 'clients',
+      },
       {
         label: 'Automatizaciones',
         href: '/automatizaciones',
@@ -441,24 +452,8 @@ export const portal = {
   },
   integrations: {
     title: 'Integraciones',
-    description:
-      'Estado de conexión con los servicios que alimentan el portal. Odoo y n8n se comprueban en tiempo real.',
     refreshLabel: 'Comprobar conexión',
     refreshingLabel: 'Comprobando…',
-    summaryConnected: 'conectadas',
-    summaryPending: 'pendientes',
-    summaryError: 'con errores',
-    items: {
-      odoo: {
-        description: 'ERP, tareas y operaciones de asesoría.',
-      },
-      google: {
-        description: 'Acceso con Google y documentos en Drive.',
-      },
-      n8n: {
-        description: 'Automatizaciones y flujos entre sistemas.',
-      },
-    },
   },
   pagination: {
     previous: 'Anterior',

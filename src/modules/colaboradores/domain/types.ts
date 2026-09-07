@@ -68,3 +68,10 @@ export type UpdateWorkerGrantInput = {
   allowedSections: WorkerSectionGrants
   isEnabled: boolean
 }
+
+/** Vista de colaboradores a nivel admin: mismo WorkerRecord + a qué titular pertenece. */
+export type AdminWorkerRecord = WorkerRecord & {
+  ownerId: string
+  ownerName: string
+  ownerEmail: string
+}

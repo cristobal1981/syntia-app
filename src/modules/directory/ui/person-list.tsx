@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Search, UserRound, Users } from 'lucide-react'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { equipo } from '@/content/equipo'
 import type { PersonStatus } from '@/src/modules/directory/domain/types'
@@ -26,6 +27,10 @@ type PersonListProps = {
   emptyTitle: string
   emptyDescription: string
   onSelect: (id: string) => void
+  /** Selección múltiple (checkboxes) — omitir para desactivarla por completo. */
+  selectedIds?: Set<string>
+  onToggleSelected?: (id: string) => void
+  onToggleSelectAll?: (ids: string[]) => void
 }
 
 export function PersonList({
@@ -35,7 +40,12 @@ export function PersonList({
   emptyTitle,
   emptyDescription,
   onSelect,
+  selectedIds,
+  onToggleSelected,
+  onToggleSelectAll,
 }: PersonListProps) {
+  const selectable = Boolean(selectedIds && onToggleSelected && onToggleSelectAll)
+  const bulkCopy = equipo.clientes.bulk
   const [query, setQuery] = useState('')
   const gestorColumns = equipo.gestores.columns
   const clientColumns = equipo.clientes.columns
@@ -96,6 +106,20 @@ export function PersonList({
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
+              {selectable ? (
+                <th className="w-10 px-4 py-3">
+                  <Checkbox
+                    aria-label={bulkCopy.selectAll}
+                    checked={
+                      filtered.length > 0 &&
+                      filtered.every((item) => selectedIds?.has(item.id))
+                    }
+                    onCheckedChange={() =>
+                      onToggleSelectAll?.(filtered.map((item) => item.id))
+                    }
+                  />
+                </th>
+              ) : null}
               <th className="px-4 py-3 font-medium">{gestorColumns.name}</th>
               <th className="px-4 py-3 font-medium">{gestorColumns.email}</th>
               {kind === 'gestor' ? (
@@ -104,6 +128,9 @@ export function PersonList({
               <th className="px-4 py-3 font-medium">
                 {kind === 'gestor' ? gestorColumns.company : clientColumns.company}
               </th>
+              {kind === 'gestor' ? (
+                <th className="px-4 py-3 font-medium">{gestorColumns.clients}</th>
+              ) : null}
               {kind === 'client' ? (
                 <th className="px-4 py-3 font-medium">{clientColumns.advisor}</th>
               ) : null}
@@ -127,6 +154,18 @@ export function PersonList({
                 tabIndex={0}
                 role="button"
               >
+                {selectable ? (
+                  <td
+                    className="px-4 py-3"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Checkbox
+                      aria-label={bulkCopy.selectRow}
+                      checked={selectedIds?.has(item.id) ?? false}
+                      onCheckedChange={() => onToggleSelected?.(item.id)}
+                    />
+                  </td>
+                ) : null}
                 <td className="px-4 py-3 font-medium text-foreground">
                   {item.name}
                 </td>
@@ -139,6 +178,11 @@ export function PersonList({
                 <td className="px-4 py-3 text-muted-foreground">
                   {item.companyName ?? '—'}
                 </td>
+                {kind === 'gestor' ? (
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {item.meta ?? '—'}
+                  </td>
+                ) : null}
                 {kind === 'client' ? (
                   <td className="px-4 py-3 text-muted-foreground">
                     {item.meta ?? '—'}

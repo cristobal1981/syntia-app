@@ -26,6 +26,22 @@ export const colaboradores = {
     '/firmas': 'Firmas',
     '/guias': 'Guías',
   },
+  staff: {
+    title: 'Colaboradores',
+    description:
+      'Colaboradores con acceso limitado a un cliente, agrupados por titular.',
+    searchPlaceholder: 'Buscar por colaborador o titular…',
+    countLabel: 'colaboradores',
+    emptyTitle: 'Sin colaboradores',
+    emptyDescription:
+      'Cuando un cliente invite a un colaborador, aparecerá aquí.',
+    columns: {
+      worker: 'Colaborador',
+      owner: 'Titular',
+      sections: 'Acceso',
+      status: 'Estado',
+    },
+  },
   form: {
     createTitle: 'Invitar colaborador',
     editTitle: 'Editar colaborador',

@@ -768,7 +768,7 @@ describe('listGestores / getGestor / getClient / listAdvisorOptions (read paths)
     expect(await supabaseDirectoryRepository.getClient('missing')).toBeNull()
   })
 
-  it('listAdvisorOptions maps listGestores down to just {id, name}', async () => {
+  it('listAdvisorOptions maps listGestores down to {id, name, email}', async () => {
     createSupabaseAdminClient.mockReturnValue(
       makeAdminClient({
         users: [gestorUser({ id: 'g1' })],
@@ -779,7 +779,44 @@ describe('listGestores / getGestor / getClient / listAdvisorOptions (read paths)
 
     const result = await supabaseDirectoryRepository.listAdvisorOptions()
 
-    expect(result).toEqual([{ id: 'g1', name: 'Ana B' }])
+    expect(result).toEqual([{ id: 'g1', name: 'Ana B', email: 'g1@example.com' }])
+  })
+})
+
+describe('bulkAssignAdvisor', () => {
+  it('updates profiles.advisor_id for every given client id via .in(user_id, ids)', async () => {
+    const inFn = vi.fn().mockResolvedValue({ error: null })
+    const update = vi.fn(() => ({ in: inFn }))
+    createSupabaseAdminClient.mockReturnValue({ from: () => ({ update }) })
+
+    await supabaseDirectoryRepository.bulkAssignAdvisor(['c1', 'c2'], 'advisor-1')
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ advisor_id: 'advisor-1' })
+    )
+    expect(inFn).toHaveBeenCalledWith('user_id', ['c1', 'c2'])
+  })
+
+  it('allows unassigning with advisorId=null', async () => {
+    const inFn = vi.fn().mockResolvedValue({ error: null })
+    const update = vi.fn(() => ({ in: inFn }))
+    createSupabaseAdminClient.mockReturnValue({ from: () => ({ update }) })
+
+    await supabaseDirectoryRepository.bulkAssignAdvisor(['c1'], null)
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ advisor_id: null })
+    )
+  })
+
+  it('throws when Supabase returns an error', async () => {
+    const inFn = vi.fn().mockResolvedValue({ error: { message: 'boom' } })
+    const update = vi.fn(() => ({ in: inFn }))
+    createSupabaseAdminClient.mockReturnValue({ from: () => ({ update }) })
+
+    await expect(
+      supabaseDirectoryRepository.bulkAssignAdvisor(['c1'], 'advisor-1')
+    ).rejects.toThrow('boom')
   })
 })
 

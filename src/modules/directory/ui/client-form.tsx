@@ -71,7 +71,7 @@ type ClientFormProps = {
   client?: ClientRecord
   clientKind: ClientKind
   onClientKindChange: (kind: ClientKind) => void
-  advisorOptions: Array<{ id: string; name: string }>
+  advisorOptions: Array<{ id: string; name: string; email: string }>
   canAssignAdvisor: boolean
   onSuccess: () => void
   onCancel: () => void
@@ -509,11 +509,17 @@ export function ClientForm({
             <SelectTrigger aria-label={copy.fields.advisor} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
               <SelectValue placeholder={copy.fields.unassigned} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-w-[calc(100vw-3rem)]">
               <SelectItem value="">{copy.fields.unassigned}</SelectItem>
               {advisorOptions.map((advisor) => (
                 <SelectItem key={advisor.id} value={advisor.id}>
-                  {advisor.name}
+                  <span
+                    className="block max-w-[min(22rem,70vw)] truncate"
+                    title={`${advisor.name} (${advisor.email})`}
+                  >
+                    {advisor.name}{' '}
+                    <span className="text-muted-foreground">({advisor.email})</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

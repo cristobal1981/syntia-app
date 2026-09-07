@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   deleteWorkerGrant,
   getWorkerGrant,
+  listAllWorkerGrants,
   listWorkerGrantsForOwner,
   parseAllowedSections,
   propagateOwnerIntegrationToWorkers,
@@ -122,6 +123,34 @@ describe('listWorkerGrantsForOwner (tenant scoping)', () => {
     })
 
     expect(await listWorkerGrantsForOwner('owner-1')).toEqual([])
+  })
+})
+
+describe('listAllWorkerGrants (no owner filter — admin-only overview)', () => {
+  it('returns every row without scoping by owner_user_id', async () => {
+    const chain = chainFor({ data: [{ worker_user_id: 'w1' }, { worker_user_id: 'w2' }], error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    const result = await listAllWorkerGrants()
+
+    expect(chain.eq).not.toHaveBeenCalled()
+    expect(result).toHaveLength(2)
+  })
+
+  it('returns [] rather than throwing when there are no rows', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: null, error: null }),
+    })
+
+    expect(await listAllWorkerGrants()).toEqual([])
+  })
+
+  it('throws on a DB error', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: null, error: { message: 'boom' } }),
+    })
+
+    await expect(listAllWorkerGrants()).rejects.toThrow('boom')
   })
 })
 

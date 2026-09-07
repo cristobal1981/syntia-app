@@ -70,6 +70,42 @@ export async function listWorkerGrantsForOwner(
   return (data ?? []) as WorkerGrantRow[]
 }
 
+/** Sin filtro de owner — solo para la vista de colaboradores a nivel admin. */
+export async function listAllWorkerGrants(): Promise<WorkerGrantRow[]> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('worker_grants')
+    .select(WORKER_GRANT_SELECT)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []) as WorkerGrantRow[]
+}
+
+/**
+ * Colaboradores cuyo titular está entre `ownerUserIds` — usado por la vista
+ * de supervisión de un asesor, ya acotada a su propia cartera de clientes.
+ */
+export async function listWorkerGrantsForOwners(
+  ownerUserIds: string[]
+): Promise<WorkerGrantRow[]> {
+  if (!ownerUserIds.length) return []
+
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('worker_grants')
+    .select(WORKER_GRANT_SELECT)
+    .in('owner_user_id', ownerUserIds)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []) as WorkerGrantRow[]
+}
+
 export async function upsertWorkerGrant(input: {
   workerUserId: string
   ownerUserId: string

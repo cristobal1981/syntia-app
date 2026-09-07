@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { PortalSession } from '@/src/modules/auth/domain/types'
 import type { ClientRecord, DirectoryListScope } from '@/src/modules/directory/domain/types'
 import {
+  bulkAssignAdvisorAction,
   canEditClient,
   createClientAction,
   createClientCore,
@@ -33,6 +34,7 @@ const {
   deleteClient,
   getClient,
   resendClientAccessEmail,
+  bulkAssignAdvisor,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   requireDirectorySession: vi.fn(),
@@ -49,6 +51,7 @@ const {
   deleteClient: vi.fn(),
   getClient: vi.fn(),
   resendClientAccessEmail: vi.fn(),
+  bulkAssignAdvisor: vi.fn(),
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
@@ -74,6 +77,7 @@ vi.mock('@/src/modules/directory/infrastructure/get-directory-repository', () =>
     deleteClient,
     getClient,
     resendClientAccessEmail,
+    bulkAssignAdvisor,
   }),
 }))
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
@@ -501,6 +505,51 @@ describe('updateClientAction', () => {
     )
 
     expect(result).toEqual({ ok: false, error: 'forbidden' })
+  })
+})
+
+describe('bulkAssignAdvisorAction (admin-only)', () => {
+  it('returns forbidden for role=advisor — bulk reassignment is admin-only', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+
+    const result = await bulkAssignAdvisorAction(['client-1', 'client-2'], 'advisor-B')
+
+    expect(result).toEqual({ ok: false, error: 'forbidden' })
+    expect(bulkAssignAdvisor).not.toHaveBeenCalled()
+  })
+
+  it('returns a validation error for an empty selection', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+
+    const result = await bulkAssignAdvisorAction([], 'advisor-B')
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'validation',
+      message: 'Selecciona al menos un cliente.',
+    })
+    expect(bulkAssignAdvisor).not.toHaveBeenCalled()
+  })
+
+  it('reassigns the selected clients to the given advisor', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+
+    const result = await bulkAssignAdvisorAction(['client-1', 'client-2'], 'advisor-B')
+
+    expect(result).toEqual({ ok: true })
+    expect(bulkAssignAdvisor).toHaveBeenCalledWith(
+      ['client-1', 'client-2'],
+      'advisor-B'
+    )
+  })
+
+  it('allows unassigning (null advisorId) in bulk', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+
+    const result = await bulkAssignAdvisorAction(['client-1'], null)
+
+    expect(result).toEqual({ ok: true })
+    expect(bulkAssignAdvisor).toHaveBeenCalledWith(['client-1'], null)
   })
 })
 

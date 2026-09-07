@@ -1,10 +1,10 @@
+import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 
 import { AppLink } from '@/components/ui/app-link'
 import type { OnboardingSolicitudStats } from '@/src/modules/onboarding/domain/onboarding-solicitud-stats'
 import type { IntegrationStatus } from '@/src/modules/portal/domain/types'
 import { DataTable } from '@/src/modules/portal/ui/data-table'
-import { StatCard } from '@/src/modules/portal/ui/stat-card'
 import { SolicitudesChartCard } from '@/src/modules/portal/ui/onboarding-solicitudes-chart'
 import { IntegrationsPanel } from '@/src/modules/portal/ui/integrations-panel'
 import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
@@ -83,15 +83,7 @@ export function StaffHomeBento({
         </div>
 
         <div className="flex flex-col gap-3">
-          {statTiles.map((tile) => (
-            <StatCard
-              key={tile.label}
-              label={tile.label}
-              value={tile.value}
-              icon={tile.icon}
-              href={tile.href}
-            />
-          ))}
+          <StatGroupCard tiles={statTiles} />
           <IntegrationsPanel
             initialIntegrations={integrations}
             title={integrationsTitle}
@@ -101,6 +93,34 @@ export function StaffHomeBento({
       </div>
 
       <PortalDashboardReady />
+    </div>
+  )
+}
+
+/** Une los stat tiles (Clientes/Asesores) en una sola card en vez de una por tile. */
+function StatGroupCard({ tiles }: { tiles: StatTile[] }) {
+  return (
+    <div className="portal-home-card flex divide-x divide-border overflow-hidden rounded-xl dark:divide-border/60">
+      {tiles.map((tile) => {
+        const Icon = tile.icon
+        return (
+          <Link
+            key={tile.label}
+            href={tile.href}
+            className="flex flex-1 items-start gap-3 p-4 transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset focus-visible:ring-ring md:p-5"
+          >
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Icon className="size-4.5 text-primary" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl font-semibold tabular-nums text-foreground">
+                {tile.value}
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{tile.label}</p>
+            </div>
+          </Link>
+        )
+      })}
     </div>
   )
 }

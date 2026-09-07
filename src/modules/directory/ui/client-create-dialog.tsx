@@ -17,7 +17,7 @@ import { DirectoryPanel } from '@/src/modules/directory/ui/directory-panel'
 
 type ClientCreateDialogProps = {
   open: boolean
-  advisorOptions: Array<{ id: string; name: string }>
+  advisorOptions: Array<{ id: string; name: string; email: string }>
   canAssignAdvisor: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void

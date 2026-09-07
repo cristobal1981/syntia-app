@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Plus } from 'lucide-react'
 
 import { equipo } from '@/content/equipo'
 import type { GestorRecord } from '@/src/modules/directory/domain/types'
@@ -15,10 +16,12 @@ import { Button } from '@/components/ui/button'
 
 type GestoresPageViewProps = {
   initialGestores: GestorRecord[]
+  clientCounts: Record<string, number>
 }
 
 export function GestoresPageView({
   initialGestores,
+  clientCounts,
 }: GestoresPageViewProps) {
   const router = useRouter()
   const copy = equipo.gestores
@@ -41,9 +44,10 @@ export function GestoresPageView({
         email: gestor.email,
         companyName: gestor.companyName,
         status: gestor.status,
+        meta: String(clientCounts[gestor.id] ?? 0),
         roleLabel: equipo.roles[gestor.role],
       })),
-    [gestores]
+    [gestores, clientCounts]
   )
 
   const selected = gestores.find((gestor) => gestor.id === selectedId) ?? null
@@ -65,7 +69,8 @@ export function GestoresPageView({
             {gestores.length} {copy.countLabel}
           </p>
         </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
+        <Button type="button" className="gap-2" onClick={() => setCreateOpen(true)}>
+          <Plus className="size-4" aria-hidden />
           {copy.createButton}
         </Button>
       </header>

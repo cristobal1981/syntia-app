@@ -333,6 +333,42 @@ export async function updateClientAction(
   }
 }
 
+/**
+ * Reasigna el asesor de varios clientes a la vez. Solo toca `profiles.advisor_id`
+ * (no reescribe email/estado/integraciones como `updateClientAction`), y es
+ * admin-only: un asesor no puede reasignar su propia cartera en bloque.
+ */
+export async function bulkAssignAdvisorAction(
+  clientIds: string[],
+  advisorId: string | null
+): Promise<DirectoryUpdateResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+    if (clientIds.length === 0) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Selecciona al menos un cliente.',
+      }
+    }
+
+    await getDirectoryRepository().bulkAssignAdvisor(clientIds, advisorId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
 export async function deleteGestorAction(
   gestorId: string
 ): Promise<DirectoryDeleteResult> {

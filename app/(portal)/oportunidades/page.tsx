@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
-import { IntegrationsPage } from '@/src/modules/portal/ui/integrations-page'
+import { LeadsPage } from '@/src/modules/leads/ui/leads-page'
 
-export default async function IntegracionesRoutePage() {
+export default async function OportunidadesRoutePage() {
   const session = await getSession()
   if (!session) {
     redirect('/login')
@@ -13,5 +13,5 @@ export default async function IntegracionesRoutePage() {
     redirect('/dashboard')
   }
 
-  return <IntegrationsPage user={session.user} />
+  return <LeadsPage />
 }
