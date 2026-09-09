@@ -29,6 +29,7 @@ import {
   type ImpuestoSociedadesConfig,
   type TipoEmpresaKey,
 } from '@/src/modules/automatizaciones/domain/impuesto-sociedades-config'
+import { buildYearInputOptions } from '@/src/modules/automatizaciones/domain/types'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 
 const FORM_ID = 'impuesto-sociedades-config-drawer-form'
@@ -119,6 +120,11 @@ export function ImpuestoSociedadesConfigDrawer({
     setForm((current) => ({ ...current, ...patch }))
   }
 
+  const yearOptions = buildYearInputOptions()
+  const anioOptions = yearOptions.some((option) => option.value === form.anio)
+    ? yearOptions
+    : [{ value: form.anio, label: form.anio }, ...yearOptions]
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -186,18 +192,25 @@ export function ImpuestoSociedadesConfigDrawer({
             <label htmlFor="is-config-anio" className="text-sm font-medium">
               {copy.fields.anio}
             </label>
-            <Input
-              id="is-config-anio"
-              type="number"
-              inputMode="numeric"
-              min={2000}
-              max={2100}
-              step={1}
-              required
+            <Select
               value={form.anio}
-              onChange={(event) => updateForm({ anio: event.target.value })}
-              className={RECESSED_FIELD_CLASS}
-            />
+              onValueChange={(next) => updateForm({ anio: next })}
+            >
+              <SelectTrigger
+                id="is-config-anio"
+                aria-label={copy.fields.anio}
+                className={SELECT_FIELD_CLASS}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {anioOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">

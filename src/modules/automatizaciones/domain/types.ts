@@ -12,6 +12,7 @@ export type AutomationInputFieldType =
   | 'text'
   | 'checkbox'
   | 'odoo_companies_multi'
+  | 'year'
 
 /** Campo de entrada que se pide al lanzar y viaja al webhook con su clave. */
 export type AutomationInputField = {
@@ -20,7 +21,7 @@ export type AutomationInputField = {
   type: AutomationInputFieldType
   required: boolean
   defaultValue: string | null
-  /** Solo para type === 'select'. */
+  /** Para type === 'select' (manuales) y type === 'year' (auto-generadas). */
   options: AutomationInputOption[]
 }
 
@@ -30,6 +31,27 @@ export const AUTOMATION_INPUT_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/
 export const MAX_AUTOMATION_INPUT_FIELDS = 6
 export const MAX_AUTOMATION_INPUT_OPTIONS = 24
 export const MAX_AUTOMATION_INPUT_TEXT_LENGTH = 500
+export const YEAR_INPUT_YEARS_BACK = 3
+export const YEAR_INPUT_YEARS_FORWARD = 1
+
+/**
+ * Rango de ejercicios para campos tipo "año": actual + 1 hasta actual - 3,
+ * más recientes primero. Se recalcula cada vez (nunca se persiste), así el
+ * rango siempre está al día respecto al año en curso.
+ */
+export function buildYearInputOptions(
+  referenceYear: number = new Date().getFullYear()
+): AutomationInputOption[] {
+  const options: AutomationInputOption[] = []
+  for (
+    let year = referenceYear + YEAR_INPUT_YEARS_FORWARD;
+    year >= referenceYear - YEAR_INPUT_YEARS_BACK;
+    year -= 1
+  ) {
+    options.push({ value: String(year), label: String(year) })
+  }
+  return options
+}
 
 export type PortalAutomation = {
   id: string
@@ -123,9 +145,30 @@ export function parseAutomationInputFields(raw: unknown): AutomationInputField[]
           ? 'checkbox'
           : typeRaw === 'odoo_companies_multi'
             ? 'odoo_companies_multi'
-            : 'select'
+            : typeRaw === 'year'
+              ? 'year'
+              : 'select'
 
     if (typeof key !== 'string' || !AUTOMATION_INPUT_KEY_PATTERN.test(key)) continue
+
+    if (type === 'year') {
+      const yearOptions = buildYearInputOptions()
+      const yearValues = new Set(yearOptions.map((option) => option.value))
+      const parsedDefault =
+        typeof defaultValue === 'string' && yearValues.has(defaultValue)
+          ? defaultValue
+          : null
+      fields.push({
+        key,
+        label: typeof label === 'string' && label.trim() ? label.trim() : key,
+        type: 'year',
+        required: required !== false,
+        defaultValue: parsedDefault,
+        options: yearOptions,
+      })
+      if (fields.length >= MAX_AUTOMATION_INPUT_FIELDS) break
+      continue
+    }
 
     if (type === 'text') {
       const parsedDefault =
@@ -251,7 +294,26 @@ export function validateAutomationInputFieldsDefinition(
           ? 'checkbox'
           : field.type === 'odoo_companies_multi'
             ? 'odoo_companies_multi'
-            : 'select'
+            : field.type === 'year'
+              ? 'year'
+              : 'select'
+
+    if (type === 'year') {
+      const yearValues = new Set(buildYearInputOptions().map((option) => option.value))
+      const defaultValue =
+        field.defaultValue?.trim() && yearValues.has(field.defaultValue.trim())
+          ? field.defaultValue.trim()
+          : null
+      normalized.push({
+        key,
+        label,
+        type: 'year',
+        required: field.required,
+        defaultValue,
+        options: [],
+      })
+      continue
+    }
 
     if (type === 'text') {
       const defaultValue = field.defaultValue?.trim() || null

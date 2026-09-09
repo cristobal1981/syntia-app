@@ -153,7 +153,7 @@ export const automatizaciones = {
       slug: 'Minúsculas, números y guiones. Se usa en logs y payloads.',
       webhookPath: 'Ruta relativa en n8n, sin dominio (ej. /webhook/sync-odoo-partners).',
       inputFields:
-        'Parámetros que se piden al lanzar y viajan al webhook con su clave (texto, select, check o empresas Odoo).',
+        'Parámetros que se piden al lanzar y viajan al webhook con su clave (texto, select, check, empresas Odoo o año).',
       inputKey: 'Clave para el payload: minúsculas, números y _ (ej. mes).',
     },
     inputFieldsEditor: {
@@ -162,12 +162,16 @@ export const automatizaciones = {
       addTextField: 'Añadir texto',
       addCheckboxField: 'Añadir check',
       addOdooCompaniesField: 'Añadir empresas Odoo',
+      addYearField: 'Añadir año',
       removeField: 'Quitar parámetro',
       type: 'Tipo',
       typeSelect: 'Select',
       typeText: 'Texto',
       typeCheckbox: 'Check (sí/no)',
       typeOdooCompaniesMulti: 'Empresas Odoo (multi)',
+      typeYear: 'Año',
+      yearRangeHint:
+        'Opciones generadas automáticamente: del año en curso + 1 hasta 3 años atrás. Se recalcula siempre con la fecha actual.',
       key: 'Clave',
       label: 'Etiqueta',
       required: 'Obligatorio',

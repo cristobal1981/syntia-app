@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -11,23 +12,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from '@/components/ui/popover'
 import { automatizaciones } from '@/content/automatizaciones'
 import { listOdooCompaniesForAutomationAction } from '@/src/modules/automatizaciones/application/automatizaciones-actions'
 import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
 import type { AutomationInputField } from '@/src/modules/automatizaciones/domain/types'
 import { MAX_AUTOMATION_INPUT_TEXT_LENGTH } from '@/src/modules/automatizaciones/domain/types'
 import { OdooCompaniesMultiPicker } from '@/src/modules/automatizaciones/ui/odoo-companies-multi-picker'
+import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 
 const SELECT_CLASS =
   'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm'
 
 const INPUT_CLASS =
   'border-input bg-background dark:border-input dark:bg-background'
+
+const FORM_ID = 'automation-launch-drawer-form'
 
 function buildInitialValues(fields: AutomationInputField[]): Record<string, string> {
   const values: Record<string, string> = {}
@@ -53,7 +52,7 @@ function buildInitialCompanyIds(
   return values
 }
 
-type AutomationLaunchPopoverProps = {
+type AutomationLaunchDrawerProps = {
   automationTitle: string
   fields: AutomationInputField[]
   open: boolean
@@ -63,19 +62,17 @@ type AutomationLaunchPopoverProps = {
     values: Record<string, string>,
     companyIdsByField?: Record<string, number[]>
   ) => void
-  children: React.ReactNode
 }
 
 /** Pide los parámetros de entrada de la automatización antes de lanzarla. */
-export function AutomationLaunchPopover({
+export function AutomationLaunchDrawer({
   automationTitle,
   fields,
   open,
   onOpenChange,
   pending,
   onLaunch,
-  children,
-}: AutomationLaunchPopoverProps) {
+}: AutomationLaunchDrawerProps) {
   const copy = automatizaciones.card
   const pickerCopy = automatizaciones.odooCompaniesPicker
   const hasCompanyFields = fields.some(
@@ -98,7 +95,7 @@ export function AutomationLaunchPopover({
       if (!open) {
         // Reset al cerrar + fetch al abrir (patrón fetch-on-open estándar de
         // este repo, sin librería de fetching): no es estado derivable en
-        // render, depende de cuándo se abre/cierra el popover.
+        // render, depende de cuándo se abre/cierra el drawer.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCompaniesLoadState('idle')
         setCompanies([])
@@ -303,53 +300,46 @@ export function AutomationLaunchPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverAnchor asChild>
-        <span className="inline-flex shrink-0">{children}</span>
-      </PopoverAnchor>
-      <PopoverContent
-        className="flex w-80 max-w-[calc(100vw-2rem)] max-h-[min(85dvh,28rem)] flex-col overflow-hidden p-0"
-        align="end"
-        side="top"
-        collisionPadding={16}
+    <PortalSideDrawer open={open} onOpenChange={handleOpenChange}>
+      <DialogHeader className="border-b border-border px-6 py-5 pr-14 dark:border-border/50">
+        <DialogTitle className="font-sans text-lg font-semibold">
+          {copy.launchParamsTitle} · {automationTitle}
+        </DialogTitle>
+      </DialogHeader>
+
+      <form
+        id={FORM_ID}
+        onSubmit={handleSubmit}
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 border-b border-border px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">
-              {copy.launchParamsTitle} · {automationTitle}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          {fields.map((field) => (
+            <div key={field.key} className="flex flex-col gap-1.5">
+              {renderField(field)}
+            </div>
+          ))}
+
+          {error ? (
+            <p className="text-xs text-destructive" role="alert">
+              {error}
             </p>
-          </div>
+          ) : null}
+        </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3">
-            {fields.map((field) => (
-              <div key={field.key} className="flex flex-col gap-1.5">
-                {renderField(field)}
-              </div>
-            ))}
-
-            {error ? (
-              <p className="text-xs text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex shrink-0 justify-end gap-2 border-t border-border px-4 py-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              {copy.launchParamsCancel}
-            </Button>
-            <Button type="submit" size="sm" disabled={pending} aria-busy={pending}>
-              {pending ? copy.launching : copy.launchParamsSubmit}
-            </Button>
-          </div>
-        </form>
-      </PopoverContent>
-    </Popover>
+        <div className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end dark:border-border/50">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
+            {copy.launchParamsCancel}
+          </Button>
+          <Button type="submit" form={FORM_ID} disabled={pending} aria-busy={pending}>
+            {pending ? copy.launching : copy.launchParamsSubmit}
+          </Button>
+        </div>
+      </form>
+    </PortalSideDrawer>
   )
 }
