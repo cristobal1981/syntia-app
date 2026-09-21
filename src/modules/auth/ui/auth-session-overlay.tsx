@@ -136,7 +136,7 @@ function EntryOverlay({
       aria-busy={!exiting}
     >
       <div className="flex w-full max-w-md flex-col items-center">
-        <div className="mb-8 flex justify-center">
+        <div className="mb-8 flex flex-col items-start gap-2">
           <Image
             src={site.brand.logoHorizontalPositivo}
             alt="Syntia"
@@ -153,6 +153,9 @@ function EntryOverlay({
             priority
             className="hidden h-9 w-auto dark:block"
           />
+          <span className="text-xs tracking-wide text-muted-foreground">
+            {site.brand.byLine}
+          </span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/15">
           <div
