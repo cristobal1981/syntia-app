@@ -16,6 +16,7 @@ const {
   listPortalMessagesPage,
   postRecordComment,
   fetchChatterReplyLinks,
+  checkRateLimit,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
@@ -26,8 +27,10 @@ const {
   listPortalMessagesPage: vi.fn(),
   postRecordComment: vi.fn(),
   fetchChatterReplyLinks: vi.fn(),
+  checkRateLimit: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({
   getAllowedSectionsForWorker,
@@ -87,6 +90,7 @@ beforeEach(() => {
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
   fetchChatterReplyLinks.mockResolvedValue(new Map())
+  checkRateLimit.mockResolvedValue(true)
 })
 
 describe('portal-chatter-actions (/tramites section gate, covers both trámites and tickets/consultas)', () => {
@@ -203,5 +207,22 @@ describe('postRecordMessageAction (/tramites write gate for colaboradores)', () 
 
     expect(result).toMatchObject({ ok: true })
     expect(getWorkerWriteSections).not.toHaveBeenCalled()
+  })
+})
+
+describe('postRecordMessageAction (rate limiting)', () => {
+  it('rechaza con rate_limited sin tocar Odoo cuando se supera el límite', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    checkRateLimit.mockResolvedValue(false)
+
+    const result = await postRecordMessageAction({
+      kind: 'task',
+      recordId: 1,
+      body: '<p>hola</p>',
+    })
+
+    expect(result).toEqual({ ok: false, error: 'rate_limited' })
+    expect(verifyClientRecordAccess).not.toHaveBeenCalled()
+    expect(postRecordComment).not.toHaveBeenCalled()
   })
 })

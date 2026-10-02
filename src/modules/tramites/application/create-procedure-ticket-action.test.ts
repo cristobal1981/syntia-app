@@ -11,6 +11,7 @@ const {
   isOdooApiConfigured,
   createPartnerTicket,
   postRecordComment,
+  checkRateLimit,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -18,8 +19,10 @@ const {
   isOdooApiConfigured: vi.fn(),
   createPartnerTicket: vi.fn(),
   postRecordComment: vi.fn(),
+  checkRateLimit: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
   getWorkerWriteSections,
@@ -66,6 +69,7 @@ beforeEach(() => {
   isOdooApiConfigured.mockReturnValue(true)
   createPartnerTicket.mockResolvedValue(7)
   postRecordComment.mockResolvedValue({})
+  checkRateLimit.mockResolvedValue(true)
 })
 
 describe('createProcedureTicketAction (/tramites section gate for colaboradores)', () => {

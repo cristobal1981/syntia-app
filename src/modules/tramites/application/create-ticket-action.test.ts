@@ -10,6 +10,7 @@ const {
   isOdooApiConfigured,
   createPartnerTicket,
   postRecordComment,
+  checkRateLimit,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -17,8 +18,10 @@ const {
   isOdooApiConfigured: vi.fn(),
   createPartnerTicket: vi.fn(),
   postRecordComment: vi.fn(),
+  checkRateLimit: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
   getWorkerWriteSections,
@@ -51,11 +54,12 @@ function sessionFor(role: 'client' | 'worker'): PortalSession {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
   createPartnerTicket.mockResolvedValue(42)
   postRecordComment.mockResolvedValue({})
+  checkRateLimit.mockResolvedValue(true)
 })
 
 describe('createTicketAction (/tramites section gate for colaboradores)', () => {
@@ -97,5 +101,29 @@ describe('createTicketAction (/tramites section gate for colaboradores)', () => 
 
     expect(result).toMatchObject({ ok: true })
     expect(getWorkerWriteSections).not.toHaveBeenCalled()
+  })
+})
+
+describe('createTicketAction (rate limiting)', () => {
+  it('rechaza con rate_limited sin tocar Odoo cuando se supera el límite', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    checkRateLimit.mockResolvedValue(false)
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toEqual({ ok: false, error: 'rate_limited' })
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+    expect(createPartnerTicket).not.toHaveBeenCalled()
+  })
+
+  it('usa una clave por usuario, no global', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      expect.stringContaining('u-client'),
+      expect.objectContaining({ limit: expect.any(Number), windowSeconds: expect.any(Number) })
+    )
   })
 })

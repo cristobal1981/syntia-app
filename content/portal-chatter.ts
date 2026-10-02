@@ -45,5 +45,6 @@ export const portalChatter = {
     invalid_attachment: 'El archivo no tiene un formato permitido.',
     attachment_too_large: 'El archivo supera el tamaño máximo permitido.',
     too_many_attachments: 'Puedes adjuntar como máximo 5 archivos por mensaje.',
+    rate_limited: 'Has enviado demasiados mensajes seguidos. Espera un momento e inténtalo de nuevo.',
   },
 } as const

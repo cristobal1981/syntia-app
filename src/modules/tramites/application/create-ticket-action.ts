@@ -2,6 +2,7 @@
 
 import { revalidateTag } from 'next/cache'
 
+import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import { validateChatterHtmlBody, stripHtmlToText } from '@/src/modules/portal/domain/filter-portal-messages'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
@@ -26,8 +27,12 @@ export type CreateTicketResult =
         | 'odoo_unavailable'
         | 'validation'
         | 'create_failed'
+        | 'rate_limited'
       fieldErrors?: Record<string, string>
     }
+
+/** Crear tickets es una mutación deliberada hacia Odoo; un uso legítimo no la repite así de rápido. */
+const CREATE_TICKET_RATE_LIMIT = { limit: 5, windowSeconds: 300 }
 
 function validateSubject(subject: string): { ok: true; value: string } | { ok: false } {
   const value = subject.trim()
@@ -57,6 +62,11 @@ export async function createTicketAction(input: {
     if (!writeSections.has('/tramites')) {
       return { ok: false, error: 'forbidden' }
     }
+  }
+
+  const allowed = await checkRateLimit(`create-ticket:${session.user.id}`, CREATE_TICKET_RATE_LIMIT)
+  if (!allowed) {
+    return { ok: false, error: 'rate_limited' }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)

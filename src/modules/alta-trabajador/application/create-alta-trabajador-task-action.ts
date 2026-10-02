@@ -12,7 +12,13 @@ export type CreateAltaTrabajadorTaskResult =
     }
   | {
       ok: false
-      error: 'forbidden' | 'not_linked' | 'odoo_unavailable' | 'validation' | 'create_failed'
+      error:
+        | 'forbidden'
+        | 'not_linked'
+        | 'odoo_unavailable'
+        | 'validation'
+        | 'create_failed'
+        | 'rate_limited'
       fieldErrors?: Record<string, ProcedureFieldErrorKey>
     }
 

@@ -61,6 +61,7 @@ export type PortalChatterPostResult =
         | 'invalid_attachment'
         | 'attachment_too_large'
         | 'too_many_attachments'
+        | 'rate_limited'
     }
 
 export type PortalChatterUploadFile = {

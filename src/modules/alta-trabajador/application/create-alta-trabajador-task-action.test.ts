@@ -12,6 +12,7 @@ const {
   createPartnerTask,
   postRecordComment,
   createAttachmentsForRecord,
+  checkRateLimit,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -20,8 +21,10 @@ const {
   createPartnerTask: vi.fn(),
   postRecordComment: vi.fn(),
   createAttachmentsForRecord: vi.fn(),
+  checkRateLimit: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
   getWorkerWriteSections,
@@ -101,6 +104,7 @@ beforeEach(() => {
   isOdooApiConfigured.mockReturnValue(true)
   createPartnerTask.mockResolvedValue(7)
   createAttachmentsForRecord.mockResolvedValue([1])
+  checkRateLimit.mockResolvedValue(true)
 })
 
 describe('createAltaTrabajadorTaskAction (/tramites section gate for colaboradores)', () => {
@@ -132,6 +136,18 @@ describe('createAltaTrabajadorTaskAction (/tramites section gate for colaborador
 
     expect(result).toMatchObject({ ok: true })
     expect(getWorkerWriteSections).not.toHaveBeenCalled()
+  })
+})
+
+describe('createAltaTrabajadorTaskAction (rate limiting, shared con createStructuredProcedureRecord)', () => {
+  it('rechaza con rate_limited sin tocar Odoo cuando se supera el límite', async () => {
+    checkRateLimit.mockResolvedValue(false)
+
+    const result = await createAltaTrabajadorTaskAction(altaTrabajadorPayload())
+
+    expect(result).toEqual({ ok: false, error: 'rate_limited' })
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+    expect(createPartnerTask).not.toHaveBeenCalled()
   })
 })
 

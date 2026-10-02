@@ -345,6 +345,7 @@ export const tramiteSolicitudes = {
     not_linked: 'Tu cuenta no está vinculada con Odoo.',
     odoo_unavailable: 'No pudimos crear la solicitud. Inténtalo de nuevo.',
     create_failed: 'No pudimos crear la solicitud en Odoo.',
+    rate_limited: 'Has creado demasiadas solicitudes en poco tiempo. Espera unos minutos e inténtalo de nuevo.',
     unknown: 'No pudimos crear la solicitud. Inténtalo de nuevo.',
   },
 } as const

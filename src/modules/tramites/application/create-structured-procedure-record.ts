@@ -1,5 +1,6 @@
 import { revalidateTag } from 'next/cache'
 
+import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
@@ -41,8 +42,12 @@ export type CreateStructuredProcedureResult =
         | 'odoo_unavailable'
         | 'validation'
         | 'create_failed'
+        | 'rate_limited'
       fieldErrors?: Record<string, ProcedureFieldErrorKey>
     }
+
+/** Mismo criterio que create-ticket-action.ts: crear un task/ticket estructurado es una mutación deliberada. */
+const CREATE_PROCEDURE_RECORD_RATE_LIMIT = { limit: 5, windowSeconds: 300 }
 
 export type CreateStructuredProcedureInput<T extends ProcedureTicketPayload> = {
   payload: T
@@ -79,6 +84,14 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
     if (!writeSections.has('/tramites')) {
       return { ok: false, error: 'forbidden' }
     }
+  }
+
+  const allowed = await checkRateLimit(
+    `create-procedure-record:${session.user.id}`,
+    CREATE_PROCEDURE_RECORD_RATE_LIMIT
+  )
+  if (!allowed) {
+    return { ok: false, error: 'rate_limited' }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)

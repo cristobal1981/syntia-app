@@ -20,6 +20,7 @@ export type CreateProcedureTicketResult =
         | 'odoo_unavailable'
         | 'validation'
         | 'create_failed'
+        | 'rate_limited'
       fieldErrors?: Record<string, ProcedureFieldErrorKey>
     }
 

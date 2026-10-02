@@ -32,6 +32,7 @@ export const tramites = {
       not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
       odoo_unavailable: 'No pudimos crear la consulta. Inténtalo de nuevo.',
       create_failed: 'No pudimos crear la consulta. Inténtalo de nuevo o contacta con tu asesor.',
+      rate_limited: 'Has creado demasiadas consultas en poco tiempo. Espera unos minutos e inténtalo de nuevo.',
       unknown: 'No pudimos crear la consulta. Inténtalo de nuevo.',
     },
   },

@@ -5,6 +5,7 @@ import { revalidateTag } from 'next/cache'
 
 import { portalChatter } from '@/content/portal-chatter'
 
+import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import {
   isChatterHtmlEmpty,
   validateChatterHtmlBody,
@@ -274,12 +275,20 @@ export async function listNewerRecordMessagesAction(
   }
 }
 
+/** Mandar mensajes de chatter es más frecuente que crear tickets, pero sigue acotado. */
+const POST_MESSAGE_RATE_LIMIT = { limit: 20, windowSeconds: 300 }
+
 export async function postRecordMessageAction(
   input: PostRecordMessageInput
 ): Promise<PortalChatterPostResult> {
   const access = await resolveClientPartnerId('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
+  }
+
+  const allowed = await checkRateLimit(`chatter-post:${access.actorId}`, POST_MESSAGE_RATE_LIMIT)
+  if (!allowed) {
+    return { ok: false, error: 'rate_limited' }
   }
 
   const recordId = parseRecordId(input.recordId)
