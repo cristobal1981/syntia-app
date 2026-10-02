@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { createAltaAutonomoAccessLinkCore } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import { mapOdooMany2OneId } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
@@ -29,7 +30,7 @@ function isAuthorizedRequest(request: Request): boolean {
     console.error('[odoo-webhook] Falta la cabecera X-Odoo-Solicitud-Secret.')
     return false
   }
-  if (header !== secret) {
+  if (!timingSafeEqualStrings(header, secret)) {
     console.error('[odoo-webhook] X-Odoo-Solicitud-Secret no coincide con el secreto configurado.')
     return false
   }
@@ -123,7 +124,10 @@ export async function POST(request: Request) {
 
     const parsed = parseLeadPayload(body)
     if (!parsed.ok) {
-      console.error('[odoo-webhook] Payload inválido.', { body })
+      console.error('[odoo-webhook] Payload inválido.', {
+        receivedKeys: typeof body === 'object' && body ? Object.keys(body) : [],
+        message: parsed.message,
+      })
       return NextResponse.json(
         { ok: false, error: 'validation', message: parsed.message },
         { status: 400 }
@@ -143,7 +147,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    console.error('[odoo-webhook] createAltaAutonomoAccessLinkCore devolvió error.', result)
+    console.error('[odoo-webhook] createAltaAutonomoAccessLinkCore devolvió error.', {
+      error: result.error,
+    })
 
     const status =
       result.error === 'invalid_client'

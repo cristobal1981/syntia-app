@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { submitAltaAutonomo } from '@/src/modules/onboarding/submit-alta-autonomo'
 
 function getOnboardingSecret(): string | null {
@@ -15,7 +16,8 @@ function isAuthorizedRequest(request: Request): boolean {
     )
     return false
   }
-  return request.headers.get('x-landing-onboarding-secret') === secret
+  const header = request.headers.get('x-landing-onboarding-secret')
+  return header !== null && timingSafeEqualStrings(header, secret)
 }
 
 function parseBodyToken(body: unknown): string | null {

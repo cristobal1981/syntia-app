@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { createClientCore } from '@/src/modules/directory/application/directory-mutations'
 import type { CreateClientInput } from '@/src/modules/directory/domain/types'
 import { mapOdooMany2OneId } from '@/src/modules/portal/infrastructure/odoo-json-client'
@@ -30,7 +31,7 @@ function isAuthorizedRequest(request: Request): boolean {
     console.error('[odoo-webhook-clientes] Falta la cabecera X-Odoo-Cliente-Secret.')
     return false
   }
-  if (header !== secret) {
+  if (!timingSafeEqualStrings(header, secret)) {
     console.error(
       '[odoo-webhook-clientes] X-Odoo-Cliente-Secret no coincide con el secreto configurado.'
     )
@@ -152,7 +153,10 @@ export async function POST(request: Request) {
 
     const parsed = parseClientPayload(body)
     if (!parsed.ok) {
-      console.error('[odoo-webhook-clientes] Payload inválido.', { body })
+      console.error('[odoo-webhook-clientes] Payload inválido.', {
+        receivedKeys: typeof body === 'object' && body ? Object.keys(body) : [],
+        message: parsed.message,
+      })
       return NextResponse.json(
         { ok: false, error: 'validation', message: parsed.message },
         { status: 400 }
@@ -165,7 +169,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, inviteSent: result.inviteSent })
     }
 
-    console.error('[odoo-webhook-clientes] createClientCore devolvió error.', result)
+    console.error('[odoo-webhook-clientes] createClientCore devolvió error.', {
+      error: result.error,
+      fieldErrors: result.fieldErrors ? Object.keys(result.fieldErrors) : undefined,
+    })
 
     const status = result.error === 'validation' ? 400 : 500
 
