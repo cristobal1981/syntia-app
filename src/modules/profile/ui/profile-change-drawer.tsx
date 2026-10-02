@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { profile } from '@/content/profile'
 import { cn } from '@/lib/utils'
+import { submitProfileChangeAction } from '@/src/modules/profile/application/submit-profile-change-action'
 import type {
   ClientProfile,
   ProfileChangeApiResponse,
@@ -230,21 +231,16 @@ export function ProfileChangeDrawer({
     setPending(true)
 
     try {
-      const response = await fetch('/api/profile/change-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          website: '',
-          name: formValues.name,
-          email: formValues.email,
-          phone: formValues.phone,
-          vat: formValues.vat,
-          iban: formValues.iban,
-          address: formValues.address,
-        }),
+      const result = await submitProfileChangeAction({
+        website: '',
+        name: formValues.name,
+        email: formValues.email,
+        phone: formValues.phone,
+        vat: formValues.vat,
+        iban: formValues.iban,
+        address: formValues.address,
       })
 
-      const result = (await response.json()) as ProfileChangeApiResponse
       handleSubmitResult(result)
     } catch {
       toast.error(profile.errors.create_failed)
