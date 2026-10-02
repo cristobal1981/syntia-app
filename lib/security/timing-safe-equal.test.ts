@@ -8,7 +8,12 @@ describe('timingSafeEqualStrings', () => {
   })
 
   it('devuelve false para strings de igual longitud pero distinto contenido', () => {
-    expect(timingSafeEqualStrings('un-secreto', 'otro-secret')).toBe(false)
+    expect('secreto-abc'.length).toBe('secreto-xyz'.length)
+    expect(timingSafeEqualStrings('secreto-abc', 'secreto-xyz')).toBe(false)
+  })
+
+  it('devuelve false si solo difiere el último carácter (misma longitud)', () => {
+    expect(timingSafeEqualStrings('un-secreto', 'un-secretX')).toBe(false)
   })
 
   it('devuelve false para strings de distinta longitud, sin lanzar', () => {

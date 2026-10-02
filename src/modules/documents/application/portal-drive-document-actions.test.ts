@@ -13,12 +13,16 @@ const {
   getWorkerWriteSections,
   resolveClientDriveRootId,
   shouldUseMockDrive,
+  uploadDriveFile,
+  isGoogleDriveApiConfigured,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
   getWorkerWriteSections: vi.fn(),
   resolveClientDriveRootId: vi.fn(),
   shouldUseMockDrive: vi.fn(),
+  uploadDriveFile: vi.fn(),
+  isGoogleDriveApiConfigured: vi.fn(),
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
@@ -32,6 +36,18 @@ vi.mock('@/src/modules/documents/application/resolve-client-drive-root', () => (
   resolveClientDriveRootId,
 }))
 vi.mock('@/src/modules/documents/infrastructure/drive-runtime', () => ({ shouldUseMockDrive }))
+vi.mock('@/src/modules/documents/infrastructure/google-drive-auth', () => ({
+  isGoogleDriveApiConfigured,
+}))
+vi.mock('@/src/modules/documents/infrastructure/google-drive-repository', () => ({
+  createDriveFolder: vi.fn(),
+  deleteDriveItem: vi.fn(),
+  downloadDriveFile: vi.fn(),
+  listDriveFolder: vi.fn(),
+  moveDriveItem: vi.fn(),
+  renameDriveItem: vi.fn(),
+  uploadDriveFile,
+}))
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
   return {
@@ -158,5 +174,32 @@ describe('uploadDriveFilesAction (dangerous file type gate)', () => {
     const result = await uploadDriveFilesAction(formDataWithFile(file))
 
     expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
+  })
+
+  describe('real Drive path (shouldUseMockDrive: false)', () => {
+    beforeEach(() => {
+      shouldUseMockDrive.mockReturnValue(false)
+      resolveClientDriveRootId.mockResolvedValue('root-1')
+      isGoogleDriveApiConfigured.mockReturnValue(true)
+      uploadDriveFile.mockResolvedValue({ id: 'item-1', name: 'factura.pdf' })
+    })
+
+    it('uploads a normal document through the real Drive API', async () => {
+      const file = new File(['%PDF-1.4'], 'factura.pdf', { type: 'application/pdf' })
+
+      const result = await uploadDriveFilesAction(formDataWithFile(file))
+
+      expect(result.ok).toBe(true)
+      expect(uploadDriveFile).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects an executable before ever calling the real Drive API', async () => {
+      const file = new File(['MZ'], 'virus.exe', { type: 'application/octet-stream' })
+
+      const result = await uploadDriveFilesAction(formDataWithFile(file))
+
+      expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
+      expect(uploadDriveFile).not.toHaveBeenCalled()
+    })
   })
 })
