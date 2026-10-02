@@ -68,6 +68,29 @@ async function fetchProfileMap(ids?: string[]) {
   )
 }
 
+async function fetchUserIdsByRole(roles: string[]): Promise<string[]> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase.from('users').select('id').in('role', roles)
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data as { id: string }[]).map((row) => row.id)
+}
+
+async function fetchClientIdsForAdvisor(advisorId: string): Promise<string[]> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id')
+    .eq('advisor_id', advisorId)
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data as { user_id: string }[]).map((row) => row.user_id)
+}
+
 async function buildDirectorySources(ids?: string[]) {
   const [userMap, profileMap, integrationMap] = await Promise.all([
     fetchUserMap(ids),
@@ -292,7 +315,15 @@ export async function createAuthUserForClient(
 
 export const supabaseDirectoryRepository: DirectoryRepository = {
   async listGestores() {
-    const sources = await buildDirectorySources()
+    // Filtra por role en SQL en vez de traer toda `users`/`profiles`/
+    // `client_integrations` y descartar no-gestores en memoria — a
+    // isGestorDbRole() en mapDirectorySourceToGestor() se mantiene como
+    // cinturón de seguridad por si el role real no encaja (p.ej. row
+    // borrado entre esta query y buildDirectorySources).
+    const ids = await fetchUserIdsByRole(['advisor', 'admin'])
+    if (!ids.length) return []
+
+    const sources = await buildDirectorySources(ids)
     const gestores: GestorRecord[] = []
 
     for (const source of sources) {
@@ -304,7 +335,19 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
   },
 
   async listClients(scope) {
-    const sources = await buildDirectorySources()
+    // Para advisor, resolver primero los ids con advisor_id = scope.userId
+    // en SQL (reduce el dataset antes del join) en vez de traer todos los
+    // clientes. El `advisorId !== scope.userId` de abajo se mantiene igual
+    // como cinturón de seguridad — scoping por asesor es seguridad-sensible
+    // (visibilidad entre clientes de distintos asesores) y no debe depender
+    // solo del filtro SQL.
+    const ids =
+      scope.role === 'advisor'
+        ? await fetchClientIdsForAdvisor(scope.userId)
+        : await fetchUserIdsByRole(['client'])
+    if (!ids.length) return []
+
+    const sources = await buildDirectorySources(ids)
     const advisorNames = await buildAdvisorNameMap(sources)
     const clients: ClientRecord[] = []
 

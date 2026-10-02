@@ -191,6 +191,108 @@ describe('listClients — advisor visibility scoping', () => {
   })
 })
 
+/**
+ * `makeAdminClient` above treats `.in()`/`.eq()` as no-ops (always returns
+ * the full canned table), which is why the advisor-scoping tests above pass
+ * even though the only thing actually enforcing that scoping is the
+ * in-memory `advisorId !== scope.userId` check inside `listClients`. These
+ * tests exist to independently verify the NEW SQL-level filter calls
+ * (`fetchUserIdsByRole` / `fetchClientIdsForAdvisor`) are wired with the
+ * correct table/column/value — a shape-only assertion on the final result
+ * wouldn't catch a broken or missing `.in()`/`.eq()` call, since the
+ * in-memory safety belt masks it.
+ */
+function makeTrackingAdminClient(tables: Record<string, unknown[]>) {
+  const calls: { table: string; method: string; args: unknown[] }[] = []
+  const client = {
+    from: (table: string) => {
+      const rows = tables[table] ?? []
+      const resolved = Promise.resolve({ data: rows, error: null })
+      const chain: Record<string, unknown> = {}
+      chain.select = (...args: unknown[]) => chain
+      chain.in = (...args: unknown[]) => {
+        calls.push({ table, method: 'in', args })
+        return chain
+      }
+      chain.eq = (...args: unknown[]) => {
+        calls.push({ table, method: 'eq', args })
+        return chain
+      }
+      chain.not = () => chain
+      chain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+        resolved.then(resolve, reject)
+      return chain
+    },
+    auth: { admin: { deleteUser: vi.fn().mockResolvedValue({ error: null }) } },
+  }
+  return { client, calls }
+}
+
+describe('listClients / listGestores — SQL filter pushdown', () => {
+  it('listGestores filters users.role via .in() BEFORE joining profiles/integrations (not a full-table scan)', async () => {
+    const { client, calls } = makeTrackingAdminClient({
+      users: [
+        { id: 'advisor-1', email: 'a@x.com', role: 'advisor', status: 'active', is_active: true, odoo_user_id: null },
+      ],
+      profiles: [],
+      client_integrations: [],
+    })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    await supabaseDirectoryRepository.listGestores()
+
+    const roleFilter = calls.find((c) => c.table === 'users' && c.method === 'in')
+    expect(roleFilter?.args).toEqual(['role', ['advisor', 'admin']])
+  })
+
+  it('listClients (admin scope) filters users.role via .in([\'client\']) BEFORE joining', async () => {
+    const { client, calls } = makeTrackingAdminClient({
+      users: [
+        { id: 'client-a', email: 'c@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+      ],
+      profiles: [],
+      client_integrations: [],
+    })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    await supabaseDirectoryRepository.listClients({ role: 'admin', userId: 'admin-1' })
+
+    const roleFilter = calls.find((c) => c.table === 'users' && c.method === 'in')
+    expect(roleFilter?.args).toEqual(['role', ['client']])
+  })
+
+  it('listClients (advisor scope) filters profiles.advisor_id via .eq(scope.userId) instead of filtering users by role', async () => {
+    const { client, calls } = makeTrackingAdminClient({
+      users: [
+        { id: 'client-a', email: 'c@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+      ],
+      profiles: [
+        { user_id: 'client-a', first_name: 'A', first_surname: 'A', second_surname: '', phone: null, company_name: null, advisor_id: 'advisor-1', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+      ],
+      client_integrations: [],
+    })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    await supabaseDirectoryRepository.listClients({ role: 'advisor', userId: 'advisor-1' })
+
+    const advisorFilter = calls.find((c) => c.table === 'profiles' && c.method === 'eq')
+    expect(advisorFilter?.args).toEqual(['advisor_id', 'advisor-1'])
+    // advisor scope never needs a role-based lookup — the profiles.advisor_id
+    // filter alone determines the id set (buildDirectorySources's own
+    // `.in('id', ids)` on `users` is a separate, expected call).
+    expect(calls.some((c) => c.table === 'users' && c.args[0] === 'role')).toBe(false)
+  })
+
+  it('listGestores returns [] without ever calling buildDirectorySources when no user matches the role filter (empty-ids short circuit)', async () => {
+    const { client } = makeTrackingAdminClient({ users: [], profiles: [], client_integrations: [] })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    const result = await supabaseDirectoryRepository.listGestores()
+
+    expect(result).toEqual([])
+  })
+})
+
 describe('deleteGestor / deleteClient — cross-role IDOR guard', () => {
   it('ATTACK: deleteClient refuses to delete an id that actually belongs to a gestor account', async () => {
     createSupabaseAdminClient.mockReturnValue({
