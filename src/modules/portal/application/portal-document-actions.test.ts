@@ -1,7 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import type { PortalSession } from '@/src/modules/auth/domain/types'
-import { getRecordAttachmentsAction } from '@/src/modules/portal/application/portal-document-actions'
+import {
+  downloadAllAttachmentsZipAction,
+  getRecordAttachmentsAction,
+} from '@/src/modules/portal/application/portal-document-actions'
 
 const {
   getSession,
@@ -11,6 +14,7 @@ const {
   verifyClientRecordAccess,
   resolveTaskWorkerSection,
   listAttachmentsForRecord,
+  fetchAttachmentBinariesByIds,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
@@ -19,6 +23,7 @@ const {
   verifyClientRecordAccess: vi.fn(),
   resolveTaskWorkerSection: vi.fn(),
   listAttachmentsForRecord: vi.fn(),
+  fetchAttachmentBinariesByIds: vi.fn(),
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
@@ -40,6 +45,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () => ({
   listAttachmentsForRecord,
   fetchAttachmentBinary: vi.fn(),
+  fetchAttachmentBinariesByIds,
 }))
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
@@ -131,5 +137,71 @@ describe('portal-document-actions (attachments on trámite/ticket/obligación re
     expect(ticketResult).toMatchObject({ ok: true })
     expect(getAllowedSectionsForWorker).not.toHaveBeenCalled()
     expect(resolveTaskWorkerSection).not.toHaveBeenCalled()
+  })
+})
+
+describe('downloadAllAttachmentsZipAction', () => {
+  it('fetches all attachment binaries in a single batch call, not one per attachment', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    listAttachmentsForRecord.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }])
+    fetchAttachmentBinariesByIds.mockResolvedValue([
+      { id: 1, filename: 'a.pdf', mimetype: 'application/pdf', dataBase64: 'YQ==', resModel: 'helpdesk.ticket', resId: 42 },
+      { id: 2, filename: 'b.pdf', mimetype: 'application/pdf', dataBase64: 'Yg==', resModel: 'helpdesk.ticket', resId: 42 },
+      { id: 3, filename: 'c.pdf', mimetype: 'application/pdf', dataBase64: 'Yw==', resModel: 'helpdesk.ticket', resId: 42 },
+    ])
+
+    const result = await downloadAllAttachmentsZipAction({
+      kind: 'ticket',
+      recordId: 42,
+      recordName: 'Consulta 42',
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(fetchAttachmentBinariesByIds).toHaveBeenCalledTimes(1)
+    expect(fetchAttachmentBinariesByIds).toHaveBeenCalledWith([1, 2, 3])
+  })
+
+  it('returns not_found when no attachments exist, without calling the batch fetch', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    listAttachmentsForRecord.mockResolvedValue([])
+
+    const result = await downloadAllAttachmentsZipAction({
+      kind: 'ticket',
+      recordId: 42,
+      recordName: 'Consulta 42',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'no_attachments' })
+    expect(fetchAttachmentBinariesByIds).not.toHaveBeenCalled()
+  })
+
+  it('returns not_found when a returned binary belongs to a different record', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    listAttachmentsForRecord.mockResolvedValue([{ id: 1 }])
+    fetchAttachmentBinariesByIds.mockResolvedValue([
+      { id: 1, filename: 'a.pdf', mimetype: 'application/pdf', dataBase64: 'YQ==', resModel: 'helpdesk.ticket', resId: 999 },
+    ])
+
+    const result = await downloadAllAttachmentsZipAction({
+      kind: 'ticket',
+      recordId: 42,
+      recordName: 'Consulta 42',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'not_found' })
+  })
+
+  it('maps a missing/invalid attachment in the batch result to not_found', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    listAttachmentsForRecord.mockResolvedValue([{ id: 1 }])
+    fetchAttachmentBinariesByIds.mockRejectedValue(new Error('ODOO_ATTACHMENT_NOT_FOUND'))
+
+    const result = await downloadAllAttachmentsZipAction({
+      kind: 'ticket',
+      recordId: 42,
+      recordName: 'Consulta 42',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'not_found' })
   })
 })

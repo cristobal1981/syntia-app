@@ -169,3 +169,62 @@ export async function fetchAttachmentBinary(attachmentId: number): Promise<{
     resId,
   }
 }
+
+/**
+ * Versión en batch de fetchAttachmentBinary: una sola llamada a Odoo con
+ * `id in (...)` en vez de un round-trip secuencial por adjunto (usada por la
+ * descarga de ZIP, que puede tener hasta 50 adjuntos).
+ */
+export async function fetchAttachmentBinariesByIds(
+  attachmentIds: number[]
+): Promise<
+  Array<{
+    id: number
+    filename: string
+    mimetype: string
+    dataBase64: string
+    resModel: string
+    resId: number
+  }>
+> {
+  if (!attachmentIds.length) return []
+
+  if (!isOdooApiConfigured()) {
+    throw new Error('ODOO_NOT_CONFIGURED')
+  }
+
+  const rows = await odooSearchRead<OdooAttachmentRow>('ir.attachment', {
+    domain: [['id', 'in', attachmentIds]],
+    fields: ['name', 'mimetype', 'datas', 'res_model', 'res_id'],
+    limit: attachmentIds.length,
+  })
+
+  const byId = new Map<number, OdooAttachmentRow>()
+  for (const row of rows) {
+    if (typeof row.id === 'number') byId.set(row.id, row)
+  }
+
+  return attachmentIds.map((id) => {
+    const row = byId.get(id)
+    if (!row || typeof row.datas !== 'string' || !row.datas) {
+      throw new Error('ODOO_ATTACHMENT_NOT_FOUND')
+    }
+
+    const resModel = typeof row.res_model === 'string' ? row.res_model : ''
+    const resId = typeof row.res_id === 'number' ? row.res_id : 0
+
+    if (!resModel || !resId) {
+      throw new Error('ODOO_ATTACHMENT_NOT_FOUND')
+    }
+
+    return {
+      id,
+      filename: row.name,
+      mimetype:
+        typeof row.mimetype === 'string' ? row.mimetype : 'application/octet-stream',
+      dataBase64: row.datas,
+      resModel,
+      resId,
+    }
+  })
+}

@@ -12,6 +12,7 @@ import type {
   PortalRecordKind,
 } from '@/src/modules/portal/domain/portal-record-types'
 import {
+  fetchAttachmentBinariesByIds,
   fetchAttachmentBinary,
   listAttachmentsForRecord,
 } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
@@ -230,11 +231,12 @@ export async function downloadAllAttachmentsZipAction(input: {
     }
 
     const zip = new JSZip()
+    const expectedModel = getOdooModelForRecordKind(input.kind)
+    const binaries = await fetchAttachmentBinariesByIds(
+      attachments.map((attachment) => attachment.id)
+    )
 
-    for (const attachment of attachments) {
-      const binary = await fetchAttachmentBinary(attachment.id)
-      const expectedModel = getOdooModelForRecordKind(input.kind)
-
+    for (const binary of binaries) {
       if (binary.resModel !== expectedModel || binary.resId !== recordId) {
         return { ok: false, error: 'not_found' }
       }
