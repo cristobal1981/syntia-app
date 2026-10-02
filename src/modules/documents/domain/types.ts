@@ -40,6 +40,7 @@ export type DriveDocumentErrorCode =
   | 'name_conflict'
   | 'too_large'
   | 'invalid_name'
+  | 'invalid_type'
   | 'upload_failed'
 
 export type DriveFolderListResult =

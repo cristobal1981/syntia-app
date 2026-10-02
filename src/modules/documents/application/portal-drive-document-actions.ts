@@ -29,6 +29,7 @@ import {
   getDriveMaxFilesPerBatch,
   getDriveMaxUploadBytes,
   getDrivePreviewMaxBytes,
+  isDangerousDriveUpload,
   validateDriveItemName,
 } from '@/src/modules/documents/infrastructure/drive-env'
 import { isGoogleDriveApiConfigured } from '@/src/modules/documents/infrastructure/google-drive-auth'
@@ -242,6 +243,9 @@ export async function uploadDriveFilesAction(
       if (!validateDriveItemName(file.name)) {
         return { ok: false, error: 'invalid_name' }
       }
+      if (isDangerousDriveUpload(file.name, file.type)) {
+        return { ok: false, error: 'invalid_type' }
+      }
     }
 
     try {
@@ -276,6 +280,9 @@ export async function uploadDriveFilesAction(
     }
     if (!validateDriveItemName(file.name)) {
       return { ok: false, error: 'invalid_name' }
+    }
+    if (isDangerousDriveUpload(file.name, file.type)) {
+      return { ok: false, error: 'invalid_type' }
     }
   }
 

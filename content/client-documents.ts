@@ -96,6 +96,7 @@ export const clientDocuments = {
     name_conflict: 'Ya existe un elemento con ese nombre en esta carpeta.',
     too_large: 'El archivo supera el tamaño máximo permitido.',
     invalid_name: 'El nombre no es válido. Evita caracteres especiales.',
+    invalid_type: 'Ese tipo de archivo no está permitido por seguridad.',
     upload_failed: 'No pudimos subir uno o más archivos.',
   },
   states: {

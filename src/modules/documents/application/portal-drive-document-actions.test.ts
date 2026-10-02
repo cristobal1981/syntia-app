@@ -4,6 +4,7 @@ import type { PortalSession } from '@/src/modules/auth/domain/types'
 import {
   createDriveFolderAction,
   listDriveFolderAction,
+  uploadDriveFilesAction,
 } from '@/src/modules/documents/application/portal-drive-document-actions'
 
 const {
@@ -120,5 +121,42 @@ describe('portal-drive-document-actions ("Documentos" write gate for colaborador
 
     expect(result.ok).toBe(true)
     expect(getWorkerWriteSections).not.toHaveBeenCalled()
+  })
+})
+
+function formDataWithFile(file: File, parentFolderId = 'mock-root'): FormData {
+  const formData = new FormData()
+  formData.set('parentFolderId', parentFolderId)
+  formData.append('files', file)
+  return formData
+}
+
+describe('uploadDriveFilesAction (dangerous file type gate)', () => {
+  beforeEach(() => {
+    getSession.mockResolvedValue(sessionFor('client'))
+  })
+
+  it('uploads a normal document fine', async () => {
+    const file = new File(['%PDF-1.4'], 'factura.pdf', { type: 'application/pdf' })
+
+    const result = await uploadDriveFilesAction(formDataWithFile(file))
+
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects an executable by extension, before ever calling the drive layer', async () => {
+    const file = new File(['MZ'], 'virus.exe', { type: 'application/octet-stream' })
+
+    const result = await uploadDriveFilesAction(formDataWithFile(file))
+
+    expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
+  })
+
+  it('rejects a dangerous mimetype even with a disguised extension', async () => {
+    const file = new File(['MZ'], 'factura.pdf', { type: 'application/x-msdownload' })
+
+    const result = await uploadDriveFilesAction(formDataWithFile(file))
+
+    expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
   })
 })
