@@ -1,7 +1,8 @@
+import { isValidEmail } from '@/lib/validation/email'
+
 const MIN_ANNUAL_INCOME_EUR = 10_000
 const PHONE_REGEX = /^\+34\d{9}$/
 const POSTAL_CODE_REGEX = /^\d{5}$/
-const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const IBAN_ES_REGEX = /^ES\d{22}$/
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 const NAF_MIN_DIGITS = 9
@@ -215,7 +216,7 @@ export function validateAltaAutonomoSubmission(
 
   if (!email) {
     fieldErrors.email = 'El correo electrónico es obligatorio.'
-  } else if (!SIMPLE_EMAIL_REGEX.test(email)) {
+  } else if (!isValidEmail(email)) {
     fieldErrors.email = 'El correo electrónico no es válido.'
   }
 

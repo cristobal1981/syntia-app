@@ -1,7 +1,6 @@
 'use client'
 
 import { useLayoutEffect, useRef } from 'react'
-import gsap from 'gsap'
 
 import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
 import {
@@ -133,7 +132,11 @@ export function InteractiveTechBackdrop({
     canvas.addEventListener('pointerdown', handlePointerDown)
 
     if (!reducedMotion) {
-      gsap.fromTo(canvas, { opacity: 0 }, { opacity: 1, duration: 1.2, ease: 'power2.out' })
+      canvas.style.opacity = '0'
+      canvas.style.transition = 'opacity 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      frameId = window.requestAnimationFrame(() => {
+        canvas.style.opacity = '1'
+      })
 
       const tick = (frameTime: number) => {
         if (!running) return

@@ -1,3 +1,4 @@
+import { isValidEmail } from '@/lib/validation/email'
 import type { ClientKind } from '@/src/modules/directory/domain/types'
 
 export function validatePersonFirstName(value: string): string | undefined {
@@ -41,11 +42,9 @@ export function validatePersonNameParts(parts: {
   return fieldErrors
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 export function validatePersonEmail(email: string): string | undefined {
   if (!email.trim()) return 'El correo es obligatorio.'
-  if (!EMAIL_PATTERN.test(email.trim())) return 'Introduce un correo válido.'
+  if (!isValidEmail(email)) return 'Introduce un correo válido.'
   return undefined
 }
 
