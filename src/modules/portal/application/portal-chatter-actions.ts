@@ -1,7 +1,7 @@
 'use server'
 
 import { after } from 'next/server'
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 import { portalChatter } from '@/content/portal-chatter'
 
@@ -366,7 +366,7 @@ export async function postRecordMessageAction(
       notifyPartnerIds,
     })
 
-    updateTag(chatterUnreadBatchCacheTag(access.partnerId))
+    revalidateTag(chatterUnreadBatchCacheTag(access.partnerId), 'max')
 
     const hadAttachments = files.length > 0
     const attachmentCountEstimate = hadAttachments ? files.length : undefined
@@ -386,7 +386,7 @@ export async function postRecordMessageAction(
     after(() => {
       if (!hadAttachments) return
 
-      updateTag(tramitesSnapshotCacheTag(access.partnerId))
+      revalidateTag(tramitesSnapshotCacheTag(access.partnerId), 'max')
 
       void (async () => {
         const counts = await countAttachmentsByRecordIds(resModel, [recordId])

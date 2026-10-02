@@ -1,4 +1,4 @@
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
 import { getOdooPartnerCatalog } from '@/src/modules/directory/infrastructure/odoo-partner-catalog'
@@ -17,7 +17,7 @@ export async function listOdooPartnersForImport(options?: {
   }
 
   try {
-    updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
+    revalidateTag(ODOO_PARTNER_CATALOG_CACHE_TAG, 'max')
     const partners = await getOdooPartnerCatalog(options)
     return { ok: true, partners }
   } catch (error) {

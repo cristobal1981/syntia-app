@@ -1,9 +1,13 @@
 import { NextRequest } from 'next/server'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { SESSION_COOKIE_NAME, type PortalRole, type PortalSession } from '@/src/modules/auth/domain/types'
 import { createSessionToken, getSessionSecret } from '@/src/modules/auth/infrastructure/session-cookie'
 import { proxy } from '@/proxy'
+
+beforeAll(() => {
+  process.env.PORTAL_SESSION_SECRET ??= 'proxy-test-session-secret'
+})
 
 async function tokenFor(role: PortalRole, expiresInMs = 1000 * 60 * 60): Promise<string> {
   const session: PortalSession = {

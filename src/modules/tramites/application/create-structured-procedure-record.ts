@@ -1,4 +1,4 @@
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
@@ -137,7 +137,7 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
       }
     }
 
-    updateTag(tramitesSnapshotCacheTag(partnerId))
+    revalidateTag(tramitesSnapshotCacheTag(partnerId), 'max')
 
     return { ok: true, recordId, name: subject }
   } catch (error) {

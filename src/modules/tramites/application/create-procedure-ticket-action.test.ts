@@ -42,7 +42,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: () => 'tag',
 }))
-vi.mock('next/cache', () => ({ updateTag: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
   return {

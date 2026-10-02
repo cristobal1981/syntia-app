@@ -1,4 +1,4 @@
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 import type { OdooUserImportOption } from '@/src/modules/directory/domain/odoo-user-import'
 import {
@@ -17,7 +17,7 @@ export async function listOdooGestoresForImport(): Promise<ListOdooGestoresForIm
   }
 
   try {
-    updateTag(ODOO_GESTOR_CATALOG_CACHE_TAG)
+    revalidateTag(ODOO_GESTOR_CATALOG_CACHE_TAG, 'max')
     const users = await getOdooGestorCatalog()
     return { ok: true, users }
   } catch (error) {

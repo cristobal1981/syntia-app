@@ -73,7 +73,7 @@ vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({
   resolveDirectoryActorId: vi.fn().mockResolvedValue('actor-1'),
 }))
 vi.mock('next/server', () => ({ after: vi.fn() }))
-vi.mock('next/cache', () => ({ updateTag: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
   return {

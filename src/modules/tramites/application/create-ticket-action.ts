@@ -1,6 +1,6 @@
 'use server'
 
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 import { validateChatterHtmlBody, stripHtmlToText } from '@/src/modules/portal/domain/filter-portal-messages'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
@@ -108,7 +108,7 @@ export async function createTicketAction(input: {
       htmlBody,
     })
 
-    updateTag(tramitesSnapshotCacheTag(partnerId))
+    revalidateTag(tramitesSnapshotCacheTag(partnerId), 'max')
 
     return {
       ok: true,
