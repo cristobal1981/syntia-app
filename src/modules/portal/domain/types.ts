@@ -10,7 +10,6 @@ export type NavIconId =
   | 'requests'
   | 'settings'
   | 'clients'
-  | 'tasks'
   | 'integrations'
   | 'automations'
   | 'guides'

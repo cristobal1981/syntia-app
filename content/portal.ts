@@ -215,7 +215,9 @@ export const portal = {
   onboardingChecklist: {
     title: 'Primeros pasos',
     progressLabel: '{completed} de {total}',
-    dismiss: 'Listo',
+    minimizeLabel: 'Minimizar guía',
+    finishLabel: 'Finalizar guía',
+    dismissedToast: 'Guía finalizada. Puedes volver a abrirla desde tu perfil.',
     reopenLabel: 'Ver primeros pasos de nuevo',
     tipDismissLabel: 'Cerrar aviso',
     steps: {
@@ -388,7 +390,6 @@ export const portal = {
         implemented: true,
         icon: 'automations',
       },
-      { label: 'Tareas', href: '/proximamente', implemented: false, icon: 'tasks' },
     ],
   },
   home: {

@@ -1,6 +1,7 @@
 'use client'
 
 import { CheckCircle2, Circle, Lightbulb, ListChecks, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { portal } from '@/content/portal'
@@ -46,6 +47,11 @@ export function OnboardingChecklistWidget({
   const completedCount = steps.filter((step) => completed.has(step.id)).length
   const allDone = completedCount === steps.length
 
+  function handleDismiss() {
+    onDismiss()
+    toast.success(copy.dismissedToast)
+  }
+
   if (!expanded) {
     return (
       <button
@@ -90,7 +96,8 @@ export function OnboardingChecklistWidget({
         <button
           type="button"
           onClick={onCollapse}
-          aria-label={copy.dismiss}
+          aria-label={copy.minimizeLabel}
+          title={copy.minimizeLabel}
           className="cursor-pointer rounded-sm p-1 text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
         >
           <X className="size-4" aria-hidden />
@@ -149,16 +156,28 @@ export function OnboardingChecklistWidget({
         })}
       </ul>
 
-      {allDone ? (
-        <Button
-          type="button"
-          size="sm"
-          className="mt-4 w-full cursor-pointer"
-          onClick={onDismiss}
-        >
-          {copy.dismiss}
-        </Button>
-      ) : null}
+      <div className="mt-4">
+        {allDone ? (
+          <Button
+            type="button"
+            size="sm"
+            className="w-full cursor-pointer"
+            onClick={handleDismiss}
+          >
+            {copy.finishLabel}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full cursor-pointer text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground"
+            onClick={handleDismiss}
+          >
+            {copy.finishLabel}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

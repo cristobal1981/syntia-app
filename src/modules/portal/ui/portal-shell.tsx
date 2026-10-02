@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
 import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
+import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
@@ -35,12 +36,6 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 
 const SIDEBAR_STORAGE_KEY = 'syntia-sidebar-collapsed'
 const menuEase = [0.22, 1, 0.36, 1] as const
-/**
- * Bottombar solo para client/worker (uso móvil real). Admin/advisor siguen
- * con el drawer completo — sus ítems tienen children anidados y el uso es
- * mayoritariamente desktop.
- */
-const BOTTOM_BAR_HREFS = ['/dashboard', '/tramites', '/obligaciones', '/documentos', '/firmas']
 
 type PortalShellProps = {
   user: PortalUser
@@ -104,14 +99,7 @@ export function PortalShell({
   const canCreateConsulta =
     user.role === 'client' ||
     (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites'))
-  const bottomBarItems = isClientOrWorker
-    ? BOTTOM_BAR_HREFS.map((href) => navItems.find((item) => item.href === href)).filter(
-        (item): item is NavItem => item != null
-      )
-    : []
-  const moreNavItems = isClientOrWorker
-    ? navItems.filter((item) => !BOTTOM_BAR_HREFS.includes(item.href ?? ''))
-    : navItems
+  const { bottomBarItems, moreNavItems } = getBottomBarSplit(navItems, user.role)
   const roleLabel = portal.roles[user.role]
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
@@ -261,7 +249,7 @@ export function PortalShell({
         <main
           className={cn(
             'min-h-0 flex-1 overflow-y-auto p-4 sm:p-10',
-            isClientOrWorker && 'pb-24 lg:pb-10'
+            bottomBarItems.length > 0 && 'pb-24 lg:pb-10'
           )}
         >
           {children}
