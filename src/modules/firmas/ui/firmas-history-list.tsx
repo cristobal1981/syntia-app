@@ -12,6 +12,7 @@ import {
 } from '@/src/modules/firmas/ui/firma-document-preview-dialog'
 import { formatSignatureDateCompact } from '@/src/modules/firmas/domain/signature-due-date'
 import type { CompletedSignatureRequest } from '@/src/modules/firmas/domain/types'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
 
 type FirmasHistoryListProps = {
@@ -50,39 +51,46 @@ function FirmaDocumentRow({
   }
 
   return (
-    <li className="flex flex-col gap-2">
-      <div className="flex min-w-0 items-center gap-2">
-        <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="truncate text-sm text-foreground">{label}</span>
-      </div>
-      <div className="flex flex-wrap justify-end gap-1.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="cursor-pointer"
-          onClick={() => onPreview({ requestId, attachmentId, title })}
-          aria-label={`${copy.previewAction}: ${title}`}
-        >
-          <Eye className="size-3.5 shrink-0" aria-hidden />
-          <span>{copy.previewAction}</span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="cursor-pointer"
-          disabled={pending}
-          onClick={handleDownload}
-          aria-label={`${copy.downloadAction}: ${title}`}
-        >
-          {pending ? (
-            <Loader2 className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
-          ) : (
-            <Download className="size-3.5 shrink-0" aria-hidden />
-          )}
-          <span>{pending ? copy.downloading : copy.downloadButton}</span>
-        </Button>
+    <li className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate text-sm text-foreground">{label}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <PortalActionTooltip content={copy.previewAction}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={() => onPreview({ requestId, attachmentId, title })}
+              aria-label={`${copy.previewAction}: ${title}`}
+            >
+              <Eye className="size-4" aria-hidden />
+            </Button>
+          </PortalActionTooltip>
+          <PortalActionTooltip
+            content={pending ? copy.downloading : copy.downloadAction}
+            disabled={pending}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+              disabled={pending}
+              onClick={handleDownload}
+              aria-label={`${copy.downloadAction}: ${title}`}
+            >
+              {pending ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+              ) : (
+                <Download className="size-4" aria-hidden />
+              )}
+            </Button>
+          </PortalActionTooltip>
+        </div>
       </div>
       {error ? (
         <p className="text-right text-xs text-destructive" role="alert">
@@ -138,7 +146,7 @@ function FirmasHistoryItem({
         </div>
 
         {hasDocuments ? (
-          <ul className="flex flex-col gap-3 border-t border-border pt-3 dark:border-border/50">
+          <ul className="flex flex-col gap-2 border-t border-border pt-3 dark:border-border/50">
             {request.documentAttachmentId ? (
               <FirmaDocumentRow
                 label={copy.documentLabel}
