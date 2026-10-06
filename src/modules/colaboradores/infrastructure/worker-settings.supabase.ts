@@ -27,6 +27,30 @@ export async function getWorkerSettings(
   }
 }
 
+/**
+ * Un colaborador nunca debe seguir activo si su titular (el cliente real)
+ * ya no puede acceder él mismo — ni archivado ni desactivado. No basta con
+ * `workers_enabled`: ese toggle es una decisión explícita del titular,
+ * independiente de si su propia cuenta sigue activa.
+ */
+export async function isOwnerAccountActive(ownerUserId: string): Promise<boolean> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('users')
+    .select('status, is_active')
+    .eq('id', ownerUserId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!data) return false
+  if (data.is_active === false) return false
+  if (typeof data.status === 'string' && data.status.toLowerCase() === 'archived') return false
+  return true
+}
+
 export async function setWorkersEnabled(
   ownerUserId: string,
   enabled: boolean

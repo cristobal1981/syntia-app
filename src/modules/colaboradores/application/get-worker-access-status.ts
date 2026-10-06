@@ -2,7 +2,10 @@ import { cache } from 'react'
 
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { getWorkerGrant } from '@/src/modules/colaboradores/infrastructure/worker-grants.supabase'
-import { getWorkerSettings } from '@/src/modules/colaboradores/infrastructure/worker-settings.supabase'
+import {
+  getWorkerSettings,
+  isOwnerAccountActive,
+} from '@/src/modules/colaboradores/infrastructure/worker-settings.supabase'
 import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 
@@ -22,10 +25,11 @@ const EMPTY_STATUS: WorkerAccessStatus = {
 
 /**
  * Fuente única de verdad de si un colaborador tiene acceso ahora mismo: el
- * grant debe estar activo Y el titular debe seguir teniendo la funcionalidad
- * encendida. Si el titular la desactiva, el colaborador pierde acceso al
- * instante — tanto a las secciones del portal como a cualquier acción
- * (crear consulta, iniciar sesión) que dependa de esto.
+ * grant debe estar activo, el titular debe seguir teniendo la funcionalidad
+ * encendida, Y la propia cuenta del titular (el cliente real) debe seguir
+ * activa. Un colaborador nunca debe conservar acceso a datos de un cliente
+ * archivado o desactivado, aunque su grant siga técnicamente "on" — si el
+ * titular pierde acceso, el colaborador lo pierde con él.
  */
 /** cache(): dedupe repeated calls (layout + page, per section, etc.) within one request. */
 export const getWorkerAccessStatus = cache(async function getWorkerAccessStatus(
@@ -37,8 +41,11 @@ export const getWorkerAccessStatus = cache(async function getWorkerAccessStatus(
     return EMPTY_STATUS
   }
 
-  const ownerSettings = await getWorkerSettings(grant.owner_user_id)
-  if (!ownerSettings.workers_enabled) {
+  const [ownerSettings, ownerActive] = await Promise.all([
+    getWorkerSettings(grant.owner_user_id),
+    isOwnerAccountActive(grant.owner_user_id),
+  ])
+  if (!ownerSettings.workers_enabled || !ownerActive) {
     return EMPTY_STATUS
   }
 

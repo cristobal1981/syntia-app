@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import {
   getWorkerSettings,
+  isOwnerAccountActive,
   setWorkersEnabled,
 } from '@/src/modules/colaboradores/infrastructure/worker-settings.supabase'
 
@@ -78,6 +79,65 @@ describe('getWorkerSettings', () => {
     })
 
     await expect(getWorkerSettings('owner-1')).rejects.toThrow('boom')
+  })
+})
+
+describe('isOwnerAccountActive', () => {
+  it('SECURITY: treats a missing owner row (deleted) as inactive', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: null, error: null }),
+    })
+
+    expect(await isOwnerAccountActive('owner-1')).toBe(false)
+  })
+
+  it('SECURITY: treats is_active = false as inactive', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: { status: 'active', is_active: false }, error: null }),
+    })
+
+    expect(await isOwnerAccountActive('owner-1')).toBe(false)
+  })
+
+  it('SECURITY: treats status = archived as inactive even if is_active is still true', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: { status: 'archived', is_active: true }, error: null }),
+    })
+
+    expect(await isOwnerAccountActive('owner-1')).toBe(false)
+  })
+
+  it('treats status = archived case-insensitively', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: { status: 'ARCHIVED', is_active: true }, error: null }),
+    })
+
+    expect(await isOwnerAccountActive('owner-1')).toBe(false)
+  })
+
+  it('is active when the row exists, is_active is true, and status is not archived', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: { status: 'active', is_active: true }, error: null }),
+    })
+
+    expect(await isOwnerAccountActive('owner-1')).toBe(true)
+  })
+
+  it('scopes the lookup to the given owner id', async () => {
+    const chain = chainFor({ data: { status: 'active', is_active: true }, error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await isOwnerAccountActive('owner-42')
+
+    expect(chain.eq).toHaveBeenCalledWith('id', 'owner-42')
+  })
+
+  it('throws on a DB error', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: null, error: { message: 'boom' } }),
+    })
+
+    await expect(isOwnerAccountActive('owner-1')).rejects.toThrow('boom')
   })
 })
 
