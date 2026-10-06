@@ -1,9 +1,6 @@
 'use client'
 
-import { useCallback, useState, type FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,17 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { profile } from '@/content/profile'
-import { cn } from '@/lib/utils'
-import { submitProfileChangeAction } from '@/src/modules/profile/application/submit-profile-change-action'
-import type {
-  ClientProfile,
-  ProfileChangeApiResponse,
-  ProfileChangeErrorCode,
-} from '@/src/modules/profile/domain/types'
+import type { ClientProfile } from '@/src/modules/profile/domain/types'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import { DrawerField } from '@/src/modules/profile/ui/profile-drawer-field'
+import { useProfileChangeForm } from '@/src/modules/profile/ui/use-profile-change-form'
 
 const PROFILE_CHANGE_FORM_ID = 'profile-change-drawer-form'
 
@@ -31,239 +23,23 @@ type ProfileChangeDrawerProps = {
   initialProfile: ClientProfile
 }
 
-type PostalLookupResponse = {
-  places?: Array<{
-    'place name'?: string
-    state?: string
-  }>
-}
-
-const PROFILE_CHANGE_ERROR_KEYS = [
-  'unauthorized',
-  'forbidden',
-  'not_linked',
-  'odoo_unavailable',
-  'create_failed',
-  'unknown',
-] as const satisfies readonly ProfileChangeErrorCode[]
-
-function mapProfileChangeError(error: ProfileChangeErrorCode): string {
-  if (error === 'validation') {
-    return profile.errors.unknown
-  }
-  if ((PROFILE_CHANGE_ERROR_KEYS as readonly string[]).includes(error)) {
-    return profile.errors[error as (typeof PROFILE_CHANGE_ERROR_KEYS)[number]]
-  }
-  return profile.errors.unknown
-}
-
-async function lookupPostalCode(postalCode: string) {
-  if (!/^[0-9]{5}$/.test(postalCode)) return null
-
-  try {
-    const response = await fetch(`https://api.zippopotam.us/es/${postalCode}`)
-    if (!response.ok) return null
-
-    const data = (await response.json()) as PostalLookupResponse
-    const place = data.places?.[0]
-    if (!place) return null
-
-    return {
-      city: place['place name'] ?? '',
-      province: place.state ?? '',
-    }
-  } catch {
-    return null
-  }
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null
-
-  return (
-    <p className="text-sm text-destructive" role="alert">
-      {message}
-    </p>
-  )
-}
-
-function DrawerField({
-  id,
-  label,
-  name,
-  value,
-  type = 'text',
-  error,
-  autoComplete,
-  className,
-  onBlur,
-  onChange,
-}: {
-  id: string
-  label: string
-  name: string
-  value: string
-  type?: string
-  error?: string
-  autoComplete?: string
-  className?: string
-  onBlur?: (value: string) => void
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-sm font-medium text-foreground">
-        {label}
-      </label>
-      <Input
-        id={id}
-        name={name}
-        type={type}
-        value={value}
-        autoComplete={autoComplete}
-        aria-invalid={Boolean(error)}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur ? (event) => onBlur(event.target.value.trim()) : undefined}
-        className="h-10"
-      />
-      <FieldError message={error} />
-    </div>
-  )
-}
-
 export function ProfileChangeDrawer({
   open,
   onOpenChange,
   initialProfile,
 }: ProfileChangeDrawerProps) {
-  const router = useRouter()
-  const [formValues, setFormValues] = useState({
-    name: initialProfile.name,
-    email: initialProfile.email,
-    phone: initialProfile.phone,
-    vat: initialProfile.vat,
-    iban: initialProfile.iban,
-    address: { ...initialProfile.address },
-  })
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
-  const [pending, setPending] = useState(false)
-
-  const resetForm = useCallback(() => {
-    setFormValues({
-      name: initialProfile.name,
-      email: initialProfile.email,
-      phone: initialProfile.phone,
-      vat: initialProfile.vat,
-      iban: initialProfile.iban,
-      address: { ...initialProfile.address },
-    })
-    setFieldErrors({})
-  }, [initialProfile])
-
-  // Ajuste durante el render (no en un efecto): limpia el formulario al
-  // cerrar el diálogo.
-  const [prevOpen, setPrevOpen] = useState(open)
-  if (open !== prevOpen) {
-    setPrevOpen(open)
-    if (!open) {
-      resetForm()
-    }
-  }
-
-  const hasUnsavedChanges =
-    formValues.name !== initialProfile.name ||
-    formValues.email !== initialProfile.email ||
-    formValues.phone !== initialProfile.phone ||
-    formValues.vat !== initialProfile.vat ||
-    formValues.iban !== initialProfile.iban ||
-    formValues.address.line1 !== initialProfile.address.line1 ||
-    formValues.address.line2 !== initialProfile.address.line2 ||
-    formValues.address.postalCode !== initialProfile.address.postalCode ||
-    formValues.address.city !== initialProfile.address.city ||
-    formValues.address.province !== initialProfile.address.province ||
-    formValues.address.country !== initialProfile.address.country
-
-  const handleOpenChange = (next: boolean) => {
-    if (!next && hasUnsavedChanges && !pending) {
-      setDiscardConfirmOpen(true)
-      return
-    }
-    onOpenChange(next)
-  }
-
-  const handleConfirmDiscard = () => {
-    resetForm()
-    onOpenChange(false)
-  }
-
-  const handleSubmitResult = (result: ProfileChangeApiResponse) => {
-    if (result.ok) {
-      toast.success(profile.successToast)
-      onOpenChange(false)
-      resetForm()
-      router.refresh()
-      return
-    }
-
-    if (result.error === 'validation') {
-      const formMessage = result.fieldErrors?._form
-      if (formMessage) {
-        toast.error(formMessage)
-      }
-      setFieldErrors(
-        Object.fromEntries(
-          Object.entries(result.fieldErrors ?? {}).filter(([key]) => key !== '_form')
-        )
-      )
-      return
-    }
-
-    toast.error(mapProfileChangeError(result.error))
-    setFieldErrors({})
-  }
-
-  const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (pending) return
-
-    setFieldErrors({})
-    setPending(true)
-
-    try {
-      const result = await submitProfileChangeAction({
-        website: '',
-        name: formValues.name,
-        email: formValues.email,
-        phone: formValues.phone,
-        vat: formValues.vat,
-        iban: formValues.iban,
-        address: formValues.address,
-      })
-
-      handleSubmitResult(result)
-    } catch {
-      toast.error(profile.errors.create_failed)
-      setFieldErrors({})
-    } finally {
-      setPending(false)
-    }
-  }
-
-  const handlePostalBlur = async (postalCode: string) => {
-    const lookup = await lookupPostalCode(postalCode)
-    if (!lookup) return
-
-    setFormValues((current) => ({
-      ...current,
-      address: {
-        ...current.address,
-        postalCode,
-        city: current.address.city || lookup.city,
-        province: current.address.province || lookup.province,
-      },
-    }))
-  }
+  const {
+    formValues,
+    setFormValues,
+    fieldErrors,
+    discardConfirmOpen,
+    setDiscardConfirmOpen,
+    pending,
+    handleOpenChange,
+    handleConfirmDiscard,
+    handleFormSubmit,
+    handlePostalBlur,
+  } = useProfileChangeForm(initialProfile, open, onOpenChange)
 
   return (
     <>
