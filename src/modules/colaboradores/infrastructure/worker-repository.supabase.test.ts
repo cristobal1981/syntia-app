@@ -33,7 +33,7 @@ const {
 vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
   createSupabaseAdminClient,
 }))
-vi.mock('@/src/modules/directory/infrastructure/directory-repository.supabase', () => ({
+vi.mock('@/src/modules/directory/infrastructure/portal-account-provisioning.supabase', () => ({
   createAuthUserForClient,
   isDuplicateEmailError,
   rollbackCreatedPortalUser,

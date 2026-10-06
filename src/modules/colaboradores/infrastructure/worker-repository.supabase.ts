@@ -4,7 +4,7 @@ import {
   isDuplicateEmailError,
   rollbackCreatedPortalUser,
   upsertProfile,
-} from '@/src/modules/directory/infrastructure/directory-repository.supabase'
+} from '@/src/modules/directory/infrastructure/portal-account-provisioning.supabase'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import {
   getClientIntegrationByUserId,

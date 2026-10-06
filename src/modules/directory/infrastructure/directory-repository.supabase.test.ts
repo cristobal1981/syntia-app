@@ -36,13 +36,13 @@ vi.mock('@/src/modules/directory/infrastructure/client-integrations.supabase', (
   upsertClientIntegration: vi.fn(),
 }))
 
+import { supabaseDirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository.supabase'
 import {
   createAuthUserForClient,
   isDuplicateEmailError,
   rollbackCreatedPortalUser,
-  supabaseDirectoryRepository,
   upsertProfile,
-} from '@/src/modules/directory/infrastructure/directory-repository.supabase'
+} from '@/src/modules/directory/infrastructure/portal-account-provisioning.supabase'
 import {
   deleteClientIntegration,
   fetchClientIntegrationMap,
