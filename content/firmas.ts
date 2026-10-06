@@ -18,6 +18,7 @@ export const firmas = {
     title: 'Firmas completadas',
     description: 'Documentos que ya has firmado, con su fecha, vista previa y descarga.',
     signedLabel: 'Firmado el',
+    createdLabel: 'Creado el',
     statusSigned: 'Firmado',
     documentLabel: 'Documento firmado',
     certificateLabel: 'Certificado de firma',

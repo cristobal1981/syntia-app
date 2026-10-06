@@ -24,6 +24,7 @@ export type PendingSignaturesResult =
 export type CompletedSignatureRequest = {
   id: number
   reference: string
+  createDate?: string
   signedDate?: string
   documentAttachmentId?: number
   certificateAttachmentId?: number

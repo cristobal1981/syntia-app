@@ -328,6 +328,7 @@ export async function fetchSignatureHistoryFromOdoo(
     return {
       id: row.id,
       reference: sanitizeReference(row.reference, undefined, row.id),
+      createDate: parseOdooDateTime(row.create_date),
       signedDate: signedDateByRequestId.get(row.id),
       documentAttachmentId,
       certificateAttachmentId,

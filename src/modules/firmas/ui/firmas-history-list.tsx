@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, Download, Eye, FileText, Loader2 } from 'lucide-react'
+import { CheckCircle2, Download, Eye, FileText, Loader2, Signature } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { firmas } from '@/content/firmas'
@@ -21,12 +21,14 @@ type FirmasHistoryListProps = {
 
 function FirmaDocumentRow({
   label,
+  icon: Icon,
   requestId,
   attachmentId,
   title,
   onPreview,
 }: {
   label: string
+  icon: typeof FileText
   requestId: number
   attachmentId: number
   title: string
@@ -51,10 +53,10 @@ function FirmaDocumentRow({
   }
 
   return (
-    <li className="flex flex-col gap-1.5">
+    <li className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-muted/20 px-3 py-2.5 dark:border-border/50 dark:bg-muted/10">
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <span className="truncate text-sm text-foreground">{label}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -110,6 +112,7 @@ function FirmasHistoryItem({
 }) {
   const copy = firmas.history
   const signedDate = formatSignatureDateCompact(request.signedDate)
+  const createDate = formatSignatureDateCompact(request.createDate)
   const hasDocuments = Boolean(request.documentAttachmentId || request.certificateAttachmentId)
 
   return (
@@ -131,25 +134,46 @@ function FirmasHistoryItem({
                 {copy.statusSigned}
               </span>
             </div>
-            {signedDate && request.signedDate ? (
-              <p className="mt-1 text-xs text-subtle-foreground">
-                {copy.signedLabel}{' '}
-                <time
-                  dateTime={request.signedDate}
-                  className="tabular-nums text-foreground"
-                >
-                  {signedDate}
-                </time>
+            {(signedDate && request.signedDate) || (createDate && request.createDate) ? (
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-subtle-foreground">
+                {createDate && request.createDate ? (
+                  <span>
+                    {copy.createdLabel}{' '}
+                    <time
+                      dateTime={request.createDate}
+                      className="tabular-nums text-foreground"
+                    >
+                      {createDate}
+                    </time>
+                  </span>
+                ) : null}
+                {createDate && request.createDate && signedDate && request.signedDate ? (
+                  <span aria-hidden className="text-border">
+                    ·
+                  </span>
+                ) : null}
+                {signedDate && request.signedDate ? (
+                  <span>
+                    {copy.signedLabel}{' '}
+                    <time
+                      dateTime={request.signedDate}
+                      className="tabular-nums text-foreground"
+                    >
+                      {signedDate}
+                    </time>
+                  </span>
+                ) : null}
               </p>
             ) : null}
           </div>
         </div>
 
         {hasDocuments ? (
-          <ul className="flex flex-col gap-2 border-t border-border pt-3 dark:border-border/50">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {request.documentAttachmentId ? (
               <FirmaDocumentRow
                 label={copy.documentLabel}
+                icon={FileText}
                 requestId={request.id}
                 attachmentId={request.documentAttachmentId}
                 title={request.reference}
@@ -159,6 +183,7 @@ function FirmasHistoryItem({
             {request.certificateAttachmentId ? (
               <FirmaDocumentRow
                 label={copy.certificateLabel}
+                icon={Signature}
                 requestId={request.id}
                 attachmentId={request.certificateAttachmentId}
                 title={`${copy.certificateLabel} — ${request.reference}`}
