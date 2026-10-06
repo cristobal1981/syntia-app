@@ -13,7 +13,7 @@ const DEFAULT_REQUEST_MODEL = 'sign.request'
 const DEFAULT_ITEM_MODEL = 'sign.request.item'
 const DEFAULT_ITEM_PENDING_STATES = ['sent', 'shared']
 const DEFAULT_REQUEST_ACTIVE_STATES = ['sent', 'shared']
-const DEFAULT_ITEM_DONE_STATES = ['signed']
+const DEFAULT_ITEM_DONE_STATES = ['completed']
 
 function parseCsvEnv(value: string | undefined, fallback: string[]): string[] {
   if (!value?.trim()) return fallback
@@ -65,19 +65,6 @@ export function getOdooSignRequestItemSignedDateField(): string {
   return (
     process.env.ODOO_SIGN_REQUEST_ITEM_SIGNED_DATE_FIELD?.trim() ||
     'signing_date'
-  )
-}
-
-/**
- * `sign.request.completed_document_attachment_ids` trae el certificado de
- * finalización (nombre "Certificate of completion - ...") JUNTO con el PDF
- * real firmado — hay que excluir el primero para no ofrecer el certificado
- * en vez del documento.
- */
-export function getOdooSignCompletionCertificateNamePrefix(): string {
-  return (
-    process.env.ODOO_SIGN_COMPLETION_CERTIFICATE_NAME_PREFIX?.trim() ||
-    'Certificate of completion'
   )
 }
 

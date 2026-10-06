@@ -4,7 +4,6 @@ import type {
 } from '@/src/modules/firmas/domain/types'
 import {
   buildOdooSignPublicUrl,
-  getOdooSignCompletionCertificateNamePrefix,
   getOdooSignItemDoneStates,
   getOdooSignItemPendingStates,
   getOdooSignRequestActiveStates,
@@ -194,17 +193,20 @@ function readOdooSignedDate(
 }
 
 /**
- * `completed_document_attachment_ids` incluye el certificado de finalización
- * de Odoo Sign además del PDF firmado — filtra el certificado por nombre y
- * devuelve el set de ids que SÍ son el documento real.
+ * El nombre del certificado de finalización de Odoo Sign varía con el idioma
+ * ("Certificate of completion - ...", "Certificado de firma electrónica - ...")
+ * pero siempre termina con el mismo sufijo de fecha/hora generado por Odoo —
+ * ese sufijo es estable entre idiomas, el texto delante no lo es.
  */
-async function resolveSignedDocumentAttachmentIds(
-  attachmentIds: number[]
-): Promise<Set<number>> {
-  const result = new Set<number>()
-  if (!attachmentIds.length) return result
+const COMPLETION_CERTIFICATE_SUFFIX_PATTERN =
+  / - \d{4}-\d{2}-\d{2} - \d{2}:\d{2}:\d{2}\.pdf$/i
 
-  const certificatePrefix = getOdooSignCompletionCertificateNamePrefix()
+async function fetchAttachmentNamesByIds(
+  attachmentIds: number[]
+): Promise<Map<number, string>> {
+  const names = new Map<number, string>()
+  if (!attachmentIds.length) return names
+
   const rows = await odooSearchRead<{ id: number; name?: string | false | null }>(
     'ir.attachment',
     {
@@ -215,13 +217,36 @@ async function resolveSignedDocumentAttachmentIds(
   )
 
   for (const row of rows) {
-    const name = typeof row.name === 'string' ? row.name : ''
-    if (!name.startsWith(certificatePrefix)) {
-      result.add(row.id)
+    if (typeof row.name === 'string') {
+      names.set(row.id, row.name)
     }
   }
 
-  return result
+  return names
+}
+
+/**
+ * De entre los adjuntos completados de una solicitud, elige el documento
+ * real (no el certificado de finalización): primero por coincidencia exacta
+ * con la referencia de la solicitud, si no por descartar el sufijo de fecha
+ * del certificado.
+ */
+function pickSignedDocumentAttachmentId(
+  completedIds: number[],
+  reference: string | false | null | undefined,
+  namesById: Map<number, string>
+): number | undefined {
+  if (typeof reference === 'string' && reference.trim()) {
+    const exactMatch = completedIds.find(
+      (id) => namesById.get(id) === reference.trim()
+    )
+    if (exactMatch !== undefined) return exactMatch
+  }
+
+  return completedIds.find((id) => {
+    const name = namesById.get(id)
+    return name !== undefined && !COMPLETION_CERTIFICATE_SUFFIX_PATTERN.test(name)
+  })
 }
 
 export async function fetchSignatureHistoryFromOdoo(
@@ -278,7 +303,7 @@ export async function fetchSignatureHistoryFromOdoo(
       ? row.completed_document_attachment_ids
       : []
   )
-  const realDocumentAttachmentIds = await resolveSignedDocumentAttachmentIds(
+  const attachmentNamesById = await fetchAttachmentNamesByIds(
     allCompletedAttachmentIds
   )
 
@@ -290,8 +315,10 @@ export async function fetchSignatureHistoryFromOdoo(
       id: row.id,
       reference: sanitizeReference(row.reference, undefined, row.id),
       signedDate: signedDateByRequestId.get(row.id),
-      documentAttachmentId: completedIds.find((id) =>
-        realDocumentAttachmentIds.has(id)
+      documentAttachmentId: pickSignedDocumentAttachmentId(
+        completedIds,
+        row.reference,
+        attachmentNamesById
       ),
     }
   })
