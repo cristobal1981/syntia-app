@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, Download, Loader2 } from 'lucide-react'
+import { CheckCircle2, Download, Eye, FileText, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { firmas } from '@/content/firmas'
-import { cn } from '@/lib/utils'
 import { downloadSignedDocumentAction } from '@/src/modules/firmas/application/download-signed-document-action'
+import {
+  FirmaDocumentPreviewDialog,
+  type FirmaDocumentPreviewTarget,
+} from '@/src/modules/firmas/ui/firma-document-preview-dialog'
 import { formatSignatureDateCompact } from '@/src/modules/firmas/domain/signature-due-date'
 import type { CompletedSignatureRequest } from '@/src/modules/firmas/domain/types'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
@@ -15,18 +18,18 @@ type FirmasHistoryListProps = {
   requests: CompletedSignatureRequest[]
 }
 
-function FirmasHistoryDownloadButton({
+function FirmaDocumentRow({
+  label,
   requestId,
   attachmentId,
-  label,
-  ariaLabel,
-  variant = 'outline',
+  title,
+  onPreview,
 }: {
+  label: string
   requestId: number
   attachmentId: number
-  label: string
-  ariaLabel: string
-  variant?: 'outline' | 'ghost'
+  title: string
+  onPreview: (target: FirmaDocumentPreviewTarget) => void
 }) {
   const copy = firmas.history
   const [pending, startTransition] = useTransition()
@@ -47,109 +50,115 @@ function FirmasHistoryDownloadButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button
-        type="button"
-        variant={variant}
-        disabled={pending}
-        onClick={handleDownload}
-        className="min-h-10 w-full shrink-0 cursor-pointer gap-2 sm:w-auto"
-        aria-label={ariaLabel}
-      >
-        {pending ? (
-          <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
-        ) : (
-          <Download className="size-4 shrink-0" aria-hidden />
-        )}
-        {pending ? copy.downloading : label}
-      </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
-    </div>
+    <li className="flex flex-col gap-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="truncate text-sm text-foreground">{label}</span>
+      </div>
+      <div className="flex flex-wrap justify-end gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="cursor-pointer"
+          onClick={() => onPreview({ requestId, attachmentId, title })}
+          aria-label={`${copy.previewAction}: ${title}`}
+        >
+          <Eye className="size-3.5 shrink-0" aria-hidden />
+          <span>{copy.previewAction}</span>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="cursor-pointer"
+          disabled={pending}
+          onClick={handleDownload}
+          aria-label={`${copy.downloadAction}: ${title}`}
+        >
+          {pending ? (
+            <Loader2 className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
+          ) : (
+            <Download className="size-3.5 shrink-0" aria-hidden />
+          )}
+          <span>{pending ? copy.downloading : copy.downloadButton}</span>
+        </Button>
+      </div>
+      {error ? (
+        <p className="text-right text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </li>
   )
 }
 
-function FirmasHistoryDownloads({ request }: { request: CompletedSignatureRequest }) {
-  const copy = firmas.history
-
-  if (!request.documentAttachmentId && !request.certificateAttachmentId) {
-    return null
-  }
-
-  return (
-    <div className="flex flex-col items-end gap-2">
-      {request.documentAttachmentId ? (
-        <FirmasHistoryDownloadButton
-          requestId={request.id}
-          attachmentId={request.documentAttachmentId}
-          label={copy.downloadButton}
-          ariaLabel={`${copy.downloadAction}: ${request.reference}`}
-        />
-      ) : null}
-      {request.certificateAttachmentId ? (
-        <FirmasHistoryDownloadButton
-          requestId={request.id}
-          attachmentId={request.certificateAttachmentId}
-          label={copy.certificateDownloadButton}
-          ariaLabel={`${copy.certificateDownloadAction}: ${request.reference}`}
-          variant="ghost"
-        />
-      ) : null}
-    </div>
-  )
-}
-
-function FirmasHistoryItem({ request }: { request: CompletedSignatureRequest }) {
+function FirmasHistoryItem({
+  request,
+  onPreview,
+}: {
+  request: CompletedSignatureRequest
+  onPreview: (target: FirmaDocumentPreviewTarget) => void
+}) {
   const copy = firmas.history
   const signedDate = formatSignatureDateCompact(request.signedDate)
+  const hasDocuments = Boolean(request.documentAttachmentId || request.certificateAttachmentId)
 
   return (
     <li>
-      <article className="portal-home-card rounded-xl p-4">
-        <div className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto_auto] gap-x-3 gap-y-2.5 sm:grid-cols-[auto_1fr_auto] sm:grid-rows-[auto_auto]">
-          <div className="row-span-2 self-start" aria-hidden>
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-              <CheckCircle2 className="size-5 text-primary" />
-            </div>
-          </div>
-
-          <div className="col-start-2 row-start-1 min-w-0">
-            <h3 className="min-w-0 font-sans text-base font-semibold leading-snug text-foreground">
-              {request.reference}
-            </h3>
-          </div>
-
-          {signedDate && request.signedDate ? (
-            <dl className="col-start-2 row-start-2 grid max-w-sm grid-cols-2 gap-3 rounded-lg bg-muted/40 px-3 py-2.5 dark:bg-muted/25">
-              <div className="min-w-0">
-                <dt className="text-xs text-subtle-foreground">{copy.signedLabel}</dt>
-                <dd className="mt-0.5">
-                  <time
-                    dateTime={request.signedDate}
-                    className="block text-sm tabular-nums text-foreground"
-                  >
-                    {signedDate}
-                  </time>
-                </dd>
-              </div>
-            </dl>
-          ) : null}
-
-          <div className="col-span-2 row-start-3 sm:hidden">
-            <FirmasHistoryDownloads request={request} />
-          </div>
-
+      <article className="portal-home-card flex flex-col gap-3 rounded-xl p-4">
+        <div className="flex items-start gap-3">
           <div
-            className={cn(
-              'col-start-3 hidden flex-col items-end justify-between self-stretch sm:flex',
-              signedDate ? 'row-span-2 row-start-1' : 'row-start-1'
-            )}
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10"
+            aria-hidden
           >
-            <span className="badge-status-done inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap">
-              {copy.statusSigned}
-            </span>
-            <FirmasHistoryDownloads request={request} />
+            <CheckCircle2 className="size-5 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="min-w-0 font-sans text-base font-semibold leading-snug text-foreground">
+                {request.reference}
+              </h3>
+              <span className="badge-status-done inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap">
+                {copy.statusSigned}
+              </span>
+            </div>
+            {signedDate && request.signedDate ? (
+              <p className="mt-1 text-xs text-subtle-foreground">
+                {copy.signedLabel}{' '}
+                <time
+                  dateTime={request.signedDate}
+                  className="tabular-nums text-foreground"
+                >
+                  {signedDate}
+                </time>
+              </p>
+            ) : null}
           </div>
         </div>
+
+        {hasDocuments ? (
+          <ul className="flex flex-col gap-3 border-t border-border pt-3 dark:border-border/50">
+            {request.documentAttachmentId ? (
+              <FirmaDocumentRow
+                label={copy.documentLabel}
+                requestId={request.id}
+                attachmentId={request.documentAttachmentId}
+                title={request.reference}
+                onPreview={onPreview}
+              />
+            ) : null}
+            {request.certificateAttachmentId ? (
+              <FirmaDocumentRow
+                label={copy.certificateLabel}
+                requestId={request.id}
+                attachmentId={request.certificateAttachmentId}
+                title={`${copy.certificateLabel} — ${request.reference}`}
+                onPreview={onPreview}
+              />
+            ) : null}
+          </ul>
+        ) : null}
       </article>
     </li>
   )
@@ -177,15 +186,34 @@ function FirmasHistoryEmptyState() {
 }
 
 export function FirmasHistoryList({ requests }: FirmasHistoryListProps) {
+  const [previewTarget, setPreviewTarget] = useState<FirmaDocumentPreviewTarget | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+
+  function handlePreview(target: FirmaDocumentPreviewTarget) {
+    setPreviewTarget(target)
+    setPreviewOpen(true)
+  }
+
   if (!requests.length) {
     return <FirmasHistoryEmptyState />
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {requests.map((request) => (
-        <FirmasHistoryItem key={request.id} request={request} />
-      ))}
-    </ul>
+    <>
+      <ul className="flex flex-col gap-2">
+        {requests.map((request) => (
+          <FirmasHistoryItem key={request.id} request={request} onPreview={handlePreview} />
+        ))}
+      </ul>
+
+      <FirmaDocumentPreviewDialog
+        target={previewTarget}
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open)
+          if (!open) setPreviewTarget(null)
+        }}
+      />
+    </>
   )
 }
