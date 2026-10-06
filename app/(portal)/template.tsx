@@ -2,7 +2,7 @@
 
 import { LazyMotion, domAnimation, m } from 'framer-motion'
 
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 
 const menuEase = [0.22, 1, 0.36, 1] as const
 

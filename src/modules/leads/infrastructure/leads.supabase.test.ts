@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import { getLeadById, listLeads, mapLeadRow } from '@/src/modules/leads/infrastructure/leads.supabase'
+import { getLeadById, mapLeadRow } from '@/src/modules/leads/infrastructure/leads.supabase'
 
 const { createSupabaseAdminClient } = vi.hoisted(() => ({
   createSupabaseAdminClient: vi.fn(),
@@ -32,31 +32,6 @@ function row(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 }
-
-describe('listLeads', () => {
-  it('ordena por created_at descendente y mapea las filas', async () => {
-    const order = vi.fn().mockResolvedValue({ data: [row()], error: null })
-    const select = vi.fn().mockReturnValue({ order })
-    createSupabaseAdminClient.mockReturnValue({
-      from: vi.fn().mockReturnValue({ select }),
-    })
-
-    const result = await listLeads()
-
-    expect(order).toHaveBeenCalledWith('created_at', { ascending: false })
-    expect(result).toHaveLength(1)
-    expect(result[0].id).toBe('lead-1')
-  })
-
-  it('lanza un Error con el mensaje de Supabase si la query falla', async () => {
-    const order = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
-    createSupabaseAdminClient.mockReturnValue({
-      from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ order }) }),
-    })
-
-    await expect(listLeads()).rejects.toThrow('boom')
-  })
-})
 
 describe('getLeadById', () => {
   it('filtra por id y devuelve el lead mapeado', async () => {

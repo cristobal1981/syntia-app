@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
@@ -14,7 +14,7 @@ import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-b
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
-import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
 import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
 import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
@@ -137,7 +137,7 @@ export function PortalShell({
   return (
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
-    <ChatterNotificationsProvider enabled={isClientOrWorker}>
+    <PortalNotificationsProvider enabled={isClientOrWorker}>
     <OnboardingChecklistProvider enabled={user.role === 'client'}>
     <PortalCreateConsultaProvider enabled={canCreateConsulta}>
     <PortalReportProblemProvider enabled={isClientOrWorker}>
@@ -268,7 +268,7 @@ export function PortalShell({
     </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
     </OnboardingChecklistProvider>
-    </ChatterNotificationsProvider>
+    </PortalNotificationsProvider>
     </TooltipProvider>
     </PortalShortcutOverlayProvider>
   )

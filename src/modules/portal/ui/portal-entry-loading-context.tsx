@@ -12,7 +12,7 @@ import {
 } from 'react'
 
 import { AuthSessionOverlay } from '@/src/modules/auth/ui/auth-session-overlay'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
 export const PORTAL_ENTRY_SESSION_KEY = 'syntia-portal-entry'
 
@@ -116,7 +116,7 @@ function useCompletePortalEntry() {
 export function PortalDashboardReadyMarker() {
   const pathname = usePathname()
   const completePortalEntry = useCompletePortalEntry()
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
 
   useEffect(() => {
     if (pathname !== '/dashboard') return

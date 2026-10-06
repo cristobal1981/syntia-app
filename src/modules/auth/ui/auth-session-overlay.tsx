@@ -7,7 +7,7 @@ import { SyntiaBoltLoader } from '@/components/ui/syntia-bolt-loader'
 
 import { site } from '@/content/site'
 import { portal } from '@/content/portal'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 
 const PHRASE_INTERVAL_MS = 2000;

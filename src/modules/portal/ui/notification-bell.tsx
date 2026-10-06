@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
 
 type NotificationBellProps = {
@@ -26,7 +26,7 @@ function formatNotificationDate(value: string): string {
 }
 
 export function NotificationBell({ className }: NotificationBellProps) {
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)

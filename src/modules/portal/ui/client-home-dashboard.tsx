@@ -8,13 +8,13 @@ import type {
   ClientDashboardSnapshot,
   ClientDashboardSnapshotResult,
 } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
-import type { ChatterNotificationsCheckResult } from '@/src/modules/portal/domain/chatter-notifications-types'
+import type { PortalNotificationsCheckResult } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
   ClientHomeStats,
   ClientHomeStatsUnavailable,
 } from '@/src/modules/portal/ui/client-home-stats'
 import { ClientHomeUnreadFeed } from '@/src/modules/portal/ui/client-home-unread-feed'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
 type ClientHomeDashboardProps = {
   role: PortalRole
@@ -24,7 +24,7 @@ type ClientHomeDashboardProps = {
     ClientDashboardSnapshotResult,
     { ok: false }
   >['error'] | null
-  initialNotifications: ChatterNotificationsCheckResult | null
+  initialNotifications: PortalNotificationsCheckResult | null
 }
 
 export function ClientHomeDashboard({
@@ -34,7 +34,7 @@ export function ClientHomeDashboard({
   snapshotError = null,
   initialNotifications,
 }: ClientHomeDashboardProps) {
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
 
   useLayoutEffect(() => {
     if (!initialNotifications?.ok || !notifications) return

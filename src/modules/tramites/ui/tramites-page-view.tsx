@@ -20,7 +20,7 @@ import {
   mergeTramitesList,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
-import { parseTramiteOpenParam } from '@/src/modules/portal/domain/chatter-notifications-types'
+import { parseTramiteOpenParam } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
   type TramitesListSeenState,
 } from '@/src/modules/tramites/domain/tramites-list-seen-state'

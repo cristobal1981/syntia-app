@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef } from 'react'
 
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import {
   applyCursorInfluence,
   applyCursorRepel,

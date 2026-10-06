@@ -6,7 +6,7 @@ import { LazyMotion, domAnimation, m } from 'framer-motion'
 import type { ReactNode } from 'react'
 
 import { site } from '@/content/site'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { LoginAmbientBackdrop } from '@/src/modules/auth/ui/login-ambient-backdrop'
 
 const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL ?? '/proximamente'

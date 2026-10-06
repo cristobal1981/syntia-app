@@ -7,7 +7,7 @@ import { useActionState, useEffect } from 'react'
 import { portal } from '@/content/portal'
 import { Input } from '@/components/ui/input'
 import { MarketingButton } from '@/components/ui/marketing-button'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import {
   signInAction,
   type SignInResult,

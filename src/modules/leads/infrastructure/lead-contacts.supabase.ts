@@ -1,10 +1,5 @@
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
-export type LeadContactRow = {
-  lead_id: string
-  created_at: string
-}
-
 export type RecordLeadContactInput = {
   leadId: string
   sentBy: string
@@ -13,30 +8,6 @@ export type RecordLeadContactInput = {
   bodyHtml: string
   bodyText: string
   resendEmailId: string | null
-}
-
-/**
- * Un `created_at` por `lead_id`, el más reciente — para mostrar "contactado
- * hace X" en la lista sin traer el historial completo de envíos.
- */
-export async function listLatestContactByLead(): Promise<Map<string, string>> {
-  const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from('landing_autonomo_lead_contacts')
-    .select('lead_id, created_at')
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const latestByLead = new Map<string, string>()
-  for (const row of (data ?? []) as LeadContactRow[]) {
-    if (!latestByLead.has(row.lead_id)) {
-      latestByLead.set(row.lead_id, row.created_at)
-    }
-  }
-  return latestByLead
 }
 
 export async function recordLeadContact(input: RecordLeadContactInput): Promise<void> {

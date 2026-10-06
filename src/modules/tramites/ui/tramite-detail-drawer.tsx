@@ -25,7 +25,7 @@ import { downloadAllAttachmentsZipAction } from '@/src/modules/portal/applicatio
 import { RecordAttachmentsPanel } from '@/src/modules/portal/ui/record-attachments-panel'
 import { RecordChatterPanel } from '@/src/modules/portal/ui/record-chatter-panel'
 import { RecordDetailTabs } from '@/src/modules/portal/ui/record-detail-tabs'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import {
   buildPortalShortcutTooltipCopy,
   getPortalShortcutModifierLabelFor,
@@ -78,7 +78,7 @@ export function TramiteDetailDrawer({
   onNavigateItem,
   canWriteTramites,
 }: TramiteDetailDrawerProps) {
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<TramiteDetailTab>(initialTab)

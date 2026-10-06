@@ -1,23 +1,11 @@
 'use client'
 
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { portalChatter } from '@/content/portal-chatter'
-import {
-  listNewerRecordMessagesAction,
-  listRecordMessagesAction,
-  postRecordMessageAction,
-} from '@/src/modules/portal/application/portal-chatter-actions'
+import { postRecordMessageAction } from '@/src/modules/portal/application/portal-chatter-actions'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
 import { isChatterHtmlEmpty } from '@/src/modules/portal/domain/filter-portal-messages'
 import type {
@@ -30,7 +18,6 @@ import {
   readFilesAsUploadPayload,
   validatePendingFilesSelection,
 } from '@/src/modules/portal/lib/chatter-attachment-validation'
-import { isPortalChatterMockEnabled } from '@/src/modules/portal/lib/portal-chatter-mock'
 import {
   ChatterComposer,
   type ChatterComposerHandle,
@@ -47,10 +34,8 @@ import {
 import { ChatterTypingIndicator } from '@/src/modules/portal/ui/chatter-typing-indicator'
 import { ChatterPendingAttachments } from '@/src/modules/portal/ui/chatter-pending-attachments'
 import { ChatterReplyBanner } from '@/src/modules/portal/ui/chatter-reply-banner'
-import {
-  CHATTER_MOCK_MESSAGES,
-  createMockMessageId,
-} from '@/src/modules/portal/ui/chatter-mock-data'
+import { chatterMockEnabled, useChatterMessages } from '@/src/modules/portal/ui/use-chatter-messages'
+import { createMockMessageId } from '@/src/modules/portal/ui/chatter-mock-data'
 import { invalidateAttachmentsClientCache } from '@/src/modules/portal/ui/record-attachments-panel'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
@@ -87,8 +72,6 @@ function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
   return kind === 'task' ? 'tramite' : 'consulta'
 }
 
-const chatterMockEnabled = isPortalChatterMockEnabled()
-
 function formatMessageDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
@@ -118,11 +101,6 @@ export function RecordChatterPanel({
 }: RecordChatterPanelProps) {
   const router = useRouter()
   const notifications = usePortalNotificationsOptional()
-  const [messages, setMessages] = useState<PortalChatterMessage[]>([])
-  const [hasMore, setHasMore] = useState(false)
-  const [loadingInitial, setLoadingInitial] = useState(false)
-  const [loadingOlder, setLoadingOlder] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [composerEmpty, setComposerEmpty] = useState(true)
   const [composerResetToken, setComposerResetToken] = useState(0)
@@ -130,26 +108,11 @@ export function RecordChatterPanel({
   const replyParentIdRef = useRef<number | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
-  const [dividerDismissed, setDividerDismissed] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<ChatterComposerHandle>(null)
   const shouldStickToBottomRef = useRef(true)
-  const loadingOlderRef = useRef(false)
-  const lastNotifiedMessageIdRef = useRef(0)
-  const onConversationViewedRef = useRef(onConversationViewed)
-  const loadGenerationRef = useRef(0)
-
-  const canSend = canReply && (!composerEmpty || pendingFiles.length > 0)
-
-  useEffect(() => {
-    onConversationViewedRef.current = onConversationViewed
-  }, [onConversationViewed])
-
-  useEffect(() => {
-    lastNotifiedMessageIdRef.current = 0
-  }, [kind, recordId])
 
   const notifyPartnerIdsRef = useRef(notifyPartnerIds)
   useEffect(() => {
@@ -162,18 +125,44 @@ export function RecordChatterPanel({
     node.scrollTop = node.scrollHeight
   }, [])
 
-  const notifyConversationViewed = useCallback(
-    (nextMessages: PortalChatterMessage[]) => {
-      if (!markReadOnView || !nextMessages.length) return
-      const latestId = nextMessages[nextMessages.length - 1]?.id
-      if (!latestId || latestId <= lastNotifiedMessageIdRef.current) return
-      lastNotifiedMessageIdRef.current = latestId
-      queueMicrotask(() => {
-        onConversationViewedRef.current?.(latestId)
-      })
-    },
-    [markReadOnView]
-  )
+  const clearReplyMode = useCallback(() => {
+    replyParentIdRef.current = null
+    setReplyTarget(null)
+  }, [])
+
+  const resetComposerState = useCallback(() => {
+    clearReplyMode()
+    setPendingFiles([])
+    setComposerEmpty(true)
+    setComposerResetToken((token) => token + 1)
+    composerRef.current?.clear()
+  }, [clearReplyMode])
+
+  const {
+    messages,
+    setMessages,
+    loadingInitial,
+    loadingOlder,
+    loadingNewer,
+    error,
+    firstUnreadIndex,
+    setDividerDismissed,
+    loadOlder,
+  } = useChatterMessages({
+    kind,
+    recordId,
+    active,
+    markReadOnView,
+    onConversationViewed,
+    lastSeenMessageIdBeforeOpen,
+    latestKnownMessageId,
+    notifications,
+    scrollRef,
+    shouldStickToBottomRef,
+    resetComposerState,
+  })
+
+  const canSend = canReply && (!composerEmpty || pendingFiles.length > 0)
 
   const handleComposerEmptyChange = useCallback(
     (empty: boolean) => {
@@ -190,151 +179,6 @@ export function RecordChatterPanel({
     if (!shouldStickToBottomRef.current && composerEmpty && !pendingFiles.length) return
     scrollToBottom()
   }, [composerEmpty, pendingFiles.length, scrollToBottom])
-
-  const clearReplyMode = useCallback(() => {
-    replyParentIdRef.current = null
-    setReplyTarget(null)
-  }, [])
-
-  const resetComposerState = useCallback(() => {
-    clearReplyMode()
-    setPendingFiles([])
-    setComposerEmpty(true)
-    setComposerResetToken((token) => token + 1)
-    composerRef.current?.clear()
-  }, [clearReplyMode])
-
-  const loadInitial = useCallback(async () => {
-    if (recordId <= 0) return
-
-    const generation = ++loadGenerationRef.current
-
-    setLoadingInitial(true)
-    setError(null)
-    setMessages([])
-    setHasMore(false)
-    setSendError(null)
-    setDividerDismissed(false)
-    resetComposerState()
-    shouldStickToBottomRef.current = true
-
-    try {
-      if (chatterMockEnabled) {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        if (generation !== loadGenerationRef.current) return
-        const mockMessages = enrichPortalChatterMessages([...CHATTER_MOCK_MESSAGES])
-        setMessages(mockMessages)
-        setHasMore(false)
-        notifyConversationViewed(mockMessages)
-        return
-      }
-
-      const result = await listRecordMessagesAction({ kind, recordId })
-      if (generation !== loadGenerationRef.current) return
-
-      if (!result.ok) {
-        setError(
-          portalChatter.errors[result.error] ??
-            portalChatter.errors.odoo_unavailable
-        )
-        return
-      }
-
-      const enriched = enrichPortalChatterMessages(result.messages)
-      setMessages(enriched)
-      setHasMore(result.hasMore)
-      notifyConversationViewed(enriched)
-    } catch {
-      if (generation !== loadGenerationRef.current) return
-      setError(portalChatter.errors.odoo_unavailable)
-    } finally {
-      if (generation === loadGenerationRef.current) {
-        setLoadingInitial(false)
-      }
-    }
-  }, [kind, recordId, notifyConversationViewed, resetComposerState])
-
-  useEffect(() => {
-    if (!active || recordId <= 0) return
-    // Dispara la carga inicial del chatter (fetch-on-mount/active).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadInitial()
-  }, [active, recordId, loadInitial])
-
-  const loadingNewerRef = useRef(false)
-  const [loadingNewer, setLoadingNewer] = useState(false)
-
-  useEffect(() => {
-    if (chatterMockEnabled || !active || loadingInitial || recordId <= 0) return
-    if (!latestKnownMessageId || loadingNewerRef.current) return
-
-    const maxLoadedId = messages.length ? messages[messages.length - 1]!.id : 0
-    if (latestKnownMessageId <= maxLoadedId) return
-
-    loadingNewerRef.current = true
-    // Dispara el fetch de mensajes más recientes (polling) — no derivable.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingNewer(true)
-    void listNewerRecordMessagesAction({ kind, recordId, afterId: maxLoadedId })
-      .then((result) => {
-        if (!result.ok || !result.messages.length) return
-        setMessages((current) => {
-          const existingIds = new Set(current.map((message) => message.id))
-          const newer = result.messages.filter((message) => !existingIds.has(message.id))
-          if (!newer.length) return current
-          return enrichPortalChatterMessages([...current, ...newer])
-        })
-      })
-      .finally(() => {
-        loadingNewerRef.current = false
-        setLoadingNewer(false)
-      })
-  }, [active, kind, latestKnownMessageId, loadingInitial, messages, recordId])
-
-  // Mensaje propio enviado desde OTRA pestaña del mismo usuario: ya llega
-  // completo por el broadcast (notifyRecordMutated), no hace falta pedir
-  // nada a Odoo para pintarlo aquí.
-  useEffect(() => {
-    const broadcast = notifications?.lastRecordMessage
-    if (!broadcast) return
-    if (
-      broadcast.scope !== recordScopeFromKind(kind) ||
-      broadcast.recordId !== recordId
-    ) {
-      return
-    }
-
-    // Reacciona a un broadcast entre pestañas (BroadcastChannel) — sistema
-    // externo real, no una simple derivación de render.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMessages((current) => {
-      if (current.some((message) => message.id === broadcast.message.id)) {
-        return current
-      }
-      return enrichPortalChatterMessages([...current, broadcast.message])
-    })
-  }, [kind, notifications?.lastRecordMessage, recordId])
-
-  // Solo se marca frontera si hay mensajes leídos Y no leídos a la vez —
-  // si todo es nuevo (primera visita) o nada lo es, un separador no aporta
-  // nada y solo añade ruido.
-  const firstUnreadIndex = useMemo(() => {
-    if (!lastSeenMessageIdBeforeOpen || dividerDismissed) return -1
-    const index = messages.findIndex(
-      (message) => message.id > lastSeenMessageIdBeforeOpen
-    )
-    return index > 0 ? index : -1
-  }, [messages, lastSeenMessageIdBeforeOpen, dividerDismissed])
-
-  useEffect(() => {
-    if (!active || loadingInitial || !markReadOnView || !messages.length) return
-    notifyConversationViewed(messages)
-    // Depende de `messages.length`, no de `messages`: solo debe reavisar cuando
-    // cambia la CANTIDAD de mensajes, no cuando el array se reemplaza por
-    // identidad (enriquecido) con el mismo contenido — evitar el aviso
-    // duplicado importa aquí (coste de Odoo).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, loadingInitial, markReadOnView, messages.length, notifyConversationViewed])
 
   useLayoutEffect(() => {
     if (!active || loadingInitial) return
@@ -366,57 +210,6 @@ export function RecordChatterPanel({
     if (window.matchMedia('(pointer: coarse)').matches) return
     queueMicrotask(() => composerRef.current?.focus())
   }, [active, canReply, loadingInitial, sending, kind, recordId, scrollPin])
-
-  const loadOlder = useCallback(async () => {
-    if (recordId <= 0 || loadingOlderRef.current || !hasMore || !messages.length) {
-      return
-    }
-
-    if (chatterMockEnabled) return
-
-    loadingOlderRef.current = true
-    setLoadingOlder(true)
-    setError(null)
-
-    const scrollNode = scrollRef.current
-    const previousHeight = scrollNode?.scrollHeight ?? 0
-
-    const result = await listRecordMessagesAction({
-      kind,
-      recordId,
-      beforeId: messages[0]?.id,
-    })
-
-    loadingOlderRef.current = false
-    setLoadingOlder(false)
-
-    if (!result.ok) {
-      setError(
-        portalChatter.errors[result.error] ?? portalChatter.errors.odoo_unavailable
-      )
-      return
-    }
-
-    if (!result.messages.length) {
-      setHasMore(false)
-      return
-    }
-
-    shouldStickToBottomRef.current = false
-    setMessages((current) => {
-      const existingIds = new Set(current.map((message) => message.id))
-      const older = result.messages.filter((message) => !existingIds.has(message.id))
-      return enrichPortalChatterMessages([...older, ...current])
-    })
-    setHasMore(result.hasMore)
-
-    requestAnimationFrame(() => {
-      const node = scrollRef.current
-      if (!node) return
-      const nextHeight = node.scrollHeight
-      node.scrollTop += nextHeight - previousHeight
-    })
-  }, [hasMore, kind, messages, recordId])
 
   useEffect(() => {
     const sentinel = topSentinelRef.current

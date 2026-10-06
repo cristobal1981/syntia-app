@@ -101,3 +101,23 @@ export type DirectoryListScope = {
   role: PortalRole
   userId: string
 }
+
+/**
+ * Tamaño de página para los listados de `/equipo/clientes` y
+ * `/equipo/gestores` — por debajo de este número no hay paginación visible
+ * (`ListPagination` se autooculta si `totalCount <= pageSize`), así que el
+ * comportamiento de hoy (lista completa, sin controles de página) se
+ * conserva para gestorías pequeñas sin necesitar dos rutas de código.
+ */
+export const DIRECTORY_PAGE_SIZE = 25
+
+export type DirectoryPageParams = {
+  page: number
+  pageSize: number
+  search?: string
+}
+
+export type DirectoryPageResult<T> = {
+  items: T[]
+  totalCount: number
+}

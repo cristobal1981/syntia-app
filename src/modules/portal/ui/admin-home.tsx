@@ -4,7 +4,7 @@ import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import {
-  listClientsAction,
+  listClientsPageAction,
   listGestoresAction,
 } from '@/src/modules/directory/application/directory-queries'
 import { buildOnboardingSolicitudStats } from '@/src/modules/onboarding/domain/onboarding-solicitud-stats'
@@ -17,10 +17,11 @@ type AdminHomeProps = {
 }
 
 export async function AdminHome({ user }: AdminHomeProps) {
-  const [integrations, gestores, clients, solicitudesResult] = await Promise.all([
+  const [integrations, gestores, clientsPage, solicitudesResult] = await Promise.all([
     getIntegrationsStatusForRole(user.role),
     listGestoresAction(),
-    listClientsAction(),
+    // Solo se necesita el total, no la lista — pide 1 fila en vez de todas.
+    listClientsPageAction({ page: 1, pageSize: 1 }),
     listOnboardingSolicitudesAction(),
   ])
   const copy = portal.home.admin
@@ -37,7 +38,7 @@ export async function AdminHome({ user }: AdminHomeProps) {
       statTiles={[
         {
           label: copy.clientsStat,
-          value: clients.length,
+          value: clientsPage.totalCount,
           icon: Users,
           href: '/equipo/clientes',
         },

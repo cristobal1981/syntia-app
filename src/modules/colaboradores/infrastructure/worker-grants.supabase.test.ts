@@ -30,6 +30,7 @@ function chainFor(result: QueryResult) {
   const chain: Record<string, unknown> = {}
   chain.select = () => chain
   chain.eq = vi.fn(() => chain)
+  chain.limit = vi.fn(() => chain)
   chain.maybeSingle = () => resolved
   chain.upsert = vi.fn(() => resolved)
   chain.delete = vi.fn(() => chain)
@@ -134,6 +135,7 @@ describe('listAllWorkerGrants (no owner filter — admin-only overview)', () => 
     const result = await listAllWorkerGrants()
 
     expect(chain.eq).not.toHaveBeenCalled()
+    expect(chain.limit).toHaveBeenCalledWith(2000)
     expect(result).toHaveLength(2)
   })
 

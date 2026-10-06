@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { portal } from '@/content/portal'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
 
 function formatNotificationDate(value: string): string {
@@ -26,7 +26,7 @@ type ClientHomeUnreadFeedProps = {
 export function ClientHomeUnreadFeed({
   notificationsLoading = false,
 }: ClientHomeUnreadFeedProps) {
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
   const copy = portal.home.client
   const unread = notifications?.unread ?? []
   const unreadCount = unread.length

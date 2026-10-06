@@ -12,7 +12,7 @@ import {
   filterObligacionListRows,
 } from '@/src/modules/obligaciones/domain/filter-obligaciones-list'
 import { groupObligacionesByModel } from '@/src/modules/obligaciones/domain/group-obligaciones-by-model'
-import { parseObligacionOpenParam } from '@/src/modules/portal/domain/chatter-notifications-types'
+import { parseObligacionOpenParam } from '@/src/modules/portal/domain/portal-notifications-types'
 import { flattenObligacionesYear } from '@/src/modules/obligaciones/domain/sort-obligaciones-list'
 import type {
   ObligacionTask,

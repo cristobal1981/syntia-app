@@ -9,7 +9,7 @@ import {
   DialogOverlay,
   DialogPortal,
 } from '@/components/ui/dialog'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 
 type PortalSideDrawerProps = {

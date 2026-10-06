@@ -3,7 +3,7 @@ import type {
   PortalChatterAttachmentRef,
   PortalChatterMessage,
 } from '@/src/modules/portal/domain/portal-chatter-types'
-import { chatterReadStateKey } from '@/src/modules/portal/domain/chatter-notifications-types'
+import { chatterReadStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
   filterOdooMailMessageRows,
   formatChatterBodyFromOdoo,

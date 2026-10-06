@@ -293,6 +293,208 @@ describe('listClients / listGestores — SQL filter pushdown', () => {
   })
 })
 
+/**
+ * A diferencia de `makeAdminClient`/`makeTrackingAdminClient` (`.in()`/`.eq()`
+ * son no-ops que devuelven toda la tabla canned), aquí `.in()`/`.eq()`/`.not()`
+ * SÍ filtran de verdad sobre las filas — necesario para probar paginación,
+ * orden y conteo de verdad: con un no-op, el total y el slice de página
+ * incluirían filas que en producción nunca llegarían (p. ej. clientes de
+ * otro asesor), ocultando bugs reales de `listClientsPage`/`listGestoresPage`.
+ */
+function makeFilteringAdminClient(tables: Record<string, Record<string, unknown>[]>) {
+  return {
+    from: (table: string) => {
+      let rows = tables[table] ?? []
+      const chain: Record<string, unknown> = {}
+      chain.select = () => chain
+      chain.in = (column: string, values: unknown[]) => {
+        rows = rows.filter((row) => values.includes(row[column]))
+        return chain
+      }
+      chain.eq = (column: string, value: unknown) => {
+        rows = rows.filter((row) => row[column] === value)
+        return chain
+      }
+      chain.not = (column: string) => {
+        rows = rows.filter((row) => row[column] != null)
+        return chain
+      }
+      chain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+        Promise.resolve({ data: rows, error: null }).then(resolve, reject)
+      return chain
+    },
+    auth: { admin: { deleteUser: vi.fn().mockResolvedValue({ error: null }) } },
+  }
+}
+
+describe('listClientsPage / listGestoresPage — paginación real, no "traer todo"', () => {
+  const users: Record<string, unknown>[] = [
+    { id: 'client-alice', email: 'alice@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+    { id: 'client-bob', email: 'bob@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+    { id: 'client-charlie-co', email: 'charlie@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+    { id: 'client-dave', email: 'dave@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+    { id: 'advisor-1', email: 'adv1@x.com', role: 'advisor', status: 'active', is_active: true, odoo_user_id: null },
+  ]
+  const profiles: Record<string, unknown>[] = [
+    { user_id: 'client-alice', first_name: 'Alice', first_surname: 'Anderson', second_surname: '', phone: null, company_name: null, advisor_id: 'advisor-1', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+    { user_id: 'client-bob', first_name: 'Bob', first_surname: 'Baker', second_surname: '', phone: null, company_name: null, advisor_id: 'advisor-1', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+    { user_id: 'client-charlie-co', first_name: '', first_surname: '', second_surname: '', phone: null, company_name: 'Charlie Corp', advisor_id: 'advisor-1', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+    { user_id: 'client-dave', first_name: 'Dave', first_surname: 'Davis', second_surname: '', phone: null, company_name: null, advisor_id: 'advisor-2', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+    { user_id: 'advisor-1', first_name: 'Advi', first_surname: 'Sor', second_surname: '', phone: null, company_name: null, advisor_id: null, vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+    // client-orphan tiene usuario pero NO perfil — se añade a `users` solo en el test que lo necesita.
+  ]
+
+  beforeEach(() => {
+    createSupabaseAdminClient.mockReturnValue(
+      makeFilteringAdminClient({ users, profiles, client_integrations: [] })
+    )
+  })
+
+  it('pagina en orden alfabético (nombre de empresa cuenta como nombre) y no trae más que pageSize filas enriquecidas', async () => {
+    const page1 = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'admin', userId: 'admin-1' },
+      { page: 1, pageSize: 2 }
+    )
+
+    expect(page1.totalCount).toBe(4)
+    expect(page1.items.map((c) => c.name)).toEqual(['Alice Anderson', 'Bob Baker'])
+
+    const page2 = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'admin', userId: 'admin-1' },
+      { page: 2, pageSize: 2 }
+    )
+
+    expect(page2.totalCount).toBe(4)
+    expect(page2.items.map((c) => c.name)).toEqual(['Charlie Corp', 'Dave Davis'])
+  })
+
+  it('la búsqueda filtra por nombre/email/empresa ANTES de paginar — el total refleja los resultados, no el scope completo', async () => {
+    const result = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'admin', userId: 'admin-1' },
+      { page: 1, pageSize: 25, search: 'corp' }
+    )
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items.map((c) => c.name)).toEqual(['Charlie Corp'])
+  })
+
+  it('SECURITY: un asesor solo ve (y solo cuenta) a sus propios clientes, no los de un compañero', async () => {
+    const result = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'advisor', userId: 'advisor-1' },
+      { page: 1, pageSize: 25 }
+    )
+
+    expect(result.totalCount).toBe(3)
+    expect(result.items.map((c) => c.id).sort()).toEqual([
+      'client-alice',
+      'client-bob',
+      'client-charlie-co',
+    ])
+  })
+
+  it('devuelve items/totalCount vacíos sin llamar a buildDirectorySources cuando el scope no tiene ningún id', async () => {
+    createSupabaseAdminClient.mockReturnValue(
+      makeFilteringAdminClient({ users: [], profiles: [], client_integrations: [] })
+    )
+
+    const result = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'admin', userId: 'admin-1' },
+      { page: 1, pageSize: 25 }
+    )
+
+    expect(result).toEqual({ items: [], totalCount: 0 })
+  })
+
+  it('listGestoresPage pagina y ordena igual que listClientsPage, solo sobre roles advisor/admin', async () => {
+    const result = await supabaseDirectoryRepository.listGestoresPage({ page: 1, pageSize: 25 })
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items.map((g) => g.id)).toEqual(['advisor-1'])
+  })
+
+  it('un cliente sin fila de perfil usa el email como nombre de orden/búsqueda, en vez de romper', async () => {
+    createSupabaseAdminClient.mockReturnValue(
+      makeFilteringAdminClient({
+        users: [
+          ...users,
+          { id: 'client-orphan', email: 'zzz-orphan@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+        ],
+        profiles,
+        client_integrations: [],
+      })
+    )
+
+    const result = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'admin', userId: 'admin-1' },
+      { page: 1, pageSize: 25 }
+    )
+
+    expect(result.totalCount).toBe(5)
+    // "zzz-orphan@x.com" ordena después de Dave Davis (sin perfil, usa el email).
+    expect(result.items.at(-1)?.id).toBe('client-orphan')
+  })
+
+  /**
+   * MUTATION-VERIFIED: con `makeFilteringAdminClient` (arriba), el `.eq()`
+   * real de `fetchClientIdsForAdvisor` ya excluye al cliente de otro asesor
+   * ANTES del cinturón de seguridad en memoria — borrar ese cinturón no
+   * rompía ningún test. Con `makeAdminClient` (el mock laxo de este archivo,
+   * `.eq()`/`.in()` son no-ops) el filtro SQL queda neutralizado a propósito,
+   * así que si esto pasa es SOLO gracias al `if (!advisorId || advisorId
+   * !== scope.userId) continue` dentro de `listClientsPage` — confirmado
+   * manualmente borrando ese bloque: los 68 tests seguían en verde.
+   */
+  it("SECURITY (cinturón de seguridad en memoria): aunque el filtro SQL fallara, un asesor no recibe clientes de otro asesor en listClientsPage", async () => {
+    createSupabaseAdminClient.mockReturnValue(
+      makeAdminClient({
+        users: [
+          { id: 'client-alice', email: 'alice@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+          { id: 'client-dave', email: 'dave@x.com', role: 'client', status: 'active', is_active: true, odoo_user_id: null },
+        ],
+        profiles: [
+          { user_id: 'client-alice', first_name: 'Alice', first_surname: 'Anderson', second_surname: '', phone: null, company_name: null, advisor_id: 'advisor-1', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+          { user_id: 'client-dave', first_name: 'Dave', first_surname: 'Davis', second_surname: '', phone: null, company_name: null, advisor_id: 'advisor-2', vat: null, iban: null, address_line1: null, address_line2: null, postal_code: null, city: null, province: null, country: null },
+        ],
+        client_integrations: [],
+      })
+    )
+
+    const result = await supabaseDirectoryRepository.listClientsPage(
+      { role: 'advisor', userId: 'advisor-1' },
+      { page: 1, pageSize: 25 }
+    )
+
+    expect(result.items.map((c) => c.id)).toEqual(['client-alice'])
+    expect(result.items.map((c) => c.id)).not.toContain('client-dave')
+  })
+})
+
+describe('countClientsByAdvisor', () => {
+  it('devuelve el jsonb del RPC tal cual, validado', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { 'advisor-1': 3, 'advisor-2': 1 }, error: null })
+    createSupabaseAdminClient.mockReturnValue({ rpc })
+
+    const result = await supabaseDirectoryRepository.countClientsByAdvisor()
+
+    expect(rpc).toHaveBeenCalledWith('count_clients_by_advisor')
+    expect(result).toEqual({ 'advisor-1': 3, 'advisor-2': 1 })
+  })
+
+  it('lanza un Error con el mensaje de Supabase si el RPC falla', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
+    createSupabaseAdminClient.mockReturnValue({ rpc })
+
+    await expect(supabaseDirectoryRepository.countClientsByAdvisor()).rejects.toThrow('boom')
+  })
+
+  it('rechaza una respuesta que no tiene la forma {advisorId: number} en vez de devolverla tal cual', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { 'advisor-1': 'no-es-un-numero' }, error: null })
+    createSupabaseAdminClient.mockReturnValue({ rpc })
+
+    await expect(supabaseDirectoryRepository.countClientsByAdvisor()).rejects.toThrow()
+  })
+})
+
 describe('deleteGestor / deleteClient — cross-role IDOR guard', () => {
   it('ATTACK: deleteClient refuses to delete an id that actually belongs to a gestor account', async () => {
     createSupabaseAdminClient.mockReturnValue({

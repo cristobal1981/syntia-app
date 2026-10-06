@@ -3,7 +3,7 @@ import { Users } from 'lucide-react'
 import { equipo } from '@/content/equipo'
 import { portal } from '@/content/portal'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { listClientsAction } from '@/src/modules/directory/application/directory-queries'
+import { listClientsPageAction } from '@/src/modules/directory/application/directory-queries'
 import { buildOnboardingSolicitudStats } from '@/src/modules/onboarding/domain/onboarding-solicitud-stats'
 import { listOnboardingSolicitudesAction } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
@@ -14,9 +14,10 @@ type AdvisorHomeProps = {
 }
 
 export async function AdvisorHome({ user }: AdvisorHomeProps) {
-  const [integrations, clients, solicitudesResult] = await Promise.all([
+  const [integrations, clientsPage, solicitudesResult] = await Promise.all([
     getIntegrationsStatusForRole(user.role),
-    listClientsAction(),
+    // Solo hace falta el total y los 5 primeros para la preview, no todo el scope.
+    listClientsPageAction({ page: 1, pageSize: 5 }),
     listOnboardingSolicitudesAction(),
   ])
   const copy = portal.home.advisor
@@ -33,7 +34,7 @@ export async function AdvisorHome({ user }: AdvisorHomeProps) {
       statTiles={[
         {
           label: copy.clientsStat,
-          value: clients.length,
+          value: clientsPage.totalCount,
           icon: Users,
           href: '/clientes',
         },
@@ -42,7 +43,7 @@ export async function AdvisorHome({ user }: AdvisorHomeProps) {
       tableHref="/clientes"
       tableViewAllLabel={equipo.clientes.viewAll}
       tableHeaders={['Cliente', 'Empresa', 'Estado']}
-      tableRows={clients.slice(0, 5).map((client) => [
+      tableRows={clientsPage.items.map((client) => [
         client.name,
         client.companyName ?? '—',
         client.status === 'active' ? equipo.status.active : equipo.status.invited,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   FolderPlus,
   Grid3x3,
@@ -24,22 +24,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { clientDocuments } from '@/content/client-documents'
 import {
-  createDriveFolderAction,
-  deleteDriveItemAction,
-  downloadDriveFileAction,
-  listDriveFolderAction,
-  moveDriveItemAction,
-  renameDriveItemAction,
-  uploadDriveFilesAction,
-} from '@/src/modules/documents/application/portal-drive-document-actions'
-import {
   DRIVE_NEW_FOLDER_SHORTCUT,
   DRIVE_REFRESH_SHORTCUT,
   DRIVE_TOGGLE_VIEW_SHORTCUT,
   DRIVE_UPLOAD_SHORTCUT,
 } from '@/src/modules/documents/domain/drive-shortcuts'
 import { sortDriveItems } from '@/src/modules/documents/domain/sort-drive-items'
-import type { DriveBreadcrumb, DriveItem } from '@/src/modules/documents/domain/types'
+import type { DriveItem } from '@/src/modules/documents/domain/types'
 import { DriveBreadcrumbs } from '@/src/modules/documents/ui/drive-breadcrumbs'
 import { DriveDocumentPreviewDialog } from '@/src/modules/documents/ui/drive-document-preview-dialog'
 import { DriveDropOverlay, type DriveDropOverlayUploadPhase } from '@/src/modules/documents/ui/drive-drop-overlay'
@@ -48,8 +39,11 @@ import {
   getDriveDragKind,
   isExternalFileDrag,
 } from '@/src/modules/documents/ui/drive-drag'
-import { DriveItemCard, type DriveViewMode } from '@/src/modules/documents/ui/drive-item-card'
+import { DriveItemCard } from '@/src/modules/documents/ui/drive-item-card'
 import { DriveMoveDialog } from '@/src/modules/documents/ui/drive-move-dialog'
+import { useDriveFolder } from '@/src/modules/documents/ui/use-drive-folder'
+import { useDriveViewMode } from '@/src/modules/documents/ui/use-drive-view-mode'
+import { useExternalFileDragOverlay } from '@/src/modules/documents/ui/use-external-file-drag-overlay'
 import { buildPortalShortcutTooltipCopy } from '@/src/modules/portal/domain/portal-shortcut-platform'
 import {
   formatPortalShortcutLabel,
@@ -60,25 +54,7 @@ import { PortalFilterIconChip } from '@/src/modules/portal/ui/portal-filter-chip
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
-import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
-import {
-  dedupedServerAction,
-  serverActionDedupKey,
-} from '@/src/modules/portal/infrastructure/server-action-dedup'
 import { cn } from '@/lib/utils'
-
-const VIEW_MODE_STORAGE_KEY = 'syntia-drive-view-mode'
-
-function readInitialViewMode(): DriveViewMode {
-  if (typeof window === 'undefined') return 'grid'
-  const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
-  if (stored === 'list' || stored === 'grid') return stored
-  return window.matchMedia('(max-width: 639px)').matches ? 'list' : 'grid'
-}
-
-function errorMessage(code: keyof typeof clientDocuments.errors): string {
-  return clientDocuments.errors[code] ?? clientDocuments.errors.drive_unavailable
-}
 
 type DriveBrowserProps = {
   canWrite: boolean
@@ -86,21 +62,16 @@ type DriveBrowserProps = {
 
 export function DriveBrowser({ canWrite }: DriveBrowserProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [items, setItems] = useState<DriveItem[]>([])
-  const [breadcrumbs, setBreadcrumbs] = useState<DriveBreadcrumb[]>([])
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const driveFolder = useDriveFolder()
+  const { viewMode, setViewMode, toggleViewMode } = useDriveViewMode()
+  const { pageDragActive, resetPageDrag } = useExternalFileDragOverlay(canWrite)
+
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<DriveViewMode>('grid')
-  const [pageDragDepth, setPageDragDepth] = useState(0)
   const [internalDropTargetFolderId, setInternalDropTargetFolderId] = useState<string | null>(
     null
   )
-  const [uploading, setUploading] = useState(false)
   const [uploadOverlayPhase, setUploadOverlayPhase] =
     useState<DriveDropOverlayUploadPhase>('idle')
-  const [actionError, setActionError] = useState<string | null>(null)
   const [previewItem, setPreviewItem] = useState<DriveItem | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [renameItem, setRenameItem] = useState<DriveItem | null>(null)
@@ -110,12 +81,22 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
   const [moveOpen, setMoveOpen] = useState(false)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newFolderValue, setNewFolderValue] = useState('')
-  const [busyItemId, setBusyItemId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
+
+  const {
+    items,
+    breadcrumbs,
+    currentFolderId,
+    loading,
+    error,
+    uploading,
+    actionError,
+    busyItemId,
+    pending,
+    loadFolder,
+  } = driveFolder
 
   const overlayActive = usePortalShortcutOverlay()
-  const pageDragActive = pageDragDepth > 0
   const dialogOpen =
     renameItem !== null || newFolderOpen || moveOpen || deleteItem !== null || previewOpen
 
@@ -154,39 +135,6 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
   }
 
   useEffect(() => {
-    // localStorage/matchMedia solo existen en cliente — no se puede leer
-    // durante SSR.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewMode(readInitialViewMode())
-  }, [])
-
-  const loadFolder = useCallback(async (folderId?: string) => {
-    setLoading(true)
-    setError(null)
-    setActionError(null)
-    setSelectedItemId(null)
-
-    const dedupKey = serverActionDedupKey('listDriveFolder', { folderId: folderId ?? '' })
-    const result = await dedupedServerAction(dedupKey, () =>
-      listDriveFolderAction(folderId ? { folderId } : undefined)
-    )
-
-    setLoading(false)
-
-    if (!result.ok) {
-      setItems([])
-      setBreadcrumbs([])
-      setCurrentFolderId(null)
-      setError(errorMessage(result.error))
-      return
-    }
-
-    setItems(result.listing.items)
-    setBreadcrumbs(result.listing.breadcrumbs)
-    setCurrentFolderId(result.listing.currentFolderId)
-  }, [])
-
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       if (isPortalShortcutBlockedTarget(event.target)) return
@@ -199,48 +147,8 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
 
   useEffect(() => {
     // Dispara la carga inicial de la carpeta (patrón fetch-on-mount).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadFolder()
   }, [loadFolder])
-
-  useEffect(() => {
-    if (!canWrite) return
-
-    const onDragEnter = (event: DragEvent) => {
-      if (!isExternalFileDrag(event)) return
-      event.preventDefault()
-      setPageDragDepth((depth) => depth + 1)
-    }
-
-    const onDragLeave = (event: DragEvent) => {
-      if (!isExternalFileDrag(event)) return
-      setPageDragDepth((depth) => Math.max(0, depth - 1))
-    }
-
-    const onDragOver = (event: DragEvent) => {
-      if (!isExternalFileDrag(event)) return
-      event.preventDefault()
-    }
-
-    const onDrop = (event: DragEvent) => {
-      if (!isExternalFileDrag(event)) return
-      event.preventDefault()
-      setPageDragDepth(0)
-      clearInternalDragState()
-    }
-
-    window.addEventListener('dragenter', onDragEnter)
-    window.addEventListener('dragleave', onDragLeave)
-    window.addEventListener('dragover', onDragOver)
-    window.addEventListener('drop', onDrop)
-
-    return () => {
-      window.removeEventListener('dragenter', onDragEnter)
-      window.removeEventListener('dragleave', onDragLeave)
-      window.removeEventListener('dragover', onDragOver)
-      window.removeEventListener('drop', onDrop)
-    }
-  }, [canWrite])
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('es')
@@ -249,15 +157,6 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
       : items
     return sortDriveItems(matched)
   }, [items, searchQuery])
-
-  function handleViewModeChange(mode: DriveViewMode) {
-    setViewMode(mode)
-    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode)
-  }
-
-  function handleToggleView() {
-    handleViewModeChange(viewMode === 'grid' ? 'list' : 'grid')
-  }
 
   function handleRefresh() {
     if (loading) return
@@ -284,7 +183,7 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
   usePortalShortcut(DRIVE_NEW_FOLDER_SHORTCUT, handleOpenNewFolderDialog, {
     enabled: canWrite && !loading && !dialogOpen && Boolean(currentFolderId),
   })
-  usePortalShortcut(DRIVE_TOGGLE_VIEW_SHORTCUT, handleToggleView, {
+  usePortalShortcut(DRIVE_TOGGLE_VIEW_SHORTCUT, toggleViewMode, {
     enabled: !loading && !dialogOpen,
   })
 
@@ -300,57 +199,14 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
     setPreviewOpen(true)
   }
 
-  function handleDownload(item: DriveItem) {
-    setActionError(null)
-    setBusyItemId(item.id)
-
-    startTransition(async () => {
-      const result = await downloadDriveFileAction({ fileId: item.id })
-      setBusyItemId(null)
-
-      if (!result.ok) {
-        setActionError(errorMessage(result.error))
-        return
-      }
-
-      triggerBase64Download(result.filename, result.mimetype, result.dataBase64)
-    })
-  }
-
   function handleUpload(files: FileList | File[], targetFolderId?: string) {
     if (!canWrite) return
     const folderId = targetFolderId ?? currentFolderId
     if (!folderId) return
 
-    const fileArray = Array.from(files)
-    if (!fileArray.length) return
-
-    setUploading(true)
-    setUploadOverlayPhase('uploading')
-    setActionError(null)
-    setPageDragDepth(0)
+    resetPageDrag()
     clearInternalDragState()
-
-    const formData = new FormData()
-    formData.set('parentFolderId', folderId)
-    for (const file of fileArray) {
-      formData.append('files', file)
-    }
-
-    startTransition(async () => {
-      const result = await uploadDriveFilesAction(formData)
-      setUploading(false)
-
-      if (!result.ok) {
-        setUploadOverlayPhase('idle')
-        setActionError(errorMessage(result.error))
-        return
-      }
-
-      setUploadOverlayPhase('success')
-      await loadFolder(currentFolderId ?? folderId)
-      window.setTimeout(() => setUploadOverlayPhase('idle'), 1500)
-    })
+    driveFolder.upload(files, folderId, { onPhaseChange: setUploadOverlayPhase })
   }
 
   function handleRenameConfirm() {
@@ -358,95 +214,32 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
     const newName = renameValue.trim()
     if (!newName) return
 
-    setActionError(null)
-    setBusyItemId(renameItem.id)
-
-    startTransition(async () => {
-      const result = await renameDriveItemAction({
-        itemId: renameItem.id,
-        newName,
-      })
-      setBusyItemId(null)
-
-      if (!result.ok) {
-        setActionError(errorMessage(result.error))
-        return
-      }
-
+    driveFolder.rename(renameItem.id, newName, () => {
       setRenameItem(null)
       setRenameValue('')
-      if (currentFolderId) {
-        await loadFolder(currentFolderId)
-      }
     })
   }
 
   function handleDeleteConfirm() {
-    if (!deleteItem || !currentFolderId) return
-
-    setActionError(null)
-    setBusyItemId(deleteItem.id)
-
-    startTransition(async () => {
-      const result = await deleteDriveItemAction({ itemId: deleteItem.id })
-      setBusyItemId(null)
-
-      if (!result.ok) {
-        setActionError(errorMessage(result.error))
-        return
-      }
-
-      setDeleteItem(null)
-      await loadFolder(currentFolderId)
-    })
+    if (!deleteItem) return
+    driveFolder.remove(deleteItem.id, () => setDeleteItem(null))
   }
 
   function handleMoveConfirm(targetFolderId: string) {
-    if (!moveItem || !currentFolderId) return
-
-    setActionError(null)
-    setBusyItemId(moveItem.id)
-
-    startTransition(async () => {
-      const result = await moveDriveItemAction({
-        itemId: moveItem.id,
-        targetFolderId,
-        sourceFolderId: currentFolderId,
-      })
-      setBusyItemId(null)
-
-      if (!result.ok) {
-        setActionError(errorMessage(result.error))
-        return
-      }
-
+    if (!moveItem) return
+    driveFolder.move(moveItem.id, targetFolderId, () => {
       setMoveOpen(false)
       setMoveItem(null)
-      await loadFolder(currentFolderId)
     })
   }
 
   function handleCreateFolder() {
-    if (!currentFolderId) return
     const name = newFolderValue.trim()
     if (!name) return
 
-    setActionError(null)
-
-    startTransition(async () => {
-      const result = await createDriveFolderAction({
-        parentFolderId: currentFolderId,
-        name,
-      })
-
-      if (!result.ok) {
-        setActionError(errorMessage(result.error))
-        return
-      }
-
+    driveFolder.createFolder(name, () => {
       setNewFolderOpen(false)
       setNewFolderValue('')
-      await loadFolder(currentFolderId)
     })
   }
 
@@ -458,37 +251,21 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
     event.preventDefault()
     event.stopPropagation()
     clearInternalDragState()
-    setPageDragDepth(0)
+    resetPageDrag()
 
     try {
       const parsed = JSON.parse(internalPayload) as { id: string }
       if (!parsed.id || parsed.id === folder.id) return
-
-      setBusyItemId(parsed.id)
-      startTransition(async () => {
-        const result = await moveDriveItemAction({
-          itemId: parsed.id,
-          targetFolderId: folder.id,
-          sourceFolderId: currentFolderId,
-        })
-        setBusyItemId(null)
-
-        if (!result.ok) {
-          setActionError(errorMessage(result.error))
-          return
-        }
-
-        await loadFolder(currentFolderId)
-      })
+      driveFolder.move(parsed.id, folder.id, () => {})
     } catch {
-      setActionError(clientDocuments.errors.upload_failed)
+      driveFolder.setActionError(clientDocuments.errors.upload_failed)
     }
   }
 
   function handlePageDrop(event: React.DragEvent<HTMLDivElement>) {
     if (!isExternalFileDrag(event) || !currentFolderId) return
     event.preventDefault()
-    setPageDragDepth(0)
+    resetPageDrag()
     clearInternalDragState()
     if (event.dataTransfer.files.length > 0) {
       handleUpload(event.dataTransfer.files, currentFolderId)
@@ -609,7 +386,7 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
           <PortalFilterIconChip
             label={clientDocuments.viewGrid}
             active={viewMode === 'grid'}
-            onClick={() => handleViewModeChange('grid')}
+            onClick={() => setViewMode('grid')}
             aria-keyshortcuts={toggleViewShortcutLabel}
             tooltip={overlayActive ? gridViewTooltip.active : gridViewTooltip.idle}
           >
@@ -618,7 +395,7 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
           <PortalFilterIconChip
             label={clientDocuments.viewList}
             active={viewMode === 'list'}
-            onClick={() => handleViewModeChange('list')}
+            onClick={() => setViewMode('list')}
             tooltip={clientDocuments.viewList}
           >
             <LayoutList className="size-4" aria-hidden />
@@ -694,7 +471,7 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
               onOpen={() =>
                 item.kind === 'folder' ? handleOpenFolder(item) : handleOpenFile(item)
               }
-              onDownload={item.kind !== 'folder' ? () => handleDownload(item) : undefined}
+              onDownload={item.kind !== 'folder' ? () => driveFolder.download(item) : undefined}
               onRename={
                 canWrite
                   ? () => {

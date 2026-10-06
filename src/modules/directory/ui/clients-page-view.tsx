@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -15,35 +14,35 @@ import {
 } from '@/components/ui/select'
 import { equipo } from '@/content/equipo'
 import { bulkAssignAdvisorAction } from '@/src/modules/directory/application/directory-mutations'
-import type { ClientRecord } from '@/src/modules/directory/domain/types'
+import { listClientsPageAction } from '@/src/modules/directory/application/directory-queries'
+import { DIRECTORY_PAGE_SIZE } from '@/src/modules/directory/domain/types'
+import type { ClientRecord, DirectoryPageResult } from '@/src/modules/directory/domain/types'
 import { ClientCreateDialog } from '@/src/modules/directory/ui/client-create-dialog'
 import { PersonEditDialog } from '@/src/modules/directory/ui/person-edit-dialog'
 import {
   PersonList,
   type PersonListItem,
 } from '@/src/modules/directory/ui/person-list'
+import { ListPagination } from '@/src/modules/portal/ui/list-pagination'
 
 type ClientsPageViewProps = {
-  initialClients: ClientRecord[]
+  initialPage: DirectoryPageResult<ClientRecord>
   advisorOptions: Array<{ id: string; name: string; email: string }>
   canAssignAdvisor: boolean
 }
 
+const SEARCH_DEBOUNCE_MS = 300
+
 export function ClientsPageView({
-  initialClients,
+  initialPage,
   advisorOptions,
   canAssignAdvisor,
 }: ClientsPageViewProps) {
-  const router = useRouter()
   const copy = equipo.clientes
-  const [clients, setClients] = useState(initialClients)
-  // Ajuste durante el render (no en un efecto) cuando router.refresh() trae
-  // una nueva versión de initialClients desde el servidor.
-  const [prevInitialClients, setPrevInitialClients] = useState(initialClients)
-  if (initialClients !== prevInitialClients) {
-    setPrevInitialClients(initialClients)
-    setClients(initialClients)
-  }
+  const [result, setResult] = useState(initialPage)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [isFetching, startFetchTransition] = useTransition()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -51,26 +50,54 @@ export function ClientsPageView({
   const [bulkPending, startBulkTransition] = useTransition()
   const bulkCopy = equipo.clientes.bulk
   const formCopy = equipo.form
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const items = useMemo<PersonListItem[]>(
-    () =>
-      clients.map((client) => ({
-        id: client.id,
-        name: client.name,
-        email: client.email,
-        companyName: client.companyName,
-        status: client.status,
-        meta: client.advisorName,
-      })),
-    [clients]
-  )
+  const fetchPage = useCallback((nextPage: number, nextSearch: string) => {
+    startFetchTransition(async () => {
+      const next = await listClientsPageAction({
+        page: nextPage,
+        pageSize: DIRECTORY_PAGE_SIZE,
+        search: nextSearch || undefined,
+      })
+      setResult(next)
+      setSelectedIds(new Set())
+    })
+  }, [])
 
-  const selected = clients.find((client) => client.id === selectedId) ?? null
+  function handleSearchChange(value: string) {
+    setSearch(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setPage(1)
+      fetchPage(1, value)
+    }, SEARCH_DEBOUNCE_MS)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  function handlePageChange(nextPage: number) {
+    setPage(nextPage)
+    fetchPage(nextPage, search)
+  }
+
+  const items: PersonListItem[] = result.items.map((client) => ({
+    id: client.id,
+    name: client.name,
+    email: client.email,
+    companyName: client.companyName,
+    status: client.status,
+    meta: client.advisorName,
+  }))
+
+  const selected = result.items.find((client) => client.id === selectedId) ?? null
 
   const handleSaved = useCallback(() => {
-    router.refresh()
-    setClients((current) => [...current])
-  }, [router])
+    fetchPage(page, search)
+  }, [fetchPage, page, search])
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -96,18 +123,18 @@ export function ClientsPageView({
   function handleBulkAssign() {
     if (selectedIds.size === 0) return
     startBulkTransition(async () => {
-      const result = await bulkAssignAdvisorAction(
+      const assignResult = await bulkAssignAdvisorAction(
         Array.from(selectedIds),
         bulkAdvisorId || null
       )
-      if (!result.ok) {
-        toast.error(result.message ?? bulkCopy.assignError)
+      if (!assignResult.ok) {
+        toast.error(assignResult.message ?? bulkCopy.assignError)
         return
       }
       toast.success(bulkCopy.assignSuccess)
       setSelectedIds(new Set())
       setBulkAdvisorId('')
-      router.refresh()
+      fetchPage(page, search)
     })
   }
 
@@ -120,7 +147,7 @@ export function ClientsPageView({
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
           <p className="mt-3 text-sm text-muted-foreground">
-            {clients.length} {copy.countLabel}
+            {result.totalCount} {copy.countLabel}
           </p>
         </div>
         <Button type="button" className="gap-2" onClick={() => setCreateOpen(true)}>
@@ -174,16 +201,31 @@ export function ClientsPageView({
         </div>
       ) : null}
 
-      <PersonList
-        items={items}
-        kind="client"
-        searchPlaceholder={copy.searchPlaceholder}
-        emptyTitle={copy.emptyTitle}
-        emptyDescription={copy.emptyDescription}
-        onSelect={setSelectedId}
-        selectedIds={canAssignAdvisor ? selectedIds : undefined}
-        onToggleSelected={canAssignAdvisor ? toggleSelected : undefined}
-        onToggleSelectAll={canAssignAdvisor ? toggleSelectAll : undefined}
+      <div
+        className={isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}
+        aria-busy={isFetching}
+      >
+        <PersonList
+          items={items}
+          kind="client"
+          searchPlaceholder={copy.searchPlaceholder}
+          emptyTitle={copy.emptyTitle}
+          emptyDescription={copy.emptyDescription}
+          onSelect={setSelectedId}
+          selectedIds={canAssignAdvisor ? selectedIds : undefined}
+          onToggleSelected={canAssignAdvisor ? toggleSelected : undefined}
+          onToggleSelectAll={canAssignAdvisor ? toggleSelectAll : undefined}
+          searchValue={search}
+          onSearchChange={handleSearchChange}
+        />
+      </div>
+
+      <ListPagination
+        id="clients-pagination"
+        page={page}
+        pageSize={DIRECTORY_PAGE_SIZE}
+        totalItems={result.totalCount}
+        onPageChange={handlePageChange}
       />
 
       <PersonEditDialog

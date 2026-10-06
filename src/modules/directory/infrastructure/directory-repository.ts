@@ -5,6 +5,8 @@ import type {
   CreateGestorInput,
   CreateGestorResult,
   DirectoryListScope,
+  DirectoryPageParams,
+  DirectoryPageResult,
   GestorRecord,
   UpdateClientInput,
   UpdateGestorInput,
@@ -13,6 +15,15 @@ import type {
 export interface DirectoryRepository {
   listGestores(): Promise<GestorRecord[]>
   listClients(scope: DirectoryListScope): Promise<ClientRecord[]>
+  listClientsPage(
+    scope: DirectoryListScope,
+    params: DirectoryPageParams
+  ): Promise<DirectoryPageResult<ClientRecord>>
+  listGestoresPage(
+    params: DirectoryPageParams
+  ): Promise<DirectoryPageResult<GestorRecord>>
+  /** Clientes por asesor (`profiles.advisor_id`) — agregado en SQL, ver `gestores-page.tsx`. */
+  countClientsByAdvisor(): Promise<Record<string, number>>
   getGestor(id: string): Promise<GestorRecord | null>
   getClient(id: string): Promise<ClientRecord | null>
   createGestor(input: CreateGestorInput): Promise<CreateGestorResult>

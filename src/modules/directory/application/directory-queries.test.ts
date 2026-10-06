@@ -3,27 +3,48 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { PortalSession } from '@/src/modules/auth/domain/types'
 import {
   buildDirectoryScope,
+  countClientsByAdvisorAction,
   listAdvisorOptionsAction,
   listClientsAction,
+  listClientsPageAction,
   listGestoresAction,
+  listGestoresPageAction,
   requireDirectorySession,
 } from '@/src/modules/directory/application/directory-queries'
 
-const { getSession, resolveDirectoryActorId, listGestores, listClients, listAdvisorOptions } =
-  vi.hoisted(() => ({
-    getSession: vi.fn(),
-    resolveDirectoryActorId: vi.fn(),
-    listGestores: vi.fn(),
-    listClients: vi.fn(),
-    listAdvisorOptions: vi.fn(),
-  }))
+const {
+  getSession,
+  resolveDirectoryActorId,
+  listGestores,
+  listClients,
+  listAdvisorOptions,
+  listClientsPage,
+  listGestoresPage,
+  countClientsByAdvisor,
+} = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  resolveDirectoryActorId: vi.fn(),
+  listGestores: vi.fn(),
+  listClients: vi.fn(),
+  listAdvisorOptions: vi.fn(),
+  listClientsPage: vi.fn(),
+  listGestoresPage: vi.fn(),
+  countClientsByAdvisor: vi.fn(),
+}))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({
   resolveDirectoryActorId,
 }))
 vi.mock('@/src/modules/directory/infrastructure/get-directory-repository', () => ({
-  getDirectoryRepository: () => ({ listGestores, listClients, listAdvisorOptions }),
+  getDirectoryRepository: () => ({
+    listGestores,
+    listClients,
+    listAdvisorOptions,
+    listClientsPage,
+    listGestoresPage,
+    countClientsByAdvisor,
+  }),
 }))
 
 function sessionFor(role: 'admin' | 'advisor' | 'client' | 'worker'): PortalSession {
@@ -132,5 +153,73 @@ describe('listAdvisorOptionsAction (admin-only, RETURNS [] for non-admin — doe
     listAdvisorOptions.mockResolvedValue([{ id: 'a-1', name: 'Ana' }])
 
     await expect(listAdvisorOptionsAction()).resolves.toEqual([{ id: 'a-1', name: 'Ana' }])
+  })
+})
+
+describe('listClientsPageAction (blocks only role="client")', () => {
+  it('throws "forbidden" for role=client', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    resolveDirectoryActorId.mockResolvedValue('portal-client-1')
+
+    await expect(listClientsPageAction({ page: 1, pageSize: 25 })).rejects.toThrow('forbidden')
+    expect(listClientsPage).not.toHaveBeenCalled()
+  })
+
+  it.each(['admin', 'advisor'] as const)(
+    'calls the repository with the resolved scope and params for role=%s',
+    async (role) => {
+      getSession.mockResolvedValue(sessionFor(role))
+      resolveDirectoryActorId.mockResolvedValue(`portal-${role}-1`)
+      listClientsPage.mockResolvedValue({ items: [{ id: 'c-1' }], totalCount: 1 })
+
+      const result = await listClientsPageAction({ page: 2, pageSize: 25, search: 'ana' })
+
+      expect(listClientsPage).toHaveBeenCalledWith(
+        { role, userId: `portal-${role}-1` },
+        { page: 2, pageSize: 25, search: 'ana' }
+      )
+      expect(result).toEqual({ items: [{ id: 'c-1' }], totalCount: 1 })
+    }
+  )
+})
+
+describe('listGestoresPageAction (admin-only, THROWS for non-admin)', () => {
+  it.each(['advisor', 'client', 'worker'] as const)(
+    'throws "forbidden" for role=%s',
+    async (role) => {
+      getSession.mockResolvedValue(sessionFor(role))
+
+      await expect(listGestoresPageAction({ page: 1, pageSize: 25 })).rejects.toThrow('forbidden')
+      expect(listGestoresPage).not.toHaveBeenCalled()
+    }
+  )
+
+  it('calls the repository with the given params for an admin', async () => {
+    getSession.mockResolvedValue(sessionFor('admin'))
+    listGestoresPage.mockResolvedValue({ items: [{ id: 'g-1' }], totalCount: 1 })
+
+    const result = await listGestoresPageAction({ page: 1, pageSize: 25, search: 'bob' })
+
+    expect(listGestoresPage).toHaveBeenCalledWith({ page: 1, pageSize: 25, search: 'bob' })
+    expect(result).toEqual({ items: [{ id: 'g-1' }], totalCount: 1 })
+  })
+})
+
+describe('countClientsByAdvisorAction (admin-only, THROWS for non-admin)', () => {
+  it.each(['advisor', 'client', 'worker'] as const)(
+    'throws "forbidden" for role=%s',
+    async (role) => {
+      getSession.mockResolvedValue(sessionFor(role))
+
+      await expect(countClientsByAdvisorAction()).rejects.toThrow('forbidden')
+      expect(countClientsByAdvisor).not.toHaveBeenCalled()
+    }
+  )
+
+  it('returns the repository result for an admin', async () => {
+    getSession.mockResolvedValue(sessionFor('admin'))
+    countClientsByAdvisor.mockResolvedValue({ 'advisor-1': 3 })
+
+    await expect(countClientsByAdvisorAction()).resolves.toEqual({ 'advisor-1': 3 })
   })
 })

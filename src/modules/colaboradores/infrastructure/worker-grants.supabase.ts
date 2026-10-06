@@ -70,12 +70,20 @@ export async function listWorkerGrantsForOwner(
   return (data ?? []) as WorkerGrantRow[]
 }
 
-/** Sin filtro de owner — solo para la vista de colaboradores a nivel admin. */
+/**
+ * Sin filtro de owner — solo para la vista de colaboradores a nivel admin.
+ * `limit` es un tope de seguridad, no paginación real: a diferencia de
+ * `listLeads()` esta tabla no alimenta ninguna agregación (solo el listado
+ * de colaboradores), así que truncar en el peor de los casos no corrompe
+ * nada — solo evita un full-table-scan sin fondo si el número de
+ * colaboradores creciera a un volumen patológico.
+ */
 export async function listAllWorkerGrants(): Promise<WorkerGrantRow[]> {
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
     .from('worker_grants')
     .select(WORKER_GRANT_SELECT)
+    .limit(2000)
 
   if (error) {
     throw new Error(error.message)

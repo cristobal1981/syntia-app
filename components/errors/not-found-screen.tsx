@@ -7,7 +7,7 @@ import { LazyMotion, domAnimation, m } from 'framer-motion'
 import { DvdBounceLogo } from '@/components/errors/dvd-bounce-logo'
 import { TechAmbientBackdrop } from '@/components/errors/tech-ambient-backdrop'
 import { MarketingButton } from '@/components/ui/marketing-button'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 
 type NotFoundScreenProps = {
   code: string

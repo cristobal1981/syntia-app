@@ -53,20 +53,6 @@ export function mapLeadRow(row: LeadRow): LeadRecord {
   }
 }
 
-export async function listLeads(): Promise<LeadRecord[]> {
-  const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from('landing_autonomo_leads')
-    .select(LEAD_SELECT)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return ((data ?? []) as LeadRow[]).map(mapLeadRow)
-}
-
 export async function getLeadById(id: string): Promise<LeadRecord | null> {
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase

@@ -1,20 +1,15 @@
 import {
-  listClientsAction,
-  listGestoresAction,
+  countClientsByAdvisorAction,
+  listGestoresPageAction,
 } from '@/src/modules/directory/application/directory-queries'
+import { DIRECTORY_PAGE_SIZE } from '@/src/modules/directory/domain/types'
 import { GestoresPageView } from '@/src/modules/directory/ui/gestores-page-view'
 
 export async function GestoresPage() {
-  const [gestores, clients] = await Promise.all([
-    listGestoresAction(),
-    listClientsAction(),
+  const [page, clientCounts] = await Promise.all([
+    listGestoresPageAction({ page: 1, pageSize: DIRECTORY_PAGE_SIZE }),
+    countClientsByAdvisorAction(),
   ])
 
-  const clientCounts: Record<string, number> = {}
-  for (const client of clients) {
-    if (!client.advisorId) continue
-    clientCounts[client.advisorId] = (clientCounts[client.advisorId] ?? 0) + 1
-  }
-
-  return <GestoresPageView initialGestores={gestores} clientCounts={clientCounts} />
+  return <GestoresPageView initialPage={page} clientCounts={clientCounts} />
 }

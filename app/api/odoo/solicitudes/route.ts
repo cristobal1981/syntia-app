@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 
 import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { createAltaAutonomoAccessLinkCore } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
 import { mapOdooMany2OneId } from '@/src/modules/portal/infrastructure/odoo-json-client'
+
+const MAX_LABEL_LENGTH = 200
+
+const leadPayloadSchema = z.object({
+  email: z.email('Introduce un correo válido.').max(254),
+  label: z.string().trim().max(MAX_LABEL_LENGTH),
+  odooPartnerId: z.number().int().positive(),
+})
 
 /**
  * Usuario "de sistema" (automatizacion-odoo@syntia.internal, sin login real)
@@ -54,7 +63,7 @@ type ParseLeadPayloadResult =
   | { ok: true; lead: ParsedLeadPayload }
   | { ok: false; message: string }
 
-function parseLeadPayload(body: unknown): ParseLeadPayloadResult {
+export function parseLeadPayload(body: unknown): ParseLeadPayloadResult {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return {
       ok: false,
@@ -71,20 +80,23 @@ function parseLeadPayload(body: unknown): ParseLeadPayloadResult {
   ).trim()
   const odooPartnerId = parsePartnerId(record.partner_id)
 
-  const missing: string[] = []
-  if (!email) missing.push('email (o email_from)')
-  if (!odooPartnerId) missing.push('partner_id')
+  const parsed = leadPayloadSchema.safeParse({
+    email,
+    label: label || email,
+    odooPartnerId,
+  })
 
-  if (missing.length > 0) {
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || 'payload'}: ${issue.message}`)
+      .join('; ')
     return {
       ok: false,
-      message: `Faltan campos obligatorios: ${missing.join(', ')}. Recibido: ${JSON.stringify(
-        Object.keys(record)
-      )}.`,
+      message: `Payload inválido (${details}). Recibido: ${JSON.stringify(Object.keys(record))}.`,
     }
   }
 
-  return { ok: true, lead: { email, label: label || email, odooPartnerId: odooPartnerId! } }
+  return { ok: true, lead: parsed.data }
 }
 
 export async function POST(request: Request) {

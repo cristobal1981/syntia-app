@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef } from 'react'
 
 import { site } from '@/content/site'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 
 const MARK_SIZE = 56
 const SPEED = 200

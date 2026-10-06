@@ -5,7 +5,7 @@ import {
   maskStatsForWorker,
 } from '@/src/modules/colaboradores/application/mask-dashboard-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
-import type { ChatterNotificationsCheckResult } from '@/src/modules/portal/domain/chatter-notifications-types'
+import type { PortalNotificationsCheckResult } from '@/src/modules/portal/domain/portal-notifications-types'
 import { loadClientPortalNotifications } from '@/src/modules/portal/application/load-client-portal-notifications'
 import type {
   ClientDashboardSnapshot,
@@ -17,7 +17,7 @@ import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/r
 export type ClientHomeData = {
   snapshot: ClientDashboardSnapshot | null
   snapshotError: Extract<ClientDashboardSnapshotResult, { ok: false }>['error'] | null
-  notifications: ChatterNotificationsCheckResult | null
+  notifications: PortalNotificationsCheckResult | null
 }
 
 export async function getClientHomeData(user: PortalUser): Promise<ClientHomeData> {

@@ -1,9 +1,60 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 
+import { isValidPhone } from '@/lib/validation/phone'
 import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { createClientCore } from '@/src/modules/directory/application/directory-mutations'
 import type { CreateClientInput } from '@/src/modules/directory/domain/types'
 import { mapOdooMany2OneId } from '@/src/modules/portal/infrastructure/odoo-json-client'
+
+const MAX_NAME_LENGTH = 100
+const MAX_FREEFORM_LENGTH = 200
+
+/**
+ * Antes solo se comprobaba "¿está vacío?" en los campos obligatorios y nada
+ * en los opcionales — este webhook público no verificaba longitud ni
+ * formato real antes de pasar a `createClientCore`. zod acota ambos.
+ */
+const clientPayloadSchema = z
+  .object({
+    clientKind: z.enum(['person', 'company']),
+    email: z.email('Introduce un correo válido.').max(254),
+    firstName: z.string().trim().max(MAX_NAME_LENGTH).optional(),
+    firstSurname: z.string().trim().max(MAX_NAME_LENGTH).optional(),
+    secondSurname: z.string().trim().max(MAX_NAME_LENGTH).optional(),
+    companyName: z.string().trim().max(MAX_FREEFORM_LENGTH).optional(),
+    phone: z
+      .string()
+      .trim()
+      .max(30)
+      .refine((value) => isValidPhone(value), 'Teléfono con formato inválido.')
+      .optional(),
+    odooPartnerId: z
+      .string()
+      .regex(/^[0-9]+$/, 'El ID de Odoo debe ser numérico.')
+      .optional(),
+    driveFolderId: z.string().trim().max(MAX_FREEFORM_LENGTH).optional(),
+    advisorId: z.uuid('advisor_id debe ser un UUID.').optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.clientKind === 'company') {
+      if (!value.companyName) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['companyName'],
+          message: 'Falta name (o company_name).',
+        })
+      }
+      return
+    }
+    if (!value.firstName) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['firstName'],
+        message: 'Falta name (o first_name).',
+      })
+    }
+  })
 
 /**
  * Webhook público: da de alta un cliente en el portal (Supabase Auth +
@@ -60,7 +111,7 @@ type ParseClientPayloadResult =
   | { ok: true; input: CreateClientInput }
   | { ok: false; message: string }
 
-function parseClientPayload(body: unknown): ParseClientPayloadResult {
+export function parseClientPayload(body: unknown): ParseClientPayloadResult {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return {
       ok: false,
@@ -83,34 +134,41 @@ function parseClientPayload(body: unknown): ParseClientPayloadResult {
   const { firstName: splitFirstName, firstSurname: splitFirstSurname } =
     splitFullName(rawName)
 
-  const missing: string[] = []
-  if (!email) missing.push('email (o email_from)')
-  if (isCompany) {
-    if (!rawName && !record.company_name) missing.push('name (o company_name)')
-  } else if (!explicitFirstName && !rawName) {
-    missing.push('name (o first_name)')
-  }
-
-  if (missing.length > 0) {
-    return {
-      ok: false,
-      message: `Faltan campos obligatorios: ${missing.join(', ')}. Recibido: ${JSON.stringify(
-        Object.keys(record)
-      )}.`,
-    }
-  }
-
-  const input: CreateClientInput = {
+  const candidate = {
     clientKind: isCompany ? 'company' : 'person',
     email,
-    firstName: explicitFirstName || splitFirstName,
-    firstSurname: explicitFirstSurname || splitFirstSurname,
+    firstName: explicitFirstName || splitFirstName || undefined,
+    firstSurname: explicitFirstSurname || splitFirstSurname || undefined,
     secondSurname: String(record.second_surname ?? '').trim() || undefined,
     companyName: String(record.company_name ?? rawName ?? '').trim() || undefined,
     phone: String(record.phone ?? record.mobile ?? '').trim() || undefined,
     odooPartnerId: odooPartnerId ? String(odooPartnerId) : undefined,
     driveFolderId: String(record.drive_folder_id ?? '').trim() || undefined,
     advisorId: String(record.advisor_id ?? '').trim() || undefined,
+  }
+
+  const parsed = clientPayloadSchema.safeParse(candidate)
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || 'payload'}: ${issue.message}`)
+      .join('; ')
+    return {
+      ok: false,
+      message: `Payload inválido (${details}). Recibido: ${JSON.stringify(Object.keys(record))}.`,
+    }
+  }
+
+  const input: CreateClientInput = {
+    clientKind: parsed.data.clientKind,
+    email: parsed.data.email,
+    firstName: parsed.data.firstName ?? '',
+    firstSurname: parsed.data.firstSurname ?? '',
+    secondSurname: parsed.data.secondSurname,
+    companyName: parsed.data.companyName,
+    phone: parsed.data.phone,
+    odooPartnerId: parsed.data.odooPartnerId,
+    driveFolderId: parsed.data.driveFolderId,
+    advisorId: parsed.data.advisorId,
   }
 
   return { ok: true, input }

@@ -31,12 +31,13 @@ type AltaTrabajadorWizardShellProps = {
 }
 
 function mapProcedureActionError(
-  error: 'forbidden' | 'not_linked' | 'odoo_unavailable' | 'create_failed'
+  error: 'forbidden' | 'not_linked' | 'odoo_unavailable' | 'create_failed' | 'rate_limited'
 ): string {
   const errors = tramiteSolicitudes.errors
   if (error === 'forbidden') return errors.forbidden
   if (error === 'not_linked') return errors.not_linked
   if (error === 'create_failed') return errors.create_failed
+  if (error === 'rate_limited') return errors.rate_limited
   return errors.odoo_unavailable
 }
 

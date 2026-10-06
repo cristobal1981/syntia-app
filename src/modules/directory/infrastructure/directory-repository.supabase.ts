@@ -1,4 +1,6 @@
-import { mapClientProfileFields } from '@/src/modules/directory/domain/client-kind'
+import { z } from 'zod'
+
+import { isProfileCompanyKind, mapClientProfileFields } from '@/src/modules/directory/domain/client-kind'
 import {
   PROFILE_SELECT,
   USER_SELECT,
@@ -14,7 +16,11 @@ import {
   type ProfileRow,
   type UserRow,
 } from '@/src/modules/directory/domain/map-directory-row'
-import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
+import type {
+  ClientRecord,
+  DirectoryPageParams,
+  GestorRecord,
+} from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
 import {
   deliverClientAccessEmail,
@@ -33,6 +39,9 @@ import {
 } from '@/src/modules/directory/infrastructure/directory-env'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import { isResendConfigured } from '@/src/modules/email/infrastructure/resend-env'
+
+/** Forma del `jsonb` del RPC `count_clients_by_advisor` — frontera real (SQL). */
+const clientCountsByAdvisorSchema = z.record(z.string(), z.number())
 
 async function fetchUserMap(ids?: string[]) {
   const supabase = createSupabaseAdminClient()
@@ -89,6 +98,111 @@ async function fetchClientIdsForAdvisor(advisorId: string): Promise<string[]> {
   }
 
   return (data as { user_id: string }[]).map((row) => row.user_id)
+}
+
+type DirectorySearchEntry = {
+  id: string
+  sortName: string
+  searchText: string
+}
+
+/**
+ * Perfil "parcial" (solo los 4 campos de nombre que afectan a
+ * `resolveClientDisplayName`/`isProfileCompanyKind`) ensanchado con el resto
+ * de columnas de `ProfileRow` en `null` — así se reutiliza la MISMA lógica
+ * de resolución de nombre que usa el enriquecimiento completo (orden
+ * alfabético y "¿es empresa?" coherentes entre el índice ligero y el
+ * registro final), en vez de duplicarla.
+ */
+function toSortableProfile(row: {
+  first_name: string
+  first_surname: string
+  second_surname: string
+  company_name: string | null
+}): ProfileRow {
+  return {
+    user_id: '',
+    ...row,
+    phone: null,
+    advisor_id: null,
+    vat: null,
+    iban: null,
+    address_line1: null,
+    address_line2: null,
+    postal_code: null,
+    city: null,
+    province: null,
+    country: null,
+  }
+}
+
+const LIGHT_PROFILE_SELECT = 'user_id, first_name, first_surname, second_surname, company_name'
+
+/**
+ * Proyección barata (pocas columnas de texto) para decidir QUÉ página
+ * mostrar sin enriquecer (`buildDirectorySources`, 3 tablas con todas sus
+ * columnas) el dataset completo del scope — solo la página final pasa por
+ * el enriquecimiento completo. Sustituye a "traer todo y filtrar en
+ * memoria" por "traer poco y filtrar en memoria, enriquecer solo la
+ * página".
+ */
+async function fetchDirectorySearchIndex(ids: string[]): Promise<DirectorySearchEntry[]> {
+  const supabase = createSupabaseAdminClient()
+  const [{ data: users, error: usersError }, { data: profiles, error: profilesError }] =
+    await Promise.all([
+      supabase.from('users').select('id, email').in('id', ids),
+      supabase.from('profiles').select(LIGHT_PROFILE_SELECT).in('user_id', ids),
+    ])
+
+  if (usersError) throw new Error(usersError.message)
+  if (profilesError) throw new Error(profilesError.message)
+
+  type LightProfileRow = {
+    user_id: string
+    first_name: string
+    first_surname: string
+    second_surname: string
+    company_name: string | null
+  }
+  const profileMap = new Map(
+    ((profiles ?? []) as LightProfileRow[]).map((row) => [row.user_id, row])
+  )
+
+  return ((users ?? []) as { id: string; email: string | null }[]).map((user) => {
+    const profile = profileMap.get(user.id)
+    const sortName = profile
+      ? resolveDirectorySortName(toSortableProfile(profile))
+      : user.email ?? 'Sin nombre'
+    const searchText = [sortName, user.email, profile?.company_name]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return { id: user.id, sortName, searchText }
+  })
+}
+
+function resolveDirectorySortName(profile: ProfileRow): string {
+  if (isProfileCompanyKind(profile)) {
+    return profile.company_name?.trim() || 'Sin nombre'
+  }
+  return buildDisplayName(profile.first_name, profile.first_surname, profile.second_surname)
+}
+
+function paginateSearchIndex(
+  index: DirectorySearchEntry[],
+  { page, pageSize, search }: DirectoryPageParams
+): { pageIds: string[]; totalCount: number } {
+  const normalized = search?.trim().toLowerCase()
+  const matched = normalized
+    ? index.filter((entry) => entry.searchText.includes(normalized))
+    : index
+  matched.sort((a, b) => a.sortName.localeCompare(b.sortName, 'es'))
+
+  const start = Math.max(0, (page - 1) * pageSize)
+  return {
+    pageIds: matched.slice(start, start + pageSize).map((entry) => entry.id),
+    totalCount: matched.length,
+  }
 }
 
 async function buildDirectorySources(ids?: string[]) {
@@ -371,6 +485,71 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     }
 
     return clients.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  },
+
+  async listClientsPage(scope, params) {
+    const ids =
+      scope.role === 'advisor'
+        ? await fetchClientIdsForAdvisor(scope.userId)
+        : await fetchUserIdsByRole(['client'])
+    if (!ids.length) return { items: [], totalCount: 0 }
+
+    const index = await fetchDirectorySearchIndex(ids)
+    const { pageIds, totalCount } = paginateSearchIndex(index, params)
+    if (!pageIds.length) return { items: [], totalCount }
+
+    // Enriquece (3 tablas, todas las columnas) solo la página actual —
+    // nunca el scope completo, a diferencia de `listClients` arriba.
+    const sources = await buildDirectorySources(pageIds)
+    const advisorNames = await buildAdvisorNameMap(sources)
+    const clients: ClientRecord[] = []
+
+    for (const source of sources) {
+      if (!isClientDbRole(source.user.role)) continue
+
+      if (scope.role === 'advisor') {
+        const advisorId = source.profile?.advisor_id
+        if (!advisorId || advisorId !== scope.userId) continue
+      }
+
+      const advisorName = source.profile?.advisor_id
+        ? advisorNames.get(source.profile.advisor_id)
+        : undefined
+      const mapped = mapDirectorySourceToClient(source, advisorName)
+      if (mapped) clients.push(mapped)
+    }
+
+    // `sources` preserva el orden de `pageIds` (ya alfabético, resuelto
+    // sobre el índice ligero) — no hace falta reordenar otra vez.
+    return { items: clients, totalCount }
+  },
+
+  async listGestoresPage(params) {
+    const ids = await fetchUserIdsByRole(['advisor', 'admin'])
+    if (!ids.length) return { items: [], totalCount: 0 }
+
+    const index = await fetchDirectorySearchIndex(ids)
+    const { pageIds, totalCount } = paginateSearchIndex(index, params)
+    if (!pageIds.length) return { items: [], totalCount }
+
+    const sources = await buildDirectorySources(pageIds)
+    const gestores: GestorRecord[] = []
+
+    for (const source of sources) {
+      const mapped = mapDirectorySourceToGestor(source)
+      if (mapped) gestores.push(mapped)
+    }
+
+    return { items: gestores, totalCount }
+  },
+
+  async countClientsByAdvisor() {
+    const supabase = createSupabaseAdminClient()
+    const { data, error } = await supabase.rpc('count_clients_by_advisor')
+    if (error) {
+      throw new Error(error.message)
+    }
+    return clientCountsByAdvisorSchema.parse(data)
   },
 
   async getGestor(id) {

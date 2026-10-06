@@ -402,3 +402,18 @@ export function removePortalNotificationsByScope(
   })
   return next.length === items.length ? items : next
 }
+
+/** Usado por `openNotification` — a diferencia de las dos funciones de arriba, compara por `scope`+`recordId`+`reason` exactos (no por `recordKind`, que `PortalNotification` no siempre trae). */
+export function removeNotificationFromList(
+  items: PortalNotification[],
+  notification: PortalNotification
+): PortalNotification[] {
+  return items.filter(
+    (item) =>
+      !(
+        item.scope === notification.scope &&
+        item.recordId === notification.recordId &&
+        item.reason === notification.reason
+      )
+  )
+}

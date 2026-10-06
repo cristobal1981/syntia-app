@@ -1,5 +1,5 @@
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
-import { chatterReadStateKey } from '@/src/modules/portal/domain/chatter-notifications-types'
+import { chatterReadStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
 
