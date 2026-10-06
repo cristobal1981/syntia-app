@@ -131,6 +131,37 @@ export async function countAttachmentsByRecordIds(
   return counts
 }
 
+/** Un id de adjunto por recordId: el más reciente (create_date desc) de cada uno. */
+export async function listLatestAttachmentIdByRecordIds(
+  resModel: string,
+  resIds: number[]
+): Promise<Map<number, number>> {
+  const latest = new Map<number, number>()
+  if (!resIds.length) return latest
+
+  const rows = await odooSearchRead<{ id: number; res_id?: number | false | null }>(
+    'ir.attachment',
+    {
+      domain: [
+        ['res_model', '=', resModel],
+        ['res_id', 'in', resIds],
+      ],
+      fields: ['res_id'],
+      order: 'create_date desc, id desc',
+      limit: resIds.length * 5,
+    }
+  )
+
+  for (const row of rows) {
+    if (typeof row.res_id !== 'number') continue
+    if (!latest.has(row.res_id)) {
+      latest.set(row.res_id, row.id)
+    }
+  }
+
+  return latest
+}
+
 export async function fetchAttachmentBinary(attachmentId: number): Promise<{
   filename: string
   mimetype: string

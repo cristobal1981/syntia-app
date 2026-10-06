@@ -13,6 +13,7 @@ const DEFAULT_REQUEST_MODEL = 'sign.request'
 const DEFAULT_ITEM_MODEL = 'sign.request.item'
 const DEFAULT_ITEM_PENDING_STATES = ['sent', 'shared']
 const DEFAULT_REQUEST_ACTIVE_STATES = ['sent', 'shared']
+const DEFAULT_ITEM_DONE_STATES = ['signed']
 
 function parseCsvEnv(value: string | undefined, fallback: string[]): string[] {
   if (!value?.trim()) return fallback
@@ -49,6 +50,21 @@ export function getOdooSignRequestActiveStates(): string[] {
 /** Odoo Sign «Valid Until» on sign.request (override if your instance differs). */
 export function getOdooSignRequestDueDateField(): string {
   return process.env.ODOO_SIGN_REQUEST_DUE_DATE_FIELD?.trim() || 'validity'
+}
+
+/** Item state once THIS signer has completed their part (history, not the overall request). */
+export function getOdooSignItemDoneStates(): string[] {
+  return parseCsvEnv(
+    process.env.ODOO_SIGN_ITEM_DONE_STATES,
+    DEFAULT_ITEM_DONE_STATES
+  )
+}
+
+/** Odoo Sign item «Signed on» (override if your instance differs). */
+export function getOdooSignRequestItemSignedDateField(): string {
+  return (
+    process.env.ODOO_SIGN_REQUEST_ITEM_SIGNED_DATE_FIELD?.trim() || 'signed_on'
+  )
 }
 
 /** Public /sign/document URL for external signers (matches Odoo email links). */

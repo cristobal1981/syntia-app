@@ -4,8 +4,14 @@ import { getClientIntegrationByUserId } from '@/src/modules/directory/infrastruc
 import type { ObligacionNotificationSnapshot } from '@/src/modules/obligaciones/infrastructure/odoo-obligacion-notification-snapshot'
 import { buildObligacionTaskIndex } from '@/src/modules/obligaciones/infrastructure/odoo-obligacion-task-index'
 import type { ObligacionTaskIndex } from '@/src/modules/obligaciones/infrastructure/odoo-obligacion-task-index'
-import { fetchPendingSignaturesFromOdoo } from '@/src/modules/firmas/infrastructure/odoo-sign-repository'
-import type { PendingSignaturesSnapshot } from '@/src/modules/firmas/domain/types'
+import {
+  fetchPendingSignaturesFromOdoo,
+  fetchSignatureHistoryFromOdoo,
+} from '@/src/modules/firmas/infrastructure/odoo-sign-repository'
+import type {
+  PendingSignaturesSnapshot,
+  SignatureHistorySnapshot,
+} from '@/src/modules/firmas/domain/types'
 import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   resolveOdooErrorCode,
@@ -29,6 +35,7 @@ const CLIENT_PROJECT_IDS_REVALIDATE_SECONDS = 90
 const OBLIGACION_TASK_INDEX_REVALIDATE_SECONDS = 90
 const OBLIGACION_NOTIFICATION_SNAPSHOT_REVALIDATE_SECONDS = 90
 const PENDING_SIGNATURES_SNAPSHOT_REVALIDATE_SECONDS = 90
+const SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS = 90
 const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
 const TRAMITES_TAG_ID_REVALIDATE_SECONDS = 300
 
@@ -72,6 +79,10 @@ export function obligacionNotificationSnapshotCacheTag(partnerId: number): strin
 
 export function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
   return `pending-signatures-snapshot:${partnerId}`
+}
+
+export function signatureHistorySnapshotCacheTag(partnerId: number): string {
+  return `signature-history-snapshot:${partnerId}`
 }
 
 export function chatterUnreadBatchCacheTag(partnerId: number): string {
@@ -263,6 +274,28 @@ export async function getCachedPendingSignaturesSnapshot(
     {
       revalidate: PENDING_SIGNATURES_SNAPSHOT_REVALIDATE_SECONDS,
       tags: [pendingSignaturesSnapshotCacheTag(partnerId)],
+    }
+  )
+
+  return cached()
+}
+
+async function loadSignatureHistorySnapshot(
+  partnerId: number
+): Promise<SignatureHistorySnapshot> {
+  const requests = await fetchSignatureHistoryFromOdoo(partnerId)
+  return { requests }
+}
+
+export async function getCachedSignatureHistorySnapshot(
+  partnerId: number
+): Promise<SignatureHistorySnapshot> {
+  const cached = unstable_cache(
+    () => loadSignatureHistorySnapshot(partnerId),
+    ['signature-history-snapshot', String(partnerId)],
+    {
+      revalidate: SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS,
+      tags: [signatureHistorySnapshotCacheTag(partnerId)],
     }
   )
 

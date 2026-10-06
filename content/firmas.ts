@@ -1,4 +1,8 @@
 export const firmas = {
+  tabs: {
+    pending: 'Pendientes',
+    history: 'Firmadas',
+  },
   list: {
     title: 'Solicitudes pendientes de firma',
     description:
@@ -9,6 +13,26 @@ export const firmas = {
     dueSoon: 'Vence pronto',
     notificationNewFirma: 'Nueva solicitud de firma',
     signAction: 'Firmar documento',
+  },
+  history: {
+    title: 'Firmas completadas',
+    description: 'Documentos que ya has firmado, con su fecha y descarga.',
+    signedLabel: 'Firmado',
+    statusSigned: 'Firmado',
+    downloadAction: 'Descargar documento firmado',
+    emptyTitle: 'Sin firmas en el historial',
+    emptyDescription: 'Cuando completes una firma, aparecerá aquí.',
+    downloadButton: 'Descargar',
+    downloading: 'Descargando…',
+    errors: {
+      forbidden: 'No tienes permiso para descargar este documento.',
+      not_linked:
+        'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
+      not_found: 'No encontramos el documento firmado.',
+      odoo_unavailable: 'No pudimos descargar el documento. Inténtalo de nuevo.',
+      odoo_rate_limited:
+        'El servidor está recibiendo mucha demanda. Vuelve a intentarlo en unos minutos.',
+    },
   },
   emptyTitle: 'Sin firmas pendientes',
   emptyDescription:

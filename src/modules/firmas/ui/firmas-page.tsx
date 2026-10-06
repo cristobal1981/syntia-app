@@ -1,4 +1,5 @@
 import { getPendingSignaturesForClient } from '@/src/modules/firmas/application/get-pending-signatures-for-client'
+import { getSignatureHistoryForClient } from '@/src/modules/firmas/application/get-signature-history-for-client'
 import {
   FirmasPageView,
   FirmasStateView,
@@ -11,7 +12,10 @@ type FirmasPageProps = {
 }
 
 export async function FirmasPage({ user }: FirmasPageProps) {
-  const result = await getPendingSignaturesForClient(user)
+  const [result, historyResult] = await Promise.all([
+    getPendingSignaturesForClient(user),
+    getSignatureHistoryForClient(user),
+  ])
 
   if (!result.ok) {
     const stateCopy = firmas.states
@@ -50,5 +54,7 @@ export async function FirmasPage({ user }: FirmasPageProps) {
     )
   }
 
-  return <FirmasPageView data={result.data} />
+  const history = historyResult.ok ? historyResult.data : { requests: [] }
+
+  return <FirmasPageView pending={result.data} history={history} />
 }

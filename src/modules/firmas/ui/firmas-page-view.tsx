@@ -1,25 +1,66 @@
 'use client'
 
+import { useState } from 'react'
+
 import { firmas } from '@/content/firmas'
-import type { PendingSignaturesSnapshot } from '@/src/modules/firmas/domain/types'
+import type {
+  PendingSignaturesSnapshot,
+  SignatureHistorySnapshot,
+} from '@/src/modules/firmas/domain/types'
+import { FirmasHistoryList } from '@/src/modules/firmas/ui/firmas-history-list'
 import { FirmasRequestsList } from '@/src/modules/firmas/ui/firmas-requests-list'
+import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 
 type FirmasPageViewProps = {
-  data: PendingSignaturesSnapshot
+  pending: PendingSignaturesSnapshot
+  history: SignatureHistorySnapshot
 }
 
-export function FirmasPageView({ data }: FirmasPageViewProps) {
+type FirmasTab = 'pending' | 'history'
+
+export function FirmasPageView({ pending, history }: FirmasPageViewProps) {
+  const [tab, setTab] = useState<FirmasTab>('pending')
+  const copy = tab === 'pending' ? firmas.list : firmas.history
+
   return (
-    <FirmasRequestsList
-      requests={data.requests}
-      headerAction={
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
+            {copy.title}
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {copy.description}
+          </p>
+        </div>
         <PortalRefreshButton
           label={firmas.refreshButton}
           refreshingLabel={firmas.refreshing}
         />
-      }
-    />
+      </header>
+
+      <div className="flex flex-wrap gap-2">
+        <PortalFilterChip
+          label={firmas.tabs.pending}
+          count={pending.requests.length}
+          active={tab === 'pending'}
+          onClick={() => setTab('pending')}
+        />
+        <PortalFilterChip
+          label={firmas.tabs.history}
+          count={history.requests.length}
+          active={tab === 'history'}
+          onClick={() => setTab('history')}
+        />
+      </div>
+
+      {tab === 'pending' ? (
+        <FirmasRequestsList requests={pending.requests} />
+      ) : (
+        <FirmasHistoryList requests={history.requests} />
+      )}
+    </div>
   )
 }
 

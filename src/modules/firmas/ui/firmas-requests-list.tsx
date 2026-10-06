@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { ExternalLink, FileSignature } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -14,7 +13,6 @@ import type { PendingSignatureRequest } from '@/src/modules/firmas/domain/types'
 
 type FirmasRequestsListProps = {
   requests: PendingSignatureRequest[]
-  headerAction?: ReactNode
 }
 
 type FirmaDateFieldProps = {
@@ -190,35 +188,16 @@ function FirmasEmptyState() {
   )
 }
 
-export function FirmasRequestsList({
-  requests,
-  headerAction,
-}: FirmasRequestsListProps) {
-  const copy = firmas.list
+export function FirmasRequestsList({ requests }: FirmasRequestsListProps) {
+  if (!requests.length) {
+    return <FirmasEmptyState />
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-            {copy.title}
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {copy.description}
-          </p>
-        </div>
-        {headerAction}
-      </header>
-
-      {requests.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {requests.map((request) => (
-            <FirmasRequestItem key={request.id} request={request} />
-          ))}
-        </ul>
-      ) : (
-        <FirmasEmptyState />
-      )}
-    </div>
+    <ul className="flex flex-col gap-2">
+      {requests.map((request) => (
+        <FirmasRequestItem key={request.id} request={request} />
+      ))}
+    </ul>
   )
 }

@@ -1,12 +1,18 @@
-import type { PendingSignatureRequest } from '@/src/modules/firmas/domain/types'
+import type {
+  CompletedSignatureRequest,
+  PendingSignatureRequest,
+} from '@/src/modules/firmas/domain/types'
 import {
   buildOdooSignPublicUrl,
+  getOdooSignItemDoneStates,
   getOdooSignItemPendingStates,
   getOdooSignRequestActiveStates,
   getOdooSignRequestDueDateField,
   getOdooSignRequestItemModel,
+  getOdooSignRequestItemSignedDateField,
   getOdooSignRequestModel,
 } from '@/src/modules/firmas/infrastructure/firmas-env'
+import { listLatestAttachmentIdByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
   mapOdooMany2OneLabel,
@@ -160,4 +166,91 @@ export async function fetchPendingSignaturesFromOdoo(
   }
 
   return pending
+}
+
+type OdooSignRequestHistoryItemRow = {
+  id: number
+  sign_request_id?: [number, string] | false | null
+  [signedDateField: string]: unknown
+}
+
+type OdooSignRequestHistoryRow = {
+  id: number
+  reference?: string | false | null
+  create_date?: string | false | null
+}
+
+function readOdooSignedDate(
+  row: OdooSignRequestHistoryItemRow,
+  signedDateField: string
+): string | undefined {
+  const value = row[signedDateField]
+  return parseOdooDateTime(
+    typeof value === 'string' || value === false || value === null
+      ? value
+      : undefined
+  )
+}
+
+export async function fetchSignatureHistoryFromOdoo(
+  partnerId: number
+): Promise<CompletedSignatureRequest[]> {
+  if (!isOdooApiConfigured()) {
+    throw new Error('ODOO_NOT_CONFIGURED')
+  }
+
+  const itemModel = getOdooSignRequestItemModel()
+  const requestModel = getOdooSignRequestModel()
+  const itemDoneStates = getOdooSignItemDoneStates()
+  const signedDateField = getOdooSignRequestItemSignedDateField()
+
+  const itemRows = await odooSearchRead<OdooSignRequestHistoryItemRow>(
+    itemModel,
+    {
+      domain: [
+        ['partner_id', '=', partnerId],
+        ['state', 'in', itemDoneStates],
+      ],
+      fields: ['sign_request_id', signedDateField],
+      order: `${signedDateField} desc, id desc`,
+      limit: 50,
+    }
+  )
+
+  const signedDateByRequestId = new Map<number, string>()
+  for (const row of itemRows) {
+    if (!Array.isArray(row.sign_request_id)) continue
+    const [requestId] = row.sign_request_id
+    const signedDate = readOdooSignedDate(row, signedDateField)
+    if (signedDate && !signedDateByRequestId.has(requestId)) {
+      signedDateByRequestId.set(requestId, signedDate)
+    }
+  }
+
+  const requestIds = [...signedDateByRequestId.keys()]
+  if (!requestIds.length) {
+    return []
+  }
+
+  const [requestRows, latestAttachmentIdByRequestId] = await Promise.all([
+    odooSearchRead<OdooSignRequestHistoryRow>(requestModel, {
+      domain: [['id', 'in', requestIds]],
+      fields: ['reference', 'create_date'],
+      limit: requestIds.length,
+    }),
+    listLatestAttachmentIdByRecordIds(requestModel, requestIds),
+  ])
+
+  const history: CompletedSignatureRequest[] = requestRows.map((row) => ({
+    id: row.id,
+    reference: sanitizeReference(row.reference, undefined, row.id),
+    signedDate: signedDateByRequestId.get(row.id),
+    documentAttachmentId: latestAttachmentIdByRequestId.get(row.id),
+  }))
+
+  history.sort((a, b) => (a.signedDate && b.signedDate
+    ? b.signedDate.localeCompare(a.signedDate)
+    : 0))
+
+  return history
 }
