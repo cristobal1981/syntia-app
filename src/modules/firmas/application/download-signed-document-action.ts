@@ -35,6 +35,23 @@ async function verifySignatureBelongsToPartner(
   return rows.length > 0
 }
 
+async function verifyAttachmentIsCompletedDocument(
+  requestId: number,
+  attachmentId: number
+): Promise<boolean> {
+  const rows = await odooSearchRead<{
+    id: number
+    completed_document_attachment_ids?: number[] | false | null
+  }>(getOdooSignRequestModel(), {
+    domain: [['id', '=', requestId]],
+    fields: ['completed_document_attachment_ids'],
+    limit: 1,
+  })
+
+  const completedIds = rows[0]?.completed_document_attachment_ids
+  return Array.isArray(completedIds) && completedIds.includes(attachmentId)
+}
+
 export async function downloadSignedDocumentAction(input: {
   requestId: number
   attachmentId: number
@@ -67,6 +84,14 @@ export async function downloadSignedDocumentAction(input: {
   try {
     const allowed = await verifySignatureBelongsToPartner(requestId, partnerId)
     if (!allowed) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    const isCompletedDocument = await verifyAttachmentIsCompletedDocument(
+      requestId,
+      attachmentId
+    )
+    if (!isCompletedDocument) {
       return { ok: false, error: 'not_found' }
     }
 

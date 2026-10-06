@@ -63,7 +63,21 @@ export function getOdooSignItemDoneStates(): string[] {
 /** Odoo Sign item «Signed on» (override if your instance differs). */
 export function getOdooSignRequestItemSignedDateField(): string {
   return (
-    process.env.ODOO_SIGN_REQUEST_ITEM_SIGNED_DATE_FIELD?.trim() || 'signed_on'
+    process.env.ODOO_SIGN_REQUEST_ITEM_SIGNED_DATE_FIELD?.trim() ||
+    'signing_date'
+  )
+}
+
+/**
+ * `sign.request.completed_document_attachment_ids` trae el certificado de
+ * finalización (nombre "Certificate of completion - ...") JUNTO con el PDF
+ * real firmado — hay que excluir el primero para no ofrecer el certificado
+ * en vez del documento.
+ */
+export function getOdooSignCompletionCertificateNamePrefix(): string {
+  return (
+    process.env.ODOO_SIGN_COMPLETION_CERTIFICATE_NAME_PREFIX?.trim() ||
+    'Certificate of completion'
   )
 }
 

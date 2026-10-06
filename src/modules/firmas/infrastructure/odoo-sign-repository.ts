@@ -4,6 +4,7 @@ import type {
 } from '@/src/modules/firmas/domain/types'
 import {
   buildOdooSignPublicUrl,
+  getOdooSignCompletionCertificateNamePrefix,
   getOdooSignItemDoneStates,
   getOdooSignItemPendingStates,
   getOdooSignRequestActiveStates,
@@ -12,7 +13,6 @@ import {
   getOdooSignRequestItemSignedDateField,
   getOdooSignRequestModel,
 } from '@/src/modules/firmas/infrastructure/firmas-env'
-import { listLatestAttachmentIdByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
   mapOdooMany2OneLabel,
@@ -178,6 +178,7 @@ type OdooSignRequestHistoryRow = {
   id: number
   reference?: string | false | null
   create_date?: string | false | null
+  completed_document_attachment_ids?: number[] | false | null
 }
 
 function readOdooSignedDate(
@@ -190,6 +191,37 @@ function readOdooSignedDate(
       ? value
       : undefined
   )
+}
+
+/**
+ * `completed_document_attachment_ids` incluye el certificado de finalización
+ * de Odoo Sign además del PDF firmado — filtra el certificado por nombre y
+ * devuelve el set de ids que SÍ son el documento real.
+ */
+async function resolveSignedDocumentAttachmentIds(
+  attachmentIds: number[]
+): Promise<Set<number>> {
+  const result = new Set<number>()
+  if (!attachmentIds.length) return result
+
+  const certificatePrefix = getOdooSignCompletionCertificateNamePrefix()
+  const rows = await odooSearchRead<{ id: number; name?: string | false | null }>(
+    'ir.attachment',
+    {
+      domain: [['id', 'in', attachmentIds]],
+      fields: ['name'],
+      limit: attachmentIds.length,
+    }
+  )
+
+  for (const row of rows) {
+    const name = typeof row.name === 'string' ? row.name : ''
+    if (!name.startsWith(certificatePrefix)) {
+      result.add(row.id)
+    }
+  }
+
+  return result
 }
 
 export async function fetchSignatureHistoryFromOdoo(
@@ -232,21 +264,37 @@ export async function fetchSignatureHistoryFromOdoo(
     return []
   }
 
-  const [requestRows, latestAttachmentIdByRequestId] = await Promise.all([
-    odooSearchRead<OdooSignRequestHistoryRow>(requestModel, {
+  const requestRows = await odooSearchRead<OdooSignRequestHistoryRow>(
+    requestModel,
+    {
       domain: [['id', 'in', requestIds]],
-      fields: ['reference', 'create_date'],
+      fields: ['reference', 'create_date', 'completed_document_attachment_ids'],
       limit: requestIds.length,
-    }),
-    listLatestAttachmentIdByRecordIds(requestModel, requestIds),
-  ])
+    }
+  )
 
-  const history: CompletedSignatureRequest[] = requestRows.map((row) => ({
-    id: row.id,
-    reference: sanitizeReference(row.reference, undefined, row.id),
-    signedDate: signedDateByRequestId.get(row.id),
-    documentAttachmentId: latestAttachmentIdByRequestId.get(row.id),
-  }))
+  const allCompletedAttachmentIds = requestRows.flatMap((row) =>
+    Array.isArray(row.completed_document_attachment_ids)
+      ? row.completed_document_attachment_ids
+      : []
+  )
+  const realDocumentAttachmentIds = await resolveSignedDocumentAttachmentIds(
+    allCompletedAttachmentIds
+  )
+
+  const history: CompletedSignatureRequest[] = requestRows.map((row) => {
+    const completedIds = Array.isArray(row.completed_document_attachment_ids)
+      ? row.completed_document_attachment_ids
+      : []
+    return {
+      id: row.id,
+      reference: sanitizeReference(row.reference, undefined, row.id),
+      signedDate: signedDateByRequestId.get(row.id),
+      documentAttachmentId: completedIds.find((id) =>
+        realDocumentAttachmentIds.has(id)
+      ),
+    }
+  })
 
   history.sort((a, b) => (a.signedDate && b.signedDate
     ? b.signedDate.localeCompare(a.signedDate)
