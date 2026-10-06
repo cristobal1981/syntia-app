@@ -8,16 +8,20 @@ import type {
 import {
   createAutomationAction,
   deleteAutomationAction,
+  updateAutomationAccessAction,
+  updateAutomationAction,
+  type CreateAutomationInput,
+} from '@/src/modules/automatizaciones/application/automatizaciones-crud-actions'
+import {
   listAutomatizacionesAction,
   listAutomationRunsAction,
   listAutomationsForAccessAdminAction,
   listOdooCompaniesForAutomationAction,
+} from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
+import {
   reorderAutomationsAction,
   triggerAutomationAction,
-  updateAutomationAccessAction,
-  updateAutomationAction,
-  type CreateAutomationInput,
-} from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+} from '@/src/modules/automatizaciones/application/automatizaciones-run-actions'
 
 const {
   getSession,

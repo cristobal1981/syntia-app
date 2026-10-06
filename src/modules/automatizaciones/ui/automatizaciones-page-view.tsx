@@ -9,12 +9,12 @@ import { Button } from '@/components/ui/button'
 import { automatizaciones } from '@/content/automatizaciones'
 import { cn } from '@/lib/utils'
 import type { PortalAutomationListItem } from '@/src/modules/automatizaciones/domain/types'
+import { deleteAutomationAction } from '@/src/modules/automatizaciones/application/automatizaciones-crud-actions'
 import {
-  deleteAutomationAction,
   listAutomatizacionesAction,
   listAutomationsForAccessAdminAction,
-  reorderAutomationsAction,
-} from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+} from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
+import { reorderAutomationsAction } from '@/src/modules/automatizaciones/application/automatizaciones-run-actions'
 import { AutomationAccessAdmin } from '@/src/modules/automatizaciones/ui/automation-access-admin'
 import { AutomationCreateDrawer } from '@/src/modules/automatizaciones/ui/automation-create-drawer'
 import { AutomationSortableGrid } from '@/src/modules/automatizaciones/ui/automation-sortable-grid'

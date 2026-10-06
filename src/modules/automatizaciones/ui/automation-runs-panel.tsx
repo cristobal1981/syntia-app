@@ -15,7 +15,7 @@ import {
 import { automatizaciones } from '@/content/automatizaciones'
 import { cn } from '@/lib/utils'
 import type { PortalAutomationRun } from '@/src/modules/automatizaciones/domain/types'
-import { listAutomationRunsAction } from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+import { listAutomationRunsAction } from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
 import { formatAutomationActionError } from '@/src/modules/automatizaciones/domain/format-automation-errors'
 
 function formatRelativeTime(value: string): string {

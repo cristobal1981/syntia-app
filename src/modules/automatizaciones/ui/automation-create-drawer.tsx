@@ -28,7 +28,7 @@ import type {
 import {
   createAutomationAction,
   updateAutomationAction,
-} from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+} from '@/src/modules/automatizaciones/application/automatizaciones-crud-actions'
 import { AUTOMATION_ICON_IDS } from '@/src/modules/automatizaciones/domain/automation-icons'
 import {
   AutomationInputFieldsEditor,

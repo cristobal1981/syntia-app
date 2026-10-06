@@ -18,10 +18,8 @@ import type {
   AdvisorVisibility,
   PortalAutomationListItem,
 } from '@/src/modules/automatizaciones/domain/types'
-import {
-  listAutomationsForAccessAdminAction,
-  updateAutomationAccessAction,
-} from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+import { listAutomationsForAccessAdminAction } from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
+import { updateAutomationAccessAction } from '@/src/modules/automatizaciones/application/automatizaciones-crud-actions'
 
 type AdvisorOption = { id: string; name: string; email: string }
 

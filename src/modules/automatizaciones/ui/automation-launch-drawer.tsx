@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { automatizaciones } from '@/content/automatizaciones'
-import { listOdooCompaniesForAutomationAction } from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+import { listOdooCompaniesForAutomationAction } from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
 import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
 import type { AutomationInputField } from '@/src/modules/automatizaciones/domain/types'
 import { MAX_AUTOMATION_INPUT_TEXT_LENGTH } from '@/src/modules/automatizaciones/domain/types'
