@@ -86,13 +86,13 @@ export const guias = {
         '115',
       ],
       relatedModelCodes: ['303', '111', '115', '130', '131'],
-      calendarWindowIds: ['t1', 't2', 't3', 't4'],
+      calendarWindowIds: ['t1', 't2', 't3', 't4', 't4-retenciones'],
       sections: [
         {
           heading: 'Qué se presenta cada trimestre',
           paragraphs: [
             'Al cerrar cada trimestre natural se presentan las autoliquidaciones periódicas: el IVA (modelo 303) y, si procede, las retenciones practicadas a trabajadores y profesionales (modelo 111), las retenciones por alquileres (modelo 115) y los pagos fraccionados de IRPF para autónomos (modelos 130 o 131).',
-            'El plazo general es del 1 al 20 del mes siguiente al cierre del trimestre (abril, julio y octubre). El cuarto trimestre se presenta en enero, con plazo ampliado hasta el día 30.',
+            'El plazo general es del 1 al 20 del mes siguiente al cierre del trimestre (abril, julio y octubre). El cuarto trimestre se presenta en enero: el IVA tiene plazo ampliado hasta el día 30 (coincide con el resumen anual, modelo 390), mientras que las retenciones y pagos fraccionados mantienen el plazo general hasta el día 20.',
           ],
         },
         {

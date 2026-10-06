@@ -160,6 +160,7 @@ function obligLeaf(
   return {
     id: 100,
     name: 'Obligacion 1',
+    displayLabel: 'Obligacion 1',
     state: '01_in_progress',
     modifiedAt: '2024-01-01T00:00:00Z',
     attachmentCount: 0,
@@ -847,8 +848,20 @@ describe('loadClientPortalNotifications — stats computation', () => {
     getCachedObligacionNotificationSnapshotSafe.mockResolvedValue({
       data: {
         leaves: [
-          obligLeaf({ id: 1, name: 'Later', state: '01_in_progress', deadline: '2024-12-01' }),
-          obligLeaf({ id: 2, name: 'Sooner', state: '01_in_progress', deadline: '2024-02-01' }),
+          obligLeaf({
+            id: 1,
+            name: 'Later',
+            displayLabel: 'Later',
+            state: '01_in_progress',
+            deadline: '2024-12-01',
+          }),
+          obligLeaf({
+            id: 2,
+            name: 'Sooner',
+            displayLabel: 'Sooner',
+            state: '01_in_progress',
+            deadline: '2024-02-01',
+          }),
         ],
       },
     })

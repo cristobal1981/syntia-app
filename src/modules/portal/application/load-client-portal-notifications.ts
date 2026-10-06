@@ -59,6 +59,7 @@ function obligacionWatchables(
   leaves: Array<{
     id: number
     name: string
+    displayLabel: string
     state?: string
     modifiedAt: string
     attachmentCount: number
@@ -67,7 +68,9 @@ function obligacionWatchables(
   return leaves.map((leaf) => ({
     scope: 'obligacion',
     recordId: leaf.id,
-    name: leaf.name,
+    // Título client-friendly ("Modelo 111 · Trimestre 2"), nunca el nombre
+    // crudo de la tarea en Odoo (que arrastra el nombre del cliente).
+    name: leaf.displayLabel,
     state: leaf.state,
     isClosed: isTaskClosed(leaf.state),
     attachmentCount: leaf.attachmentCount,
@@ -318,7 +321,7 @@ export async function loadClientPortalNotifications(input: {
           (leaf): leaf is typeof leaf & { deadline: string } => Boolean(leaf.deadline)
         )
         .sort((a, b) => a.deadline.localeCompare(b.deadline))
-        .map((leaf) => ({ name: leaf.name, deadline: leaf.deadline }))[0] ?? null
+        .map((leaf) => ({ name: leaf.displayLabel, deadline: leaf.deadline }))[0] ?? null
 
     const stats: PortalNotificationsStats = {
       activeTramitesAndConsultas: openItems.length,

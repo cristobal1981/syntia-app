@@ -5,9 +5,6 @@ export const obligaciones = {
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
   yearFallbackLabel: 'Ejercicio fiscal',
-  periodEmptyTitle: 'Sin modelos en este periodo',
-  periodEmptyDescription:
-    'Aún no hay modelos registrados para este periodo. Tu asesor los irá añadiendo según el calendario fiscal.',
   emptyTitle: 'Sin obligaciones registradas',
   emptyDescription:
     'Todavía no hay obligaciones fiscales visibles en tu cuenta. Si acabas de incorporarte, tu asesor las activará pronto.',
@@ -22,14 +19,33 @@ export const obligaciones = {
     viewDocuments: 'Ver documentos',
     downloadZip: 'Descargar todo',
   },
-  filters: {
+  deadlineStatus: {
+    overdue: 'Atrasado',
+    dueSoon: 'Vence pronto',
+    none: '—',
+  },
+  search: {
     searchLabel: 'Buscar en obligaciones',
     searchPlaceholder:
       'Buscar por modelo, periodo o concepto (ej. alquiler, IVA)…',
-    chipGroupLabel: 'Filtrar por modelo',
+    clearSearch: 'Borrar búsqueda',
     noResultsTitle: 'Sin resultados',
     noResultsDescription:
       'No hay modelos que coincidan con tu búsqueda. Prueba con otro término.',
+  },
+  urgent: {
+    title: 'Qué toca ahora',
+    description: 'Lo atrasado y lo que vence en los próximos días, sea del año que sea.',
+  },
+  pending: {
+    title: 'En curso',
+    description: 'El resto de modelos en marcha, sin plazo inminente.',
+  },
+  closed: {
+    title: 'Hecho',
+    description: 'Modelos ya presentados, agrupados por año.',
+    countOne: '1 modelo presentado',
+    countMany: '{count} modelos presentados',
   },
   guideLink: '¿Para qué sirve cada modelo?',
   taskStates: {

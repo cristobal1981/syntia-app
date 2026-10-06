@@ -1,13 +1,14 @@
 import { sendObligacionReminderEmail } from '@/src/modules/obligaciones/application/send-obligacion-reminder-email'
-import { getDaysUntilObligacionDeadline } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
+import {
+  getDaysUntilObligacionDeadline,
+  OBLIGACION_REMINDER_DAYS_AHEAD,
+} from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
 import { listUpcomingObligacionReminders } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-bulk-repository'
 import {
   filterAlreadyRemindedTaskIds,
   recordObligacionReminderSent,
 } from '@/src/modules/obligaciones/infrastructure/obligacion-email-reminders.supabase'
 import { resolveClientEmailsByPartnerIds } from '@/src/modules/obligaciones/infrastructure/resolve-client-emails-by-partner-ids.supabase'
-
-const REMINDER_DAYS_AHEAD = 5
 
 export type RunObligacionRemindersSummary = {
   candidates: number
@@ -23,7 +24,7 @@ export type RunObligacionRemindersSummary = {
  * esto va sobrado incluso secuencial.
  */
 export async function runObligacionReminders(): Promise<RunObligacionRemindersSummary> {
-  const candidates = await listUpcomingObligacionReminders(REMINDER_DAYS_AHEAD)
+  const candidates = await listUpcomingObligacionReminders(OBLIGACION_REMINDER_DAYS_AHEAD)
 
   const summary: RunObligacionRemindersSummary = {
     candidates: candidates.length,

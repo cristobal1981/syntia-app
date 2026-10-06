@@ -25,10 +25,24 @@ describe('resolveObligacionDeadline', () => {
     expect(result).toEqual(new Date(2026, 9, 20, 23, 59, 59))
   })
 
-  it('resolves Trimestre 4 to the t4 window end, fiscal year + 1 (se declara en enero siguiente)', () => {
-    const result = resolveObligacionDeadline('303', 'Trimestre 4', 2026)
+  it('resolves Trimestre 4 for IVA/IGIC (303, 420, 425) to the extended 30th, fiscal year + 1', () => {
+    expect(resolveObligacionDeadline('303', 'Trimestre 4', 2026)).toEqual(
+      new Date(2027, 0, 30, 23, 59, 59)
+    )
+    expect(resolveObligacionDeadline('420', 'Trimestre 4', 2026)).toEqual(
+      new Date(2027, 0, 30, 23, 59, 59)
+    )
+    expect(resolveObligacionDeadline('425', 'Trimestre 4', 2026)).toEqual(
+      new Date(2027, 0, 30, 23, 59, 59)
+    )
+  })
 
-    expect(result).toEqual(new Date(2027, 0, 30, 23, 59, 59))
+  it('resolves Trimestre 4 for retenciones/pagos fraccionados (111, 115, 123, 130, 131, 349) to the 20th — no plazo ampliado', () => {
+    for (const modelCode of ['111', '115', '123', '130', '131', '349']) {
+      expect(resolveObligacionDeadline(modelCode, 'Trimestre 4', 2026)).toEqual(
+        new Date(2027, 0, 20, 23, 59, 59)
+      )
+    }
   })
 
   it('resolves an annual model (390) to the resumenes-anuales window, fiscal year + 1', () => {

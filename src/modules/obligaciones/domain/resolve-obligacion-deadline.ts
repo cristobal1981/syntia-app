@@ -7,17 +7,20 @@ import { getPeriodSortKey } from '@/src/modules/obligaciones/domain/sort-obligac
  * fiscal siguiente — ver `content/tax-calendar.ts` para las fechas reales.
  */
 const SAME_FISCAL_YEAR_WINDOW_IDS = new Set(['t1', 't2', 't3'])
-const QUARTER_WINDOW_IDS = new Set(['t1', 't2', 't3', 't4'])
 
 function windowCoversModel(window: TaxCalendarWindow, modelCode: string): boolean {
   return (window.modelCodes as readonly string[]).includes(modelCode)
 }
 
+/**
+ * Puede haber más de una ventana para el mismo trimestre (p. ej. el 4T: IVA
+ * hasta el 30, retenciones hasta el 20) — se distinguen por `modelCodes`, no
+ * por `id`.
+ */
 function findQuarterWindow(quarter: number, modelCode: string): TaxCalendarWindow | null {
-  const windowId = `t${quarter}`
   return (
     taxCalendar.windows.find(
-      (window) => window.id === windowId && windowCoversModel(window, modelCode)
+      (window) => window.quarter === quarter && windowCoversModel(window, modelCode)
     ) ?? null
   )
 }
@@ -25,7 +28,7 @@ function findQuarterWindow(quarter: number, modelCode: string): TaxCalendarWindo
 function findAnnualWindow(modelCode: string): TaxCalendarWindow | null {
   return (
     taxCalendar.windows.find(
-      (window) => !QUARTER_WINDOW_IDS.has(window.id) && windowCoversModel(window, modelCode)
+      (window) => window.quarter === undefined && windowCoversModel(window, modelCode)
     ) ?? null
   )
 }
@@ -76,4 +79,25 @@ export function getDaysUntilObligacionDeadline(deadline: Date): number {
 export function isObligacionDueWithin(deadline: Date, maxDays: number): boolean {
   const days = getDaysUntilObligacionDeadline(deadline)
   return days >= 0 && days <= maxDays
+}
+
+/**
+ * Ventana de aviso compartida con los emails de recordatorio
+ * (`run-obligacion-reminders.ts`): una obligación "próxima a vencer" en la
+ * lista del portal es, a propósito, la misma que dispara el email.
+ */
+export const OBLIGACION_REMINDER_DAYS_AHEAD = 5
+
+export type ObligacionDeadlineStatus = 'overdue' | 'dueSoon' | 'onTrack' | 'none'
+
+export function getObligacionDeadlineStatus(
+  deadline: Date | null,
+  isClosed: boolean
+): ObligacionDeadlineStatus {
+  if (!deadline || isClosed) return 'none'
+
+  const days = getDaysUntilObligacionDeadline(deadline)
+  if (days < 0) return 'overdue'
+  if (days <= OBLIGACION_REMINDER_DAYS_AHEAD) return 'dueSoon'
+  return 'onTrack'
 }

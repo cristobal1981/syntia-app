@@ -16,6 +16,12 @@ export type TaxCalendarWindow = {
   modelCodes: readonly string[]
   /** Slugs de content/guias.ts */
   guideSlugs: readonly string[]
+  /**
+   * Trimestre natural (1–4) que cubre esta ventana. Puede haber más de una
+   * ventana para el mismo trimestre (p. ej. el 4T tiene un plazo distinto
+   * para IVA/IGIC que para retenciones) — `undefined` en ventanas anuales.
+   */
+  quarter?: 1 | 2 | 3 | 4
 }
 
 /*
@@ -26,12 +32,25 @@ export const taxCalendar = {
   windows: [
     {
       id: 't4',
-      title: 'Declaraciones del 4º trimestre',
+      title: 'Declaraciones del 4º trimestre (IVA/IGIC)',
       rangeLabel: 'Del 1 al 30 de enero',
       start: { month: 1, day: 1 },
       end: { month: 1, day: 30 },
-      modelCodes: ['303', '111', '115', '123', '130', '131', '349'],
+      // Plazo ampliado hasta el 30: coincide con el resumen anual (390).
+      modelCodes: ['303', '420', '425'],
       guideSlugs: ['cierre-trimestral-impuestos'],
+      quarter: 4,
+    },
+    {
+      id: 't4-retenciones',
+      title: 'Declaraciones del 4º trimestre (retenciones y pagos fraccionados)',
+      rangeLabel: 'Del 1 al 20 de enero',
+      start: { month: 1, day: 1 },
+      end: { month: 1, day: 20 },
+      // Sin plazo ampliado: solo IVA/IGIC (ver ventana "t4") lo tiene.
+      modelCodes: ['111', '115', '123', '130', '131', '349'],
+      guideSlugs: ['cierre-trimestral-impuestos'],
+      quarter: 4,
     },
     {
       id: 'resumenes-anuales',
@@ -59,6 +78,7 @@ export const taxCalendar = {
       end: { month: 4, day: 20 },
       modelCodes: ['303', '111', '115', '123', '130', '131', '349', '420', '425'],
       guideSlugs: ['cierre-trimestral-impuestos'],
+      quarter: 1,
     },
     {
       id: 'renta',
@@ -77,6 +97,7 @@ export const taxCalendar = {
       end: { month: 7, day: 20 },
       modelCodes: ['303', '111', '115', '123', '130', '131', '349', '420', '425'],
       guideSlugs: ['cierre-trimestral-impuestos'],
+      quarter: 2,
     },
     {
       id: 'sociedades',
@@ -95,6 +116,7 @@ export const taxCalendar = {
       end: { month: 10, day: 20 },
       modelCodes: ['303', '111', '115', '123', '130', '131', '349', '420', '425'],
       guideSlugs: ['cierre-trimestral-impuestos'],
+      quarter: 3,
     },
   ],
 } as const satisfies { windows: readonly TaxCalendarWindow[] }

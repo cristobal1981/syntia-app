@@ -25,5 +25,5 @@ export async function nextObligacionForPartner(
     .sort((a, b) => a.deadline.localeCompare(b.deadline))
 
   const next = withDeadline[0]
-  return next ? { name: next.name, deadline: next.deadline } : null
+  return next ? { name: next.displayLabel, deadline: next.deadline } : null
 }
