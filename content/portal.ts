@@ -101,6 +101,8 @@ export const portal = {
     actions: {
       tramites: 'Buscar trámites: «{query}»',
       obligaciones: 'Buscar obligaciones: «{query}»',
+      documentos: 'Buscar documentos: «{query}»',
+      clientes: 'Buscar clientes: «{query}»',
     },
     extras: {
       client: [

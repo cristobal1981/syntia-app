@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -39,6 +40,8 @@ export function ClientsPageView({
   canAssignAdvisor,
 }: ClientsPageViewProps) {
   const copy = equipo.clientes
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [result, setResult] = useState(initialPage)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -78,6 +81,18 @@ export function ClientsPageView({
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (!q) return
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSearch(q)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1)
+    fetchPage(1, q)
+    router.replace(canAssignAdvisor ? '/equipo/clientes' : '/clientes', { scroll: false })
+  }, [canAssignAdvisor, fetchPage, router, searchParams])
 
   function handlePageChange(nextPage: number) {
     setPage(nextPage)

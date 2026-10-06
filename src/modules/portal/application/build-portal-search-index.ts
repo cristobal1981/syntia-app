@@ -104,6 +104,38 @@ export function buildPortalSearchActions(
         keywords: [],
       })
     }
+    if (!allowedHrefs || allowedHrefs.has('/documentos')) {
+      actions.push({
+        id: 'action:documentos',
+        kind: 'action',
+        label: portal.search.actions.documentos.replace('{query}', trimmed),
+        href: `/documentos?q=${encoded}`,
+        icon: 'documents',
+        keywords: [],
+      })
+    }
+  }
+
+  if (role === 'advisor' && (!allowedHrefs || allowedHrefs.has('/clientes'))) {
+    actions.push({
+      id: 'action:clientes',
+      kind: 'action',
+      label: portal.search.actions.clientes.replace('{query}', trimmed),
+      href: `/clientes?q=${encoded}`,
+      icon: 'clients',
+      keywords: [],
+    })
+  }
+
+  if (role === 'admin' && (!allowedHrefs || allowedHrefs.has('/equipo/clientes'))) {
+    actions.push({
+      id: 'action:clientes',
+      kind: 'action',
+      label: portal.search.actions.clientes.replace('{query}', trimmed),
+      href: `/equipo/clientes?q=${encoded}`,
+      icon: 'clients',
+      keywords: [],
+    })
   }
 
   return actions

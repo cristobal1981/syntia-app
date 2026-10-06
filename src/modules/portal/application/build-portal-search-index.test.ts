@@ -143,12 +143,42 @@ describe('buildPortalSearchActions', () => {
     expect(buildPortalSearchActions('client', '   ')).toEqual([])
   })
 
-  it('returns no actions for admin/advisor roles regardless of query', () => {
-    expect(buildPortalSearchActions('admin', 'factura')).toEqual([])
-    expect(buildPortalSearchActions('advisor', 'factura')).toEqual([])
+  it('returns the clientes action for admin, pointing at /equipo/clientes', () => {
+    const result = buildPortalSearchActions('admin', 'factura')
+
+    expect(result).toEqual([
+      {
+        id: 'action:clientes',
+        kind: 'action',
+        label: 'Buscar clientes: «factura»',
+        href: '/equipo/clientes?q=factura',
+        icon: 'clients',
+        keywords: [],
+      },
+    ])
   })
 
-  it('returns both tramites and obligaciones actions for a client with no allowedHrefs restriction', () => {
+  it('returns the clientes action for advisor, pointing at /clientes', () => {
+    const result = buildPortalSearchActions('advisor', 'factura')
+
+    expect(result).toEqual([
+      {
+        id: 'action:clientes',
+        kind: 'action',
+        label: 'Buscar clientes: «factura»',
+        href: '/clientes?q=factura',
+        icon: 'clients',
+        keywords: [],
+      },
+    ])
+  })
+
+  it('omits the clientes action for admin/advisor when /equipo/clientes or /clientes is not in allowedHrefs', () => {
+    expect(buildPortalSearchActions('admin', 'factura', new Set())).toEqual([])
+    expect(buildPortalSearchActions('advisor', 'factura', new Set())).toEqual([])
+  })
+
+  it('returns tramites, obligaciones and documentos actions for a client with no allowedHrefs restriction', () => {
     const result = buildPortalSearchActions('client', 'factura 303')
 
     expect(result).toEqual([
@@ -166,6 +196,14 @@ describe('buildPortalSearchActions', () => {
         label: 'Buscar obligaciones: «factura 303»',
         href: '/obligaciones?q=factura%20303',
         icon: 'obligations',
+        keywords: [],
+      },
+      {
+        id: 'action:documentos',
+        kind: 'action',
+        label: 'Buscar documentos: «factura 303»',
+        href: '/documentos?q=factura%20303',
+        icon: 'documents',
         keywords: [],
       },
     ])
@@ -190,8 +228,14 @@ describe('buildPortalSearchActions', () => {
     expect(result.map((item) => item.id)).toEqual(['action:tramites'])
   })
 
-  it('omits both actions when allowedHrefs grants neither', () => {
+  it('omits tramites/obligaciones but keeps documentos when only /documentos is allowed', () => {
     const result = buildPortalSearchActions('client', 'factura', new Set(['/documentos']))
+
+    expect(result.map((item) => item.id)).toEqual(['action:documentos'])
+  })
+
+  it('omits all three actions when allowedHrefs grants none of them', () => {
+    const result = buildPortalSearchActions('client', 'factura', new Set(['/firmas']))
 
     expect(result).toEqual([])
   })
