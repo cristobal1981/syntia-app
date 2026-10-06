@@ -16,26 +16,26 @@ type FirmasHistoryListProps = {
 }
 
 function FirmasHistoryDownloadButton({
-  request,
+  requestId,
+  attachmentId,
+  label,
+  ariaLabel,
+  variant = 'outline',
 }: {
-  request: CompletedSignatureRequest
+  requestId: number
+  attachmentId: number
+  label: string
+  ariaLabel: string
+  variant?: 'outline' | 'ghost'
 }) {
   const copy = firmas.history
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  if (!request.documentAttachmentId) return null
-
   function handleDownload() {
-    const attachmentId = request.documentAttachmentId
-    if (!attachmentId) return
-
     setError(null)
     startTransition(async () => {
-      const result = await downloadSignedDocumentAction({
-        requestId: request.id,
-        attachmentId,
-      })
+      const result = await downloadSignedDocumentAction({ requestId, attachmentId })
 
       if (!result.ok) {
         setError(copy.errors[result.error] ?? copy.errors.odoo_unavailable)
@@ -50,20 +50,50 @@ function FirmasHistoryDownloadButton({
     <div className="flex flex-col items-end gap-1">
       <Button
         type="button"
-        variant="outline"
+        variant={variant}
         disabled={pending}
         onClick={handleDownload}
         className="min-h-10 w-full shrink-0 cursor-pointer gap-2 sm:w-auto"
-        aria-label={`${copy.downloadAction}: ${request.reference}`}
+        aria-label={ariaLabel}
       >
         {pending ? (
           <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
         ) : (
           <Download className="size-4 shrink-0" aria-hidden />
         )}
-        {pending ? copy.downloading : copy.downloadButton}
+        {pending ? copy.downloading : label}
       </Button>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  )
+}
+
+function FirmasHistoryDownloads({ request }: { request: CompletedSignatureRequest }) {
+  const copy = firmas.history
+
+  if (!request.documentAttachmentId && !request.certificateAttachmentId) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-2">
+      {request.documentAttachmentId ? (
+        <FirmasHistoryDownloadButton
+          requestId={request.id}
+          attachmentId={request.documentAttachmentId}
+          label={copy.downloadButton}
+          ariaLabel={`${copy.downloadAction}: ${request.reference}`}
+        />
+      ) : null}
+      {request.certificateAttachmentId ? (
+        <FirmasHistoryDownloadButton
+          requestId={request.id}
+          attachmentId={request.certificateAttachmentId}
+          label={copy.certificateDownloadButton}
+          ariaLabel={`${copy.certificateDownloadAction}: ${request.reference}`}
+          variant="ghost"
+        />
+      ) : null}
     </div>
   )
 }
@@ -105,7 +135,7 @@ function FirmasHistoryItem({ request }: { request: CompletedSignatureRequest }) 
           ) : null}
 
           <div className="col-span-2 row-start-3 sm:hidden">
-            <FirmasHistoryDownloadButton request={request} />
+            <FirmasHistoryDownloads request={request} />
           </div>
 
           <div
@@ -117,7 +147,7 @@ function FirmasHistoryItem({ request }: { request: CompletedSignatureRequest }) 
             <span className="badge-status-done inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap">
               {copy.statusSigned}
             </span>
-            <FirmasHistoryDownloadButton request={request} />
+            <FirmasHistoryDownloads request={request} />
           </div>
         </div>
       </article>

@@ -226,27 +226,36 @@ async function fetchAttachmentNamesByIds(
 }
 
 /**
- * De entre los adjuntos completados de una solicitud, elige el documento
- * real (no el certificado de finalización): primero por coincidencia exacta
- * con la referencia de la solicitud, si no por descartar el sufijo de fecha
- * del certificado.
+ * De entre los adjuntos completados de una solicitud, separa el documento
+ * real del certificado de finalización: el documento se identifica primero
+ * por coincidencia exacta con la referencia de la solicitud, si no por NO
+ * tener el sufijo de fecha del certificado; el certificado es el que sí lo
+ * tiene.
  */
-function pickSignedDocumentAttachmentId(
+function pickSignatureAttachments(
   completedIds: number[],
   reference: string | false | null | undefined,
   namesById: Map<number, string>
-): number | undefined {
+): { documentAttachmentId?: number; certificateAttachmentId?: number } {
+  const certificateAttachmentId = completedIds.find((id) => {
+    const name = namesById.get(id)
+    return name !== undefined && COMPLETION_CERTIFICATE_SUFFIX_PATTERN.test(name)
+  })
+
   if (typeof reference === 'string' && reference.trim()) {
     const exactMatch = completedIds.find(
       (id) => namesById.get(id) === reference.trim()
     )
-    if (exactMatch !== undefined) return exactMatch
+    if (exactMatch !== undefined) {
+      return { documentAttachmentId: exactMatch, certificateAttachmentId }
+    }
   }
 
-  return completedIds.find((id) => {
-    const name = namesById.get(id)
-    return name !== undefined && !COMPLETION_CERTIFICATE_SUFFIX_PATTERN.test(name)
-  })
+  const documentAttachmentId = completedIds.find(
+    (id) => id !== certificateAttachmentId && namesById.has(id)
+  )
+
+  return { documentAttachmentId, certificateAttachmentId }
 }
 
 export async function fetchSignatureHistoryFromOdoo(
@@ -311,15 +320,17 @@ export async function fetchSignatureHistoryFromOdoo(
     const completedIds = Array.isArray(row.completed_document_attachment_ids)
       ? row.completed_document_attachment_ids
       : []
+    const { documentAttachmentId, certificateAttachmentId } = pickSignatureAttachments(
+      completedIds,
+      row.reference,
+      attachmentNamesById
+    )
     return {
       id: row.id,
       reference: sanitizeReference(row.reference, undefined, row.id),
       signedDate: signedDateByRequestId.get(row.id),
-      documentAttachmentId: pickSignedDocumentAttachmentId(
-        completedIds,
-        row.reference,
-        attachmentNamesById
-      ),
+      documentAttachmentId,
+      certificateAttachmentId,
     }
   })
 

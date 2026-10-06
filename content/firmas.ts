@@ -20,9 +20,11 @@ export const firmas = {
     signedLabel: 'Firmado',
     statusSigned: 'Firmado',
     downloadAction: 'Descargar documento firmado',
+    certificateDownloadAction: 'Descargar certificado de firma',
     emptyTitle: 'Sin firmas en el historial',
     emptyDescription: 'Cuando completes una firma, aparecerá aquí.',
     downloadButton: 'Descargar',
+    certificateDownloadButton: 'Certificado',
     downloading: 'Descargando…',
     errors: {
       forbidden: 'No tienes permiso para descargar este documento.',

@@ -26,6 +26,7 @@ export type CompletedSignatureRequest = {
   reference: string
   signedDate?: string
   documentAttachmentId?: number
+  certificateAttachmentId?: number
 }
 
 export type SignatureHistorySnapshot = {
