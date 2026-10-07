@@ -8,7 +8,6 @@ import { ProfileStateView } from '@/src/modules/profile/ui/profile-state-view'
 import { listWorkersForOwner } from '@/src/modules/colaboradores/application/list-workers'
 import { getWorkersFeatureForClient } from '@/src/modules/colaboradores/application/workers-feature-toggle'
 
-export const dynamic = 'force-dynamic'
 
 export default async function PerfilPage() {
   const session = await getSession()

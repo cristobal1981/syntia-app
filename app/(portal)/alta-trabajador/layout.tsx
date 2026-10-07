@@ -1,14 +1,19 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { assertSectionAccess } from '@/src/modules/colaboradores/application/assert-section-access'
 import { AltaTrabajadorLayoutClient } from '@/src/modules/alta-trabajador/ui/alta-trabajador-layout-client'
 
-export default async function AltaTrabajadorLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function AltaTrabajadorLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <AltaTrabajadorAccessGate>{children}</AltaTrabajadorAccessGate>
+    </Suspense>
+  )
+}
+
+async function AltaTrabajadorAccessGate({ children }: { children: React.ReactNode }) {
   const session = await getSession()
   if (!session) {
     redirect('/login')
