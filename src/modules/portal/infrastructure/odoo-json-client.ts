@@ -29,6 +29,20 @@ export function isOdooApiConfigured(): boolean {
   return Boolean(getOdooBaseUrl() && getOdooApiKey())
 }
 
+/**
+ * Enlace directo a un registro en el cliente web de Odoo (para que el staff
+ * pueda abrir la tarea desde fuera de Odoo, p. ej. un email). Usa la ruta
+ * clásica `/web#...`, soportada en todas las versiones de Odoo (incluida
+ * Odoo Online) aunque la UI por defecto use rutas nuevas — Odoo la
+ * redirige internamente. Sin verificar en vivo contra esta instancia
+ * concreta; confirmar el primer enlace real antes de confiar en él.
+ */
+export function buildOdooRecordUrl(model: string, recordId: number): string | undefined {
+  const baseUrl = getOdooBaseUrl()
+  if (!baseUrl) return undefined
+  return `${baseUrl}/web#id=${recordId}&model=${encodeURIComponent(model)}&view_type=form`
+}
+
 export type OdooSearchReadOptions = {
   domain?: unknown[]
   fields?: string[]

@@ -64,10 +64,26 @@ describe('listUpcomingObligacionReminders', () => {
       {
         taskId: 3,
         partnerId: 99,
+        clientName: 'Cliente SL',
         modelLabel: 'Modelo 303',
         deadline: new Date(currentYear, 3, 20, 23, 59, 59),
       },
     ])
+  })
+
+  it('skips a leaf task whose project has a partner id but no resolvable partner name', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(currentYear, 3, 16))
+
+    odooSearchRead
+      .mockResolvedValueOnce([{ id: 1, name: `Obligaciones Fiscales [${currentYear}]`, project_id: [10, 'Proyecto Cliente'] }])
+      .mockResolvedValueOnce([{ id: 2, name: 'Trimestre 1', parent_id: [1, 'root'] }])
+      .mockResolvedValueOnce([{ id: 3, name: 'Modelo 303 - IVA', parent_id: [2, 'periodo'], state: '01_in_progress' }])
+      .mockResolvedValueOnce([{ id: 10, partner_id: [99, ''] }])
+
+    const result = await listUpcomingObligacionReminders(5)
+
+    expect(result).toEqual([])
   })
 
   it('skips closed (done/cancelled) leaf tasks', async () => {

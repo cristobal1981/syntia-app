@@ -1,49 +1,69 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   listUpcomingObligacionReminders,
-  filterAlreadyRemindedTaskIds,
+  filterAlreadyRemindedStages,
   recordObligacionReminderSent,
-  resolveClientEmailsByPartnerIds,
-  sendObligacionReminderEmail,
+  listStaffEmails,
+  sendObligacionReminderDigestEmail,
+  buildOdooRecordUrl,
 } = vi.hoisted(() => ({
   listUpcomingObligacionReminders: vi.fn(),
-  filterAlreadyRemindedTaskIds: vi.fn(),
+  filterAlreadyRemindedStages: vi.fn(),
   recordObligacionReminderSent: vi.fn(),
-  resolveClientEmailsByPartnerIds: vi.fn(),
-  sendObligacionReminderEmail: vi.fn(),
+  listStaffEmails: vi.fn(),
+  sendObligacionReminderDigestEmail: vi.fn(),
+  buildOdooRecordUrl: vi.fn(),
 }))
 
 vi.mock('@/src/modules/obligaciones/infrastructure/odoo-obligaciones-bulk-repository', () => ({
   listUpcomingObligacionReminders,
 }))
 vi.mock('@/src/modules/obligaciones/infrastructure/obligacion-email-reminders.supabase', () => ({
-  filterAlreadyRemindedTaskIds,
+  filterAlreadyRemindedStages,
   recordObligacionReminderSent,
 }))
-vi.mock(
-  '@/src/modules/obligaciones/infrastructure/resolve-client-emails-by-partner-ids.supabase',
-  () => ({ resolveClientEmailsByPartnerIds })
-)
+vi.mock('@/src/modules/obligaciones/infrastructure/resolve-staff-emails.supabase', () => ({
+  listStaffEmails,
+}))
 vi.mock('@/src/modules/obligaciones/application/send-obligacion-reminder-email', () => ({
-  sendObligacionReminderEmail,
+  sendObligacionReminderDigestEmail,
+}))
+vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
+  buildOdooRecordUrl,
 }))
 
 import { runObligacionReminders } from '@/src/modules/obligaciones/application/run-obligacion-reminders'
 
+// "Hoy" fijo en todos los tests: 15 de abril. Un candidato que vence el 20
+// (5 días) cae en stage `early`; uno que vence el 17 (2 días) cae en `urgent`.
+const TODAY = new Date(2026, 3, 15)
+const EARLY_DEADLINE = new Date(2026, 3, 20, 23, 59, 59)
+const URGENT_DEADLINE = new Date(2026, 3, 17, 23, 59, 59)
+
 const candidate = (overrides: Partial<Record<string, unknown>> = {}) => ({
   taskId: 1,
   partnerId: 99,
+  clientName: 'Cliente SL',
   modelLabel: 'Modelo 303',
-  deadline: new Date(2026, 3, 20, 23, 59, 59),
+  deadline: EARLY_DEADLINE,
   ...overrides,
 })
 
 beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(TODAY)
   vi.resetAllMocks()
-  filterAlreadyRemindedTaskIds.mockResolvedValue(new Set())
+  filterAlreadyRemindedStages.mockResolvedValue(new Set())
   recordObligacionReminderSent.mockResolvedValue(undefined)
-  sendObligacionReminderEmail.mockResolvedValue(undefined)
+  sendObligacionReminderDigestEmail.mockResolvedValue(undefined)
+  buildOdooRecordUrl.mockImplementation(
+    (model: string, id: number) => `https://odoo.example.com/web#id=${id}&model=${model}&view_type=form`
+  )
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('runObligacionReminders', () => {
@@ -59,47 +79,37 @@ describe('runObligacionReminders', () => {
       skippedAlreadySent: 0,
       skippedNoEmail: 0,
     })
-    expect(filterAlreadyRemindedTaskIds).not.toHaveBeenCalled()
-    expect(resolveClientEmailsByPartnerIds).not.toHaveBeenCalled()
+    expect(filterAlreadyRemindedStages).not.toHaveBeenCalled()
+    expect(listStaffEmails).not.toHaveBeenCalled()
   })
 
-  it('sends and records a reminder for a pending candidate with a resolved email', async () => {
+  it('sends one digest email per staff recipient and records every pending candidate once, tagged with its stage', async () => {
     listUpcomingObligacionReminders.mockResolvedValue([candidate()])
-    resolveClientEmailsByPartnerIds.mockResolvedValue(new Map([[99, ['cliente@example.com']]]))
+    listStaffEmails.mockResolvedValue(['admin@example.com', 'gestor@example.com'])
 
     const summary = await runObligacionReminders()
 
-    expect(sendObligacionReminderEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'cliente@example.com', modelLabel: 'Modelo 303' })
-    )
-    expect(recordObligacionReminderSent).toHaveBeenCalledWith(1, 99, candidate().deadline)
-    expect(summary).toEqual({
-      candidates: 1,
-      sent: 1,
-      emailsSent: 1,
-      skippedAlreadySent: 0,
-      skippedNoEmail: 0,
+    expect(filterAlreadyRemindedStages).toHaveBeenCalledWith([{ taskId: 1, stage: 'early' }])
+    expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(2)
+    expect(buildOdooRecordUrl).toHaveBeenCalledWith('project.task', 1)
+    expect(sendObligacionReminderDigestEmail).toHaveBeenNthCalledWith(1, {
+      to: 'admin@example.com',
+      items: [
+        {
+          clientName: 'Cliente SL',
+          modelLabel: 'Modelo 303',
+          deadline: EARLY_DEADLINE,
+          daysLeft: 5,
+          taskUrl: 'https://odoo.example.com/web#id=1&model=project.task&view_type=form',
+        },
+      ],
     })
-  })
-
-  it('sends to every eligible recipient (owner + collaborator) but records the task only once', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate()])
-    resolveClientEmailsByPartnerIds.mockResolvedValue(
-      new Map([[99, ['cliente@example.com', 'colaborador@example.com']]])
-    )
-
-    const summary = await runObligacionReminders()
-
-    expect(sendObligacionReminderEmail).toHaveBeenCalledTimes(2)
-    expect(sendObligacionReminderEmail).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ to: 'cliente@example.com' })
-    )
-    expect(sendObligacionReminderEmail).toHaveBeenNthCalledWith(
+    expect(sendObligacionReminderDigestEmail).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ to: 'colaborador@example.com' })
+      expect.objectContaining({ to: 'gestor@example.com' })
     )
     expect(recordObligacionReminderSent).toHaveBeenCalledTimes(1)
+    expect(recordObligacionReminderSent).toHaveBeenCalledWith(1, 99, EARLY_DEADLINE, 'early')
     expect(summary).toEqual({
       candidates: 1,
       sent: 1,
@@ -109,14 +119,64 @@ describe('runObligacionReminders', () => {
     })
   })
 
-  it('skips candidates that already have a reminder recorded, without sending or re-recording', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate({ taskId: 1 })])
-    filterAlreadyRemindedTaskIds.mockResolvedValue(new Set([1]))
+  it('tags a candidate within the urgent window as stage urgent', async () => {
+    listUpcomingObligacionReminders.mockResolvedValue([candidate({ deadline: URGENT_DEADLINE })])
+    listStaffEmails.mockResolvedValue(['admin@example.com'])
+
+    await runObligacionReminders()
+
+    expect(filterAlreadyRemindedStages).toHaveBeenCalledWith([{ taskId: 1, stage: 'urgent' }])
+    expect(recordObligacionReminderSent).toHaveBeenCalledWith(1, 99, URGENT_DEADLINE, 'urgent')
+  })
+
+  it('sends the urgent reminder for a task whose early reminder was already sent', async () => {
+    listUpcomingObligacionReminders.mockResolvedValue([candidate({ deadline: URGENT_DEADLINE })])
+    filterAlreadyRemindedStages.mockResolvedValue(new Set(['1:early']))
+    listStaffEmails.mockResolvedValue(['admin@example.com'])
 
     const summary = await runObligacionReminders()
 
-    expect(sendObligacionReminderEmail).not.toHaveBeenCalled()
-    expect(resolveClientEmailsByPartnerIds).not.toHaveBeenCalled()
+    expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(1)
+    expect(summary.skippedAlreadySent).toBe(0)
+    expect(summary.sent).toBe(1)
+  })
+
+  it('does not re-send the urgent reminder for a task that already has it recorded', async () => {
+    listUpcomingObligacionReminders.mockResolvedValue([candidate({ deadline: URGENT_DEADLINE })])
+    filterAlreadyRemindedStages.mockResolvedValue(new Set(['1:urgent']))
+
+    const summary = await runObligacionReminders()
+
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+    expect(listStaffEmails).not.toHaveBeenCalled()
+    expect(summary.skippedAlreadySent).toBe(1)
+  })
+
+  it('bundles every pending candidate into the same digest items list', async () => {
+    listUpcomingObligacionReminders.mockResolvedValue([
+      candidate({ taskId: 1, modelLabel: 'Modelo 303' }),
+      candidate({ taskId: 2, modelLabel: 'Modelo 111' }),
+    ])
+    listStaffEmails.mockResolvedValue(['admin@example.com'])
+
+    const summary = await runObligacionReminders()
+
+    expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(1)
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.items).toHaveLength(2)
+    expect(recordObligacionReminderSent).toHaveBeenCalledTimes(2)
+    expect(summary.sent).toBe(2)
+    expect(summary.emailsSent).toBe(1)
+  })
+
+  it('skips candidates that already have that stage recorded, without sending or re-recording', async () => {
+    listUpcomingObligacionReminders.mockResolvedValue([candidate({ taskId: 1 })])
+    filterAlreadyRemindedStages.mockResolvedValue(new Set(['1:early']))
+
+    const summary = await runObligacionReminders()
+
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+    expect(listStaffEmails).not.toHaveBeenCalled()
     expect(summary).toEqual({
       candidates: 1,
       sent: 0,
@@ -126,13 +186,13 @@ describe('runObligacionReminders', () => {
     })
   })
 
-  it('skips a candidate with no resolvable client email, without recording it as sent', async () => {
+  it('skips without recording when there are no staff recipients to notify', async () => {
     listUpcomingObligacionReminders.mockResolvedValue([candidate()])
-    resolveClientEmailsByPartnerIds.mockResolvedValue(new Map())
+    listStaffEmails.mockResolvedValue([])
 
     const summary = await runObligacionReminders()
 
-    expect(sendObligacionReminderEmail).not.toHaveBeenCalled()
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
     expect(recordObligacionReminderSent).not.toHaveBeenCalled()
     expect(summary).toEqual({
       candidates: 1,
@@ -143,10 +203,12 @@ describe('runObligacionReminders', () => {
     })
   })
 
-  it('does not record a reminder as sent if the email send throws (so it retries the next run)', async () => {
+  it('does not record any candidate as sent if any digest send throws (so all retry next run)', async () => {
     listUpcomingObligacionReminders.mockResolvedValue([candidate()])
-    resolveClientEmailsByPartnerIds.mockResolvedValue(new Map([[99, ['cliente@example.com']]]))
-    sendObligacionReminderEmail.mockRejectedValue(new Error('resend down'))
+    listStaffEmails.mockResolvedValue(['admin@example.com', 'gestor@example.com'])
+    sendObligacionReminderDigestEmail
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('resend down'))
 
     await expect(runObligacionReminders()).rejects.toThrow('resend down')
     expect(recordObligacionReminderSent).not.toHaveBeenCalled()

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  filterAlreadyRemindedTaskIds,
+  filterAlreadyRemindedStages,
   recordObligacionReminderSent,
 } from '@/src/modules/obligaciones/infrastructure/obligacion-email-reminders.supabase'
 
@@ -28,22 +28,46 @@ beforeEach(() => {
   vi.resetAllMocks()
 })
 
-describe('filterAlreadyRemindedTaskIds', () => {
-  it('returns an empty set without querying Supabase when given no task ids', async () => {
-    const result = await filterAlreadyRemindedTaskIds([])
+describe('filterAlreadyRemindedStages', () => {
+  it('returns an empty set without querying Supabase when given no candidates', async () => {
+    const result = await filterAlreadyRemindedStages([])
 
     expect(result).toEqual(new Set())
     expect(createSupabaseAdminClient).not.toHaveBeenCalled()
   })
 
-  it('returns the task ids that already have a reminder row', async () => {
+  it('returns composite task+stage keys for rows that already have that reminder recorded', async () => {
     createSupabaseAdminClient.mockReturnValue({
-      from: () => chainFor({ data: [{ task_id: 3 }], error: null }),
+      from: () =>
+        chainFor({
+          data: [
+            { task_id: 3, reminder_type: 'early' },
+            { task_id: 3, reminder_type: 'urgent' },
+            { task_id: 4, reminder_type: 'early' },
+          ],
+          error: null,
+        }),
     })
 
-    const result = await filterAlreadyRemindedTaskIds([3, 4])
+    const result = await filterAlreadyRemindedStages([
+      { taskId: 3, stage: 'early' },
+      { taskId: 3, stage: 'urgent' },
+      { taskId: 4, stage: 'early' },
+      { taskId: 5, stage: 'early' },
+    ])
 
-    expect(result).toEqual(new Set([3]))
+    expect(result).toEqual(new Set(['3:early', '3:urgent', '4:early']))
+  })
+
+  it('treats early and urgent as independent: an early-only row does not mark urgent as already sent', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: [{ task_id: 3, reminder_type: 'early' }], error: null }),
+    })
+
+    const result = await filterAlreadyRemindedStages([{ taskId: 3, stage: 'urgent' }])
+
+    expect(result.has('3:urgent')).toBe(false)
+    expect(result.has('3:early')).toBe(true)
   })
 
   it('throws on a DB error', async () => {
@@ -51,21 +75,24 @@ describe('filterAlreadyRemindedTaskIds', () => {
       from: () => chainFor({ data: null, error: { message: 'boom' } }),
     })
 
-    await expect(filterAlreadyRemindedTaskIds([3])).rejects.toThrow('boom')
+    await expect(filterAlreadyRemindedStages([{ taskId: 3, stage: 'early' }])).rejects.toThrow(
+      'boom'
+    )
   })
 })
 
 describe('recordObligacionReminderSent', () => {
-  it('inserts a row with the deadline as a plain date (no time component)', async () => {
+  it('inserts a row with the deadline as a plain date and the given reminder stage', async () => {
     const insertSpy = vi.fn().mockResolvedValue({ error: null })
     createSupabaseAdminClient.mockReturnValue({ from: () => ({ insert: insertSpy }) })
 
-    await recordObligacionReminderSent(3, 99, new Date(2026, 3, 20, 23, 59, 59))
+    await recordObligacionReminderSent(3, 99, new Date(2026, 3, 20, 23, 59, 59), 'urgent')
 
     expect(insertSpy).toHaveBeenCalledWith({
       task_id: 3,
       partner_id: 99,
       deadline: '2026-04-20',
+      reminder_type: 'urgent',
     })
   })
 
@@ -74,6 +101,8 @@ describe('recordObligacionReminderSent', () => {
       from: () => ({ insert: vi.fn().mockResolvedValue({ error: { message: 'boom' } }) }),
     })
 
-    await expect(recordObligacionReminderSent(3, 99, new Date())).rejects.toThrow('boom')
+    await expect(
+      recordObligacionReminderSent(3, 99, new Date(), 'early')
+    ).rejects.toThrow('boom')
   })
 })

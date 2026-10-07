@@ -9,6 +9,7 @@ import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastr
 import {
   isOdooApiConfigured,
   mapOdooMany2OneId,
+  mapOdooMany2OneLabel,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { isTaskClosed } from '@/src/modules/tramites/domain/map-task-state'
@@ -16,6 +17,7 @@ import { isTaskClosed } from '@/src/modules/tramites/domain/map-task-state'
 export type UpcomingObligacionReminder = {
   taskId: number
   partnerId: number
+  clientName: string
   modelLabel: string
   deadline: Date
 }
@@ -121,6 +123,9 @@ export async function listUpcomingObligacionReminders(
   const partnerIdByProjectId = new Map(
     projectRows.map((row) => [row.id, mapOdooMany2OneId(row.partner_id)])
   )
+  const partnerNameByProjectId = new Map(
+    projectRows.map((row) => [row.id, mapOdooMany2OneLabel(row.partner_id)])
+  )
 
   const warnedCombinations = new Set<string>()
   const reminders: UpcomingObligacionReminder[] = []
@@ -157,10 +162,13 @@ export async function listUpcomingObligacionReminders(
     const projectId = mapOdooMany2OneId(root.project_id)
     const partnerId = projectId !== undefined ? partnerIdByProjectId.get(projectId) : undefined
     if (!partnerId) continue
+    const clientName = projectId !== undefined ? partnerNameByProjectId.get(projectId) : undefined
+    if (!clientName) continue
 
     reminders.push({
       taskId: leaf.id,
       partnerId,
+      clientName,
       modelLabel: formatObligacionModelLabel(leaf.name),
       deadline,
     })

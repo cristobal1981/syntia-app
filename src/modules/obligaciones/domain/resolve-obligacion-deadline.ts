@@ -88,6 +88,28 @@ export function isObligacionDueWithin(deadline: Date, maxDays: number): boolean 
  */
 export const OBLIGACION_REMINDER_DAYS_AHEAD = 5
 
+/**
+ * Segundo aviso (escalado) del cron de recordatorios: si una obligación
+ * sigue sin presentar cerca del plazo, se manda un aviso adicional de tipo
+ * `urgent`, independiente del `early` ya enviado al entrar en la ventana de
+ * `OBLIGACION_REMINDER_DAYS_AHEAD` — ver `resolveObligacionReminderStage` y
+ * `run-obligacion-reminders.ts`.
+ */
+export const OBLIGACION_URGENT_REMINDER_DAYS_AHEAD = 2
+
+export type ObligacionReminderStage = 'early' | 'urgent'
+
+/**
+ * Qué aviso corresponde a una obligación según cuánto falta: por debajo del
+ * umbral urgente, `urgent`; si no, `early`. El cron solo manda el email si
+ * ESE aviso concreto (tarea + stage) no se había mandado antes — así una
+ * tarea nunca recibe dos emails el mismo día aunque entrase directamente
+ * dentro de la ventana urgente (sin pasar antes por `early`).
+ */
+export function resolveObligacionReminderStage(daysLeft: number): ObligacionReminderStage {
+  return daysLeft <= OBLIGACION_URGENT_REMINDER_DAYS_AHEAD ? 'urgent' : 'early'
+}
+
 export type ObligacionDeadlineStatus = 'overdue' | 'dueSoon' | 'onTrack' | 'none'
 
 export function getObligacionDeadlineStatus(
