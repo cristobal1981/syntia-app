@@ -1,4 +1,4 @@
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
@@ -150,7 +150,7 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
       }
     }
 
-    revalidateTag(tramitesSnapshotCacheTag(partnerId), 'max')
+    updateTag(tramitesSnapshotCacheTag(partnerId))
 
     return { ok: true, recordId, name: subject }
   } catch (error) {

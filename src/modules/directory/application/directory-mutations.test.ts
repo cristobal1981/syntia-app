@@ -80,7 +80,7 @@ vi.mock('@/src/modules/directory/infrastructure/get-directory-repository', () =>
     bulkAssignAdvisor,
   }),
 }))
-vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), updateTag: vi.fn() }))
 
 function sessionFor(role: 'admin' | 'advisor' | 'client' | 'worker'): PortalSession {
   return {

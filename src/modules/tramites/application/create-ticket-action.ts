@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import { validateChatterHtmlBody, stripHtmlToText } from '@/src/modules/portal/domain/filter-portal-messages'
@@ -118,7 +118,7 @@ export async function createTicketAction(input: {
       htmlBody,
     })
 
-    revalidateTag(tramitesSnapshotCacheTag(partnerId), 'max')
+    updateTag(tramitesSnapshotCacheTag(partnerId))
 
     return {
       ok: true,
