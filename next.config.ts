@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.*.*'],
   // Default de Next es 1MB; el adjunto de alta de trabajador (DNI/pasaporte en base64) puede superarlo.
   experimental: {
+    turbopackFileSystemCacheForBuild: true,
     serverActions: {
       bodySizeLimit: '8mb',
     },
