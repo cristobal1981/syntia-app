@@ -65,6 +65,17 @@ export function PortalEntryLoadingProvider({ children }: { children: ReactNode }
     }
   }, [entryInitialized, pathname, router, searchParams])
 
+  // El layout del portal sobrevive (oculto) entre sesiones; al desmontar sus efectos
+  // se reinicia el estado para que un nuevo login vuelva a mostrar el loader de entrada.
+  useEffect(
+    () => () => {
+      setEntryLoading(false)
+      setEntryReady(false)
+      setEntryInitialized(false)
+    },
+    []
+  )
+
   const dismissEntryOverlay = useCallback(() => {
     try {
       sessionStorage.removeItem(PORTAL_ENTRY_SESSION_KEY)

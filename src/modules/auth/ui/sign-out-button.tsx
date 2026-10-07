@@ -2,7 +2,7 @@
 
 import { LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 
 import { portal } from '@/content/portal'
 import { waitRemainingMinDuration } from '@/lib/wait-min-display'
@@ -19,6 +19,11 @@ export function SignOutButton({ collapsed = false }: SignOutButtonProps) {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const [pending, startTransition] = useTransition()
+
+  // Con Cache Components el layout del portal se conserva oculto al salir a /login y
+  // reaparece intacto al volver a entrar; sin este reset el overlay de despedida
+  // seguiría montado con `signingOut` en true.
+  useEffect(() => () => setSigningOut(false), [])
 
   const handleSignOut = () => {
     if (pending || signingOut) return
