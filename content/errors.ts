@@ -1,52 +1,133 @@
 export const notImplementedPath = "/proximamente" as const
 
+export type SappoMood =
+  | "lost"
+  | "confused"
+  | "sleepy"
+  | "guard"
+  | "dizzy"
+  | "builder"
+
+type ErrorAction = { label: string; href: string }
+
+export type ErrorVariant = {
+  /** Texto fantasma a ambos lados de Sappo; Sappo ocupa el hueco de la "o"/"0". */
+  ghost: readonly [string, string]
+  /** Texto accesible del código (el fantasma es decorativo y va aria-hidden). */
+  eyebrow: string
+  title: string
+  description: string
+  mood: SappoMood
+  /** Frases del bocadillo de Sappo; la primera sale sola al cargar. */
+  croaks: readonly string[]
+  primary: ErrorAction
+  /** Si hay `onRetry`, el reintento sustituye a la acción primaria. */
+  retryLabel?: string
+  secondary?: ErrorAction
+}
+
+const home = { label: "Volver al inicio", href: "/" } as const
+
 export const errorPages = {
-  404: {
-    code: "404",
-    title: "Ruta no encontrada en el mapa",
-    description:
-      "No hemos encontrado lo que buscabas, pero el logo sigue rebotando. Quédate a ver si toca justo la esquina — no se lo contaremos a nadie 😉.",
-    playHint: "Modo salvapantallas activado. La esquina perfecta lleva años esperando.",
-    primaryLabel: "Volver al inicio",
-    primaryHref: "/",
-    image:
-      "https://images.pexels.com/photos/6549358/pexels-photo-6549358.jpeg?auto=compress&cs=tinysrgb&w=1920",
-    imageAlt: "Profesional revisando documentos con expresión pensativa",
-  },
   400: {
-    code: "400",
-    title: "Petición fuera de formato",
+    ghost: ["4", "0"],
+    eyebrow: "Error 400 · Petición incorrecta",
+    title: "Sappo ha ladeado la cabeza: esa petición no tiene sentido",
     description:
-      "Lo que nos has mandado no encaja en ningún molde conocido — como un Excel con las columnas en diagonal. Puedes desahogarte empujando los nodos.",
-    playHint: "Acércate con el cursor: los nodos huyen. Pulsa para descargar tensión.",
-    primaryLabel: "Volver al inicio",
-    primaryHref: "/",
-    image:
-      "https://images.pexels.com/photos/590022/pexels-photo-590022.jpeg?auto=compress&cs=tinysrgb&w=1920",
-    imageAlt: "Calculadora y papeles sobre un escritorio",
+      "Algo en la dirección o en los datos enviados no tiene el formato esperado. Vuelve al inicio e inténtalo de nuevo.",
+    mood: "confused",
+    croaks: [
+      "¿Croac…?",
+      "Eso no estaba en el menú.",
+      "Repite, que me he distraído con una mosca.",
+    ],
+    primary: home,
+  },
+  401: {
+    ghost: ["4", "1"],
+    eyebrow: "Error 401 · Sesión no iniciada",
+    title: "Tu sesión se ha dormido. Sappo también",
+    description:
+      "Por seguridad cerramos la sesión cuando pasa un rato sin actividad. Inicia sesión de nuevo para continuar.",
+    mood: "sleepy",
+    croaks: [
+      "Zzz… cro… zzz…",
+      "¿Eh? Cinco minutitos más…",
+      "Shhh. Está soñando con moscas.",
+    ],
+    primary: { label: "Iniciar sesión", href: "/login" },
+  },
+  403: {
+    ghost: ["4", "3"],
+    eyebrow: "Error 403 · Acceso restringido",
+    title: "Zona reservada. Sappo hace de portero",
+    description:
+      "Tu cuenta no tiene permiso para ver esta sección. Si crees que es un error, escribe a tu asesor y lo revisamos.",
+    mood: "guard",
+    croaks: [
+      "Tu nombre no está en la lista.",
+      "Con estas gafas no admito sobornos.",
+      "Pregunta a tu asesor. Yo solo croo.",
+    ],
+    primary: home,
+  },
+  404: {
+    ghost: ["4", "4"],
+    eyebrow: "Error 404 · Página no encontrada",
+    title: "Esta página no existe. Sappo ya ha mirado debajo de todos los nenúfares",
+    description:
+      "Puede que el enlace esté roto o que la página se haya mudado de charca. Vuelve al inicio y lo buscamos desde allí.",
+    mood: "lost",
+    croaks: [
+      "Croac. Aquí no hay nada.",
+      "He mirado en el nenúfar. Y en el otro.",
+      "¿Seguro que era esta dirección?",
+    ],
+    primary: home,
   },
   500: {
-    code: "500",
-    title: "Pausa técnica no programada",
+    ghost: ["5", "0"],
+    eyebrow: "Error 500 · Fallo del servidor",
+    title: "Algo ha petado de nuestro lado. Sappo está mareado",
     description:
-      "Nuestros servidores han dicho «basta un segundo». Dale un toque al fondo para intentar despertarlos — nosotros también lo estamos haciendo.",
-    playHint: "Pulsa para enviar un pulso de reinicio. La red tiembla sola de vez en cuando.",
+      "No es culpa tuya. Puedes intentarlo otra vez o volver al inicio; si el fallo persiste, indícale a tu asesor el código de referencia.",
+    mood: "dizzy",
+    croaks: [
+      "Croac… todo da vueltas.",
+      "He apagado y encendido el nenúfar.",
+      "Dame un segundo, que me recoloco.",
+    ],
+    primary: home,
     retryLabel: "Intentar de nuevo",
-    primaryLabel: "Volver al inicio",
-    primaryHref: "/",
-    image:
-      "https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=1920",
-    imageAlt: "Taza de café sobre una mesa",
+  },
+  fatal: {
+    ghost: ["5", "0"],
+    eyebrow: "Error crítico · Syntia no ha podido arrancar",
+    title: "Esto es más que un mareo: Sappo se ha desmayado",
+    description:
+      "Ha fallado algo importante antes de poder mostrarte la página. Recárgala; si sigue igual, vuelve a intentarlo en unos minutos.",
+    mood: "dizzy",
+    croaks: [
+      "Croac… ¿quién ha apagado la charca?",
+      "Reinicio de emergencia en curso.",
+    ],
+    primary: home,
+    retryLabel: "Recargar",
   },
   wip: {
-    code: "Próximamente",
-    title: "Estamos preparando este expediente",
+    ghost: ["PR", "NTO"],
+    eyebrow: "Próximamente",
+    title: "Obras en la charca. Sappo se ha puesto el casco",
     description:
-      "Esta sección aún está en desarrollo. Muy pronto estará disponible; mientras tanto, puedes volver al inicio o escribirnos si necesitas algo urgente.",
-    primaryLabel: "Volver al inicio",
-    primaryHref: "/",
-    image:
-      "https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=1920",
-    imageAlt: "Equipo planificando en una pizarra en la oficina",
+      "Esta sección aún no está lista. Muy pronto estará disponible; mientras tanto, vuelve al inicio o escríbenos si necesitas algo urgente.",
+    mood: "builder",
+    croaks: [
+      "Croac. Casco puesto, ladrillo no.",
+      "Esto lleva más cemento del que parece.",
+      "Vuelve pronto. Prometido.",
+    ],
+    primary: home,
   },
-} as const
+} as const satisfies Record<string, ErrorVariant>
+
+export type ErrorVariantKey = `${keyof typeof errorPages}`

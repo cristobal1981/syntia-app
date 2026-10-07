@@ -1,0 +1,196 @@
+/* Animación de Sappo y su charca. Todo es decorativo: se apaga con prefers-reduced-motion. */
+
+.sappo-pupil {
+  transition: transform 140ms ease-out;
+}
+
+.sappo-lid {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  transform: scaleY(0);
+  animation: sappo-blink 5.2s infinite;
+}
+.sappo-lid[data-eye='r'] {
+  animation-delay: 0.06s;
+}
+
+@keyframes sappo-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(0);
+  }
+  96% {
+    transform: scaleY(1);
+  }
+}
+
+.sappo-spiral {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: sappo-spin 1.8s linear infinite;
+}
+.sappo-spiral[data-eye='r'] {
+  animation-direction: reverse;
+}
+
+@keyframes sappo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sappo-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.sappo-body[data-mood='dizzy'] {
+  animation: sappo-wobble 0.7s ease-in-out infinite alternate;
+}
+.sappo-body[data-mood='sleepy'] {
+  animation: sappo-breathe 3.4s ease-in-out infinite;
+}
+.sappo-body[data-mood='confused'] {
+  transform: rotate(-5deg);
+}
+
+@keyframes sappo-wobble {
+  from {
+    transform: rotate(-3.5deg);
+  }
+  to {
+    transform: rotate(3.5deg);
+  }
+}
+
+@keyframes sappo-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.03);
+  }
+}
+
+.sappo-hop {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sappo-hop 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sappo-hop {
+  0% {
+    transform: scale(1.06, 0.9);
+  }
+  35% {
+    transform: translateY(-10%) scale(0.95, 1.07);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.sappo-drop {
+  transform-box: fill-box;
+  animation: sappo-drop 1.6s ease-in infinite;
+  opacity: 0;
+}
+.sappo-drop[data-n='2'] {
+  animation-delay: 0.8s;
+}
+
+@keyframes sappo-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+}
+
+.sappo-zzz {
+  animation: sappo-zzz 3.2s ease-out infinite;
+  opacity: 0;
+  font-weight: 700;
+}
+.sappo-zzz[data-n='2'] {
+  animation-delay: 1.05s;
+}
+.sappo-zzz[data-n='3'] {
+  animation-delay: 2.1s;
+}
+
+@keyframes sappo-zzz {
+  0% {
+    opacity: 0;
+    transform: translate(0, 6px) scale(0.7);
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(14px, -34px) scale(1.15);
+  }
+}
+
+.sappo-ripple {
+  animation: sappo-ripple 4.2s ease-out infinite;
+  opacity: 0;
+}
+.sappo-ripple[data-n='2'] {
+  animation-delay: 1.4s;
+}
+.sappo-ripple[data-n='3'] {
+  animation-delay: 2.8s;
+}
+
+@keyframes sappo-ripple {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.sappo-bubble {
+  animation: sappo-bubble-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sappo-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sappo-pupil,
+  .sappo-lid,
+  .sappo-spiral,
+  .sappo-body,
+  .sappo-hop,
+  .sappo-drop,
+  .sappo-zzz,
+  .sappo-ripple,
+  .sappo-bubble {
+    animation: none !important;
+    transition: none !important;
+  }
+  .sappo-drop,
+  .sappo-zzz {
+    opacity: 0.7;
+  }
+  .sappo-ripple {
+    opacity: 0.25;
+  }
+}
