@@ -8,6 +8,8 @@ import { getPeriodSortKey } from '@/src/modules/obligaciones/domain/sort-obligac
  */
 const SAME_FISCAL_YEAR_WINDOW_IDS = new Set(['t1', 't2', 't3'])
 
+const taxCalendarWindows: readonly TaxCalendarWindow[] = taxCalendar.windows
+
 function windowCoversModel(window: TaxCalendarWindow, modelCode: string): boolean {
   return (window.modelCodes as readonly string[]).includes(modelCode)
 }
@@ -19,7 +21,7 @@ function windowCoversModel(window: TaxCalendarWindow, modelCode: string): boolea
  */
 function findQuarterWindow(quarter: number, modelCode: string): TaxCalendarWindow | null {
   return (
-    taxCalendar.windows.find(
+    taxCalendarWindows.find(
       (window) => window.quarter === quarter && windowCoversModel(window, modelCode)
     ) ?? null
   )
@@ -27,7 +29,7 @@ function findQuarterWindow(quarter: number, modelCode: string): TaxCalendarWindo
 
 function findAnnualWindow(modelCode: string): TaxCalendarWindow | null {
   return (
-    taxCalendar.windows.find(
+    taxCalendarWindows.find(
       (window) => window.quarter === undefined && windowCoversModel(window, modelCode)
     ) ?? null
   )

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { revalidateTag, updateTag } from 'next/cache'
 
 import type { PortalSession } from '@/src/modules/auth/domain/types'
 import { createTicketAction } from '@/src/modules/tramites/application/create-ticket-action'
@@ -44,7 +45,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: () => 'tag',
 }))
-vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), updateTag: vi.fn() }))
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
   return {
@@ -92,6 +93,16 @@ describe('createTicketAction (/tramites section gate for colaboradores)', () => 
 
     expect(result).toMatchObject({ ok: true })
     expect(createPartnerTicket).toHaveBeenCalled()
+  })
+
+  it('expira el snapshot de trámites al instante (updateTag, no revalidateTag stale)', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(updateTag).toHaveBeenCalledWith('tag')
+    expect(revalidateTag).not.toHaveBeenCalled()
   })
 
   it('never section-checks a full client', async () => {

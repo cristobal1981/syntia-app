@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { LoginScreen } from '@/src/modules/auth/ui/login-screen'
@@ -13,11 +14,21 @@ import { LoginScreen } from '@/src/modules/auth/ui/login-screen'
  * caso donde vale la pena pagar la comprobación profunda, para no dejar
  * atascado en el login a un worker que sí sigue activo.
  */
-export default async function LoginPage() {
+export default function LoginPage() {
+  return (
+    <>
+      <LoginScreen />
+      <Suspense fallback={null}>
+        <LoginSessionRedirect />
+      </Suspense>
+    </>
+  )
+}
+
+async function LoginSessionRedirect() {
   const session = await getSession()
   if (session) {
     redirect('/dashboard')
   }
-
-  return <LoginScreen />
+  return null
 }

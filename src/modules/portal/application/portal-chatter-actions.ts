@@ -1,7 +1,7 @@
 'use server'
 
 import { after } from 'next/server'
-import { revalidateTag } from 'next/cache'
+import { revalidateTag, updateTag } from 'next/cache'
 
 import { portalChatter } from '@/content/portal-chatter'
 
@@ -375,7 +375,7 @@ export async function postRecordMessageAction(
       notifyPartnerIds,
     })
 
-    revalidateTag(chatterUnreadBatchCacheTag(access.partnerId), 'max')
+    updateTag(chatterUnreadBatchCacheTag(access.partnerId))
 
     const hadAttachments = files.length > 0
     const attachmentCountEstimate = hadAttachments ? files.length : undefined
