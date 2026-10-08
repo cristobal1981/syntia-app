@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowLeft, MailCheck } from 'lucide-react'
 import Link from 'next/link'
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
 import { useActionState } from 'react'
@@ -8,6 +9,12 @@ import { portal } from '@/content/portal'
 import { Input } from '@/components/ui/input'
 import { MarketingButton } from '@/components/ui/marketing-button'
 import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
+import {
+  authFieldClassName,
+  authLabelClassName,
+  authSubmitClassName,
+  authTextLinkClassName,
+} from '@/src/modules/auth/ui/auth-field-styles'
 import {
   requestPasswordResetAction,
   type RequestPasswordResetResult,
@@ -26,22 +33,30 @@ export function RequestPasswordResetForm() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <form action={formAction} className="flex flex-col gap-6" noValidate>
+      <form action={formAction} className="flex flex-col gap-5" noValidate>
         {success ? (
-          <m.p
+          <m.div
             role="status"
-            className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-3 text-sm leading-relaxed text-on-dark"
+            className="flex items-start gap-4"
             initial={reducedMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            {portal.recovery.successMessage}
-          </m.p>
+            <span
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
+              aria-hidden
+            >
+              <MailCheck className="size-5" strokeWidth={1.75} />
+            </span>
+            <p className="pt-0.5 text-base leading-relaxed text-on-dark">
+              {portal.recovery.successMessage}
+            </p>
+          </m.div>
         ) : (
           <>
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="recovery-email"
-                className="text-xs font-medium tracking-wide text-muted-on-dark uppercase"
+                className={authLabelClassName}
               >
                 {portal.recovery.emailLabel}
               </label>
@@ -51,7 +66,7 @@ export function RequestPasswordResetForm() {
                 type="email"
                 autoComplete="email"
                 required
-                className="input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base"
+                className={authFieldClassName}
                 aria-invalid={Boolean(errorMessage)}
               />
             </div>
@@ -73,7 +88,7 @@ export function RequestPasswordResetForm() {
             <MarketingButton
               type="submit"
               marketingVariant="primary"
-              className="h-12 w-full rounded-lg text-base font-semibold"
+              className={authSubmitClassName}
               disabled={pending}
             >
               {pending ? 'Enviando…' : portal.recovery.submitLabel}
@@ -81,14 +96,10 @@ export function RequestPasswordResetForm() {
           </>
         )}
 
-        <p className="text-center text-sm text-muted-on-dark">
-          <Link
-            href="/login"
-            className="text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            {portal.recovery.backToLoginLabel}
-          </Link>
-        </p>
+        <Link href="/login" className={authTextLinkClassName + ' w-fit'}>
+          <ArrowLeft className="size-4" aria-hidden />
+          {portal.recovery.backToLoginLabel}
+        </Link>
       </form>
     </LazyMotion>
   )

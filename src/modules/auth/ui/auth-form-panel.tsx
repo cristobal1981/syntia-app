@@ -7,15 +7,7 @@ type AuthFormPanelProps = {
   className?: string
 }
 
+/** Contenedor sin cromo: el formulario respira directamente sobre el fondo. */
 export function AuthFormPanel({ children, className }: AuthFormPanelProps) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border border-agua/25 bg-card/40 p-6 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-8',
-        className
-      )}
-    >
-      {children}
-    </div>
-  )
+  return <div className={cn('w-full', className)}>{children}</div>
 }

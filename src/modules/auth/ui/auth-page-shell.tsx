@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { LazyMotion, domAnimation, m } from 'framer-motion'
@@ -7,6 +8,7 @@ import type { ReactNode } from 'react'
 
 import { site } from '@/content/site'
 import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
+import { authTextLinkClassName } from '@/src/modules/auth/ui/auth-field-styles'
 import { LoginAmbientBackdrop } from '@/src/modules/auth/ui/login-ambient-backdrop'
 
 const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL ?? '/proximamente'
@@ -88,19 +90,21 @@ export function AuthPageShell({
           >
             {children}
 
+            {footer !== null ? (
             <m.p
-              className="mt-6 text-center text-sm text-muted-on-dark lg:text-left"
+              className="mt-8 border-t border-agua/15 pt-6 text-sm text-muted-on-dark"
               {...fadeUp(reducedMotion ? 0 : 0.28)}
             >
-              {footer ?? (
-                <Link
-                  href={landingUrl}
-                  className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                >
+              {footer === undefined ? (
+                <Link href={landingUrl} className={authTextLinkClassName}>
+                  <ArrowLeft className="size-4" aria-hidden />
                   Volver al sitio
                 </Link>
+              ) : (
+                footer
               )}
             </m.p>
+            ) : null}
           </m.section>
         </div>
       </main>

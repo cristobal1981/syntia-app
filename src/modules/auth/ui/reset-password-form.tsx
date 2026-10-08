@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
@@ -19,6 +20,12 @@ import {
   createSupabaseBrowserClient,
   isSupabaseBrowserConfigured,
 } from '@/src/modules/auth/infrastructure/supabase/client'
+import {
+  authFieldClassName,
+  authLabelClassName,
+  authSubmitClassName,
+  authTextLinkClassName,
+} from '@/src/modules/auth/ui/auth-field-styles'
 import { PasswordInput } from '@/src/modules/auth/ui/password-input'
 import { PasswordRequirementsChecklist } from '@/src/modules/auth/ui/password-requirements-checklist'
 import { ResetLinkUnavailable } from '@/src/modules/auth/ui/reset-link-unavailable'
@@ -32,8 +39,7 @@ type ResetPasswordFormProps = {
   onStatusChange?: (status: ResetPasswordFormStatus) => void
 }
 
-const passwordFieldClassName =
-  'input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base transition-[border-color,box-shadow] duration-200 focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_1px_rgba(1,222,162,0.25)]'
+const passwordFieldClassName = authFieldClassName
 
 function parseAuthHashParams(): {
   access_token?: string
@@ -194,11 +200,11 @@ export function ResetPasswordForm({ onStatusChange }: ResetPasswordFormProps) {
     isStrongPassword(password) && confirmPassword.length > 0 && !pending
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
       <div className="flex flex-col gap-2">
         <label
           htmlFor="password"
-          className="text-xs font-medium tracking-wide text-muted-on-dark uppercase"
+          className={authLabelClassName}
         >
           {portal.reset.passwordLabel}
         </label>
@@ -222,7 +228,7 @@ export function ResetPasswordForm({ onStatusChange }: ResetPasswordFormProps) {
       <div className="flex flex-col gap-2">
         <label
           htmlFor="confirmPassword"
-          className="text-xs font-medium tracking-wide text-muted-on-dark uppercase"
+          className={authLabelClassName}
         >
           {portal.reset.confirmPasswordLabel}
         </label>
@@ -251,18 +257,17 @@ export function ResetPasswordForm({ onStatusChange }: ResetPasswordFormProps) {
       <MarketingButton
         type="submit"
         marketingVariant="primary"
-        className="h-12 w-full rounded-lg text-base font-semibold"
+        className={authSubmitClassName}
         disabled={!canSubmit}
         aria-busy={pending}
       >
         {pending ? 'Guardando…' : portal.reset.submitLabel}
       </MarketingButton>
 
-      <p className="text-center text-sm text-muted-on-dark">
-        <Link href="/login" className="text-primary hover:underline">
-          {portal.reset.backToLoginLabel}
-        </Link>
-      </p>
+      <Link href="/login" className={authTextLinkClassName + ' w-fit'}>
+        <ArrowLeft className="size-4" aria-hidden />
+        {portal.reset.backToLoginLabel}
+      </Link>
     </form>
   )
 }

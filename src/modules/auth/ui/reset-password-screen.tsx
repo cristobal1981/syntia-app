@@ -23,6 +23,7 @@ export function ResetPasswordScreen() {
       }
       description={unavailable ? undefined : portal.reset.description}
       logoHref="/login"
+      footer={null}
     >
       <AuthFormPanel>
         <Suspense

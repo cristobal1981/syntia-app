@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { LazyMotion, AnimatePresence, domAnimation, m } from 'framer-motion'
 import { useActionState, useEffect } from 'react'
@@ -12,6 +13,11 @@ import {
   signInAction,
   type SignInResult,
 } from '@/src/modules/auth/application/sign-in'
+import {
+  authFieldClassName,
+  authLabelClassName,
+  authSubmitClassName,
+} from '@/src/modules/auth/ui/auth-field-styles'
 import { PasswordInput } from '@/src/modules/auth/ui/password-input'
 import { markPortalEntryPending } from '@/src/modules/portal/ui/portal-entry-loading-context'
 
@@ -32,8 +38,7 @@ export function LoginForm() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="flex flex-col gap-6">
-      <form action={formAction} className="flex flex-col gap-6" noValidate>
+      <form action={formAction} className="flex flex-col gap-5" noValidate>
         <m.div
           className="flex flex-col gap-2"
           initial={reducedMotion ? false : { opacity: 0, y: 12 }}
@@ -42,7 +47,7 @@ export function LoginForm() {
         >
           <label
             htmlFor="email"
-            className="text-xs font-medium tracking-wide text-muted-on-dark uppercase"
+            className={authLabelClassName}
           >
             {portal.login.emailLabel}
           </label>
@@ -52,7 +57,7 @@ export function LoginForm() {
             type="email"
             autoComplete="email"
             required
-            className="input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base transition-[border-color,box-shadow] duration-200 focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_1px_rgba(1,222,162,0.25)]"
+            className={authFieldClassName}
             aria-invalid={Boolean(errorMessage)}
           />
         </m.div>
@@ -66,13 +71,13 @@ export function LoginForm() {
           <div className="flex items-center justify-between gap-3">
             <label
               htmlFor="password"
-              className="text-xs font-medium tracking-wide text-muted-on-dark uppercase"
+              className={authLabelClassName}
             >
               {portal.login.passwordLabel}
             </label>
             <Link
               href="/login/recuperar"
-              className="text-xs text-primary transition-colors hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="rounded-sm text-sm text-primary underline-offset-4 transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               {portal.login.forgotPasswordLabel}
             </Link>
@@ -82,7 +87,7 @@ export function LoginForm() {
             name="password"
             autoComplete="current-password"
             required
-            className="input-on-dark h-12 rounded-lg border-agua/25 bg-on-dark/5 text-base transition-[border-color,box-shadow] duration-200 focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_1px_rgba(1,222,162,0.25)]"
+            className={authFieldClassName}
             aria-invalid={Boolean(errorMessage)}
           />
         </m.div>
@@ -112,14 +117,19 @@ export function LoginForm() {
           <MarketingButton
             type="submit"
             marketingVariant="primary"
-            className="h-12 w-full rounded-lg text-base font-semibold tracking-wide"
+            className={authSubmitClassName}
             disabled={pending}
           >
             {pending ? 'Entrando…' : portal.login.submitLabel}
+            {pending ? null : (
+              <ArrowRight
+                className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden
+              />
+            )}
           </MarketingButton>
         </m.div>
       </form>
-      </div>
     </LazyMotion>
   )
 }
