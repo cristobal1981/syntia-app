@@ -2,6 +2,8 @@
 
 import { ExternalLink, FileSignature } from 'lucide-react'
 
+import { PortalEmptyState } from '@/components/ui/portal-empty-state'
+
 import { Button } from '@/components/ui/button'
 import { firmas } from '@/content/firmas'
 import { cn } from '@/lib/utils'
@@ -168,23 +170,12 @@ function FirmasRequestItem({ request }: { request: PendingSignatureRequest }) {
 
 function FirmasEmptyState() {
   return (
-    <div className="portal-home-card flex flex-col items-center rounded-xl px-6 py-12 text-center md:px-8">
-      <div
-        className="flex size-12 items-center justify-center rounded-xl bg-muted/60 dark:bg-muted/40"
-        aria-hidden
-      >
-        <FileSignature className="size-6 text-muted-foreground" />
-      </div>
-      <h3 className="mt-5 font-sans text-lg font-semibold text-foreground">
-        {firmas.emptyTitle}
-      </h3>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        {firmas.emptyDescription}
-      </p>
-      <p className="mt-3 max-w-lg text-sm leading-relaxed text-subtle-foreground">
-        {firmas.emptyHint}
-      </p>
-    </div>
+    <PortalEmptyState
+      icon={FileSignature}
+      title={firmas.emptyTitle}
+      description={firmas.emptyDescription}
+      hint={firmas.emptyHint}
+    />
   )
 }
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { Upload } from 'lucide-react'
+import { FolderOpen, Upload } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 import { SyntiaLoadingState } from '@/components/ui/syntia-loading-state'
 import { clientDocuments } from '@/content/client-documents'
 import type { DriveItem } from '@/src/modules/documents/domain/types'
@@ -67,23 +68,24 @@ export function DriveBrowserItemList({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-12 text-center">
-        <p className="font-medium text-foreground">{clientDocuments.emptyTitle}</p>
-        <p className="max-w-md text-sm text-muted-foreground">
-          {clientDocuments.emptyDescription}
-        </p>
-        {canWrite ? (
-          <Button
-            type="button"
-            className="cursor-pointer"
-            disabled={!hasCurrentFolder || uploading}
-            onClick={onUploadEmptyAction}
-          >
-            <Upload className="size-4" aria-hidden />
-            {clientDocuments.emptyAction}
-          </Button>
-        ) : null}
-      </div>
+      <PortalEmptyState
+        icon={FolderOpen}
+        title={clientDocuments.emptyTitle}
+        description={clientDocuments.emptyDescription}
+        action={
+          canWrite ? (
+            <Button
+              type="button"
+              className="cursor-pointer"
+              disabled={!hasCurrentFolder || uploading}
+              onClick={onUploadEmptyAction}
+            >
+              <Upload className="size-4" aria-hidden />
+              {clientDocuments.emptyAction}
+            </Button>
+          ) : null
+        }
+      />
     )
   }
 

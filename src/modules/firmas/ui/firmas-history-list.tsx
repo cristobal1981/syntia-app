@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { CheckCircle2, Download, Eye, FileText, Loader2, Signature } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 import { firmas } from '@/content/firmas'
 import { downloadSignedDocumentAction } from '@/src/modules/firmas/application/download-signed-document-action'
 import {
@@ -201,20 +202,11 @@ function FirmasHistoryEmptyState() {
   const copy = firmas.history
 
   return (
-    <div className="portal-home-card flex flex-col items-center rounded-xl px-6 py-12 text-center md:px-8">
-      <div
-        className="flex size-12 items-center justify-center rounded-xl bg-muted/60 dark:bg-muted/40"
-        aria-hidden
-      >
-        <CheckCircle2 className="size-6 text-muted-foreground" />
-      </div>
-      <h3 className="mt-5 font-sans text-lg font-semibold text-foreground">
-        {copy.emptyTitle}
-      </h3>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        {copy.emptyDescription}
-      </p>
-    </div>
+    <PortalEmptyState
+      icon={CheckCircle2}
+      title={copy.emptyTitle}
+      description={copy.emptyDescription}
+    />
   )
 }
 

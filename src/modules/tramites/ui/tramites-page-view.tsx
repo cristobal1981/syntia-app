@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronRight, Paperclip } from 'lucide-react'
+import { ChevronRight, ClipboardList, Paperclip, SearchX } from 'lucide-react'
+
+import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 
 import { tramites } from '@/content/tramites'
 import { cn } from '@/lib/utils'
@@ -166,16 +168,13 @@ function TramitesListSection({
   if (!items.length) {
     return (
       <section className="flex flex-col gap-4">
-        <div className="portal-home-card rounded-xl px-6 py-10 text-center">
-          <h2 className="font-sans text-base font-semibold text-foreground">
-            {filteredEmpty ? tramites.filters.noResultsTitle : copy.emptyTitle}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {filteredEmpty
-              ? tramites.filters.noResultsDescription
-              : copy.emptyDescription}
-          </p>
-        </div>
+        <PortalEmptyState
+          icon={filteredEmpty ? SearchX : ClipboardList}
+          title={filteredEmpty ? tramites.filters.noResultsTitle : copy.emptyTitle}
+          description={
+            filteredEmpty ? tramites.filters.noResultsDescription : copy.emptyDescription
+          }
+        />
       </section>
     )
   }

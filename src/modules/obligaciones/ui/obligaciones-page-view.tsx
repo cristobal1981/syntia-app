@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlarmClock } from 'lucide-react'
+import { AlarmClock, CalendarCheck, SearchX } from 'lucide-react'
+
+import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 
 import { AppLink, appLinkPortalClassName } from '@/components/ui/app-link'
 import { obligaciones } from '@/content/obligaciones'
@@ -207,25 +209,19 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
               ) : null}
             </div>
           ) : (
-            <div className="portal-home-card rounded-xl px-6 py-10 text-center">
-              <h2 className="font-sans text-base font-semibold text-foreground">
-                {obligaciones.search.noResultsTitle}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {obligaciones.search.noResultsDescription}
-              </p>
-            </div>
+            <PortalEmptyState
+              icon={SearchX}
+              title={obligaciones.search.noResultsTitle}
+              description={obligaciones.search.noResultsDescription}
+            />
           )}
         </div>
       ) : (
-        <div className="portal-home-card rounded-xl px-6 py-10 text-center">
-          <h2 className="font-sans text-base font-semibold text-foreground">
-            {obligaciones.emptyTitle}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {obligaciones.emptyDescription}
-          </p>
-        </div>
+        <PortalEmptyState
+          icon={CalendarCheck}
+          title={obligaciones.emptyTitle}
+          description={obligaciones.emptyDescription}
+        />
       )}
 
       <ObligacionDetailDrawer
