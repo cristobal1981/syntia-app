@@ -1,17 +1,13 @@
 'use client'
 
-import { clientDocuments } from '@/content/client-documents'
 import { DriveBrowserItemList } from '@/src/modules/documents/ui/drive-browser-item-list'
 import { DriveBrowserSearchBar } from '@/src/modules/documents/ui/drive-browser-search-bar'
 import { DriveBrowserToolbar } from '@/src/modules/documents/ui/drive-browser-toolbar'
+import { DriveErrorNotice } from '@/src/modules/documents/ui/drive-error-notice'
 import { DriveDocumentPreviewDialog } from '@/src/modules/documents/ui/drive-document-preview-dialog'
 import { DriveDropOverlay } from '@/src/modules/documents/ui/drive-drop-overlay'
 import { isExternalFileDrag } from '@/src/modules/documents/ui/drive-drag'
-import { DriveMoveDialog } from '@/src/modules/documents/ui/drive-move-dialog'
-import { DriveNewFolderDialog } from '@/src/modules/documents/ui/drive-new-folder-dialog'
-import { DriveRenameDialog } from '@/src/modules/documents/ui/drive-rename-dialog'
 import { useDriveBrowser } from '@/src/modules/documents/ui/use-drive-browser'
-import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 
 type DriveBrowserProps = {
   canWrite: boolean
@@ -27,65 +23,41 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
     error,
     uploading,
     actionError,
+    clearActionError,
     busyItemId,
     pending,
     viewMode,
     setViewMode,
     pageDragActive,
     uploadOverlayPhase,
+    duplicate,
+    dismissDuplicate,
     searchQuery,
     setSearchQuery,
     previewItem,
     previewOpen,
     setPreviewOpen,
     setPreviewItem,
-    renameItem,
-    renameValue,
-    setRenameValue,
-    closeRenameDialog,
-    deleteItem,
-    setDeleteItem,
-    moveItem,
-    setMoveItem,
-    moveOpen,
-    setMoveOpen,
-    newFolderOpen,
-    setNewFolderOpen,
-    newFolderValue,
-    setNewFolderValue,
     selectedItemId,
     setSelectedItemId,
-    internalDropTargetFolderId,
     overlayActive,
     uploadTooltip,
-    newFolderTooltip,
     refreshTooltip,
     gridViewTooltip,
     uploadShortcutLabel,
-    newFolderShortcutLabel,
     toggleViewShortcutLabel,
     refreshShortcutLabel,
     clearSelection,
     handleRefresh,
     handleUploadClick,
-    handleOpenNewFolderDialog,
     handleOpenFolder,
     handleOpenFile,
     handleUpload,
-    handleRenameConfirm,
-    handleDeleteConfirm,
-    handleMoveConfirm,
-    handleCreateFolder,
-    handleFolderDrop,
     handlePageDrop,
     handleDownloadItem,
     handleBreadcrumbNavigate,
-    handleDragStartItem,
-    clearInternalDragState,
-    handleFolderDragOver,
-    handleFolderDragLeave,
-    openRenameDialog,
-    openMoveDialog,
+    handleGoHome,
+    handleFileUnavailable,
   } = useDriveBrowser(canWrite)
 
   return (
@@ -102,6 +74,8 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
       <DriveDropOverlay
         active={pageDragActive || uploadOverlayPhase !== 'idle'}
         uploadPhase={uploadOverlayPhase}
+        duplicate={duplicate}
+        onDismiss={dismissDuplicate}
       />
 
       <input
@@ -126,14 +100,11 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
         uploading={uploading}
         hasCurrentFolder={Boolean(currentFolderId)}
         onUploadClick={handleUploadClick}
-        onNewFolderClick={handleOpenNewFolderDialog}
         onRefresh={handleRefresh}
         overlayActive={overlayActive}
         uploadTooltip={uploadTooltip}
-        newFolderTooltip={newFolderTooltip}
         refreshTooltip={refreshTooltip}
         uploadShortcutLabel={uploadShortcutLabel}
-        newFolderShortcutLabel={newFolderShortcutLabel}
         refreshShortcutLabel={refreshShortcutLabel}
       />
 
@@ -148,9 +119,13 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
       />
 
       {actionError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {actionError}
-        </p>
+        <DriveErrorNotice
+          code={actionError.code}
+          context={actionError.context}
+          onRetry={handleRefresh}
+          onHome={handleGoHome}
+          onDismiss={clearActionError}
+        />
       ) : null}
 
       <DriveBrowserItemList
@@ -164,7 +139,6 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
         busyItemId={busyItemId}
         pending={pending}
         selectedItemId={selectedItemId}
-        internalDropTargetFolderId={internalDropTargetFolderId}
         onRetry={handleRefresh}
         onUploadEmptyAction={handleUploadClick}
         onClearSelection={clearSelection}
@@ -172,18 +146,11 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
         onOpenFolder={handleOpenFolder}
         onOpenFile={handleOpenFile}
         onDownloadItem={handleDownloadItem}
-        onRenameItem={openRenameDialog}
-        onMoveItem={openMoveDialog}
-        onDeleteItem={setDeleteItem}
-        onDragStartItem={handleDragStartItem}
-        onDragEndItem={clearInternalDragState}
-        onFolderDragOver={handleFolderDragOver}
-        onFolderDragLeave={handleFolderDragLeave}
-        onFolderDrop={handleFolderDrop}
       />
 
       <DriveDocumentPreviewDialog
         item={previewItem}
+        onUnavailable={handleFileUnavailable}
         open={previewOpen}
         onOpenChange={(open) => {
           setPreviewOpen(open)
@@ -191,51 +158,6 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
         }}
       />
 
-      <DriveMoveDialog
-        item={moveItem}
-        sourceFolderId={currentFolderId}
-        open={moveOpen}
-        onOpenChange={(open) => {
-          setMoveOpen(open)
-          if (!open) setMoveItem(null)
-        }}
-        onConfirm={handleMoveConfirm}
-        pending={pending}
-      />
-
-      <DriveRenameDialog
-        open={renameItem !== null}
-        value={renameValue}
-        pending={pending}
-        onValueChange={setRenameValue}
-        onCancel={closeRenameDialog}
-        onConfirm={handleRenameConfirm}
-      />
-
-      <DriveNewFolderDialog
-        open={newFolderOpen}
-        value={newFolderValue}
-        pending={pending}
-        onOpenChange={setNewFolderOpen}
-        onValueChange={setNewFolderValue}
-        onConfirm={handleCreateFolder}
-      />
-
-      <PortalConfirmDialog
-        open={deleteItem !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteItem(null)
-        }}
-        title={clientDocuments.deleteTitle}
-        description={
-          deleteItem
-            ? clientDocuments.deleteDescription.replace('{name}', deleteItem.name)
-            : ''
-        }
-        confirmLabel={clientDocuments.confirmDelete}
-        confirmVariant="destructive"
-        onConfirm={handleDeleteConfirm}
-      />
     </div>
   )
 }

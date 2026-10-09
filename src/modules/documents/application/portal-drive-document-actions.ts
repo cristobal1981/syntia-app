@@ -7,25 +7,26 @@ import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/
 import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveClientDriveRootId } from '@/src/modules/documents/application/resolve-client-drive-root'
 import {
-  createMockDriveFolder,
-  deleteMockDriveItem,
   getMockDriveFileBinary,
+  findMockDriveDuplicate,
   getMockDriveRootId,
   listMockDriveFolder,
-  moveMockDriveItem,
-  renameMockDriveItem,
   uploadMockDriveFiles,
 } from '@/src/modules/documents/domain/mock-drive-items'
+import {
+  guardDriveAction,
+  logDriveFailure,
+  mapDriveErrorToCode,
+} from '@/src/modules/documents/application/drive-error-mapping'
 import { shouldUseMockDrive } from '@/src/modules/documents/infrastructure/drive-runtime'
 import type {
-  DriveDeleteResult,
   DriveDocumentErrorCode,
   DriveFileDownloadResult,
   DriveFolderListResult,
-  DriveItemMutationResult,
   DriveUploadResult,
 } from '@/src/modules/documents/domain/types'
 import {
+  getDriveMaxDownloadBytes,
   getDriveMaxFilesPerBatch,
   getDriveMaxUploadBytes,
   getDrivePreviewMaxBytes,
@@ -34,12 +35,9 @@ import {
 } from '@/src/modules/documents/infrastructure/drive-env'
 import { isGoogleDriveApiConfigured } from '@/src/modules/documents/infrastructure/google-drive-auth'
 import {
-  createDriveFolder,
-  deleteDriveItem,
   downloadDriveFile,
+  findDuplicateInSubtree,
   listDriveFolder,
-  moveDriveItem,
-  renameDriveItem,
   uploadDriveFile,
 } from '@/src/modules/documents/infrastructure/google-drive-repository'
 
@@ -50,7 +48,10 @@ async function resolveClientDriveAccess(
   | { ok: false; error: DriveDocumentErrorCode }
 > {
   const session = await getSession()
-  if (!session || !isClientOrWorkerRole(session.user.role)) {
+  if (!session) {
+    return { ok: false, error: 'session_expired' }
+  }
+  if (!isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 
@@ -68,38 +69,28 @@ async function resolveClientDriveAccess(
     return { ok: true, rootId: getMockDriveRootId() }
   }
 
-  const rootId = await resolveClientDriveRootId(session.user)
-  if (!rootId) {
-    return { ok: false, error: 'not_linked' }
+  // Sin credenciales de Google no hay Documentos (y en producción nunca hay demo).
+  if (!isGoogleDriveApiConfigured()) {
+    return { ok: false, error: 'not_configured' }
   }
 
-  if (!isGoogleDriveApiConfigured()) {
-    return { ok: false, error: 'drive_unavailable' }
+  const rootId = (await resolveClientDriveRootId(session.user))?.trim()
+  if (!rootId) {
+    return { ok: false, error: 'not_linked' }
   }
 
   return { ok: true, rootId }
 }
 
-function resolveDriveError(error: unknown): DriveDocumentErrorCode {
-  if (!(error instanceof Error)) {
-    return 'drive_unavailable'
-  }
-
-  switch (error.message) {
-    case 'DRIVE_ACCESS_FORBIDDEN':
-      return 'forbidden'
-    case 'DRIVE_ITEM_NOT_FOUND':
-      return 'not_found'
-    case 'DRIVE_NAME_CONFLICT':
-      return 'name_conflict'
-    case 'GOOGLE_DRIVE_NOT_CONFIGURED':
-      return 'drive_unavailable'
-    default:
-      return 'drive_unavailable'
-  }
+export async function listDriveFolderAction(input?: { folderId?: string }): Promise<DriveFolderListResult> {
+  return guardDriveAction(
+    'list',
+    () => listDriveFolderActionImpl(input),
+    (error) => ({ ok: false, error })
+  )
 }
 
-export async function listDriveFolderAction(input?: {
+async function listDriveFolderActionImpl(input?: {
   folderId?: string
 }): Promise<DriveFolderListResult> {
   const access = await resolveClientDriveAccess()
@@ -117,11 +108,20 @@ export async function listDriveFolderAction(input?: {
     const listing = await listDriveFolder(folderId, access.rootId)
     return { ok: true, listing }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('list', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
-export async function getDriveFilePreviewAction(input: {
+export async function getDriveFilePreviewAction(input: { fileId: string }): Promise<DriveFileDownloadResult> {
+  return guardDriveAction(
+    'preview',
+    () => getDriveFilePreviewActionImpl(input),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function getDriveFilePreviewActionImpl(input: {
   fileId: string
 }): Promise<DriveFileDownloadResult> {
   const access = await resolveClientDriveAccess()
@@ -152,7 +152,9 @@ export async function getDriveFilePreviewAction(input: {
   }
 
   try {
-    const binary = await downloadDriveFile(fileId, access.rootId)
+    const binary = await downloadDriveFile(fileId, access.rootId, {
+      maxBytes: Math.min(getDrivePreviewMaxBytes(), getDriveMaxDownloadBytes()),
+    })
     if (binary.size > getDrivePreviewMaxBytes()) {
       return { ok: false, error: 'too_large' }
     }
@@ -164,11 +166,20 @@ export async function getDriveFilePreviewAction(input: {
       dataBase64: binary.dataBase64,
     }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('preview', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
-export async function downloadDriveFileAction(input: {
+export async function downloadDriveFileAction(input: { fileId: string }): Promise<DriveFileDownloadResult> {
+  return guardDriveAction(
+    'download',
+    () => downloadDriveFileActionImpl(input),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function downloadDriveFileActionImpl(input: {
   fileId: string
 }): Promise<DriveFileDownloadResult> {
   const access = await resolveClientDriveAccess()
@@ -195,7 +206,9 @@ export async function downloadDriveFileAction(input: {
   }
 
   try {
-    const binary = await downloadDriveFile(fileId, access.rootId)
+    const binary = await downloadDriveFile(fileId, access.rootId, {
+      maxBytes: getDriveMaxDownloadBytes(),
+    })
     return {
       ok: true,
       filename: binary.filename,
@@ -203,7 +216,8 @@ export async function downloadDriveFileAction(input: {
       dataBase64: binary.dataBase64,
     }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('download', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
@@ -211,7 +225,28 @@ export async function getDriveDocumentsModeAction(): Promise<{ demo: boolean }> 
   return { demo: shouldUseMockDrive() }
 }
 
-export async function uploadDriveFilesAction(
+function validateUploadBatch(files: File[]): DriveDocumentErrorCode | null {
+  if (!files.length) return 'upload_failed'
+  if (files.length > getDriveMaxFilesPerBatch()) return 'upload_failed'
+
+  const maxBytes = getDriveMaxUploadBytes()
+  for (const file of files) {
+    if (file.size > maxBytes) return 'too_large'
+    if (!validateDriveItemName(file.name)) return 'invalid_name'
+    if (isDangerousDriveUpload(file.name, file.type)) return 'invalid_type'
+  }
+  return null
+}
+
+export async function uploadDriveFilesAction(formData: FormData): Promise<DriveUploadResult> {
+  return guardDriveAction(
+    'upload',
+    () => uploadDriveFilesActionImpl(formData),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function uploadDriveFilesActionImpl(
   formData: FormData
 ): Promise<DriveUploadResult> {
   const access = await resolveClientDriveAccess('write')
@@ -224,76 +259,42 @@ export async function uploadDriveFilesAction(
     return { ok: false, error: 'not_found' }
   }
 
-  if (shouldUseMockDrive()) {
-    const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
-    if (!files.length) {
-      return { ok: false, error: 'upload_failed' }
-    }
+  const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
+  // Todo el lote se valida antes de subir nada: un archivo malo no deja subidas a medias.
+  const invalid = validateUploadBatch(files)
+  if (invalid) {
+    return { ok: false, error: invalid }
+  }
 
-    const maxFiles = getDriveMaxFilesPerBatch()
-    if (files.length > maxFiles) {
-      return { ok: false, error: 'upload_failed' }
-    }
+  const names = files.map((file) => file.name.trim())
 
-    const maxBytes = getDriveMaxUploadBytes()
-    for (const file of files) {
-      if (file.size > maxBytes) {
-        return { ok: false, error: 'too_large' }
-      }
-      if (!validateDriveItemName(file.name)) {
-        return { ok: false, error: 'invalid_name' }
-      }
-      if (isDangerousDriveUpload(file.name, file.type)) {
-        return { ok: false, error: 'invalid_type' }
-      }
-    }
+  try {
+    if (shouldUseMockDrive()) {
+      const duplicate = findMockDriveDuplicate(parentFolderId, names)
+      if (duplicate) return { ok: false, error: 'duplicate', duplicate }
 
-    try {
       const uploaded = uploadMockDriveFiles(
         parentFolderId,
-        files.map((file) => ({
-          name: file.name,
+        files.map((file, index) => ({
+          name: names[index],
           mimeType: file.type || 'application/octet-stream',
           size: file.size,
         }))
       )
       return { ok: true, uploaded }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
     }
-  }
 
-  const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
-  if (!files.length) {
-    return { ok: false, error: 'upload_failed' }
-  }
+    // Mismo nombre en la carpeta de destino o en cualquiera de sus subcarpetas.
+    const duplicate = await findDuplicateInSubtree(parentFolderId, names, access.rootId)
+    if (duplicate) return { ok: false, error: 'duplicate', duplicate }
 
-  const maxFiles = getDriveMaxFilesPerBatch()
-  if (files.length > maxFiles) {
-    return { ok: false, error: 'upload_failed' }
-  }
-
-  const maxBytes = getDriveMaxUploadBytes()
-  for (const file of files) {
-    if (file.size > maxBytes) {
-      return { ok: false, error: 'too_large' }
-    }
-    if (!validateDriveItemName(file.name)) {
-      return { ok: false, error: 'invalid_name' }
-    }
-    if (isDangerousDriveUpload(file.name, file.type)) {
-      return { ok: false, error: 'invalid_type' }
-    }
-  }
-
-  try {
     const uploaded = []
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       const buffer = Buffer.from(await file.arrayBuffer())
       const item = await uploadDriveFile(
         parentFolderId,
         {
-          name: file.name,
+          name: names[index],
           mimeType: file.type || 'application/octet-stream',
           buffer,
         },
@@ -304,142 +305,7 @@ export async function uploadDriveFilesAction(
 
     return { ok: true, uploaded }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
-}
-
-export async function renameDriveItemAction(input: {
-  itemId: string
-  newName: string
-}): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess('write')
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
-
-  const itemId = input.itemId?.trim()
-  const newName = input.newName?.trim()
-  if (!itemId || !newName || !validateDriveItemName(newName)) {
-    return { ok: false, error: 'invalid_name' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      const item = renameMockDriveItem(itemId, newName)
-      return { ok: true, item }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    const item = await renameDriveItem(itemId, newName, access.rootId)
-    return { ok: true, item }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
-}
-
-export async function deleteDriveItemAction(input: {
-  itemId: string
-}): Promise<DriveDeleteResult> {
-  const access = await resolveClientDriveAccess('write')
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
-
-  const itemId = input.itemId?.trim()
-  if (!itemId) {
-    return { ok: false, error: 'not_found' }
-  }
-
-  if (itemId === access.rootId) {
-    return { ok: false, error: 'forbidden' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      deleteMockDriveItem(itemId)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    await deleteDriveItem(itemId, access.rootId)
-    return { ok: true }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
-}
-
-export async function createDriveFolderAction(input: {
-  parentFolderId: string
-  name: string
-}): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess('write')
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
-
-  const parentFolderId = input.parentFolderId?.trim()
-  const name = input.name?.trim()
-  if (!parentFolderId || !name || !validateDriveItemName(name)) {
-    return { ok: false, error: 'invalid_name' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      const item = createMockDriveFolder(parentFolderId, name)
-      return { ok: true, item }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    const item = await createDriveFolder(parentFolderId, name, access.rootId)
-    return { ok: true, item }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
-}
-
-export async function moveDriveItemAction(input: {
-  itemId: string
-  targetFolderId: string
-  sourceFolderId: string
-}): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess('write')
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
-
-  const itemId = input.itemId?.trim()
-  const targetFolderId = input.targetFolderId?.trim()
-  const sourceFolderId = input.sourceFolderId?.trim()
-  if (!itemId || !targetFolderId || !sourceFolderId) {
-    return { ok: false, error: 'not_found' }
-  }
-
-  if (itemId === access.rootId) {
-    return { ok: false, error: 'forbidden' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      const item = moveMockDriveItem(itemId, targetFolderId, sourceFolderId)
-      return { ok: true, item }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    const item = await moveDriveItem(itemId, targetFolderId, sourceFolderId, access.rootId)
-    return { ok: true, item }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('upload', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }

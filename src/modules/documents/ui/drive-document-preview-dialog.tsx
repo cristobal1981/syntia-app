@@ -15,6 +15,9 @@ import { portalDocuments } from '@/content/portal-documents'
 import { classifyDocumentPreview } from '@/src/modules/portal/domain/classify-document-preview'
 import type { DocumentPreviewCategory } from '@/src/modules/portal/domain/classify-document-preview'
 import { getDriveFilePreviewAction } from '@/src/modules/documents/application/portal-drive-document-actions'
+import type { DriveUiErrorCode } from '@/src/modules/documents/domain/drive-error-presentation'
+import { DriveErrorNotice } from '@/src/modules/documents/ui/drive-error-notice'
+import { callDriveAction } from '@/src/modules/documents/ui/call-drive-action'
 import type { DriveItem } from '@/src/modules/documents/domain/types'
 import { DocumentPreviewContent } from '@/src/modules/portal/ui/document-preview/document-preview-content'
 import { PreviewFallback } from '@/src/modules/portal/ui/document-preview/preview-fallback'
@@ -59,6 +62,8 @@ type DriveDocumentPreviewDialogProps = {
   item: DriveItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** El archivo ya no existe en Drive: la lista que ve la persona está desfasada. */
+  onUnavailable?: () => void
 }
 
 type PreviewPayload = {
@@ -77,10 +82,12 @@ export function DriveDocumentPreviewDialog({
   item,
   open,
   onOpenChange,
+  onUnavailable,
 }: DriveDocumentPreviewDialogProps) {
   const [payload, setPayload] = useState<PreviewPayload | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<DriveUiErrorCode | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!open || !item) {
@@ -123,14 +130,13 @@ export function DriveDocumentPreviewDialog({
     setError(null)
     setPayload(null)
 
-    void getDriveFilePreviewAction({ fileId: item.id }).then((result) => {
+    void callDriveAction(() => getDriveFilePreviewAction({ fileId: item.id })).then((result) => {
       if (cancelled) return
       setLoading(false)
 
       if (!result.ok) {
-        setError(
-          clientDocuments.errors[result.error] ?? clientDocuments.errors.drive_unavailable
-        )
+        setError(result.error)
+        if (result.error === 'not_found') onUnavailable?.()
         return
       }
 
@@ -146,7 +152,9 @@ export function DriveDocumentPreviewDialog({
     return () => {
       cancelled = true
     }
-  }, [open, item])
+    // `attempt` fuerza la recarga al pulsar «Reintentar»; `onUnavailable` no debe relanzar la carga.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item, attempt])
 
   const title = item?.name ?? clientDocuments.preview
   const previewCategory = payload?.category ?? (item ? previewCategoryForDriveItem(item) : null)
@@ -195,12 +203,16 @@ export function DriveDocumentPreviewDialog({
           ) : null}
 
           {error ? (
-            <p
-              className="flex flex-1 items-center justify-center py-8 text-center text-sm text-destructive"
-              role="alert"
-            >
-              {error}
-            </p>
+            <div className="flex flex-1 items-center justify-center">
+              <DriveErrorNotice
+                variant="panel"
+                code={error}
+                context="file"
+                className="w-full max-w-lg"
+                onRetry={() => setAttempt((current) => current + 1)}
+                onDismiss={() => onOpenChange(false)}
+              />
+            </div>
           ) : null}
 
           {!loading && !error && payload && payload.category === 'unsupported' ? (

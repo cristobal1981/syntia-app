@@ -277,10 +277,6 @@ for (const items of Object.values(mockItemsByFolder)) {
 }
 
 const mockDynamicItemsByFolder: Record<string, DriveItem[]> = {}
-const mockDynamicFolderIds = new Set<string>()
-const mockDeletedIds = new Set<string>()
-const mockRenamedItems = new Map<string, string>()
-const mockRemovedFromStaticParent = new Set<string>()
 let mockDynamicIdCounter = 0
 
 function nextMockDynamicId(prefix: string): string {
@@ -289,66 +285,30 @@ function nextMockDynamicId(prefix: string): string {
 }
 
 function mockFolderExists(folderId: string): boolean {
-  return Boolean(mockItemsByFolder[folderId]) || mockDynamicFolderIds.has(folderId)
-}
-
-function applyMockItemOverrides(item: DriveItem): DriveItem | null {
-  if (mockDeletedIds.has(item.id)) return null
-  const renamed = mockRenamedItems.get(item.id)
-  if (renamed) return { ...item, name: renamed }
-  return item
+  return Boolean(mockItemsByFolder[folderId])
 }
 
 function getMockFolderItems(folderId: string): DriveItem[] {
-  const staticItems = (mockItemsByFolder[folderId] ?? []).filter(
-    (item) => !mockRemovedFromStaticParent.has(item.id)
-  )
-  const merged = [...staticItems, ...(mockDynamicItemsByFolder[folderId] ?? [])]
-  return sortDriveItems(
-    merged
-      .map(applyMockItemOverrides)
-      .filter((item): item is DriveItem => item !== null)
-  )
+  return sortDriveItems([
+    ...(mockItemsByFolder[folderId] ?? []),
+    ...(mockDynamicItemsByFolder[folderId] ?? []),
+  ])
 }
 
 function findMockItemInTree(itemId: string): { item: DriveItem; parentId: string } | null {
   for (const [parentId, entries] of Object.entries(mockItemsByFolder)) {
     const item = entries.find((entry) => entry.id === itemId)
-    if (item && !mockRemovedFromStaticParent.has(itemId)) {
-      return { item: applyMockItemOverrides(item) ?? item, parentId }
+    if (item) {
+      return { item: item, parentId }
     }
   }
   for (const [parentId, entries] of Object.entries(mockDynamicItemsByFolder)) {
     const item = entries.find((entry) => entry.id === itemId)
     if (item) {
-      return { item: applyMockItemOverrides(item) ?? item, parentId }
+      return { item: item, parentId }
     }
   }
   return null
-}
-
-function removeMockItemFromParent(parentId: string, itemId: string): void {
-  if (mockDynamicItemsByFolder[parentId]) {
-    const next = mockDynamicItemsByFolder[parentId].filter((entry) => entry.id !== itemId)
-    if (next.length !== mockDynamicItemsByFolder[parentId].length) {
-      mockDynamicItemsByFolder[parentId] = next
-      return
-    }
-  }
-  if (mockItemsByFolder[parentId]?.some((entry) => entry.id === itemId)) {
-    mockRemovedFromStaticParent.add(itemId)
-  }
-}
-
-function isMockFolderDescendant(folderId: string, ancestorFolderId: string): boolean {
-  let current: string | null = folderId
-  const visited = new Set<string>()
-  while (current && !visited.has(current)) {
-    visited.add(current)
-    if (current === ancestorFolderId) return true
-    current = mockParentByFolder[current] ?? null
-  }
-  return false
 }
 
 function appendMockItemToFolder(parentId: string, item: DriveItem): void {
@@ -403,8 +363,8 @@ export function listMockDriveFolder(folderId: string): DriveFolderListing {
 
 export function getMockDriveFile(fileId: string): DriveItem | null {
   const fromIndex = mockFileIndex.get(fileId)
-  if (fromIndex && !mockDeletedIds.has(fileId)) {
-    return applyMockItemOverrides(fromIndex)
+  if (fromIndex) {
+    return fromIndex
   }
   const located = findMockItemInTree(fileId)
   if (!located || located.item.kind === 'folder') return null
@@ -470,87 +430,35 @@ export function uploadMockDriveFiles(
   return uploaded
 }
 
-export function createMockDriveFolder(parentFolderId: string, name: string): DriveItem {
-  if (!mockFolderExists(parentFolderId)) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-
-  const id = nextMockDynamicId('folder')
-  mockFolderNames[id] = name
-  mockParentByFolder[id] = parentFolderId
-  mockDynamicFolderIds.add(id)
-  mockDynamicItemsByFolder[id] = []
-
-  const item = folder(id, name, new Date().toISOString())
-  appendMockItemToFolder(parentFolderId, item)
-  return item
+function comparableMockName(name: string): string {
+  return name.normalize('NFC').trim().toLowerCase()
 }
 
-export function renameMockDriveItem(itemId: string, newName: string): DriveItem {
-  const item =
-    mockFileIndex.get(itemId) ??
-    Object.values(mockDynamicItemsByFolder)
-      .flat()
-      .find((entry) => entry.id === itemId) ??
-    Object.values(mockItemsByFolder)
-      .flat()
-      .find((entry) => entry.id === itemId)
-
-  if (!item || mockDeletedIds.has(itemId)) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
+/** Misma regla que Drive real: mismo nombre en la carpeta o en cualquier subcarpeta. */
+export function findMockDriveDuplicate(
+  parentFolderId: string,
+  names: string[]
+): { name: string; folders: string[]; inSelection?: boolean } | null {
+  const basePath = buildMockBreadcrumbs(parentFolderId)
+    .filter((crumb) => crumb.id !== MOCK_ROOT_ID)
+    .map((crumb) => crumb.name)
+  const wanted = new Set<string>()
+  for (const name of names) {
+    const key = comparableMockName(name)
+    if (wanted.has(key)) return { name, folders: basePath, inSelection: true }
+    wanted.add(key)
   }
 
-  mockRenamedItems.set(itemId, newName)
-  const updated = { ...item, name: newName }
-  if (item.kind !== 'folder') {
-    mockFileIndex.set(itemId, updated)
+  const queue: Array<{ id: string; path: string[] }> = [{ id: parentFolderId, path: basePath }]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const item of getMockFolderItems(current.id)) {
+      if (item.kind === 'folder') {
+        queue.push({ id: item.id, path: [...current.path, item.name] })
+      } else if (wanted.has(comparableMockName(item.name))) {
+        return { name: item.name, folders: current.path }
+      }
+    }
   }
-  return updated
-}
-
-export function deleteMockDriveItem(itemId: string): void {
-  if (itemId === MOCK_ROOT_ID) {
-    throw new Error('DRIVE_ACCESS_FORBIDDEN')
-  }
-  mockDeletedIds.add(itemId)
-}
-
-export function moveMockDriveItem(
-  itemId: string,
-  targetFolderId: string,
-  sourceFolderId: string
-): DriveItem {
-  if (!mockFolderExists(targetFolderId)) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-
-  const located = findMockItemInTree(itemId)
-  if (!located || mockDeletedIds.has(itemId)) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-
-  if (located.parentId !== sourceFolderId) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-
-  if (targetFolderId === sourceFolderId) {
-    return located.item
-  }
-
-  if (
-    located.item.kind === 'folder' &&
-    (targetFolderId === itemId || isMockFolderDescendant(targetFolderId, itemId))
-  ) {
-    throw new Error('DRIVE_ACCESS_FORBIDDEN')
-  }
-
-  const item = located.item
-  removeMockItemFromParent(sourceFolderId, itemId)
-  appendMockItemToFolder(targetFolderId, item)
-
-  if (item.kind === 'folder') {
-    mockParentByFolder[itemId] = targetFolderId
-  }
-
-  return item
+  return null
 }

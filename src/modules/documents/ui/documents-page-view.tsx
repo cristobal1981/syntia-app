@@ -34,31 +34,3 @@ export function DocumentsPageView({ demoMode = false, canWrite }: DocumentsPageV
     </div>
   )
 }
-
-type DocumentsStateViewProps = {
-  title: string
-  description: string
-  variant?: 'default' | 'destructive'
-  onRetry?: () => void
-}
-
-export function DocumentsStateView({
-  title,
-  description,
-  variant = 'default',
-}: DocumentsStateViewProps) {
-  return (
-    <div className="rounded-xl border border-border bg-card px-6 py-12 text-center shadow-xs">
-      <h2
-        className={
-          variant === 'destructive'
-            ? 'text-lg font-semibold text-destructive'
-            : 'text-lg font-semibold text-foreground'
-        }
-      >
-        {title}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-    </div>
-  )
-}

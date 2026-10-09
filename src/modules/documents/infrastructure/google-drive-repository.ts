@@ -1,7 +1,20 @@
+import { randomUUID } from 'crypto'
+
 import { mapDriveApiFileToItem } from '@/src/modules/documents/domain/classify-drive-item'
 import { sortDriveItems } from '@/src/modules/documents/domain/sort-drive-items'
-import type { DriveBreadcrumb, DriveFolderListing, DriveItem } from '@/src/modules/documents/domain/types'
-import { getGoogleDriveAccessToken } from '@/src/modules/documents/infrastructure/google-drive-auth'
+import type {
+  DriveBreadcrumb,
+  DriveDuplicate,
+  DriveFolderListing,
+  DriveItem,
+} from '@/src/modules/documents/domain/types'
+import {
+  DRIVE_TRANSFER_TIMEOUT_MS,
+  driveErrorFromResponse,
+  readDriveBytes,
+  readDriveJson,
+} from '@/src/modules/documents/infrastructure/drive-errors'
+import { authorizedDriveFetch } from '@/src/modules/documents/infrastructure/drive-http'
 import {
   assertDriveItemWithinClientTree,
   buildDriveBreadcrumbs,
@@ -24,16 +37,8 @@ type DriveListResponse = {
   nextPageToken?: string
 }
 
-async function driveFetch(path: string, init?: RequestInit): Promise<Response> {
-  const accessToken = await getGoogleDriveAccessToken()
-  return fetch(`https://www.googleapis.com/drive/v3${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init?.headers ?? {}),
-    },
-    cache: 'no-store',
-  })
+function driveFetch(path: string, init?: RequestInit, timeoutMs?: number): Promise<Response> {
+  return authorizedDriveFetch(`https://www.googleapis.com/drive/v3${path}`, init, timeoutMs)
 }
 
 export async function listDriveFolder(
@@ -52,10 +57,10 @@ export async function listDriveFolder(
   )
 
   if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
+    throw await driveErrorFromResponse(response)
   }
 
-  const payload = (await response.json()) as DriveListResponse
+  const payload = (await readDriveJson(response)) as DriveListResponse
   const items: DriveItem[] = (payload.files ?? [])
     .filter((file): file is NonNullable<typeof file> & { id: string; name: string; mimeType: string } =>
       Boolean(file.id && file.name && file.mimeType)
@@ -82,7 +87,11 @@ export async function listDriveFolder(
   }
 }
 
-export async function downloadDriveFile(fileId: string, rootId: string): Promise<{
+export async function downloadDriveFile(
+  fileId: string,
+  rootId: string,
+  options?: { maxBytes?: number }
+): Promise<{
   filename: string
   mimetype: string
   dataBase64: string
@@ -93,18 +102,20 @@ export async function downloadDriveFile(fileId: string, rootId: string): Promise
   const metaResponse = await driveFetch(
     `/files/${encodeURIComponent(fileId)}?fields=name,mimeType,size&${DRIVE_SHARED_QUERY_FLAGS}`
   )
-
-  if (metaResponse.status === 404) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
   if (!metaResponse.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
+    throw await driveErrorFromResponse(metaResponse)
   }
 
-  const metadata = (await metaResponse.json()) as {
+  const metadata = (await readDriveJson(metaResponse)) as {
     name?: string
     mimeType?: string
     size?: string
+  }
+
+  // Se comprueba el tamaño ANTES de bajar el contenido (los archivos nativos de
+  // Google no declaran tamaño; para esos solo se puede comprobar al exportar).
+  if (options?.maxBytes !== undefined && Number(metadata.size) > options.maxBytes) {
+    throw new Error('DRIVE_FILE_TOO_LARGE')
   }
 
   const googleWorkspaceExport = getGoogleExportMime(metadata.mimeType ?? '')
@@ -121,10 +132,14 @@ export async function downloadDriveFile(fileId: string, rootId: string): Promise
   }
 
   if (!downloadResponse.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
+    throw await driveErrorFromResponse(downloadResponse)
   }
 
-  const buffer = Buffer.from(await downloadResponse.arrayBuffer())
+  const buffer = await readDriveBytes(downloadResponse)
+  // Los archivos nativos de Google no declaran tamaño: se comprueba también aquí.
+  if (options?.maxBytes !== undefined && buffer.length > options.maxBytes) {
+    throw new Error('DRIVE_FILE_TOO_LARGE')
+  }
   const filename = googleWorkspaceExport
     ? ensureExtension(metadata.name ?? 'documento', googleWorkspaceExport.extension)
     : (metadata.name ?? 'documento')
@@ -164,49 +179,6 @@ function ensureExtension(name: string, extension: string): string {
   return `${name}.${extension}`
 }
 
-export async function createDriveFolder(
-  parentId: string,
-  name: string,
-  rootId: string
-): Promise<DriveItem> {
-  await assertDriveItemWithinClientTree(parentId, rootId)
-
-  const response = await driveFetch(`/files?${DRIVE_SHARED_QUERY_FLAGS}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    }),
-  })
-
-  if (response.status === 409) {
-    throw new Error('DRIVE_NAME_CONFLICT')
-  }
-  if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
-
-  const payload = (await response.json()) as {
-    id?: string
-    name?: string
-    mimeType?: string
-    modifiedTime?: string
-  }
-
-  if (!payload.id || !payload.name || !payload.mimeType) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
-
-  return mapDriveApiFileToItem({
-    id: payload.id,
-    name: payload.name,
-    mimeType: payload.mimeType,
-    modifiedTime: payload.modifiedTime,
-  })
-}
-
 export async function uploadDriveFile(
   parentId: string,
   file: { name: string; mimeType: string; buffer: Buffer },
@@ -218,7 +190,7 @@ export async function uploadDriveFile(
     name: file.name,
     parents: [parentId],
   })
-  const boundary = `syntia_drive_${Date.now()}`
+  const boundary = `syntia_drive_${randomUUID()}`
   const body = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`),
     Buffer.from(metadata),
@@ -227,28 +199,21 @@ export async function uploadDriveFile(
     Buffer.from(`\r\n--${boundary}--`),
   ])
 
-  const accessToken = await getGoogleDriveAccessToken()
-  const response = await fetch(
+  const response = await authorizedDriveFetch(
     `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,size&${DRIVE_SHARED_QUERY_FLAGS}`,
     {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
       body,
-      cache: 'no-store',
-    }
+    },
+    DRIVE_TRANSFER_TIMEOUT_MS
   )
 
-  if (response.status === 409) {
-    throw new Error('DRIVE_NAME_CONFLICT')
-  }
   if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
+    throw await driveErrorFromResponse(response)
   }
 
-  const payload = (await response.json()) as {
+  const payload = (await readDriveJson(response)) as {
     id?: string
     name?: string
     mimeType?: string
@@ -269,140 +234,93 @@ export async function uploadDriveFile(
   })
 }
 
-export async function renameDriveItem(
-  itemId: string,
-  newName: string,
+const FOLDER_MIME = 'application/vnd.google-apps.folder'
+const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
+const SCAN_PARENTS_PER_QUERY = 20
+const SCAN_MAX_DEPTH = 12
+const SCAN_MAX_FOLDERS = 1000
+
+function comparableName(name: string): string {
+  return name.normalize('NFC').trim().toLowerCase()
+}
+
+type ScanFile = { id?: string; name?: string; mimeType?: string; parents?: unknown }
+
+/**
+ * Busca, desde `parentId` y hacia abajo por TODA la jerarquía, un archivo cuyo
+ * nombre coincida (sin distinguir mayúsculas/acentos compuestos) con alguno de
+ * `names`. También detecta nombres repetidos dentro de la propia selección.
+ * Solo lee. Si el árbol es demasiado grande para comprobarlo entero, falla
+ * (cerrado) en vez de dar por buena una comprobación incompleta.
+ */
+export async function findDuplicateInSubtree(
+  parentId: string,
+  names: string[],
   rootId: string
-): Promise<DriveItem> {
-  await assertDriveItemWithinClientTree(itemId, rootId)
+): Promise<DriveDuplicate | null> {
+  await assertDriveItemWithinClientTree(parentId, rootId)
 
-  const response = await driveFetch(
-    `/files/${encodeURIComponent(itemId)}?fields=id,name,mimeType,modifiedTime,size&${DRIVE_SHARED_QUERY_FLAGS}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName }),
+  const crumbs = await buildDriveBreadcrumbs(parentId, rootId)
+  // Sin la carpeta raíz del cliente: su nombre real no se muestra.
+  const basePath = crumbs.filter((crumb) => crumb.id !== rootId).map((crumb) => crumb.name)
+
+  const wanted = new Set<string>()
+  for (const name of names) {
+    const key = comparableName(name)
+    if (wanted.has(key)) {
+      return { name, folders: basePath, inSelection: true }
     }
-  )
-
-  if (response.status === 404) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-  if (response.status === 409) {
-    throw new Error('DRIVE_NAME_CONFLICT')
-  }
-  if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
+    wanted.add(key)
   }
 
-  const payload = (await response.json()) as {
-    id?: string
-    name?: string
-    mimeType?: string
-    modifiedTime?: string
-    size?: string
-  }
+  let level: Array<{ id: string; path: string[] }> = [{ id: parentId, path: basePath }]
+  let scanned = 0
 
-  if (!payload.id || !payload.name || !payload.mimeType) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
-
-  return mapDriveApiFileToItem({
-    id: payload.id,
-    name: payload.name,
-    mimeType: payload.mimeType,
-    modifiedTime: payload.modifiedTime,
-    size: payload.size,
-  })
-}
-
-export async function deleteDriveItem(itemId: string, rootId: string): Promise<void> {
-  await assertDriveItemWithinClientTree(itemId, rootId)
-
-  const response = await driveFetch(
-    `/files/${encodeURIComponent(itemId)}?${DRIVE_SHARED_QUERY_FLAGS}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trashed: true }),
+  for (let depth = 0; level.length > 0; depth += 1) {
+    scanned += level.length
+    if (depth > SCAN_MAX_DEPTH || scanned > SCAN_MAX_FOLDERS) {
+      throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
     }
-  )
 
-  if (response.status === 404) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-  if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
-}
+    const next: Array<{ id: string; path: string[] }> = []
 
-export async function moveDriveItem(
-  itemId: string,
-  targetFolderId: string,
-  sourceFolderId: string,
-  rootId: string
-): Promise<DriveItem> {
-  await assertDriveItemWithinClientTree(itemId, rootId)
-  await assertDriveItemWithinClientTree(targetFolderId, rootId)
-  await assertDriveItemWithinClientTree(sourceFolderId, rootId)
+    for (let start = 0; start < level.length; start += SCAN_PARENTS_PER_QUERY) {
+      const chunk = level.slice(start, start + SCAN_PARENTS_PER_QUERY)
+      const pathById = new Map(chunk.map((folder) => [folder.id, folder.path]))
+      const query = `(${chunk.map((folder) => `'${folder.id}' in parents`).join(' or ')}) and trashed=false`
+      let pageToken: string | undefined
 
-  if (itemId === targetFolderId) {
-    throw new Error('DRIVE_ACCESS_FORBIDDEN')
-  }
+      do {
+        const page = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
+        const response = await driveFetch(
+          `/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent('nextPageToken,files(id,name,mimeType,parents)')}&pageSize=1000&${DRIVE_SHARED_QUERY_FLAGS}${page}`
+        )
+        if (!response.ok) {
+          throw await driveErrorFromResponse(response)
+        }
+        const payload = (await readDriveJson(response)) as { files?: ScanFile[]; nextPageToken?: string }
 
-  const metaResponse = await driveFetch(
-    `/files/${encodeURIComponent(itemId)}?fields=id,name,mimeType,modifiedTime,size,parents&${DRIVE_SHARED_QUERY_FLAGS}`
-  )
+        for (const file of payload.files ?? []) {
+          if (typeof file.name !== 'string' || typeof file.id !== 'string') continue
+          const parents = Array.isArray(file.parents) ? file.parents : []
+          const containing = parents.find(
+            (parent): parent is string => typeof parent === 'string' && pathById.has(parent)
+          )
+          if (!containing) continue
+          const path = pathById.get(containing) ?? basePath
 
-  if (metaResponse.status === 404) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-  if (!metaResponse.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
+          if (file.mimeType === FOLDER_MIME) {
+            if (DRIVE_ID_PATTERN.test(file.id)) next.push({ id: file.id, path: [...path, file.name] })
+          } else if (wanted.has(comparableName(file.name))) {
+            return { name: file.name, folders: path }
+          }
+        }
+        pageToken = payload.nextPageToken
+      } while (pageToken)
+    }
 
-  const metadata = (await metaResponse.json()) as {
-    id?: string
-    name?: string
-    mimeType?: string
-    modifiedTime?: string
-    size?: string
-    parents?: string[]
+    level = next
   }
 
-  if (!metadata.parents?.includes(sourceFolderId)) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-
-  const response = await driveFetch(
-    `/files/${encodeURIComponent(itemId)}?addParents=${encodeURIComponent(targetFolderId)}&removeParents=${encodeURIComponent(sourceFolderId)}&fields=id,name,mimeType,modifiedTime,size&${DRIVE_SHARED_QUERY_FLAGS}`,
-    { method: 'PATCH' }
-  )
-
-  if (response.status === 404) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-  if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
-
-  const payload = (await response.json()) as {
-    id?: string
-    name?: string
-    mimeType?: string
-    modifiedTime?: string
-    size?: string
-  }
-
-  if (!payload.id || !payload.name || !payload.mimeType) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
-  }
-
-  return mapDriveApiFileToItem({
-    id: payload.id,
-    name: payload.name,
-    mimeType: payload.mimeType,
-    modifiedTime: payload.modifiedTime,
-    size: payload.size,
-  })
+  return null
 }

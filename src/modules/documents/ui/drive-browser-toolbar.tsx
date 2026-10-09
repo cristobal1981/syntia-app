@@ -1,10 +1,9 @@
 'use client'
 
-import { FolderPlus, Loader2, RefreshCw, Upload } from 'lucide-react'
+import { Loader2, RefreshCw, Upload } from 'lucide-react'
 
 import { clientDocuments } from '@/content/client-documents'
 import {
-  DRIVE_NEW_FOLDER_SHORTCUT,
   DRIVE_REFRESH_SHORTCUT,
   DRIVE_UPLOAD_SHORTCUT,
 } from '@/src/modules/documents/domain/drive-shortcuts'
@@ -20,14 +19,11 @@ type DriveBrowserToolbarProps = {
   uploading: boolean
   hasCurrentFolder: boolean
   onUploadClick: () => void
-  onNewFolderClick: () => void
   onRefresh: () => void
   overlayActive: boolean
   uploadTooltip: { idle: string; active: string }
-  newFolderTooltip: { idle: string; active: string }
   refreshTooltip: { idle: string; active: string }
   uploadShortcutLabel: string
-  newFolderShortcutLabel: string
   refreshShortcutLabel: string
 }
 
@@ -39,14 +35,11 @@ export function DriveBrowserToolbar({
   uploading,
   hasCurrentFolder,
   onUploadClick,
-  onNewFolderClick,
   onRefresh,
   overlayActive,
   uploadTooltip,
-  newFolderTooltip,
   refreshTooltip,
   uploadShortcutLabel,
-  newFolderShortcutLabel,
   refreshShortcutLabel,
 }: DriveBrowserToolbarProps) {
   return (
@@ -69,20 +62,6 @@ export function DriveBrowserToolbar({
             shortcut={DRIVE_UPLOAD_SHORTCUT}
             tooltip={overlayActive ? uploadTooltip.active : uploadTooltip.idle}
             ariaKeyshortcuts={uploadShortcutLabel}
-            overlayRingClassName="ring-2 ring-primary/35"
-          />
-        ) : null}
-        {canWrite ? (
-          <PortalActionButton
-            label={clientDocuments.newFolder}
-            disabled={loading || !hasCurrentFolder}
-            onClick={onNewFolderClick}
-            variant="outline"
-            size="sm"
-            icon={FolderPlus}
-            shortcut={DRIVE_NEW_FOLDER_SHORTCUT}
-            tooltip={overlayActive ? newFolderTooltip.active : newFolderTooltip.idle}
-            ariaKeyshortcuts={newFolderShortcutLabel}
             overlayRingClassName="ring-2 ring-primary/35"
           />
         ) : null}

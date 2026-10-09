@@ -37,6 +37,14 @@ export type DriveDocumentErrorCode =
   | 'not_linked'
   | 'not_found'
   | 'drive_unavailable'
+  | 'not_configured'
+  | 'session_expired'
+  | 'duplicate'
+  | 'rate_limited'
+  | 'timeout'
+  | 'storage_full'
+  | 'not_downloadable'
+  | 'unexpected'
   | 'name_conflict'
   | 'too_large'
   | 'invalid_name'
@@ -56,14 +64,19 @@ export type DriveFileDownloadResult =
     }
   | { ok: false; error: DriveDocumentErrorCode }
 
-export type DriveItemMutationResult =
-  | { ok: true; item: DriveItem }
-  | { ok: false; error: DriveDocumentErrorCode }
-
-export type DriveDeleteResult =
-  | { ok: true }
-  | { ok: false; error: DriveDocumentErrorCode }
+/** Archivo ya existente que impide una subida (mismo nombre en la jerarquía hacia abajo). */
+export type DriveDuplicate = {
+  name: string
+  /**
+   * Carpetas por debajo de la raíz del cliente hasta donde ya está el archivo,
+   * p. ej. ["Facturas", "2026"]. Vacío = en la raíz. El nombre real de la
+   * carpeta raíz nunca se expone: la interfaz la muestra como «Inicio».
+   */
+  folders: string[]
+  /** `true` si el choque es entre dos archivos de la misma selección. */
+  inSelection?: boolean
+}
 
 export type DriveUploadResult =
   | { ok: true; uploaded: DriveItem[] }
-  | { ok: false; error: DriveDocumentErrorCode }
+  | { ok: false; error: DriveDocumentErrorCode; duplicate?: DriveDuplicate }

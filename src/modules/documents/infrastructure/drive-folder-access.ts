@@ -1,7 +1,17 @@
-import { getGoogleDriveAccessToken } from '@/src/modules/documents/infrastructure/google-drive-auth'
+import { authorizedDriveFetch } from '@/src/modules/documents/infrastructure/drive-http'
+import {
+  driveErrorFromResponse,
+  readDriveJson,
+} from '@/src/modules/documents/infrastructure/drive-errors'
 
 const DRIVE_SHARED_QUERY_FLAGS = 'supportsAllDrives=true&includeItemsFromAllDrives=true'
 const ACCESS_CACHE_TTL_MS = 60_000
+// Un id de Drive solo contiene estos caracteres. Cualquier otra cosa es un
+// intento de manipular la ruta o la consulta y se rechaza sin llamar a Drive.
+const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
+// Tope de saltos hacia arriba: una Pública real no anida tanto. Acota las
+// peticiones a Drive ante cadenas patológicas.
+const MAX_TREE_DEPTH = 32
 
 type AccessCacheEntry = {
   allowed: boolean
@@ -33,37 +43,37 @@ function writeAccessCache(itemId: string, rootId: string, allowed: boolean): voi
 
 type DriveParentsResponse = {
   id?: string
-  parents?: string[]
+  parents?: unknown
   name?: string
   mimeType?: string
+  trashed?: boolean
+}
+
+/** Solo ids con formato válido: una respuesta anómala de Drive nunca abre acceso. */
+function parentIdsOf(metadata: DriveParentsResponse): string[] {
+  if (!Array.isArray(metadata.parents)) return []
+  return metadata.parents.filter(
+    (parent): parent is string => typeof parent === 'string' && DRIVE_ID_PATTERN.test(parent)
+  )
 }
 
 async function fetchDriveFileParents(fileId: string): Promise<DriveParentsResponse> {
-  const accessToken = await getGoogleDriveAccessToken()
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,parents,name,mimeType&${DRIVE_SHARED_QUERY_FLAGS}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-    }
+  const response = await authorizedDriveFetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,parents,name,mimeType,trashed&${DRIVE_SHARED_QUERY_FLAGS}`
   )
 
-  if (response.status === 404) {
-    throw new Error('DRIVE_ITEM_NOT_FOUND')
-  }
-
   if (!response.ok) {
-    throw new Error('GOOGLE_DRIVE_REQUEST_FAILED')
+    throw await driveErrorFromResponse(response)
   }
 
-  return (await response.json()) as DriveParentsResponse
+  return (await readDriveJson(response)) as DriveParentsResponse
 }
 
 export async function assertDriveItemWithinClientTree(
   itemId: string,
   rootId: string
 ): Promise<void> {
-  if (!itemId || !rootId) {
+  if (!DRIVE_ID_PATTERN.test(itemId ?? '') || !DRIVE_ID_PATTERN.test(rootId ?? '')) {
     throw new Error('DRIVE_ACCESS_FORBIDDEN')
   }
 
@@ -89,8 +99,17 @@ export async function assertDriveItemWithinClientTree(
     }
     visited.add(currentId)
 
+    if (visited.size > MAX_TREE_DEPTH) {
+      writeAccessCache(itemId, rootId, false)
+      throw new Error('DRIVE_ACCESS_FORBIDDEN')
+    }
+
     const metadata = await fetchDriveFileParents(currentId)
-    const parents = metadata.parents ?? []
+    // Un elemento (o una carpeta ancestra) en la papelera ya no es accesible.
+    if (metadata.trashed === true) {
+      throw new Error('DRIVE_ITEM_NOT_FOUND')
+    }
+    const parents = parentIdsOf(metadata)
 
     if (parents.includes(rootId)) {
       writeAccessCache(itemId, rootId, true)
@@ -131,9 +150,11 @@ export async function buildDriveBreadcrumbs(
 
     if (currentId === rootId) break
 
-    const parents = metadata.parents ?? []
+    const parents = parentIdsOf(metadata)
     if (!parents.length) break
-    currentId = parents[0]
+    // Con varios padres, subir siempre por el que lleva a la raíz del cliente:
+    // las migas nunca deben revelar nombres por encima de la Pública.
+    currentId = parents.includes(rootId) ? rootId : parents[0]
   }
 
   return crumbs

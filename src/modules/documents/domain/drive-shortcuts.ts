@@ -12,13 +12,6 @@ export const DRIVE_UPLOAD_SHORTCUT: PortalShortcutDefinition = {
   key: 'a',
 }
 
-export const DRIVE_NEW_FOLDER_SHORTCUT: PortalShortcutDefinition = {
-  id: 'drive-new-folder',
-  alt: true,
-  keepAltOnMac: true,
-  key: 'c',
-}
-
 export const DRIVE_TOGGLE_VIEW_SHORTCUT: PortalShortcutDefinition = {
   id: 'drive-toggle-view',
   alt: true,

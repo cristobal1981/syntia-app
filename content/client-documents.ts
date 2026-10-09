@@ -1,10 +1,9 @@
 export const clientDocuments = {
   pageTitle: 'Documentos',
-  pageDescription: 'Consulta, sube y organiza los archivos de tu asesoría.',
+  pageDescription: 'Consulta, descarga y sube los archivos de tu asesoría.',
   rootBreadcrumb: 'Inicio',
   searchPlaceholder: 'Buscar en esta carpeta',
   upload: 'Subir archivos',
-  newFolder: 'Crear carpeta',
   refresh: 'Actualizar',
   refreshing: 'Actualizando…',
   viewGrid: 'Vista cuadrícula',
@@ -13,7 +12,7 @@ export const clientDocuments = {
   loading: 'Cargando documentos…',
   loadingLabel: 'Cargando',
   emptyTitle: 'Esta carpeta está vacía',
-  emptyDescription: 'Sube archivos o crea una carpeta para empezar.',
+  emptyDescription: 'Sube archivos para empezar.',
   emptyAction: 'Subir archivos',
   openFolder: 'Abrir carpeta',
   preview: 'Previsualizar',
@@ -22,13 +21,6 @@ export const clientDocuments = {
   previewTooLarge:
     'El archivo es demasiado grande para previsualizarlo. Descarga el archivo desde el listado.',
   download: 'Descargar',
-  rename: 'Renombrar',
-  delete: 'Eliminar',
-  move: 'Mover',
-  moveTitle: 'Mover elemento',
-  moveDescription: 'Elige la carpeta de destino.',
-  moveHere: 'Mover aquí',
-  moveToFolder: 'Mover a «{name}»',
   dropOverlayTitle: 'Arrastra archivos aquí',
   dropOverlayHint: 'Los archivos se guardarán en la carpeta actual',
   dropOverlayReleaseTitle: 'Suelta para subir',
@@ -37,28 +29,23 @@ export const clientDocuments = {
   dropOverlayUploadingHint: 'No cierres esta ventana hasta que termine.',
   dropOverlaySuccessTitle: 'Archivos subidos',
   dropOverlaySuccessHint: 'Ya están disponibles en esta carpeta.',
-  dropOnFolder: 'Suelta para subir a esta carpeta',
-  dropInternalHint: 'Suelta para mover aquí',
   openFolderHint: 'Doble clic para abrir carpeta',
   openFileHint: 'Doble clic para abrir',
-  moreActions: 'Más acciones',
   uploading: 'Subiendo…',
   downloading: 'Descargando…',
-  deleting: 'Eliminando…',
   saving: 'Guardando…',
   dropzoneTitle: 'Arrastra archivos aquí',
   dropzoneHint: 'o haz clic para seleccionarlos',
-  newFolderTitle: 'Crear carpeta',
-  newFolderLabel: 'Nombre de la carpeta',
-  newFolderPlaceholder: 'Ej. Facturas 2026',
-  renameTitle: 'Renombrar',
-  renameLabel: 'Nuevo nombre',
-  deleteTitle: 'Eliminar elemento',
-  deleteDescription:
-    '¿Seguro que quieres enviar «{name}» a la papelera? Podrás recuperarlo desde Google Drive si lo necesitas.',
+  duplicateTitle: 'Este archivo ya existe',
+  duplicateSelectionTitle: 'Hay archivos repetidos',
+  duplicateFileLabel: 'Archivo',
+  duplicateLocationLabel: 'Ya está guardado en',
+  duplicateHint: 'No se ha subido nada. Cambia el nombre del archivo o déjalo como está si ya lo tienes.',
+  duplicateSelectionHint:
+    'Has seleccionado dos archivos con el mismo nombre. No se ha subido ninguno: renombra uno de ellos e inténtalo de nuevo.',
+  duplicateDismiss: 'Entendido',
   cancel: 'Cancelar',
   confirm: 'Confirmar',
-  confirmDelete: 'Eliminar',
   create: 'Crear',
   save: 'Guardar',
   retry: 'Reintentar',
@@ -66,7 +53,7 @@ export const clientDocuments = {
   folderLabel: 'Carpeta',
   demoBannerTitle: 'Vista de demostración',
   demoBannerDescription:
-    'Estás explorando datos de ejemplo. Puedes navegar, subir, renombrar y eliminar archivos para probar la experiencia.',
+    'Estás explorando datos de ejemplo. Puedes navegar, subir y descargar archivos para probar la experiencia.',
   demoActionDisabled: 'No disponible en la vista de demostración.',
   shortcuts: {
     refresh: {
@@ -77,42 +64,9 @@ export const clientDocuments = {
       buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
       buttonHintActive: '{action} ({shortcut})',
     },
-    newFolder: {
-      buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
-      buttonHintActive: '{action} ({shortcut})',
-    },
     toggleView: {
       buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
       buttonHintActive: '{action} ({shortcut})',
-    },
-  },
-  errors: {
-    forbidden: 'No tienes permiso para acceder a estos documentos.',
-    not_linked:
-      'Tu espacio de documentos aún no está configurado. Contacta con tu asesoría.',
-    not_found: 'No encontramos el elemento solicitado.',
-    drive_unavailable:
-      'No pudimos acceder a tus documentos. Inténtalo de nuevo en unos minutos.',
-    name_conflict: 'Ya existe un elemento con ese nombre en esta carpeta.',
-    too_large: 'El archivo supera el tamaño máximo permitido.',
-    invalid_name: 'El nombre no es válido. Evita caracteres especiales.',
-    invalid_type: 'Ese tipo de archivo no está permitido por seguridad.',
-    upload_failed: 'No pudimos subir uno o más archivos.',
-  },
-  states: {
-    notLinked: {
-      title: 'Documentos no disponibles',
-      description:
-        'Tu espacio de documentos aún no está configurado. Contacta con tu asesoría para activarlo.',
-    },
-    forbidden: {
-      title: 'Acceso restringido',
-      description: 'No tienes permiso para ver esta sección.',
-    },
-    driveUnavailable: {
-      title: 'No pudimos cargar tus documentos',
-      description:
-        'El servicio de documentos no está disponible en este momento. Inténtalo de nuevo.',
     },
   },
 } as const

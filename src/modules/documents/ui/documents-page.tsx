@@ -1,12 +1,10 @@
 import { listDriveFolderAction } from '@/src/modules/documents/application/portal-drive-document-actions'
 import { shouldUseMockDrive } from '@/src/modules/documents/infrastructure/drive-runtime'
-import {
-  DocumentsPageView,
-  DocumentsStateView,
-} from '@/src/modules/documents/ui/documents-page-view'
+import { SECTION_FATAL_CODES } from '@/src/modules/documents/domain/drive-error-presentation'
+import { DocumentsLoadError } from '@/src/modules/documents/ui/documents-load-error'
+import { DocumentsPageView } from '@/src/modules/documents/ui/documents-page-view'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
-import { clientDocuments } from '@/content/client-documents'
 
 type DocumentsPageProps = {
   user: PortalUser
@@ -20,33 +18,10 @@ export async function DocumentsPage({ user }: DocumentsPageProps) {
   ])
   const canWrite = user.role !== 'worker' || (writeSections?.has('/documentos') ?? false)
 
-  if (!initial.ok) {
-    const states = clientDocuments.states
-    if (initial.error === 'not_linked') {
-      return (
-        <DocumentsStateView
-          title={states.notLinked.title}
-          description={states.notLinked.description}
-        />
-      )
-    }
-    if (initial.error === 'forbidden') {
-      return (
-        <DocumentsStateView
-          title={states.forbidden.title}
-          description={states.forbidden.description}
-          variant="destructive"
-        />
-      )
-    }
-    if (!demoMode) {
-      return (
-        <DocumentsStateView
-          title={states.driveUnavailable.title}
-          description={states.driveUnavailable.description}
-        />
-      )
-    }
+  // En demo el propio explorador maneja sus datos; fuera de demo, un fallo al
+  // cargar se explica con un aviso claro (nunca una pantalla en blanco).
+  if (!initial.ok && (!demoMode || SECTION_FATAL_CODES.has(initial.error))) {
+    return <DocumentsLoadError code={initial.error} />
   }
 
   return <DocumentsPageView demoMode={demoMode} canWrite={canWrite} />
