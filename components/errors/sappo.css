@@ -67,20 +67,20 @@
 @keyframes sappo-carry {
   0%,
   100% {
-    transform: translateY(0) scale(1.03, 0.96);
+    transform: translateY(0) scaleY(0.96);
   }
   50% {
-    transform: translateY(-7%) scale(0.97, 1.04);
+    transform: translateY(-7%) scaleY(1.04);
   }
 }
 
 @keyframes sappo-cheer {
   0%,
   100% {
-    transform: scale(1.05, 0.93);
+    transform: scaleY(0.93);
   }
   45% {
-    transform: translateY(-12%) scale(0.96, 1.06);
+    transform: translateY(-12%) scaleY(1.06);
   }
 }
 
