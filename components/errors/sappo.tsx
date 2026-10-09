@@ -118,6 +118,8 @@ export function Sappo({ mood, className }: SappoProps) {
       style={
         {
           overflow: 'visible',
+          // Sin width/height propios, `w-auto` estiraría la caja más allá del dibujo.
+          aspectRatio: `${VIEW_BOX.w} / ${VIEW_BOX.h}`,
           // Sobre fondos claros, el verde vivo desluce los ojos: el director va en verde oscuro.
           ...(mood === 'conductor' ? { '--sappo-body': 'var(--agua)' } : null),
         } as React.CSSProperties
