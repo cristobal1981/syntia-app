@@ -2,6 +2,7 @@
 
 import {
   Download,
+  LoaderCircle,
   FileSpreadsheet,
   FileText,
   Folder,
@@ -63,6 +64,8 @@ type DriveItemCardProps = {
   item: DriveItem
   viewMode: DriveViewMode
   busy?: boolean
+  /** Este elemento se está descargando: muestra un spinner hasta que el navegador recibe el archivo. */
+  downloading?: boolean
   isSelected?: boolean
   onSelect?: () => void
   onOpen: () => void
@@ -73,6 +76,7 @@ export function DriveItemCard({
   item,
   viewMode,
   busy = false,
+  downloading = false,
   isSelected = false,
   onSelect,
   onOpen,
@@ -115,12 +119,17 @@ export function DriveItemCard({
           type="button"
           variant="ghost"
           size="icon"
-          className="size-9 cursor-pointer"
+          className={cn('size-9 cursor-pointer', downloading && 'disabled:opacity-100')}
           disabled={busy}
           onClick={onDownload}
-          aria-label={`${clientDocuments.download}: ${item.name}`}
+          aria-label={`${downloading ? clientDocuments.downloading : clientDocuments.download}: ${item.name}`}
+          aria-busy={downloading || undefined}
         >
-          <Download className="size-4" aria-hidden />
+          {downloading ? (
+            <LoaderCircle className="size-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden />
+          ) : (
+            <Download className="size-4" aria-hidden />
+          )}
         </Button>
       ) : null}
     </div>
@@ -147,7 +156,9 @@ export function DriveItemCard({
             </p>
           </div>
         </button>
-        {canDownload ? <div className={cn('shrink-0', actionBarVisibility)}>{actionBar}</div> : null}
+        {canDownload ? (
+          <div className={cn('shrink-0', downloading ? 'opacity-100' : actionBarVisibility)}>{actionBar}</div>
+        ) : null}
       </article>
     )
   }
@@ -188,7 +199,7 @@ export function DriveItemCard({
         <div
           className={cn(
             'absolute top-2 right-2 z-10 rounded-lg border border-border/80 bg-card/95 p-0.5 shadow-sm backdrop-blur-sm',
-            actionBarVisibility
+            downloading ? 'opacity-100' : actionBarVisibility
           )}
         >
           {actionBar}

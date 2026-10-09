@@ -104,6 +104,7 @@ export function DriveBrowserItemList({
           item={item}
           viewMode={viewMode}
           busy={busyItemId === item.id || pending}
+          downloading={busyItemId === item.id}
           isSelected={selectedItemId === item.id}
           onSelect={() => onSelectItem(item.id)}
           onOpen={() => (item.kind === 'folder' ? onOpenFolder(item) : onOpenFile(item))}
