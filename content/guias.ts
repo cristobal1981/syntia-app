@@ -36,6 +36,8 @@ export const guias = {
       'Guías prácticas sobre impuestos, plazos y trámites habituales. Si tienes dudas sobre tu caso concreto, tu asesor te orientará.',
     nowTitle: 'Ahora toca',
     nowDescription: 'Plazos abiertos o a punto de abrirse.',
+    sappoActive: 'Plazo abierto: presentar a tiempo evita recargos. Lo dice la letra pequeña.',
+    sappoUpcoming: 'Aún hay margen, pero conviene ir preparando la documentación.',
     activeBadge: 'Plazo abierto',
     upcomingBadge: 'Empieza pronto',
     relatedGuidesLabel: 'Guías relacionadas',

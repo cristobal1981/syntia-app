@@ -2,6 +2,7 @@
 
 import { CircleAlert, Info, LogIn, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react'
 
+import { Sappo } from '@/components/errors/sappo'
 import { Button } from '@/components/ui/button'
 import {
   presentDriveError,
@@ -113,11 +114,15 @@ export function DriveErrorNotice({
         className
       )}
     >
-      <Icon
-        className={cn('shrink-0', tone.iconClass, isPanel ? 'size-10' : 'size-5')}
-        strokeWidth={1.75}
-        aria-hidden
-      />
+      {context === 'upload' ? (
+        <Sappo mood="oops" className={cn('block h-auto shrink-0', isPanel ? 'w-14' : 'w-9')} />
+      ) : (
+        <Icon
+          className={cn('shrink-0', tone.iconClass, isPanel ? 'size-10' : 'size-5')}
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      )}
       <div className={cn('min-w-0', !isPanel && 'flex-1')}>
         <p className="font-medium text-foreground">{presentation.title}</p>
         <p className="mt-0.5 max-w-xl text-sm text-muted-foreground">{presentation.description}</p>

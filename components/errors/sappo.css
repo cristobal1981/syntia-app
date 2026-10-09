@@ -50,8 +50,77 @@
 .sappo-body[data-mood='sleepy'] {
   animation: sappo-breathe 3.4s ease-in-out infinite;
 }
-.sappo-body[data-mood='confused'] {
+.sappo-body[data-mood='confused'],
+.sappo-body[data-mood='oops'] {
   transform: rotate(-5deg);
+}
+.sappo-body[data-mood='carrier'] {
+  animation: sappo-carry 0.8s ease-in-out infinite;
+}
+.sappo-body[data-mood='cheer'] {
+  animation: sappo-cheer 0.9s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.sappo-body[data-mood='conductor'] {
+  animation: sappo-wobble 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes sappo-carry {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.03, 0.96);
+  }
+  50% {
+    transform: translateY(-7%) scale(0.97, 1.04);
+  }
+}
+
+@keyframes sappo-cheer {
+  0%,
+  100% {
+    transform: scale(1.05, 0.93);
+  }
+  45% {
+    transform: translateY(-12%) scale(0.96, 1.06);
+  }
+}
+
+.sappo-baton {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  animation: sappo-baton 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes sappo-baton {
+  from {
+    transform: rotate(-16deg);
+  }
+  to {
+    transform: rotate(14deg);
+  }
+}
+
+.sappo-spark {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: sappo-spark 1.2s ease-in-out infinite;
+}
+.sappo-spark[data-n='2'] {
+  animation-delay: 0.4s;
+}
+.sappo-spark[data-n='3'] {
+  animation-delay: 0.8s;
+}
+
+@keyframes sappo-spark {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.5) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
 }
 
 @keyframes sappo-wobble {
@@ -181,6 +250,8 @@
   .sappo-hop,
   .sappo-drop,
   .sappo-zzz,
+  .sappo-baton,
+  .sappo-spark,
   .sappo-ripple,
   .sappo-bubble {
     animation: none !important;

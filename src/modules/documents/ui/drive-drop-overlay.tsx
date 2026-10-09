@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronRight, CloudAlert, CloudCheck, CloudUpload, FileText } from 'lucide-react'
+import { ChevronRight, CloudUpload, FileText } from 'lucide-react'
 
+import { Sappo } from '@/components/errors/sappo'
 import { Button } from '@/components/ui/button'
 import { clientDocuments } from '@/content/client-documents'
 import { duplicateLocationCrumbs } from '@/src/modules/documents/domain/duplicate-location'
@@ -33,18 +34,15 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-function CloudIcon({ variant }: { variant: 'upload' | 'success' }) {
-  const Icon = variant === 'success' ? CloudCheck : CloudUpload
+function UploadMascot({ phase }: { phase: 'upload' | 'uploading' | 'success' }) {
+  if (phase === 'upload') {
+    return <CloudUpload className="size-12 fill-primary/20 stroke-primary" strokeWidth={1.75} aria-hidden />
+  }
 
   return (
-    <Icon
-      className={cn(
-        'size-12 stroke-primary',
-        variant === 'success' ? 'fill-primary/30' : 'fill-primary/20',
-        variant === 'success' && 'motion-reduce:scale-100 scale-100 motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300'
-      )}
-      strokeWidth={1.75}
-      aria-hidden
+    <Sappo
+      mood={phase === 'success' ? 'cheer' : 'carrier'}
+      className="block h-24 w-auto motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300"
     />
   )
 }
@@ -74,10 +72,9 @@ function DuplicateCard({
       aria-describedby="drive-duplicate-hint"
       className="flex w-full max-w-md flex-col items-center gap-4"
     >
-      <CloudAlert
-        className="size-12 fill-amber-500/20 stroke-amber-500 motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300"
-        strokeWidth={1.75}
-        aria-hidden
+      <Sappo
+        mood="oops"
+        className="block h-24 w-auto motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300"
       />
       <p id="drive-duplicate-title" className="text-lg font-semibold text-foreground">
         {duplicate.inSelection
@@ -226,7 +223,7 @@ export function DriveDropOverlay({
         }}
       >
         <div className="relative flex min-h-[40vh] flex-col items-center justify-center gap-4 px-8 py-10 text-center">
-          {isDuplicate ? null : <CloudIcon variant={isSuccess ? 'success' : 'upload'} />}
+          {isDuplicate ? null : <UploadMascot phase={isSuccess ? 'success' : isUploading ? 'uploading' : 'upload'} />}
 
           {isDuplicate && duplicate ? (
             <DuplicateCard duplicate={duplicate} onDismiss={onDismiss} />

@@ -1,8 +1,9 @@
 'use client'
 
-import { CheckCircle2, Circle, Lightbulb, ListChecks, X } from 'lucide-react'
+import { CheckCircle2, Circle, ListChecks, X } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Sappo } from '@/components/errors/sappo'
 import { Button } from '@/components/ui/button'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
@@ -109,7 +110,11 @@ export function OnboardingChecklistWidget({
         // reads as "this is the important bit" against the sidebar-colored
         // card around it, in either theme.
         <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-primary/30 bg-card p-2.5">
-          <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <Sappo
+            key={activeTip.id}
+            mood="conductor"
+            className="sappo-hop -my-1 -ml-1 block h-12 w-auto shrink-0"
+          />
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{activeTip.title}</p>
             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">

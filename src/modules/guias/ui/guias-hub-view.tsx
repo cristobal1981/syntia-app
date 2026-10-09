@@ -6,6 +6,7 @@ import { AlarmClock, CalendarClock, ChevronRight } from 'lucide-react'
 
 import { guias, type GuideEntry } from '@/content/guias'
 import { appLinkPortalClassName } from '@/components/ui/app-link'
+import { SappoSays } from '@/components/errors/sappo-says'
 import { cn } from '@/lib/utils'
 import { formatKeywordHashtag } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
 import { GUIDE_CATEGORY_ICON } from '@/src/modules/guias/ui/guide-category-icon'
@@ -161,6 +162,7 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
           aria-labelledby="guias-now-title"
           className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-5 md:p-6 dark:border-primary/25 dark:bg-primary/[0.06]"
         >
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <AlarmClock className="size-4" aria-hidden />
@@ -173,6 +175,12 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
             </h2>
             <div aria-hidden />
             <p className="text-sm text-muted-foreground">{copy.nowDescription}</p>
+          </div>
+          <SappoSays mood="lawyer">
+            {relevantWindows.some((relevant) => relevant.status === 'active')
+              ? copy.sappoActive
+              : copy.sappoUpcoming}
+          </SappoSays>
           </div>
           <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {relevantWindows.map((relevant) => (

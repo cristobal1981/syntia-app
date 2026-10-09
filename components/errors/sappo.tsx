@@ -39,8 +39,8 @@ const SPIRAL = spiralPath(36, 2.6)
 
 /** Párpado fijo por ojo: 0 = abierto, 1 = cerrado del todo. */
 function restingLid(mood: SappoMood, eye: 'l' | 'r') {
-  if (mood === 'sleepy') return 1
-  if (mood === 'confused' && eye === 'r') return 0.5
+  if (mood === 'sleepy' || mood === 'cheer') return 1
+  if ((mood === 'confused' || mood === 'oops') && eye === 'r') return 0.5
   return 0
 }
 
@@ -197,13 +197,29 @@ export function Sappo({ mood, className }: SappoProps) {
                   strokeLinecap="round"
                 />
               ) : null}
+
+              {mood === 'cheer' ? (
+                <path
+                  d={`M ${eye.cx - 30} ${eye.cy + 12} Q ${eye.cx} ${eye.cy - 26} ${eye.cx + 30} ${eye.cy + 12}`}
+                  fill="none"
+                  stroke={INK}
+                  strokeWidth={6}
+                  strokeLinecap="round"
+                />
+              ) : null}
             </g>
           )
         })}
 
         {mood === 'guard' ? <Sunglasses /> : null}
         {mood === 'builder' ? <HardHat /> : null}
+        {mood === 'lawyer' ? <LawyerGear /> : null}
+        {mood === 'carrier' ? <Document /> : null}
       </g>
+
+      {mood === 'conductor' ? <Baton /> : null}
+
+      {mood === 'cheer' ? <Sparkles /> : null}
 
       {mood === 'dizzy' ? (
         <g style={{ fill: 'var(--service-contable)' }}>
@@ -214,6 +230,15 @@ export function Sappo({ mood, className }: SappoProps) {
           <path
             className="sappo-drop"
             data-n="2"
+            d="M 404 80 q -9 15 0 22 q 9 -7 0 -22 z"
+          />
+        </g>
+      ) : null}
+
+      {mood === 'oops' ? (
+        <g style={{ fill: 'var(--service-contable)' }}>
+          <path
+            className="sappo-drop"
             d="M 404 80 q -9 15 0 22 q 9 -7 0 -22 z"
           />
         </g>
@@ -275,6 +300,108 @@ function HardHat() {
       <path d="M 226 28 L 264 28 L 266 84 L 224 84 Z" fill={shade} />
       <rect x={106} y={78} width={278} height={16} rx={8} fill={hat} />
       <rect x={106} y={88} width={278} height={6} rx={3} fill={shade} />
+    </g>
+  )
+}
+
+/** Gafas redondas de montura fina y pajarita: el Sappo "de despacho". */
+function LawyerGear() {
+  const frame = 'var(--surface-dark)'
+  return (
+    <g>
+      {EYES.map((eye) => (
+        <circle
+          key={eye.id}
+          cx={eye.cx}
+          cy={eye.cy}
+          r={EYE_R + 8}
+          fill="none"
+          stroke={frame}
+          strokeWidth={7}
+        />
+      ))}
+      <path
+        d={`M ${EYES[0].cx + EYE_R + 8} ${EYES[0].cy} Q 245 ${EYES[0].cy - 22} ${EYES[1].cx - EYE_R - 8} ${EYES[1].cy}`}
+        fill="none"
+        stroke={frame}
+        strokeWidth={7}
+        strokeLinecap="round"
+      />
+      <g transform="translate(249 262)">
+        <path d="M 0 0 L -50 -26 L -50 26 Z" fill={frame} />
+        <path d="M 0 0 L 50 -26 L 50 26 Z" fill={frame} />
+        <rect x={-12} y={-15} width={24} height={30} rx={8} fill="var(--agua)" />
+      </g>
+    </g>
+  )
+}
+
+/** Batuta que Sappo sostiene a un lado y agita al compás. */
+function Baton() {
+  return (
+    <g className="sappo-baton">
+      <line
+        x1={372}
+        y1={250}
+        x2={432}
+        y2={170}
+        stroke="var(--surface-dark)"
+        strokeWidth={17}
+        strokeLinecap="round"
+      />
+      <line
+        x1={372}
+        y1={250}
+        x2={432}
+        y2={170}
+        stroke="var(--brisa)"
+        strokeWidth={8}
+        strokeLinecap="round"
+      />
+      <circle cx={432} cy={170} r={11} fill="var(--service-fiscal)" stroke="var(--surface-dark)" strokeWidth={4} />
+      <line
+        x1={372}
+        y1={250}
+        x2={385}
+        y2={233}
+        stroke="var(--surface-dark)"
+        strokeWidth={17}
+        strokeLinecap="round"
+      />
+    </g>
+  )
+}
+
+/** Hoja que lleva a cuestas mientras se sube el archivo. */
+function Document() {
+  return (
+    <g transform="translate(249 346) rotate(-6)">
+      <path
+        d="M -46 -62 H 18 L 46 -34 V 62 H -46 Z"
+        fill="var(--brisa)"
+        stroke="var(--surface-dark)"
+        strokeWidth={6}
+        strokeLinejoin="round"
+      />
+      <path d="M 18 -62 V -34 H 46" fill="none" stroke="var(--surface-dark)" strokeWidth={6} strokeLinejoin="round" />
+      <path
+        d="M -26 -8 H 26 M -26 14 H 26 M -26 36 H 6"
+        stroke="var(--primary)"
+        strokeWidth={7}
+        strokeLinecap="round"
+      />
+    </g>
+  )
+}
+
+function Sparkles() {
+  const star = (cx: number, cy: number, r: number) =>
+    `M ${cx} ${cy - r} Q ${cx} ${cy} ${cx + r} ${cy} Q ${cx} ${cy} ${cx} ${cy + r} Q ${cx} ${cy} ${cx - r} ${cy} Q ${cx} ${cy} ${cx} ${cy - r} Z`
+  return (
+    <g style={{ fill: 'var(--service-fiscal)' }}>
+      <path className="sappo-spark" d={star(96, 92, 26)} />
+      <path className="sappo-spark" data-n="2" d={star(402, 64, 20)} />
+      <path className="sappo-spark" data-n="3" d={star(418, 200, 14)} />
     </g>
   )
 }

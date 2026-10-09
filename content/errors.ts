@@ -7,6 +7,12 @@ export type SappoMood =
   | "guard"
   | "dizzy"
   | "builder"
+  // Compañero de la app (no de las páginas de error).
+  | "lawyer"
+  | "conductor"
+  | "carrier"
+  | "cheer"
+  | "oops"
 
 type ErrorAction = { label: string; href: string }
 
