@@ -20,6 +20,8 @@ const EYE_R = 50.5
 const PUPIL_R = 21
 const PUPIL_TRAVEL = 22
 
+/** Color del cuerpo; los párpados lo reutilizan para "desaparecer" sobre él. */
+const BODY = 'var(--sappo-body, var(--primary))'
 const INK = 'var(--surface-dark)'
 const SCLERA = 'var(--brisa)'
 
@@ -113,7 +115,13 @@ export function Sappo({ mood, className }: SappoProps) {
       ref={svgRef}
       viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.w} ${VIEW_BOX.h}`}
       className={className}
-      style={{ overflow: 'visible' }}
+      style={
+        {
+          overflow: 'visible',
+          // Sobre fondos claros, el verde vivo desluce los ojos: el director va en verde oscuro.
+          ...(mood === 'conductor' ? { '--sappo-body': 'var(--agua)' } : null),
+        } as React.CSSProperties
+      }
       aria-hidden
       focusable="false"
     >
@@ -126,7 +134,7 @@ export function Sappo({ mood, className }: SappoProps) {
       </defs>
 
       <g className="sappo-body" data-mood={mood}>
-        <g transform={SAPPO_GROUP_TRANSFORM} style={{ fill: 'var(--primary)' }}>
+        <g transform={SAPPO_GROUP_TRANSFORM} style={{ fill: BODY }}>
           <path d={SAPPO_BODY.d} transform={SAPPO_BODY.transform} />
           <path d={SAPPO_LEG_LEFT.d} transform={SAPPO_LEG_LEFT.transform} />
           <path d={SAPPO_LEG_RIGHT.d} transform={SAPPO_LEG_RIGHT.transform} />
@@ -176,7 +184,7 @@ export function Sappo({ mood, className }: SappoProps) {
                   y={eye.cy - EYE_R - 1}
                   width={EYE_R * 2 + 2}
                   height={EYE_R * 2 + 2}
-                  fill="var(--primary)"
+                  fill={BODY}
                   style={
                     resting === 0
                       ? undefined
@@ -215,6 +223,7 @@ export function Sappo({ mood, className }: SappoProps) {
         {mood === 'guard' ? <Sunglasses /> : null}
         {mood === 'builder' ? <HardHat /> : null}
         {mood === 'lawyer' ? <LawyerGear /> : null}
+        {mood === 'conductor' ? <Glasses frame="var(--brisa)" /> : null}
         {mood === 'carrier' ? <Document /> : null}
       </g>
 
@@ -305,9 +314,8 @@ function HardHat() {
   )
 }
 
-/** Gafas redondas de montura fina y pajarita: el Sappo "de despacho". */
-function LawyerGear() {
-  const frame = 'var(--surface-dark)'
+/** Gafas redondas de montura fina. */
+function Glasses({ frame }: { frame: string }) {
   return (
     <g>
       {EYES.map((eye) => (
@@ -328,6 +336,16 @@ function LawyerGear() {
         strokeWidth={7}
         strokeLinecap="round"
       />
+    </g>
+  )
+}
+
+/** Gafas y pajarita: el Sappo "de despacho". */
+function LawyerGear() {
+  const frame = 'var(--surface-dark)'
+  return (
+    <g>
+      <Glasses frame={frame} />
       <g transform="translate(249 262)">
         <path d="M 0 0 L -50 -26 L -50 26 Z" fill={frame} />
         <path d="M 0 0 L 50 -26 L 50 26 Z" fill={frame} />
