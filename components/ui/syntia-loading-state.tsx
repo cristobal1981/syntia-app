@@ -6,9 +6,9 @@ type SyntiaLoadingStateProps = {
   className?: string
   loaderSize?: number
   /**
-   * Centra el loader en el centro de la VENTANA (vertical y horizontal), no en el
-   * hueco que deja el contenido. Flota sobre la página sin bloquear clics y
-   * reserva altura en el flujo para que la página no salte al terminar de cargar.
+   * Reserva altura en el flujo (para que la página no salte al terminar de
+   * cargar) y centra el loader en ese hueco, es decir, en el área de contenido
+   * y no en la ventana: el menú lateral desplazaría un centrado sobre la ventana.
    */
   centered?: boolean
 }
@@ -28,20 +28,16 @@ export function SyntiaLoadingState({
 
   if (centered) {
     return (
-      <>
-        <div aria-hidden className="min-h-[60dvh]" />
-        <div
-          className={cn(
-            'pointer-events-none fixed inset-0 z-30 flex flex-col items-center justify-center gap-3',
-            className
-          )}
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-        >
+      <div
+        className={cn('relative min-h-[60dvh]', className)}
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3">
           {content}
         </div>
-      </>
+      </div>
     )
   }
 
