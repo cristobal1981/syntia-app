@@ -56,8 +56,45 @@ export function validateOdooPartnerId(value: string): string | undefined {
   return undefined
 }
 
+const DRIVE_FOLDER_ID_PATTERN = /^[A-Za-z0-9_-]{10,128}$/
+const DRIVE_URL_HOSTS = new Set(['drive.google.com'])
+
+/**
+ * Solo se aceptan URLs de drive.google.com. Con varios segmentos `/folders/` se
+ * toma el último (la carpeta más interna) y solo se mira la ruta, nunca el query.
+ */
+function extractDriveFolderIdFromUrl(value: string): string | undefined {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return undefined
+  }
+  if (url.protocol !== 'https:' || !DRIVE_URL_HOSTS.has(url.hostname) || url.username) {
+    return undefined
+  }
+  const folders = [...url.pathname.matchAll(/\/folders\/([A-Za-z0-9_-]+)/g)]
+  const last = folders[folders.length - 1]?.[1]
+  if (last) return last
+  return url.pathname === '/open' ? (url.searchParams.get('id') ?? undefined) : undefined
+}
+
+/** Acepta un ID de carpeta o la URL de Drive pegada por el staff y devuelve solo el ID. */
+export function normalizeDriveFolderInput(value: string): string | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  if (/[/?]/.test(trimmed)) {
+    return extractDriveFolderIdFromUrl(trimmed) ?? trimmed
+  }
+  return trimmed
+}
+
 export function validateDriveFolderId(value: string): string | undefined {
-  if (!value.trim()) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  if (!DRIVE_FOLDER_ID_PATTERN.test(trimmed)) {
+    return 'El ID de carpeta de Drive no es válido. Pega el ID o la URL de la carpeta Pública.'
+  }
   return undefined
 }
 

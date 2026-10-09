@@ -12,6 +12,7 @@ import {
   validatePersonEmail,
   validatePersonNameParts,
 } from '@/src/modules/directory/application/validate-directory'
+import { normalizeDriveFolderInput } from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
   CreateClientInput,
@@ -109,8 +110,9 @@ function parseCreateClientForm(formData: FormData) {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
-    driveFolderId:
-      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+    driveFolderId: normalizeDriveFolderInput(
+      String(formData.get('driveFolderId') ?? '')
+    ),
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
   }
 }
@@ -128,8 +130,9 @@ function parseClientForm(formData: FormData): UpdateClientInput {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
-    driveFolderId:
-      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+    driveFolderId: normalizeDriveFolderInput(
+      String(formData.get('driveFolderId') ?? '')
+    ),
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
     status: String(formData.get('status') ?? 'active') as PersonStatus,
   }

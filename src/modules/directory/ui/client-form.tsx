@@ -18,7 +18,10 @@ import {
   updateClientAction,
   type DirectoryUpdateResult,
 } from '@/src/modules/directory/application/directory-mutations'
-import { validateClientForm } from '@/src/modules/directory/application/validate-directory'
+import {
+  normalizeDriveFolderInput,
+  validateClientForm,
+} from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
   OdooNameSplitMode,
@@ -48,8 +51,9 @@ function parseClientFormData(formData: FormData) {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
-    driveFolderId:
-      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+    driveFolderId: normalizeDriveFolderInput(
+      String(formData.get('driveFolderId') ?? '')
+    ),
   }
 }
 

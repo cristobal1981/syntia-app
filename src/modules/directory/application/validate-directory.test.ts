@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   validateClientForm,
   validateCompanyName,
+  normalizeDriveFolderInput,
   validateDriveFolderId,
   validateOdooPartnerId,
   validatePersonEmail,
@@ -115,10 +116,43 @@ describe('validateOdooPartnerId (OPTIONAL — empty is valid)', () => {
   })
 })
 
-describe('validateDriveFolderId (currently a no-op — never returns an error)', () => {
-  it('never returns an error, for any input', () => {
+describe('validateDriveFolderId', () => {
+  it('allows empty (cliente sin carpeta asignada)', () => {
     expect(validateDriveFolderId('')).toBeUndefined()
-    expect(validateDriveFolderId('anything-goes')).toBeUndefined()
+    expect(validateDriveFolderId('   ')).toBeUndefined()
+  })
+
+  it('accepts a well-formed Drive ID', () => {
+    expect(validateDriveFolderId('1AbC_dEf-GhIjKlMnOp')).toBeUndefined()
+  })
+
+  it('rejects malformed values', () => {
+    for (const bad of ['short', 'has space in it', "x'; drop--", '../etc/passwd']) {
+      expect(validateDriveFolderId(bad)).toMatch(/no es válido/)
+    }
+  })
+})
+
+describe('normalizeDriveFolderInput', () => {
+  it('returns undefined for empty input', () => {
+    expect(normalizeDriveFolderInput('  ')).toBeUndefined()
+  })
+
+  it('extracts the ID from a folder URL', () => {
+    expect(
+      normalizeDriveFolderInput(
+        'https://drive.google.com/drive/folders/1AbC_dEf-GhIjKlMnOp?usp=sharing'
+      )
+    ).toBe('1AbC_dEf-GhIjKlMnOp')
+  })
+
+  it('keeps a bare ID untouched', () => {
+    expect(normalizeDriveFolderInput(' 1AbC_dEf-GhIjKlMnOp ')).toBe('1AbC_dEf-GhIjKlMnOp')
+  })
+
+  it('does not turn an unparseable URL into a valid ID', () => {
+    const out = normalizeDriveFolderInput('https://example.com/x')
+    expect(validateDriveFolderId(out ?? '')).toMatch(/no es válido/)
   })
 })
 
