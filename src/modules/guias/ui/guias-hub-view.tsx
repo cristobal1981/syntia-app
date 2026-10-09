@@ -164,24 +164,26 @@ export function GuiasHubView({ relevantWindows }: GuiasHubViewProps) {
           aria-labelledby="guias-now-title"
           className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-5 md:p-6 dark:border-primary/25 dark:bg-primary/[0.06]"
         >
-          <div className="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <AlarmClock className="size-4" aria-hidden />
-            </span>
-            <h2
-              id="guias-now-title"
-              className="font-sans text-lg font-semibold text-foreground"
-            >
-              {copy.nowTitle}
-            </h2>
-            <div aria-hidden />
-            <p className="text-sm text-muted-foreground">{copy.nowDescription}</p>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+            <div className="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <AlarmClock className="size-4" aria-hidden />
+              </span>
+              <h2
+                id="guias-now-title"
+                className="font-sans text-lg font-semibold text-foreground"
+              >
+                {copy.nowTitle}
+              </h2>
+              <div aria-hidden />
+              <p className="text-sm text-muted-foreground">{copy.nowDescription}</p>
+            </div>
+            {sappoLine ? (
+              <SappoSays mood="lawyer" reverse>
+                {sappoLine}
+              </SappoSays>
+            ) : null}
           </div>
-          {sappoLine ? (
-            <SappoSays mood="lawyer" className="mt-4 justify-center">
-              {sappoLine}
-            </SappoSays>
-          ) : null}
           <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {relevantWindows.map((relevant) => (
               <li key={relevant.window.id} className="min-w-0">
