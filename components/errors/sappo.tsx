@@ -113,6 +113,7 @@ export function Sappo({ mood, className }: SappoProps) {
       ref={svgRef}
       viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.w} ${VIEW_BOX.h}`}
       className={className}
+      style={{ overflow: 'visible' }}
       aria-hidden
       focusable="false"
     >
