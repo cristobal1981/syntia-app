@@ -21,7 +21,7 @@ const PUPIL_R = 21
 const PUPIL_TRAVEL = 22
 
 /** Color del cuerpo; los párpados lo reutilizan para "desaparecer" sobre él. */
-const BODY = 'var(--sappo-body, var(--primary))'
+const BODY = 'var(--primary)'
 const INK = 'var(--surface-dark)'
 const SCLERA = 'var(--brisa)'
 
@@ -120,9 +120,7 @@ export function Sappo({ mood, className }: SappoProps) {
           overflow: 'visible',
           // Sin width/height propios, `w-auto` estiraría la caja más allá del dibujo.
           aspectRatio: `${VIEW_BOX.w} / ${VIEW_BOX.h}`,
-          // Sobre fondos claros, el verde vivo desluce los ojos: el director va en verde oscuro.
-          ...(mood === 'conductor' ? { '--sappo-body': 'var(--agua)' } : null),
-        } as React.CSSProperties
+        }
       }
       aria-hidden
       focusable="false"
@@ -225,7 +223,7 @@ export function Sappo({ mood, className }: SappoProps) {
         {mood === 'guard' ? <Sunglasses /> : null}
         {mood === 'builder' ? <HardHat /> : null}
         {mood === 'lawyer' ? <LawyerGear /> : null}
-        {mood === 'conductor' ? <Glasses frame="var(--brisa)" /> : null}
+        {mood === 'conductor' ? <Glasses frame={INK} /> : null}
         {mood === 'carrier' ? <Document /> : null}
       </g>
 
