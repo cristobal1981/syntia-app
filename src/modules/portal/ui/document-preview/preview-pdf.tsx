@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button'
 import { portalDocuments } from '@/content/portal-documents'
 import { base64ToBlobUrl, revokeBlobUrl } from '@/src/modules/portal/lib/base64-to-blob-url'
 import { useMobilePdfFallback } from '@/src/modules/portal/lib/use-mobile-pdf-fallback'
+import { PreviewPdfViewer } from '@/src/modules/portal/ui/document-preview/preview-pdf-viewer'
+
+/**
+ * Parámetros de apertura del visor nativo (solo si falla el visor propio):
+ * panel lateral cerrado para que el documento ocupe el ancho útil.
+ */
+const PDF_VIEWER_PARAMS = '#navpanes=0&pagemode=none'
 
 type PreviewPdfProps = {
   mimetype: string
@@ -55,6 +62,7 @@ function PreviewPdfMobileFallback({
 
 export function PreviewPdf({ mimetype, dataBase64, title }: PreviewPdfProps) {
   const [src, setSrc] = useState<string | null>(null)
+  const [engineFailed, setEngineFailed] = useState(false)
   const useMobileFallback = useMobilePdfFallback()
 
   useEffect(() => {
@@ -72,9 +80,17 @@ export function PreviewPdf({ mimetype, dataBase64, title }: PreviewPdfProps) {
     return <PreviewPdfMobileFallback src={src} title={title} />
   }
 
+  // Visor propio (páginas, paginación y zoom); si no puede abrir el archivo,
+  // se cae al visor nativo del navegador.
+  if (!engineFailed) {
+    return (
+      <PreviewPdfViewer dataBase64={dataBase64} onFailed={() => setEngineFailed(true)} />
+    )
+  }
+
   return (
     <iframe
-      src={src}
+      src={`${src}${PDF_VIEWER_PARAMS}`}
       title={title}
       className="h-full min-h-[50dvh] w-full flex-1 rounded-md border border-border bg-card dark:border-border/80"
     />

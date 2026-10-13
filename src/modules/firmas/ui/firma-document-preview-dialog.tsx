@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, X } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { PreviewViewerShell } from '@/src/modules/portal/ui/document-preview/preview-dialog-layout'
 import { firmas } from '@/content/firmas'
 import { downloadSignedDocumentAction } from '@/src/modules/firmas/application/download-signed-document-action'
 import { PreviewPdf } from '@/src/modules/portal/ui/document-preview/preview-pdf'
@@ -74,36 +73,19 @@ export function FirmaDocumentPreviewDialog({
 
   const title = target?.title ?? copy.previewLabel
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="fixed inset-0 top-0 left-0 z-50 flex h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 shadow-none sm:max-w-none"
-        aria-label={copy.closePreview}
-      >
-        <div className="shrink-0 border-b border-border bg-card px-3 py-3 sm:px-4 dark:border-border/50">
-          <div className="relative flex items-center gap-2">
-            <DialogTitle className="min-w-0 flex-1 truncate text-left text-sm font-semibold sm:text-base">
-              {title}
-            </DialogTitle>
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-9 shrink-0 cursor-pointer"
-                aria-label={copy.closePreview}
-              >
-                <X className="size-4" aria-hidden />
-              </Button>
-            </DialogClose>
-          </div>
-        </div>
+  const viewerReady = !loading && !error && payload !== null
+  const viewerFile = viewerReady ? payload : null
 
-        <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4"
-          aria-live="polite"
-        >
+  return (
+    <PreviewViewerShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      closeLabel={copy.closePreview}
+      category="pdf"
+      file={viewerFile}
+      ready={viewerReady}
+    >
           {loading ? (
             <p className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2
@@ -132,8 +114,6 @@ export function FirmaDocumentPreviewDialog({
               />
             </div>
           ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </PreviewViewerShell>
   )
 }
