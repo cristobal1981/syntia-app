@@ -13,6 +13,7 @@ import { buildFolderUrl, parseFolderParam } from '@/src/modules/documents/domain
 import { sortDriveItems } from '@/src/modules/documents/domain/sort-drive-items'
 import type { DriveDuplicate, DriveItem } from '@/src/modules/documents/domain/types'
 
+import type { DriveUiErrorCode } from '@/src/modules/documents/domain/drive-error-presentation'
 import { isExternalFileDrag } from '@/src/modules/documents/ui/drive-drag'
 import type { DriveDropOverlayUploadPhase } from '@/src/modules/documents/ui/drive-drop-overlay'
 import { useDriveFolder } from '@/src/modules/documents/ui/use-drive-folder'
@@ -47,6 +48,7 @@ export function useDriveBrowser(canWrite: boolean) {
   const [uploadOverlayPhase, setUploadOverlayPhase] =
     useState<DriveDropOverlayUploadPhase>('idle')
   const [duplicate, setDuplicate] = useState<DriveDuplicate | null>(null)
+  const [uploadRejection, setUploadRejection] = useState<DriveUiErrorCode | null>(null)
   const [previewItem, setPreviewItem] = useState<DriveItem | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -198,11 +200,16 @@ export function useDriveBrowser(canWrite: boolean) {
 
     resetPageDrag()
     setDuplicate(null)
+    setUploadRejection(null)
     driveFolder.upload(files, folderId, {
       onPhaseChange: setUploadOverlayPhase,
       onDuplicate: (found) => {
         setDuplicate(found)
         setUploadOverlayPhase('duplicate')
+      },
+      onRejected: (code) => {
+        setUploadRejection(code)
+        setUploadOverlayPhase('rejected')
       },
     })
   }
@@ -220,8 +227,9 @@ export function useDriveBrowser(canWrite: boolean) {
     driveFolder.download(item)
   }
 
-  function dismissDuplicate() {
+  function dismissUploadNotice() {
     setDuplicate(null)
+    setUploadRejection(null)
     setUploadOverlayPhase('idle')
   }
 
@@ -261,7 +269,8 @@ export function useDriveBrowser(canWrite: boolean) {
     pageDragActive,
     uploadOverlayPhase,
     duplicate,
-    dismissDuplicate,
+    uploadRejection,
+    dismissUploadNotice,
     searchQuery,
     setSearchQuery,
     previewItem,

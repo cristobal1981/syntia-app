@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  isUploadRejection,
   presentDriveError,
   SECTION_FATAL_CODES,
   type DriveErrorContext,
@@ -115,4 +116,20 @@ describe('presentDriveError — todo error tiene un aviso presentable', () => {
       ['forbidden', 'not_configured', 'not_linked', 'session_expired'].sort()
     )
   })
+})
+
+describe('isUploadRejection — qué se explica dentro del cuadro de subida', () => {
+  it.each(['invalid_type', 'invalid_name', 'too_large', 'upload_failed'] as const)(
+    '%s se corrige cambiando la selección',
+    (code) => {
+      expect(isUploadRejection(code)).toBe(true)
+    }
+  )
+
+  it.each(CODES.filter((c) => !['invalid_type', 'invalid_name', 'too_large', 'upload_failed'].includes(c)))(
+    '%s sigue como aviso de página',
+    (code) => {
+      expect(isUploadRejection(code)).toBe(false)
+    }
+  )
 })

@@ -9,6 +9,7 @@ import type {
   DriveErrorContext,
   DriveUiErrorCode,
 } from '@/src/modules/documents/domain/drive-error-presentation'
+import { isUploadRejection } from '@/src/modules/documents/domain/drive-error-presentation'
 import {
   planFolderLoadFailure,
   type FolderLoadFailurePlan,
@@ -159,6 +160,8 @@ export function useDriveFolder() {
         onPhaseChange?: (phase: 'uploading' | 'success' | 'idle') => void
         /** Archivo repetido: se avisa con la tarjeta del cuadro de subida, no con texto suelto. */
         onDuplicate?: (duplicate: DriveDuplicate) => void
+        /** Rechazo de la selección (formato, tamaño…): se explica en el cuadro de subida. */
+        onRejected?: (code: DriveUiErrorCode) => void
       }
     ) => {
       const fileArray = Array.from(files)
@@ -182,6 +185,10 @@ export function useDriveFolder() {
           const duplicate = 'duplicate' in result ? result.duplicate : undefined
           if (result.error === 'duplicate' && duplicate && options?.onDuplicate) {
             options.onDuplicate(duplicate)
+            return
+          }
+          if (options?.onRejected && isUploadRejection(result.error)) {
+            options.onRejected(result.error)
             return
           }
           options?.onPhaseChange?.('idle')

@@ -32,7 +32,8 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
     pageDragActive,
     uploadOverlayPhase,
     duplicate,
-    dismissDuplicate,
+    uploadRejection,
+    dismissUploadNotice,
     searchQuery,
     setSearchQuery,
     previewItem,
@@ -76,7 +77,8 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
         active={pageDragActive || uploadOverlayPhase !== 'idle'}
         uploadPhase={uploadOverlayPhase}
         duplicate={duplicate}
-        onDismiss={dismissDuplicate}
+        uploadRejection={uploadRejection}
+        onDismiss={dismissUploadNotice}
       />
 
       <input

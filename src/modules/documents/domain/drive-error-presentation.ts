@@ -36,6 +36,22 @@ export const SECTION_FATAL_CODES: ReadonlySet<DriveUiErrorCode> = new Set([
   'not_configured',
 ])
 
+/**
+ * Rechazos de la propia selección (formato, tamaño, nombre, nº de archivos):
+ * la persona los corrige cambiando archivos, así que se explican en el cuadro
+ * de subida igual que un duplicado, en vez de en un aviso suelto en la página.
+ */
+const UPLOAD_REJECTION_CODES: ReadonlySet<DriveUiErrorCode> = new Set([
+  'invalid_type',
+  'invalid_name',
+  'too_large',
+  'upload_failed',
+])
+
+export function isUploadRejection(code: DriveUiErrorCode): boolean {
+  return UPLOAD_REJECTION_CODES.has(code)
+}
+
 export function presentDriveError(
   code: DriveUiErrorCode,
   context: DriveErrorContext

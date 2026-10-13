@@ -7,16 +7,24 @@ import { Sappo } from '@/components/errors/sappo'
 import { Button } from '@/components/ui/button'
 import { clientDocuments } from '@/content/client-documents'
 import { duplicateLocationCrumbs } from '@/src/modules/documents/domain/duplicate-location'
+import { presentDriveError, type DriveUiErrorCode } from '@/src/modules/documents/domain/drive-error-presentation'
 import type { DriveDuplicate } from '@/src/modules/documents/domain/types'
 import { cn } from '@/lib/utils'
 
-export type DriveDropOverlayUploadPhase = 'idle' | 'uploading' | 'success' | 'duplicate'
+export type DriveDropOverlayUploadPhase =
+  | 'idle'
+  | 'uploading'
+  | 'success'
+  | 'duplicate'
+  | 'rejected'
 
 type DriveDropOverlayProps = {
   active: boolean
   uploadPhase?: DriveDropOverlayUploadPhase
   /** Archivo repetido que ha impedido la subida (fase `duplicate`). */
   duplicate?: DriveDuplicate | null
+  /** Motivo por el que se rechazó la selección (fase `rejected`). */
+  uploadRejection?: DriveUiErrorCode | null
   onDismiss?: () => void
 }
 
@@ -136,10 +144,53 @@ function DuplicateCard({
   )
 }
 
+function RejectionCard({
+  code,
+  onDismiss,
+}: {
+  code: DriveUiErrorCode
+  onDismiss?: () => void
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onDismiss?.()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onDismiss])
+
+  const presentation = presentDriveError(code, 'upload')
+
+  return (
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="drive-rejection-title"
+      aria-describedby="drive-rejection-hint"
+      className="flex w-full max-w-md flex-col items-center gap-4"
+    >
+      <Sappo
+        mood="oops"
+        className="block h-24 w-auto motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300"
+      />
+      <p id="drive-rejection-title" className="text-lg font-semibold text-foreground">
+        {presentation.title}
+      </p>
+      <p id="drive-rejection-hint" className="max-w-sm text-sm text-muted-foreground">
+        {presentation.description}
+      </p>
+      <Button type="button" className="cursor-pointer" autoFocus onClick={onDismiss}>
+        {clientDocuments.duplicateDismiss}
+      </Button>
+    </div>
+  )
+}
+
 export function DriveDropOverlay({
   active,
   uploadPhase = 'idle',
   duplicate = null,
+  uploadRejection = null,
   onDismiss,
 }: DriveDropOverlayProps) {
   const [hovering, setHovering] = useState(false)
@@ -149,7 +200,9 @@ export function DriveDropOverlay({
   const isUploading = uploadPhase === 'uploading'
   const isSuccess = uploadPhase === 'success'
   const isDuplicate = uploadPhase === 'duplicate' && duplicate !== null
-  const isDragMode = !isUploading && !isSuccess && !isDuplicate
+  const isRejected = uploadPhase === 'rejected' && uploadRejection !== null
+  const isNotice = isDuplicate || isRejected
+  const isDragMode = !isUploading && !isSuccess && !isNotice
 
   // Ajustes durante el render (no en efectos): resetear el hover al
   // desactivarse y saltar a 100% al completar, ambos derivables de sus
@@ -190,7 +243,7 @@ export function DriveDropOverlay({
     <div
       className={cn(
         'fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm',
-        isUploading || isSuccess || isDuplicate ? 'pointer-events-auto' : 'pointer-events-none'
+        isUploading || isSuccess || isNotice ? 'pointer-events-auto' : 'pointer-events-none'
       )}
       role={isUploading ? 'status' : undefined}
       aria-live={isUploading || isSuccess ? 'polite' : undefined}
@@ -199,12 +252,12 @@ export function DriveDropOverlay({
       <div
         className={cn(
           'pointer-events-auto relative mx-6 min-h-[40vh] w-full max-w-2xl rounded-2xl border-2 border-primary bg-primary/5',
-          isDuplicate && 'border-amber-500 bg-amber-500/5',
+          isNotice && 'border-amber-500 bg-amber-500/5',
           isDragMode && !hovering && 'border-dashed',
           isDragMode &&
             hovering &&
             'border-solid ring-8 ring-primary/35 ring-offset-0 motion-reduce:animate-none motion-reduce:ring-0 motion-safe:animate-pulse',
-          (isUploading || isSuccess || isDuplicate) && 'border-solid'
+          (isUploading || isSuccess || isNotice) && 'border-solid'
         )}
         onDragEnter={(event) => {
           if (!isDragMode) return
@@ -223,10 +276,12 @@ export function DriveDropOverlay({
         }}
       >
         <div className="relative flex min-h-[40vh] flex-col items-center justify-center gap-4 px-8 py-10 text-center">
-          {isDuplicate ? null : <UploadMascot phase={isSuccess ? 'success' : isUploading ? 'uploading' : 'upload'} />}
+          {isNotice ? null : <UploadMascot phase={isSuccess ? 'success' : isUploading ? 'uploading' : 'upload'} />}
 
           {isDuplicate && duplicate ? (
             <DuplicateCard duplicate={duplicate} onDismiss={onDismiss} />
+          ) : isRejected && uploadRejection ? (
+            <RejectionCard code={uploadRejection} onDismiss={onDismiss} />
           ) : isUploading || isSuccess ? (
             <>
               <p className="text-lg font-semibold text-foreground">
