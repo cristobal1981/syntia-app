@@ -26,6 +26,13 @@ export function planFolderLoadFailure(input: {
 }): FolderLoadFailurePlan {
   const { code, requestedFolderId, currentFolderId, hasListing } = input
 
+  // Entrada directa (URL, favorito, recarga) a una carpeta que ya no existe:
+  // no hay lista que conservar, pero tampoco hace falta un error a pantalla
+  // completa; se lleva a Inicio con aviso.
+  if (!hasListing && code === 'not_found' && requestedFolderId !== undefined) {
+    return { listing: 'keep', fallback: 'go-home', context: 'home' }
+  }
+
   if (!hasListing || SECTION_FATAL_CODES.has(code)) {
     return { listing: 'clear', fallback: 'none', context: 'load' }
   }

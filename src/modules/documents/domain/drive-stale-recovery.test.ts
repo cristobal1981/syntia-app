@@ -21,6 +21,18 @@ describe('planFolderLoadFailure — Drive cambia por detrás, la lista no se pie
     })
   })
 
+  it('entrada directa por URL a una carpeta que ya no existe: a Inicio con aviso, sin pantalla de error', () => {
+    expect(
+      plan({ hasListing: false, requestedFolderId: 'vieja', currentFolderId: null })
+    ).toEqual({ listing: 'keep', fallback: 'go-home', context: 'home' })
+  })
+
+  it('entrada directa por URL con otro error: aviso a pantalla completa', () => {
+    expect(
+      plan({ code: 'offline', hasListing: false, requestedFolderId: 'vieja', currentFolderId: null })
+    ).toEqual({ listing: 'clear', fallback: 'none', context: 'load' })
+  })
+
   it('abro una carpeta que ya no existe: conservo lo que veía y resincronizo la actual', () => {
     expect(plan({})).toEqual({ listing: 'keep', fallback: 'refresh-current', context: 'folder' })
   })

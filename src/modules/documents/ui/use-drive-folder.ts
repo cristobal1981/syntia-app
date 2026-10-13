@@ -45,6 +45,9 @@ export function useDriveFolder() {
 
   // Los planes de recuperación leen el estado más reciente sin recrear callbacks.
   const stateRef = useRef({ currentFolderId, hasListing: false })
+  // Cada navegación (carga no silenciosa) invalida a las anteriores: con la
+  // carpeta en la URL, atrás/adelante rápidos no pueden pisar la lista actual.
+  const loadSeqRef = useRef(0)
   useEffect(() => {
     stateRef.current = { currentFolderId, hasListing: breadcrumbs.length > 0 }
   }, [currentFolderId, breadcrumbs.length])
@@ -55,6 +58,7 @@ export function useDriveFolder() {
       folderId?: string,
       options?: { silent?: boolean }
     ): Promise<FolderLoadFailurePlan['fallback']> => {
+      const seq = options?.silent ? loadSeqRef.current : ++loadSeqRef.current
       if (!options?.silent) setLoading(true)
       setError(null)
       if (!options?.silent) setActionError(null)
@@ -65,6 +69,8 @@ export function useDriveFolder() {
           listDriveFolderAction(folderId ? { folderId } : undefined)
         )
       )
+
+      if (seq !== loadSeqRef.current) return 'none'
 
       setLoading(false)
 
