@@ -8,7 +8,6 @@ import { portal } from '@/content/portal'
 import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
 import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
@@ -26,7 +25,7 @@ import {
   PortalEntryLoadingProvider,
   usePortalEntryLoading,
 } from '@/src/modules/portal/ui/portal-entry-loading-context'
-import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
+import { PortalProfileMenu } from '@/src/modules/portal/ui/portal-profile-menu'
 import { renderNavItem } from '@/src/modules/portal/ui/portal-nav-items'
 import { PortalBottomBar } from '@/src/modules/portal/ui/portal-bottom-bar'
 import { PortalMobileMenu } from '@/src/modules/portal/ui/portal-mobile-menu'
@@ -105,7 +104,6 @@ export function PortalShell({
     (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites'))
   const { bottomBarItems, moreNavItems } = getBottomBarSplit(navItems, user.role)
   const roleLabel = portal.roles[user.role]
-  const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
   useEffect(() => {
     // localStorage solo existe en cliente — no se puede leer durante SSR.
@@ -180,34 +178,13 @@ export function PortalShell({
           </div>
         </nav>
 
-        <div className={cn('py-4', sidebarCollapsed ? 'px-2' : 'px-4')}>
-          {sidebarCollapsed ? (
-            <PortalActionTooltip
-              content={`${user.name} · ${roleLabel}`}
-              side="right"
-            >
-              <span
-                tabIndex={0}
-                className="mx-auto flex size-9 cursor-default items-center justify-center rounded-full bg-sidebar-active text-xs font-semibold text-sidebar-active-foreground"
-                role="img"
-                aria-label={`${user.name} · ${roleLabel}`}
-              >
-                {userInitial}
-              </span>
-            </PortalActionTooltip>
-          ) : (
-            <>
-              <p className="truncate text-sm font-medium text-sidebar-foreground">
-                {user.name}
-              </p>
-              <p className="mt-0.5 text-xs text-sidebar-muted-foreground">
-                {roleLabel}
-              </p>
-            </>
-          )}
-          <div className={cn('mt-3', sidebarCollapsed && 'flex justify-center')}>
-            <SignOutButton collapsed={sidebarCollapsed} />
-          </div>
+        <div className={cn('border-t border-sidebar-border py-3', sidebarCollapsed ? 'px-2' : 'px-3')}>
+          <PortalProfileMenu
+            user={user}
+            roleLabel={roleLabel}
+            collapsed={sidebarCollapsed}
+            onNavigate={handleNavStart}
+          />
         </div>
       </aside>
 

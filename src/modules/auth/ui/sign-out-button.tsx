@@ -13,9 +13,11 @@ import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-toolt
 
 type SignOutButtonProps = {
   collapsed?: boolean
+  /** `menu`: fila de un panel desplegable (el panel ya trae su propio fondo y separación). */
+  variant?: 'sidebar' | 'menu'
 }
 
-export function SignOutButton({ collapsed = false }: SignOutButtonProps) {
+export function SignOutButton({ collapsed = false, variant = 'sidebar' }: SignOutButtonProps) {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -52,7 +54,10 @@ export function SignOutButton({ collapsed = false }: SignOutButtonProps) {
       disabled={pending || signingOut}
       onClick={handleSignOut}
       className={cn(
-        'flex min-h-10 cursor-pointer items-center rounded-md text-sm text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none disabled:cursor-not-allowed',
+        'flex min-h-10 cursor-pointer items-center rounded-md text-sm transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none disabled:cursor-not-allowed',
+        variant === 'menu'
+          ? 'text-sidebar-foreground hover:bg-sidebar-accent'
+          : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
         collapsed ? 'size-10 justify-center px-0' : 'w-full gap-3 px-3 text-left'
       )}
     >
