@@ -145,8 +145,11 @@ describe('portal-drive-document-actions (solo leer, descargar y subir)', () => {
         'downloadDriveFileAction',
         'getDriveDocumentsModeAction',
         'getDriveFilePreviewAction',
+        // Subida rápida de facturas: solo lee (¿existe el destino?) y sube.
+        'getInvoiceUploadAvailabilityAction',
         'listDriveFolderAction',
         'uploadDriveFilesAction',
+        'uploadInvoiceFilesAction',
       ].sort()
     )
   })

@@ -207,10 +207,13 @@ class FakeDrive {
       // Solo se aceptan las dos formas que la aplicación debe generar; cualquier
       // otra (inyección, comillas sueltas...) responde 400 como Drive.
       const single = /^'[A-Za-z0-9_-]+' in parents and trashed=false$/
+      const byName =
+        /^'[A-Za-z0-9_-]+' in parents and name = '[^'\\]+' and mimeType = 'application\/vnd\.google-apps\.folder' and trashed=false$/
+      const wantedName = /name = '([^']+)'/.exec(q)?.[1]
       const grouped =
         /^\('[A-Za-z0-9_-]+' in parents(?: or '[A-Za-z0-9_-]+' in parents)*\) and trashed=false$/
       const parentIds = [...q.matchAll(/'([A-Za-z0-9_-]+)' in parents/g)].map((m) => m[1])
-      if (!single.test(q) && !grouped.test(q)) {
+      if (!single.test(q) && !grouped.test(q) && !byName.test(q)) {
         record('list', q)
         return this.json({ error: 'invalid query' }, 400)
       }
@@ -219,6 +222,7 @@ class FakeDrive {
         .filter(
           (node) =>
             node.parents.some((parent) => parentIds.includes(parent)) &&
+            (!byName.test(q) || (node.name === wantedName && node.mimeType === FOLDER)) &&
             !this.isTrashed(node.id) &&
             this.visible(node.id)
         )
@@ -321,6 +325,12 @@ function sessionFor(role: 'client' | 'worker' | 'admin' | 'staff'): PortalSessio
 }
 
 import * as actions from '@/src/modules/documents/application/portal-drive-document-actions'
+import { findChildFolderIdByName } from '@/src/modules/documents/infrastructure/google-drive-repository'
+import {
+  currentYearInMadrid,
+  INVOICE_YEAR_FOLDER_NAME,
+  invoiceFolderName,
+} from '@/src/modules/documents/domain/invoice-upload-target'
 
 type Actions = typeof actions
 
@@ -622,6 +632,279 @@ describe.each([
       const result = await actions.listDriveFolderAction({ folderId: MULTI })
 
       expect(result).toEqual({ ok: false, error: 'not_found' })
+    })
+  })
+
+  describe('subida rápida de facturas: el destino lo decide el servidor', () => {
+    const YEAR_FOLDER = 'ANO_EN_CURSO_FOLDER_001'
+    const INVOICES = 'FACTURAS_COMPRAS_ANO_001'
+    const invoicesName = () => invoiceFolderName(currentYearInMadrid())
+
+    function addInvoiceFolders() {
+      fake.nodes.set(YEAR_FOLDER, folderNode(YEAR_FOLDER, INVOICE_YEAR_FOLDER_NAME, [PUB]))
+      fake.nodes.set(INVOICES, folderNode(INVOICES, invoicesName(), [YEAR_FOLDER]))
+    }
+    const uploads = () => fake.requests.filter((request) => request.kind === 'upload')
+
+    it('con las dos carpetas existentes el botón está disponible y dice a cuál sube', async () => {
+      addInvoiceFolders()
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({
+        available: true,
+        folderName: invoicesName(),
+      })
+    })
+
+    it.each([
+      ['no existe «Año en curso»', () => {}],
+      [
+        'falta la carpeta de facturas del año',
+        () => fake.nodes.set(YEAR_FOLDER, folderNode(YEAR_FOLDER, INVOICE_YEAR_FOLDER_NAME, [PUB])),
+      ],
+      [
+        'solo existe la carpeta de otro año',
+        () => {
+          fake.nodes.set(YEAR_FOLDER, folderNode(YEAR_FOLDER, INVOICE_YEAR_FOLDER_NAME, [PUB]))
+          fake.nodes.set(
+            INVOICES,
+            folderNode(INVOICES, invoiceFolderName(currentYearInMadrid() - 1), [YEAR_FOLDER])
+          )
+        },
+      ],
+      [
+        '«Año en curso» está en otro sitio (dentro de Privada, no en la Pública)',
+        () => {
+          fake.nodes.set(YEAR_FOLDER, folderNode(YEAR_FOLDER, INVOICE_YEAR_FOLDER_NAME, [PRIV]))
+          fake.nodes.set(INVOICES, folderNode(INVOICES, invoicesName(), [YEAR_FOLDER]))
+        },
+      ],
+      [
+        'la carpeta de facturas está en la papelera',
+        () => {
+          addInvoiceFolders()
+          fake.nodes.get(INVOICES)!.trashed = true
+        },
+      ],
+      [
+        'hay dos carpetas con el mismo nombre (ambiguo: no se adivina)',
+        () => {
+          addInvoiceFolders()
+          fake.nodes.set(
+            'FACTURAS_DUPLICADA_000001',
+            folderNode('FACTURAS_DUPLICADA_000001', invoicesName(), [YEAR_FOLDER])
+          )
+        },
+      ],
+    ])('sin destino válido (%s): el botón no aparece y la subida se rechaza sin escribir', async (_label, arrange) => {
+      arrange()
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+
+      const result = await actions.uploadInvoiceFilesAction(uploadForm([pdf('factura.pdf')], PUB))
+      expect(result).toEqual({ ok: false, error: 'not_found' })
+      expect(uploads()).toHaveLength(0)
+    })
+
+    it('sube a «Facturas de compras [año]» y SIEMPRE ignora la carpeta que mande el navegador', async () => {
+      addInvoiceFolders()
+
+      // El navegador intenta mandarlo a la carpeta Privada.
+      const result = await actions.uploadInvoiceFilesAction(uploadForm([pdf('factura.pdf')], PRIV))
+
+      expect(result).toMatchObject({ ok: true })
+      expect(uploads().map((request) => request.targetId)).toEqual([INVOICES])
+      expect(fake.leaks()).toEqual([])
+    })
+
+    it('varios archivos entran en un mismo lote en la misma carpeta', async () => {
+      addInvoiceFolders()
+
+      const result = await actions.uploadInvoiceFilesAction(
+        uploadForm([pdf('a.pdf'), pdf('b.pdf')], PUB)
+      )
+
+      expect(result).toMatchObject({ ok: true })
+      expect(uploads().map((request) => request.targetId)).toEqual([INVOICES, INVOICES])
+    })
+
+    it('aplica la misma política que Documentos: tipo no permitido, tamaño y lote', async () => {
+      addInvoiceFolders()
+      const MB = 1024 * 1024
+
+      const exe = new File(['x'], 'factura.exe', { type: 'application/octet-stream' })
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([exe], PUB))).toEqual({
+        ok: false,
+        error: 'invalid_type',
+      })
+
+      const big = pdf('grande.pdf', 'x'.repeat(10 * MB + 1))
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([big], PUB))).toEqual({
+        ok: false,
+        error: 'too_large',
+      })
+
+      const eleven = Array.from({ length: 11 }, (_, i) => pdf(`f${i}.pdf`))
+      expect(await actions.uploadInvoiceFilesAction(uploadForm(eleven, PUB))).toEqual({
+        ok: false,
+        error: 'upload_failed',
+      })
+      expect(uploads()).toHaveLength(0)
+    })
+
+    it('detecta duplicados como en Documentos y no sube nada', async () => {
+      addInvoiceFolders()
+      fake.nodes.set('FACTURA_YA_SUBIDA_00001', fileNode('FACTURA_YA_SUBIDA_00001', 'repetida.pdf', [INVOICES]))
+
+      const result = await actions.uploadInvoiceFilesAction(
+        uploadForm([pdf('nueva.pdf'), pdf('repetida.pdf')], PUB)
+      )
+
+      expect(result).toMatchObject({ ok: false, error: 'duplicate' })
+      expect(uploads()).toHaveLength(0)
+    })
+
+    it('un colaborador sin permiso de escritura no ve el botón ni puede subir', async () => {
+      addInvoiceFolders()
+      getSession.mockResolvedValue(sessionFor('worker'))
+      getWorkerWriteSections.mockResolvedValue(new Set())
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB))).toEqual({
+        ok: false,
+        error: 'forbidden',
+      })
+      expect(uploads()).toHaveLength(0)
+    })
+
+    it('un colaborador con escritura sí puede', async () => {
+      addInvoiceFolders()
+      getSession.mockResolvedValue(sessionFor('worker'))
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toMatchObject({ available: true })
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB))).toMatchObject({
+        ok: true,
+      })
+    })
+
+    it.each(['admin', 'staff'] as const)('el rol %s no tiene subida rápida', async (role) => {
+      addInvoiceFolders()
+      getSession.mockResolvedValue(sessionFor(role))
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB))).toEqual({
+        ok: false,
+        error: 'forbidden',
+      })
+    })
+
+    it('sin sesión: no disponible y «sesión caducada» al subir', async () => {
+      addInvoiceFolders()
+      getSession.mockResolvedValue(null)
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB))).toEqual({
+        ok: false,
+        error: 'session_expired',
+      })
+    })
+
+    it('un fallo de Drive al consultar el destino no rompe: simplemente no hay botón', async () => {
+      addInvoiceFolders()
+      fake.override = () => new Response('boom', { status: 500 })
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+    })
+
+    it('la caché del destino es por cliente: lo resuelto para A nunca se le ofrece a B', async () => {
+      addInvoiceFolders()
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toMatchObject({ available: true })
+
+      // El cliente B (otra raíz) no tiene esas carpetas.
+      resolveClientDriveRootId.mockResolvedValue(PUB2)
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+      const before = uploads().length
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB2))).toEqual({
+        ok: false,
+        error: 'not_found',
+      })
+      expect(uploads()).toHaveLength(before)
+    })
+
+    it('una respuesta con otra carpeta (nombre distinto) no se toma como destino', async () => {
+      addInvoiceFolders()
+      fake.override = ({ kind }) =>
+        kind === 'list'
+          ? new Response(
+              JSON.stringify({
+                files: [{ id: INVOICES, name: 'Facturas de compras [1999]', mimeType: FOLDER, parents: [YEAR_FOLDER] }],
+              }),
+              { status: 200 }
+            )
+          : undefined
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+    })
+
+    it('un resultado que Drive marca como archivo (no carpeta) no vale como destino', async () => {
+      addInvoiceFolders()
+      // Solo la búsqueda de «Año en curso» devuelve un archivo con ese nombre; el resto es normal.
+      fake.override = ({ kind, url }) =>
+        kind === 'list' && (url.searchParams.get('q') ?? '').includes(INVOICE_YEAR_FOLDER_NAME)
+          ? new Response(
+              JSON.stringify({
+                files: [
+                  {
+                    id: YEAR_FOLDER,
+                    name: INVOICE_YEAR_FOLDER_NAME,
+                    mimeType: 'application/pdf',
+                    parents: [PUB],
+                  },
+                ],
+              }),
+              { status: 200 }
+            )
+          : undefined
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+    })
+
+    it('buscar subcarpetas exige que el padre esté dentro de la Pública y un nombre seguro', async () => {
+      addInvoiceFolders()
+      const before = fake.requests.length
+
+      await expect(findChildFolderIdByName(PRIV, PUB, INVOICE_YEAR_FOLDER_NAME)).rejects.toThrow()
+      await expect(findChildFolderIdByName(PUB, PUB, "x' or name contains '")).rejects.toThrow()
+      await expect(findChildFolderIdByName(PUB, PUB, 'a\\b')).rejects.toThrow()
+
+      // Ninguna de las tres llegó a listar contenido de Drive fuera de la Pública.
+      expect(fake.leaks()).toEqual([])
+      expect(fake.requests.slice(before).filter((r) => r.kind === 'list')).toHaveLength(0)
+    })
+
+    it('en modo demo no hay subida rápida (y no se toca Drive)', async () => {
+      addInvoiceFolders()
+      shouldUseMockDrive.mockReturnValue(true)
+      const before = fake.requests.length
+
+      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
+      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB))).toEqual({
+        ok: false,
+        error: 'not_found',
+      })
+      expect(fake.requests).toHaveLength(before)
+    })
+
+    it('el nombre buscado nunca se concatena con datos del navegador (la consulta es la esperada)', async () => {
+      addInvoiceFolders()
+      await actions.getInvoiceUploadAvailabilityAction()
+
+      const queries = fake.requests
+        .filter((request) => request.kind === 'list')
+        .map((request) => new URL(request.url).searchParams.get('q'))
+      expect(queries).toEqual([
+        `'${PUB}' in parents and name = '${INVOICE_YEAR_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed=false`,
+        `'${YEAR_FOLDER}' in parents and name = '${invoicesName()}' and mimeType = 'application/vnd.google-apps.folder' and trashed=false`,
+      ])
     })
   })
 

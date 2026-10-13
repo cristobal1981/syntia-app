@@ -28,7 +28,14 @@ beforeEach(() => {
 describe('google-drive-repository (solo leer, descargar y subir)', () => {
   it('no exporta operaciones de renombrar, mover, eliminar ni crear carpetas', () => {
     expect(Object.keys(repository).sort()).toEqual(
-      ['downloadDriveFile', 'findDuplicateInSubtree', 'listDriveFolder', 'uploadDriveFile'].sort()
+      [
+        'downloadDriveFile',
+        // Solo lectura: busca una subcarpeta por nombre exacto (destino de facturas).
+        'findChildFolderIdByName',
+        'findDuplicateInSubtree',
+        'listDriveFolder',
+        'uploadDriveFile',
+      ].sort()
     )
   })
 

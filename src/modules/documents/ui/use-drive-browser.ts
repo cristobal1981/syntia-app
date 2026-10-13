@@ -9,6 +9,7 @@ import {
   DRIVE_TOGGLE_VIEW_SHORTCUT,
   DRIVE_UPLOAD_SHORTCUT,
 } from '@/src/modules/documents/domain/drive-shortcuts'
+import { DRIVE_DOCUMENTS_CHANGED_EVENT } from '@/src/modules/documents/domain/drive-events'
 import { buildFolderUrl, parseFolderParam } from '@/src/modules/documents/domain/drive-folder-url'
 import { sortDriveItems } from '@/src/modules/documents/domain/sort-drive-items'
 import type {
@@ -114,6 +115,16 @@ export function useDriveBrowser(canWrite: boolean, initialListing?: DriveFolderL
   useEffect(() => {
     shownRef.current = { currentFolderId, rootFolderId }
   }, [currentFolderId, rootFolderId])
+
+  // Una subida hecha fuera del explorador (factura rápida): se refresca la carpeta
+  // en segundo plano para que aparezca sin recargar.
+  useEffect(() => {
+    const onChanged = () => {
+      void loadFolder(shownRef.current.currentFolderId ?? undefined, { silent: true })
+    }
+    window.addEventListener(DRIVE_DOCUMENTS_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(DRIVE_DOCUMENTS_CHANGED_EVENT, onChanged)
+  }, [loadFolder])
 
   // Carpeta cuya carga (incluida su recuperación automática) ya terminó.
   const [settledParam, setSettledParam] = useState<string | null | undefined>(undefined)

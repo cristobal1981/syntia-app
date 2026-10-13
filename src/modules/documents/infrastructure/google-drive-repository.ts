@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 
 import { mapDriveApiFileToItem } from '@/src/modules/documents/domain/classify-drive-item'
+import { isSafeDriveFolderName } from '@/src/modules/documents/domain/invoice-upload-target'
 import { sortDriveItems } from '@/src/modules/documents/domain/sort-drive-items'
 import type {
   DriveBreadcrumb,
@@ -88,6 +89,47 @@ export async function listDriveFolder(
     currentFolderId: parentId,
     nextPageToken: payload.nextPageToken,
   }
+}
+
+const DRIVE_FOLDER_MIME = 'application/vnd.google-apps.folder'
+
+/**
+ * Id de la subcarpeta con ese nombre exacto dentro de `parentId`, o `null` si
+ * no existe o es ambigua (varias con el mismo nombre: mejor no archivar nada
+ * que archivarlo en la equivocada). `parentId` debe estar dentro del árbol del cliente.
+ */
+export async function findChildFolderIdByName(
+  parentId: string,
+  rootId: string,
+  name: string
+): Promise<string | null> {
+  if (!isSafeDriveFolderName(name)) {
+    throw new Error('DRIVE_ACCESS_FORBIDDEN')
+  }
+  await assertDriveItemWithinClientTree(parentId, rootId)
+
+  const query = encodeURIComponent(
+    `'${parentId}' in parents and name = '${name}' and mimeType = '${DRIVE_FOLDER_MIME}' and trashed=false`
+  )
+  const response = await driveFetch(
+    `/files?q=${query}&fields=${encodeURIComponent('files(id,name,mimeType,parents)')}&pageSize=10&${DRIVE_SHARED_QUERY_FLAGS}`
+  )
+  if (!response.ok) {
+    throw await driveErrorFromResponse(response)
+  }
+
+  const payload = (await readDriveJson(response)) as DriveListResponse
+  const files = payload.files ?? []
+  rememberListedDriveItems(rootId, files)
+
+  const wanted = name.normalize('NFC')
+  const matches = files.filter(
+    (file) =>
+      file.id &&
+      file.mimeType === DRIVE_FOLDER_MIME &&
+      (file.name ?? '').normalize('NFC') === wanted
+  )
+  return matches.length === 1 ? (matches[0].id as string) : null
 }
 
 export async function downloadDriveFile(

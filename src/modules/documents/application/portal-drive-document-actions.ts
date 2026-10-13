@@ -30,12 +30,18 @@ import {
   getDrivePreviewMaxBytes,
 } from '@/src/modules/documents/infrastructure/drive-env'
 import {
+  currentYearInMadrid,
+  INVOICE_YEAR_FOLDER_NAME,
+  invoiceFolderName,
+} from '@/src/modules/documents/domain/invoice-upload-target'
+import {
   findUploadPolicyViolation,
   type UploadPolicyViolation,
 } from '@/src/modules/portal/domain/upload-policy'
 import { isGoogleDriveApiConfigured } from '@/src/modules/documents/infrastructure/google-drive-auth'
 import {
   downloadDriveFile,
+  findChildFolderIdByName,
   findDuplicateInSubtree,
   listDriveFolder,
   uploadDriveFile,
@@ -262,7 +268,19 @@ async function uploadDriveFilesActionImpl(
     return { ok: false, error: 'not_found' }
   }
 
-  const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
+  return uploadFilesIntoFolder(
+    access.rootId,
+    parentFolderId,
+    formData.getAll('files').filter((entry): entry is File => entry instanceof File)
+  )
+}
+
+/** Validación, duplicados y subida: el único camino por el que se escribe en Drive. */
+async function uploadFilesIntoFolder(
+  rootId: string,
+  parentFolderId: string,
+  files: File[]
+): Promise<DriveUploadResult> {
   // Todo el lote se valida antes de subir nada: un archivo malo no deja subidas a medias.
   const invalid = validateUploadBatch(files)
   if (invalid) {
@@ -288,7 +306,7 @@ async function uploadDriveFilesActionImpl(
     }
 
     // Mismo nombre en la carpeta de destino o en cualquiera de sus subcarpetas.
-    const duplicate = await findDuplicateInSubtree(parentFolderId, names, access.rootId)
+    const duplicate = await findDuplicateInSubtree(parentFolderId, names, rootId)
     if (duplicate) return { ok: false, error: 'duplicate', duplicate }
 
     const uploaded = []
@@ -301,7 +319,7 @@ async function uploadDriveFilesActionImpl(
           mimeType: file.type || 'application/octet-stream',
           buffer,
         },
-        access.rootId
+        rootId
       )
       uploaded.push(item)
     }
@@ -311,4 +329,86 @@ async function uploadDriveFilesActionImpl(
     logDriveFailure('upload', error)
     return { ok: false, error: mapDriveErrorToCode(error) }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Subida rápida de facturas de compra
+// ---------------------------------------------------------------------------
+
+type InvoiceTarget = { folderId: string; folderName: string }
+
+const INVOICE_TARGET_TTL_MS = 60_000
+const INVOICE_TARGET_CACHE_MAX = 2000
+const invoiceTargetCache = new Map<
+  string,
+  { target: InvoiceTarget | null; expiresAt: number }
+>()
+
+/**
+ * «Año en curso» > «Facturas de compras [año]» dentro de la Pública. El destino
+ * lo decide siempre el servidor desde la raíz del cliente: el navegador no
+ * manda ningún id de carpeta. Si falta alguna carpeta o es ambigua, no hay destino.
+ */
+async function resolveInvoiceTarget(rootId: string): Promise<InvoiceTarget | null> {
+  const year = currentYearInMadrid()
+  const key = `${rootId}|${year}`
+  const cached = invoiceTargetCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.target
+
+  const yearFolderId = await findChildFolderIdByName(rootId, rootId, INVOICE_YEAR_FOLDER_NAME)
+  const folderName = invoiceFolderName(year)
+  const invoiceFolderId = yearFolderId
+    ? await findChildFolderIdByName(yearFolderId, rootId, folderName)
+    : null
+  const target = invoiceFolderId ? { folderId: invoiceFolderId, folderName } : null
+
+  if (invoiceTargetCache.size >= INVOICE_TARGET_CACHE_MAX) invoiceTargetCache.clear()
+  invoiceTargetCache.set(key, { target, expiresAt: Date.now() + INVOICE_TARGET_TTL_MS })
+  return target
+}
+
+export type InvoiceUploadAvailability = { available: boolean; folderName?: string }
+
+/** ¿Debe mostrarse el botón de factura rápida? Nunca falla: ante cualquier duda, no. */
+export async function getInvoiceUploadAvailabilityAction(): Promise<InvoiceUploadAvailability> {
+  try {
+    const access = await resolveClientDriveAccess('write')
+    if (!access.ok || shouldUseMockDrive()) return { available: false }
+
+    const target = await resolveInvoiceTarget(access.rootId)
+    return target ? { available: true, folderName: target.folderName } : { available: false }
+  } catch (error) {
+    logDriveFailure('invoice-availability', error)
+    return { available: false }
+  }
+}
+
+export async function uploadInvoiceFilesAction(formData: FormData): Promise<DriveUploadResult> {
+  return guardDriveAction(
+    'upload',
+    () => uploadInvoiceFilesActionImpl(formData),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function uploadInvoiceFilesActionImpl(formData: FormData): Promise<DriveUploadResult> {
+  const access = await resolveClientDriveAccess('write')
+  if (!access.ok) {
+    return { ok: false, error: access.error }
+  }
+  if (shouldUseMockDrive()) {
+    return { ok: false, error: 'not_found' }
+  }
+
+  const target = await resolveInvoiceTarget(access.rootId)
+  if (!target) {
+    return { ok: false, error: 'not_found' }
+  }
+
+  // Cualquier `parentFolderId` que mande el navegador se ignora a propósito.
+  return uploadFilesIntoFolder(
+    access.rootId,
+    target.folderId,
+    formData.getAll('files').filter((entry): entry is File => entry instanceof File)
+  )
 }

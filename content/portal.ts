@@ -168,6 +168,12 @@ export const portal = {
       highContrast: 'Alto contraste',
       underlineLinks: 'Subrayar enlaces',
     },
+    quickInvoice: {
+      label: 'Factura de compra',
+      subtitle: 'Subida rápida',
+      busy: 'Subiendo…',
+      hint: 'Subir una factura de compra a «{folder}»',
+    },
     reportProblem: {
       label: 'Reportar un problema',
       title: 'Reportar un problema',

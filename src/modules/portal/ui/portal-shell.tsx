@@ -16,6 +16,10 @@ import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
+import {
+  PortalQuickInvoiceButton,
+  PortalQuickInvoiceProvider,
+} from '@/src/modules/portal/ui/portal-quick-invoice-context'
 import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
 import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import {
@@ -141,6 +145,7 @@ export function PortalShell({
     <OnboardingChecklistProvider enabled={user.role === 'client'}>
     <PortalCreateConsultaProvider enabled={canCreateConsulta}>
     <PortalReportProblemProvider enabled={isClientOrWorker}>
+    <PortalQuickInvoiceProvider enabled={isClientOrWorker}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -170,6 +175,9 @@ export function PortalShell({
           {navItems.map((item) =>
             renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
           )}
+          <div className="mt-auto pt-3">
+            <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
+          </div>
         </nav>
 
         <div className={cn('py-4', sidebarCollapsed ? 'px-2' : 'px-4')}>
@@ -265,6 +273,7 @@ export function PortalShell({
     </PortalEntryLoadingProvider>
     </Suspense>
     </PortalRouteLoadingProvider>
+    </PortalQuickInvoiceProvider>
     </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
     </OnboardingChecklistProvider>
