@@ -20,7 +20,10 @@ export function PortalBrandMark({
   return (
     <Link
       href={href}
-      className={cn('flex w-full items-center justify-center focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none', className)}
+      className={cn(
+        'flex w-full flex-col items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+        className
+      )}
     >
       {collapsed ? (
         <Image
@@ -32,14 +35,19 @@ export function PortalBrandMark({
           className="size-9 shrink-0"
         />
       ) : (
-        <Image
-          src={site.brand.logoHorizontalNegativo}
-          alt="Syntia"
-          width={180}
-          height={40}
-          priority={priority}
-          className="h-8 w-auto max-w-full sm:h-9"
-        />
+        <div className="flex flex-col items-start gap-1">
+          <Image
+            src={site.brand.logoHorizontalNegativo}
+            alt="Syntia"
+            width={180}
+            height={40}
+            priority={priority}
+            className="h-8 w-auto max-w-full sm:h-9"
+          />
+          <span className="text-xs tracking-wide text-sidebar-muted-foreground">
+            {site.brand.byLine}
+          </span>
+        </div>
       )}
     </Link>
   )

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import {
   getCachedPartnerAvatar,
   isCachedAdvisorPartner,
@@ -18,7 +19,7 @@ export async function GET(
   context: { params: Promise<{ partnerId: string }> }
 ) {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return new NextResponse(null, { status: 401 })
   }
 

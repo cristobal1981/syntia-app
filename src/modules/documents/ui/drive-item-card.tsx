@@ -2,19 +2,15 @@
 
 import {
   Download,
-  EllipsisVertical,
+  LoaderCircle,
   FileSpreadsheet,
   FileText,
   Folder,
-  FolderInput,
   ImageIcon,
-  Pencil,
   Presentation,
-  Trash2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { clientDocuments } from '@/content/client-documents'
 import type { DriveItem } from '@/src/modules/documents/domain/types'
 import { cn } from '@/lib/utils'
@@ -68,53 +64,36 @@ type DriveItemCardProps = {
   item: DriveItem
   viewMode: DriveViewMode
   busy?: boolean
+  /** Este elemento se está descargando: muestra un spinner hasta que el navegador recibe el archivo. */
+  downloading?: boolean
   isSelected?: boolean
-  isInternalDropTarget?: boolean
   onSelect?: () => void
   onOpen: () => void
   onDownload?: () => void
-  onRename?: () => void
-  onDelete?: () => void
-  onMove?: () => void
-  onDragStartItem?: (event: React.DragEvent<HTMLElement>) => void
-  onDragEndItem?: () => void
-  onFolderDragOver?: (event: React.DragEvent<HTMLElement>) => void
-  onFolderDragLeave?: () => void
-  onFolderDrop?: (event: React.DragEvent<HTMLElement>) => void
 }
 
 export function DriveItemCard({
   item,
   viewMode,
   busy = false,
+  downloading = false,
   isSelected = false,
-  isInternalDropTarget = false,
   onSelect,
   onOpen,
   onDownload,
-  onRename,
-  onDelete,
-  onMove,
-  onDragStartItem,
-  onDragEndItem,
-  onFolderDragOver,
-  onFolderDragLeave,
-  onFolderDrop,
 }: DriveItemCardProps) {
   const isFolder = item.kind === 'folder'
+  const canDownload = !isFolder && Boolean(onDownload)
   const sizeLabel = formatFileSize(item.size)
   const modifiedLabel = formatModifiedDate(item.modifiedAt)
-  const hasMenu = onRename || onDelete || onMove
 
   const openButtonLabel = isFolder
     ? `${item.name}. ${clientDocuments.openFolderHint}`
     : `${item.name}. ${clientDocuments.openFileHint}`
 
-  const dropTargetClasses = 'border-primary bg-primary/5 ring-2 ring-primary/40'
   const selectedClasses = 'border-emerald-500 ring-2 ring-emerald-500/35'
 
   const resolveSurfaceClasses = (defaultClasses: string) => {
-    if (isInternalDropTarget) return dropTargetClasses
     if (isSelected) return selectedClasses
     return defaultClasses
   }
@@ -140,95 +119,31 @@ export function DriveItemCard({
           type="button"
           variant="ghost"
           size="icon"
-          className="size-9 cursor-pointer"
+          className={cn('size-9 cursor-pointer', downloading && 'disabled:opacity-100')}
           disabled={busy}
           onClick={onDownload}
-          aria-label={`${clientDocuments.download}: ${item.name}`}
+          aria-label={`${downloading ? clientDocuments.downloading : clientDocuments.download}: ${item.name}`}
+          aria-busy={downloading || undefined}
         >
-          <Download className="size-4" aria-hidden />
+          {downloading ? (
+            <LoaderCircle className="size-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden />
+          ) : (
+            <Download className="size-4" aria-hidden />
+          )}
         </Button>
-      ) : null}
-      {hasMenu ? (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-9 cursor-pointer"
-              disabled={busy}
-              aria-label={`${clientDocuments.moreActions}: ${item.name}`}
-            >
-              <EllipsisVertical className="size-4" aria-hidden />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="z-[80] w-44 p-1">
-            <div className="flex flex-col gap-0.5">
-              {onRename ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 w-full cursor-pointer justify-start px-2"
-                  onClick={onRename}
-                >
-                  <Pencil className="size-4" aria-hidden />
-                  {clientDocuments.rename}
-                </Button>
-              ) : null}
-              {onMove ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 w-full cursor-pointer justify-start px-2"
-                  onClick={onMove}
-                >
-                  <FolderInput className="size-4" aria-hidden />
-                  {clientDocuments.move}
-                </Button>
-              ) : null}
-              {onDelete ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 w-full cursor-pointer justify-start px-2 text-destructive hover:text-destructive"
-                  onClick={onDelete}
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                  {clientDocuments.delete}
-                </Button>
-              ) : null}
-            </div>
-          </PopoverContent>
-        </Popover>
       ) : null}
     </div>
   )
 
-  const dragProps = {
-    ...(onDragStartItem
-      ? {
-          draggable: true as const,
-          onDragStart: onDragStartItem,
-          onDragEnd: onDragEndItem,
-        }
-      : {}),
-    ...(isFolder
-      ? {
-          onDragOver: onFolderDragOver,
-          onDragLeave: onFolderDragLeave,
-          onDrop: onFolderDrop,
-        }
-      : {}),
-  }
-
   if (viewMode === 'list') {
     return (
-      <article className={listClasses} aria-selected={isSelected} {...dragProps}>
+      <article className={listClasses}>
         <button
           type="button"
           onClick={onSelect}
           onDoubleClick={onOpen}
           aria-label={openButtonLabel}
+          aria-pressed={isSelected}
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <DriveItemIcon item={item} className="size-5 shrink-0" />
@@ -241,23 +156,21 @@ export function DriveItemCard({
             </p>
           </div>
         </button>
-        {isInternalDropTarget && isFolder ? (
-          <span className="shrink-0 text-xs font-medium text-primary">
-            {clientDocuments.dropInternalHint}
-          </span>
+        {canDownload ? (
+          <div className={cn('shrink-0', downloading ? 'opacity-100' : actionBarVisibility)}>{actionBar}</div>
         ) : null}
-        <div className={cn('shrink-0', actionBarVisibility)}>{actionBar}</div>
       </article>
     )
   }
 
   return (
-    <article className={cardClasses} aria-selected={isSelected} {...dragProps}>
+    <article className={cardClasses}>
       <button
         type="button"
         onClick={onSelect}
         onDoubleClick={onOpen}
         aria-label={openButtonLabel}
+        aria-pressed={isSelected}
         className="flex h-full min-h-36 cursor-pointer flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40 p-4">
@@ -275,23 +188,23 @@ export function DriveItemCard({
         <div className="mt-auto border-t border-border px-3 py-2 text-left dark:border-border/80">
           <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {isInternalDropTarget && isFolder
-              ? clientDocuments.dropInternalHint
-              : [isFolder ? clientDocuments.folderLabel : sizeLabel, modifiedLabel]
-                  .filter(Boolean)
-                  .join(' · ')}
+            {[isFolder ? clientDocuments.folderLabel : sizeLabel, modifiedLabel]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
       </button>
 
-      <div
-        className={cn(
-          'absolute top-2 right-2 z-10 rounded-lg border border-border/80 bg-card/95 p-0.5 shadow-sm backdrop-blur-sm',
-          actionBarVisibility
-        )}
-      >
-        {actionBar}
-      </div>
+      {canDownload ? (
+        <div
+          className={cn(
+            'absolute top-2 right-2 z-10 rounded-lg border border-border/80 bg-card/95 p-0.5 shadow-sm backdrop-blur-sm',
+            downloading ? 'opacity-100' : actionBarVisibility
+          )}
+        >
+          {actionBar}
+        </div>
+      ) : null}
     </article>
   )
 }

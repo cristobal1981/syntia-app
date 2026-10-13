@@ -8,6 +8,8 @@ const ERROR_KEYS = [
   'oauth_not_configured',
   'oauth_failed',
   'auth_callback',
+  'worker_access_disabled',
+  'account_disabled',
 ] as const
 
 type AuthErrorKey = (typeof ERROR_KEYS)[number]

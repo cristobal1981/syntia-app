@@ -8,79 +8,45 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
   type ReactNode,
 } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import {
-  ackPortalNotificationAction,
-  checkPortalNotificationsAction,
-  markChatterConversationSeenAction,
-} from '@/src/modules/portal/application/portal-chatter-notifications-actions'
+  notificationMatchesTramiteRecord,
+  pruneResolvedFirmaNotifications,
+} from '@/src/modules/portal/domain/compute-portal-notifications'
 import type {
   ChatterReadStateMap,
   PortalNotification,
   PortalNotificationReason,
+  PortalNotificationsStats,
 } from '@/src/modules/portal/domain/portal-notifications-types'
-import {
-  chatterReadStateKey,
-  openParamFromListKind,
-} from '@/src/modules/portal/domain/portal-notifications-types'
-import {
-  mergeAccumulatedPortalNotifications,
-  notificationMatchesTramiteRecord,
-  pruneResolvedFirmaNotifications,
-  removePortalNotificationsByRecord,
-  removePortalNotificationsByScope,
-} from '@/src/modules/portal/domain/compute-portal-notifications'
+import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
-import {
-  getInitialPollIntervalMs,
-  getMaxPollIntervalMs,
-  nextPollIntervalMs,
-  notificationsSignature,
-} from '@/src/modules/portal/infrastructure/portal-notifications-poll-scheduler'
-import {
-  PortalNotificationsTabCoordinator,
-  type PortalNotificationsStateSyncPayload,
-} from '@/src/modules/portal/infrastructure/portal-notifications-tab-coordinator'
-import {
-  dedupedServerAction,
-  serverActionDedupKey,
-} from '@/src/modules/portal/infrastructure/server-action-dedup'
-
-const CHATTER_READ_STATE_STORAGE_KEY = 'syntia-chatter-read-state'
-const DEFERRED_POLL_MS = 2_000
-const PORTAL_MAIN_SELECTOR = 'main'
-
-function shouldRefreshPortalPageOnNotificationPoll(pathname: string): boolean {
-  // Guías: contenido estático; router.refresh() remonta loading.tsx y pierde scroll.
-  if (pathname.startsWith('/guias')) return false
-  return true
-}
-
-function readPortalMainScrollTop(): number {
-  if (typeof document === 'undefined') return 0
-  return document.querySelector(PORTAL_MAIN_SELECTOR)?.scrollTop ?? 0
-}
-
-function restorePortalMainScrollTop(top: number) {
-  if (typeof document === 'undefined') return
-  const main = document.querySelector(PORTAL_MAIN_SELECTOR)
-  if (main) main.scrollTop = top
-}
-
-function shouldDeferInitialPoll(): boolean {
-  if (typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).has('open')
-}
+import { useChatterReadState } from '@/src/modules/portal/ui/use-chatter-read-state'
+import { usePortalNotificationActions } from '@/src/modules/portal/ui/use-portal-notification-actions'
+import { usePortalNotificationsSync } from '@/src/modules/portal/ui/use-portal-notifications-sync'
+import { usePortalPageRefresh } from '@/src/modules/portal/ui/use-portal-page-refresh'
 
 type PortalNotificationsContextValue = {
   unread: PortalNotification[]
   unreadCount: number
   notificationsLoading: boolean
+  stats: PortalNotificationsStats | null
+  /**
+   * Último mensaje de chat que ESTA pestaña recibió de una pestaña hermana
+   * (broadcast de notifyRecordMutated con `message`). Un chat abierto para
+   * ese mismo scope/recordId debe pintarlo directamente, sin pedir nada a
+   * Odoo — ya viene completo desde la pestaña que lo envió.
+   */
+  lastRecordMessage: {
+    scope: 'tramite' | 'consulta' | 'obligacion'
+    recordId: number
+    message: PortalChatterMessage
+  } | null
   hasUnreadChatter: (recordKind: PortalRecordKind, recordId: number) => boolean
+  getLastSeenMessageId: (recordKind: PortalRecordKind, recordId: number) => number
   hasTramiteNotification: (
     item: { kind: 'tramite' | 'consulta'; id: number },
     reason: Extract<PortalNotificationReason, 'new_document' | 'status_change'>
@@ -103,62 +69,28 @@ type PortalNotificationsContextValue = {
     scope: 'tramite' | 'consulta' | 'obligacion',
     recordId: number
   ) => Promise<void>
+  /**
+   * Avisa a las demás pestañas de que ESTA pestaña acaba de modificar un
+   * registro (subida propia, mensaje propio) para que refresquen sus datos.
+   * Los cambios detectados en Odoo por terceros ya llegan vía poll; esto
+   * cubre el caso de la propia acción del usuario en otra pestaña.
+   */
+  notifyRecordMutated: (
+    scope: 'tramite' | 'consulta' | 'obligacion',
+    recordId: number,
+    message?: PortalChatterMessage
+  ) => void
   openNotification: (notification: PortalNotification) => void
   refreshNotifications: () => Promise<void>
   initializeNotifications: (payload: {
     unread: PortalNotification[]
     readState: ChatterReadStateMap
+    stats?: PortalNotificationsStats
   }) => void
 }
 
 const PortalNotificationsContext =
   createContext<PortalNotificationsContextValue | null>(null)
-
-function loadReadStateFromStorage(): ChatterReadStateMap {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = localStorage.getItem(CHATTER_READ_STATE_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as ChatterReadStateMap
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveReadStateToStorage(readState: ChatterReadStateMap) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(CHATTER_READ_STATE_STORAGE_KEY, JSON.stringify(readState))
-  } catch {
-    // ignore quota errors
-  }
-}
-
-function mergeReadState(
-  current: ChatterReadStateMap,
-  incoming: ChatterReadStateMap
-): ChatterReadStateMap {
-  const merged = { ...current }
-  for (const [key, value] of Object.entries(incoming)) {
-    merged[key] = Math.max(merged[key] ?? 0, value)
-  }
-  return merged
-}
-
-function removeNotificationFromList(
-  items: PortalNotification[],
-  notification: PortalNotification
-): PortalNotification[] {
-  return items.filter(
-    (item) =>
-      !(
-        item.scope === notification.scope &&
-        item.recordId === notification.recordId &&
-        item.reason === notification.reason
-      )
-  )
-}
 
 type PortalNotificationsProviderProps = {
   children: ReactNode
@@ -171,21 +103,19 @@ export function PortalNotificationsProvider({
 }: PortalNotificationsProviderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [portalRefreshPending, startPortalRefresh] = useTransition()
   const [unread, setUnread] = useState<PortalNotification[]>([])
   const [notificationsLoading, setNotificationsLoading] = useState(enabled)
+  const [stats, setStats] = useState<PortalNotificationsStats | null>(null)
+  const [lastRecordMessage, setLastRecordMessage] =
+    useState<PortalNotificationsContextValue['lastRecordMessage']>(null)
   const unreadRef = useRef<PortalNotification[]>([])
-  const readStateRef = useRef<ChatterReadStateMap>({})
-  const pollingRef = useRef(false)
-  const markingRef = useRef<Set<string>>(new Set())
-  const documentsAckInFlightRef = useRef<Set<string>>(new Set())
   const ssrHydratedRef = useRef(false)
-  const pollIntervalRef = useRef(getInitialPollIntervalMs())
-  const pollTimerRef = useRef<number | null>(null)
-  const coordinatorRef = useRef<PortalNotificationsTabCoordinator | null>(null)
-  const rateLimitedRef = useRef(false)
   const pendingFirmaIdsRef = useRef<number[]>([])
-  const pendingMainScrollRestoreRef = useRef<number | null>(null)
+  const pathnameRef = useRef(pathname)
+
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
 
   const commitUnread = useCallback((nextUnread: PortalNotification[]) => {
     const pruned = pruneResolvedFirmaNotifications(
@@ -197,501 +127,60 @@ export function PortalNotificationsProvider({
     return pruned
   }, [])
 
-  const refreshPortalPages = useCallback(() => {
-    pendingMainScrollRestoreRef.current = readPortalMainScrollTop()
-    startPortalRefresh(() => {
-      router.refresh()
+  const { refreshPortalPages } = usePortalPageRefresh(router)
+
+  const { readStateRef, applyReadState, hydrateFromStorage, loadFromStorage, getLastSeenMessageId } =
+    useChatterReadState(enabled)
+
+  const { refreshNotifications, notifyRecordMutated, publishStateToOtherTabs, resetPollInterval } =
+    usePortalNotificationsSync({
+      enabled,
+      pathnameRef,
+      pendingFirmaIdsRef,
+      unreadRef,
+      readStateRef,
+      commitUnread,
+      applyReadState,
+      loadReadStateFromStorage: loadFromStorage,
+      refreshPortalPages,
+      setStats,
+      setLastRecordMessage,
+      setNotificationsLoading,
     })
-  }, [router])
 
-  useEffect(() => {
-    if (portalRefreshPending || pendingMainScrollRestoreRef.current === null) return
-
-    const top = pendingMainScrollRestoreRef.current
-    pendingMainScrollRestoreRef.current = null
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        restorePortalMainScrollTop(top)
-      })
-    })
-  }, [portalRefreshPending])
-
-  const applyReadState = useCallback((readState: ChatterReadStateMap) => {
-    readStateRef.current = mergeReadState(readStateRef.current, readState)
-    saveReadStateToStorage(readStateRef.current)
-  }, [])
-
-  const publishStateToOtherTabs = useCallback((nextUnread: PortalNotification[]) => {
-    const coordinator = coordinatorRef.current
-    if (!coordinator) return
-
-    const pruned = pruneResolvedFirmaNotifications(
-      nextUnread,
-      pendingFirmaIdsRef.current
-    )
-
-    coordinator.broadcastStateSync({
-      sourceTabId: coordinator.getTabId(),
-      unread: pruned,
-      readState: readStateRef.current,
-      pendingFirmaIds: pendingFirmaIdsRef.current,
-    })
-  }, [])
-
-  const applyRemoteState = useCallback(
-    (payload: PortalNotificationsStateSyncPayload) => {
-      pendingFirmaIdsRef.current = payload.pendingFirmaIds
-      applyReadState(payload.readState)
-      const pruned = pruneResolvedFirmaNotifications(
-        payload.unread as PortalNotification[],
-        payload.pendingFirmaIds
-      )
-      commitUnread(pruned)
-    },
-    [applyReadState, commitUnread]
-  )
+  const {
+    dismissNewTramiteNotification,
+    markConversationSeen,
+    ackDocumentsSeen,
+    ackStatusChangeSeen,
+    openNotification,
+  } = usePortalNotificationActions({
+    enabled,
+    router,
+    unreadRef,
+    readStateRef,
+    commitUnread,
+    publishStateToOtherTabs,
+    applyReadState,
+    resetPollInterval,
+  })
 
   const initializeNotifications = useCallback(
     (payload: {
       unread: PortalNotification[]
       readState: ChatterReadStateMap
+      stats?: PortalNotificationsStats
     }) => {
       if (ssrHydratedRef.current) return
       ssrHydratedRef.current = true
-      readStateRef.current = mergeReadState(
-        loadReadStateFromStorage(),
-        payload.readState
-      )
-      saveReadStateToStorage(readStateRef.current)
+      hydrateFromStorage(payload.readState)
       commitUnread(payload.unread)
+      if (payload.stats) {
+        setStats(payload.stats)
+      }
       setNotificationsLoading(false)
     },
-    [commitUnread]
-  )
-
-  const applyPollResult = useCallback(
-    (
-      result: Extract<
-        Awaited<ReturnType<typeof checkPortalNotificationsAction>>,
-        { ok: true }
-      >,
-      options?: { fromBroadcast?: boolean; refreshPages?: boolean }
-    ) => {
-      pendingFirmaIdsRef.current = result.pendingFirmaIds
-      const beforeSignature = notificationsSignature(unreadRef.current)
-      applyReadState(result.readState)
-
-      const merged = mergeAccumulatedPortalNotifications(
-        unreadRef.current,
-        result.unread
-      )
-      const hadChanges =
-        result.hasChanges ||
-        beforeSignature !== notificationsSignature(merged)
-
-      commitUnread(merged)
-
-      if (!options?.fromBroadcast) {
-        pollIntervalRef.current = rateLimitedRef.current
-          ? getMaxPollIntervalMs()
-          : nextPollIntervalMs(pollIntervalRef.current, hadChanges)
-      }
-
-      if (hadChanges) {
-        rateLimitedRef.current = false
-      }
-
-      if (
-        options?.refreshPages &&
-        hadChanges &&
-        shouldRefreshPortalPageOnNotificationPoll(pathname)
-      ) {
-        refreshPortalPages()
-      }
-    },
-    [applyReadState, commitUnread, pathname, refreshPortalPages]
-  )
-
-  const refreshNotifications = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (!enabled || pollingRef.current) return
-
-      if (options?.force) {
-        pollIntervalRef.current = getInitialPollIntervalMs()
-        rateLimitedRef.current = false
-      }
-
-      const coordinator = coordinatorRef.current
-      if (coordinator && !coordinator.getIsLeader() && !options?.force) {
-        coordinator.requestPollFromLeader()
-        return
-      }
-
-      pollingRef.current = true
-
-      try {
-        const result = await checkPortalNotificationsAction()
-        if (!result.ok) {
-          if (result.error === 'odoo_rate_limited') {
-            rateLimitedRef.current = true
-            pollIntervalRef.current = getMaxPollIntervalMs()
-          }
-          return
-        }
-
-        applyPollResult(result, { refreshPages: true })
-
-        coordinator?.broadcastPollResult({
-          sourceTabId: coordinator.getTabId(),
-          unread: result.unread,
-          readState: result.readState,
-          pendingFirmaIds: result.pendingFirmaIds,
-          hasChanges: result.hasChanges,
-          polledAt: Date.now(),
-        })
-      } finally {
-        pollingRef.current = false
-        setNotificationsLoading(false)
-      }
-    },
-    [applyPollResult, enabled]
-  )
-
-  const refreshNotificationsPublic = useCallback(
-    () => refreshNotifications({ force: true }),
-    [refreshNotifications]
-  )
-
-  const scheduleNextPoll = useCallback(() => {
-    if (pollTimerRef.current !== null) {
-      window.clearTimeout(pollTimerRef.current)
-    }
-
-    pollTimerRef.current = window.setTimeout(() => {
-      pollTimerRef.current = null
-      if (document.visibilityState !== 'visible') {
-        scheduleNextPoll()
-        return
-      }
-
-      const coordinator = coordinatorRef.current
-      if (coordinator && !coordinator.getIsLeader()) {
-        scheduleNextPoll()
-        return
-      }
-
-      void refreshNotifications().finally(() => {
-        scheduleNextPoll()
-      })
-    }, pollIntervalRef.current)
-  }, [refreshNotifications])
-
-  useEffect(() => {
-    if (!enabled) {
-      setNotificationsLoading(false)
-      return
-    }
-
-    readStateRef.current = loadReadStateFromStorage()
-
-    const coordinator = new PortalNotificationsTabCoordinator()
-    coordinatorRef.current = coordinator
-    coordinator.start()
-
-    const unsubscribePollResult = coordinator.onPollResult((payload) => {
-      applyPollResult(
-        {
-          ok: true,
-          unread: payload.unread as PortalNotification[],
-          readState: payload.readState,
-          pendingFirmaIds: payload.pendingFirmaIds,
-          hasChanges: payload.hasChanges,
-        },
-        { fromBroadcast: true, refreshPages: payload.hasChanges }
-      )
-      setNotificationsLoading(false)
-    })
-
-    const unsubscribeStateSync = coordinator.onStateSync((payload) => {
-      applyRemoteState(payload)
-      setNotificationsLoading(false)
-    })
-
-    const unsubscribePollRequest = coordinator.onPollRequest(() => {
-      void refreshNotifications({ force: true })
-    })
-
-    const initialDelay = shouldDeferInitialPoll() ? DEFERRED_POLL_MS : 0
-
-    const initialTimer = window.setTimeout(() => {
-      void refreshNotifications().finally(() => {
-        scheduleNextPoll()
-      })
-    }, initialDelay)
-
-    function handleVisibilityChange() {
-      if (document.visibilityState !== 'visible') return
-      if (rateLimitedRef.current) return
-      pollIntervalRef.current = getInitialPollIntervalMs()
-      void refreshNotifications({ force: true })
-    }
-
-    function handleStorageSync(event: StorageEvent) {
-      if (event.key !== CHATTER_READ_STATE_STORAGE_KEY || !event.newValue) return
-      try {
-        const parsed = JSON.parse(event.newValue) as ChatterReadStateMap
-        if (!parsed || typeof parsed !== 'object') return
-        readStateRef.current = mergeReadState(readStateRef.current, parsed)
-      } catch {
-        // ignore invalid payload
-      }
-    }
-
-    window.addEventListener('storage', handleStorageSync)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.clearTimeout(initialTimer)
-      if (pollTimerRef.current !== null) {
-        window.clearTimeout(pollTimerRef.current)
-      }
-      window.removeEventListener('storage', handleStorageSync)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      unsubscribePollResult()
-      unsubscribeStateSync()
-      unsubscribePollRequest()
-      coordinator.destroy()
-      coordinatorRef.current = null
-    }
-  }, [
-    applyPollResult,
-    applyRemoteState,
-    enabled,
-    refreshNotifications,
-    scheduleNextPoll,
-  ])
-
-  const dismissNewTramiteNotification = useCallback(
-    (recordKind: PortalRecordKind, recordId: number) => {
-      const nextUnread = removePortalNotificationsByRecord(
-        unreadRef.current,
-        recordKind,
-        recordId,
-        'new_tramite'
-      )
-      commitUnread(nextUnread)
-      publishStateToOtherTabs(nextUnread)
-    },
-    [commitUnread, publishStateToOtherTabs]
-  )
-
-  const markConversationSeen = useCallback(
-    async (
-      recordKind: PortalRecordKind,
-      recordId: number,
-      lastSeenMessageId: number
-    ) => {
-      if (!enabled) return
-
-      const key = chatterReadStateKey(recordKind, recordId)
-      const matchingUnread = unreadRef.current.find(
-        (item) =>
-          item.reason === 'unread_chatter' &&
-          notificationMatchesTramiteRecord(item, recordKind, recordId)
-      )
-      const effectiveLastSeen = Math.max(
-        lastSeenMessageId,
-        matchingUnread?.latestMessageId ?? 0
-      )
-
-      const current = readStateRef.current[key] ?? 0
-      if (effectiveLastSeen <= current) {
-        const nextUnread = removePortalNotificationsByRecord(
-          unreadRef.current,
-          recordKind,
-          recordId,
-          'unread_chatter'
-        )
-        commitUnread(nextUnread)
-        publishStateToOtherTabs(unreadRef.current)
-        return
-      }
-
-      if (markingRef.current.has(key)) return
-      markingRef.current.add(key)
-
-      const optimisticUnread = removePortalNotificationsByRecord(
-        unreadRef.current,
-        recordKind,
-        recordId,
-        'unread_chatter'
-      )
-      commitUnread(optimisticUnread)
-      applyReadState({ [key]: effectiveLastSeen })
-      publishStateToOtherTabs(optimisticUnread)
-
-      try {
-        const result = await markChatterConversationSeenAction({
-          kind: recordKind,
-          recordId,
-          lastSeenMessageId: effectiveLastSeen,
-        })
-
-        if (result.ok) {
-          applyReadState(result.readState)
-          publishStateToOtherTabs(unreadRef.current)
-        }
-      } finally {
-        markingRef.current.delete(key)
-      }
-    },
-    [applyReadState, commitUnread, enabled, publishStateToOtherTabs]
-  )
-
-  const ackDocumentsSeen = useCallback(
-    async (
-      scope: 'tramite' | 'consulta' | 'obligacion',
-      recordId: number,
-      attachmentCount: number
-    ) => {
-      if (!enabled) return
-
-      const ackKey = `${scope}:${recordId}:new_document`
-      if (documentsAckInFlightRef.current.has(ackKey)) return
-      documentsAckInFlightRef.current.add(ackKey)
-
-      const nextUnread = removePortalNotificationsByScope(
-        unreadRef.current,
-        scope,
-        recordId,
-        'new_document'
-      )
-      commitUnread(nextUnread)
-      publishStateToOtherTabs(unreadRef.current)
-
-      pollIntervalRef.current = getInitialPollIntervalMs()
-
-      try {
-        await dedupedServerAction(
-          serverActionDedupKey('ackPortalNotification', {
-            scope,
-            recordId,
-            reason: 'new_document',
-            attachmentCount,
-          }),
-          () =>
-            ackPortalNotificationAction({
-              scope,
-              recordId,
-              reason: 'new_document',
-              attachmentCount,
-            })
-        )
-      } catch {
-        // UI already optimistically dismissed
-      } finally {
-        documentsAckInFlightRef.current.delete(ackKey)
-      }
-    },
-    [commitUnread, enabled, publishStateToOtherTabs]
-  )
-
-  const ackStatusChangeSeen = useCallback(
-    async (
-      scope: 'tramite' | 'consulta' | 'obligacion',
-      recordId: number
-    ) => {
-      if (!enabled) return
-
-      const ackKey = `${scope}:${recordId}:status_change`
-      if (documentsAckInFlightRef.current.has(ackKey)) return
-      documentsAckInFlightRef.current.add(ackKey)
-
-      const nextUnread = removePortalNotificationsByScope(
-        unreadRef.current,
-        scope,
-        recordId,
-        'status_change'
-      )
-      commitUnread(nextUnread)
-      publishStateToOtherTabs(unreadRef.current)
-
-      pollIntervalRef.current = getInitialPollIntervalMs()
-
-      try {
-        await dedupedServerAction(
-          serverActionDedupKey('ackPortalNotification', {
-            scope,
-            recordId,
-            reason: 'status_change',
-          }),
-          () =>
-            ackPortalNotificationAction({
-              scope,
-              recordId,
-              reason: 'status_change',
-            })
-        )
-      } catch {
-        // UI already optimistically dismissed
-      } finally {
-        documentsAckInFlightRef.current.delete(ackKey)
-      }
-    },
-    [commitUnread, enabled, publishStateToOtherTabs]
-  )
-
-  const openNotification = useCallback(
-    (notification: PortalNotification) => {
-      const nextUnread = removeNotificationFromList(unreadRef.current, notification)
-      commitUnread(nextUnread)
-      publishStateToOtherTabs(unreadRef.current)
-
-      if (
-        notification.reason === 'new_document' ||
-        notification.reason === 'status_change' ||
-        notification.reason === 'new_firma' ||
-        notification.reason === 'firma_due_soon'
-      ) {
-        void ackPortalNotificationAction({
-          scope: notification.scope,
-          recordId: notification.recordId,
-          reason: notification.reason,
-        })
-      }
-
-      if (notification.scope === 'firma') {
-        router.push('/firmas')
-        return
-      }
-
-      if (notification.scope === 'obligacion') {
-        const tab =
-          notification.reason === 'new_document' ? 'documents' : 'documents'
-        router.push(
-          `/obligaciones?open=${encodeURIComponent(`task-${notification.recordId}`)}&tab=${tab}`
-        )
-        return
-      }
-
-      if (notification.listKind) {
-        const openParam = openParamFromListKind(
-          notification.listKind,
-          notification.recordId
-        )
-        const tab =
-          notification.reason === 'new_document'
-            ? 'documents'
-            : notification.reason === 'status_change'
-              ? 'conversation'
-              : 'conversation'
-        router.push(
-          `/tramites?open=${encodeURIComponent(openParam)}&tab=${tab}`
-        )
-      }
-    },
-    [commitUnread, publishStateToOtherTabs, router]
+    [commitUnread, hydrateFromStorage]
   )
 
   const hasUnreadChatter = useCallback(
@@ -723,27 +212,35 @@ export function PortalNotificationsProvider({
       unread,
       unreadCount: unread.length,
       notificationsLoading,
+      stats,
+      lastRecordMessage,
       hasUnreadChatter,
+      getLastSeenMessageId,
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
       ackDocumentsSeen,
       ackStatusChangeSeen,
+      notifyRecordMutated,
       openNotification,
-      refreshNotifications: refreshNotificationsPublic,
+      refreshNotifications,
       initializeNotifications,
     }),
     [
       unread,
       notificationsLoading,
+      stats,
+      lastRecordMessage,
       hasUnreadChatter,
+      getLastSeenMessageId,
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
       ackDocumentsSeen,
       ackStatusChangeSeen,
+      notifyRecordMutated,
       openNotification,
-      refreshNotificationsPublic,
+      refreshNotifications,
       initializeNotifications,
     ]
   )

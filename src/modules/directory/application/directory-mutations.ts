@@ -12,8 +12,10 @@ import {
   validatePersonEmail,
   validatePersonNameParts,
 } from '@/src/modules/directory/application/validate-directory'
+import { normalizeDriveFolderInput } from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
+  CreateClientInput,
   PersonStatus,
   UpdateClientInput,
   UpdateGestorInput,
@@ -21,8 +23,11 @@ import type {
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
 import { mapDirectoryEmailError } from '@/src/modules/directory/application/map-directory-email-error'
 import { listOdooPartnersForImport } from '@/src/modules/directory/application/list-odoo-partners-for-import'
+import { listOdooGestoresForImport } from '@/src/modules/directory/application/list-odoo-gestores-for-import'
 import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
+import type { OdooUserImportOption } from '@/src/modules/directory/domain/odoo-user-import'
 import { ODOO_PARTNER_CATALOG_CACHE_TAG } from '@/src/modules/directory/infrastructure/odoo-partner-env'
+import { ODOO_GESTOR_CATALOG_CACHE_TAG } from '@/src/modules/directory/infrastructure/odoo-gestor-catalog'
 
 export type DirectoryUpdateResult =
   | { ok: true; inviteSent?: boolean }
@@ -41,7 +46,7 @@ export type DirectoryDeleteResult =
       message?: string
     }
 
-export type ResendClientAccessResult =
+export type ResendAccessResult =
   | { ok: true }
   | {
       ok: false
@@ -51,6 +56,13 @@ export type ResendClientAccessResult =
 
 export type ListOdooPartnersForImportActionResult =
   | { ok: true; partners: OdooPartnerImportOption[] }
+  | {
+      ok: false
+      error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
+    }
+
+export type ListOdooGestoresForImportActionResult =
+  | { ok: true; users: OdooUserImportOption[] }
   | {
       ok: false
       error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
@@ -68,6 +80,7 @@ function parseGestorForm(formData: FormData): UpdateGestorInput {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     phone: String(formData.get('phone') ?? '').trim() || undefined,
     status: String(formData.get('status') ?? 'active') as PersonStatus,
+    odooUserId: String(formData.get('odooUserId') ?? '').trim() || undefined,
   }
 }
 
@@ -81,6 +94,7 @@ function parseCreateGestorForm(formData: FormData) {
     phone: String(formData.get('phone') ?? '').trim() || undefined,
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     role: String(formData.get('role') ?? 'advisor') as 'advisor' | 'admin',
+    odooUserId: String(formData.get('odooUserId') ?? '').trim() || undefined,
   }
 }
 
@@ -96,8 +110,9 @@ function parseCreateClientForm(formData: FormData) {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
-    driveFolderId:
-      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+    driveFolderId: normalizeDriveFolderInput(
+      String(formData.get('driveFolderId') ?? '')
+    ),
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
   }
 }
@@ -115,8 +130,9 @@ function parseClientForm(formData: FormData): UpdateClientInput {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
-    driveFolderId:
-      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+    driveFolderId: normalizeDriveFolderInput(
+      String(formData.get('driveFolderId') ?? '')
+    ),
     advisorId: String(formData.get('advisorId') ?? '').trim() || undefined,
     status: String(formData.get('status') ?? 'active') as PersonStatus,
   }
@@ -141,6 +157,7 @@ export async function createGestorAction(
     }
 
     const result = await getDirectoryRepository().createGestor(input)
+    updateTag(ODOO_GESTOR_CATALOG_CACHE_TAG)
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
@@ -169,23 +186,17 @@ export async function createGestorAction(
   }
 }
 
-export async function createClientAction(
-  _prev: DirectoryUpdateResult | null,
-  formData: FormData
+/**
+ * Núcleo de la creación de un cliente, sin sesión de asesor — lo usa tanto la
+ * action de la UI (`createClientAction`) como el webhook público de Odoo
+ * (`app/api/odoo/clientes/route.ts`) para dar de alta el acceso al portal
+ * (y disparar el email de invitación/restablecimiento de contraseña) desde
+ * fuera de la aplicación.
+ */
+export async function createClientCore(
+  input: CreateClientInput
 ): Promise<DirectoryUpdateResult> {
   try {
-    const session = await requireDirectorySession()
-    const scope = await buildDirectoryScope()
-    if (scope.role === 'client') {
-      return { ok: false, error: 'forbidden' }
-    }
-
-    const input = parseCreateClientForm(formData)
-
-    if (scope.role === 'advisor') {
-      input.advisorId = scope.userId
-    }
-
     const fieldErrors = validateClientForm(input)
     if (Object.keys(fieldErrors).length) {
       return { ok: false, error: 'validation', fieldErrors }
@@ -195,9 +206,6 @@ export async function createClientAction(
     updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
-    if (error instanceof Error && error.message === 'unauthorized') {
-      return { ok: false, error: 'unauthorized' }
-    }
     if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {
       return {
         ok: false,
@@ -212,6 +220,36 @@ export async function createClientAction(
         error: emailError.error === 'not_found' ? 'unknown' : emailError.error,
         message: emailError.message,
       }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+export async function createClientAction(
+  _prev: DirectoryUpdateResult | null,
+  formData: FormData
+): Promise<DirectoryUpdateResult> {
+  try {
+    await requireDirectorySession()
+    const scope = await buildDirectoryScope()
+    if (scope.role === 'client') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const input = parseCreateClientForm(formData)
+
+    if (scope.role === 'advisor') {
+      input.advisorId = scope.userId
+    }
+
+    return await createClientCore(input)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
     }
     return {
       ok: false,
@@ -258,7 +296,7 @@ export async function updateClientAction(
   formData: FormData
 ): Promise<DirectoryUpdateResult> {
   try {
-    const session = await requireDirectorySession()
+    await requireDirectorySession()
     const scope = await buildDirectoryScope()
     if (scope.role === 'client') {
       return { ok: false, error: 'forbidden' }
@@ -285,6 +323,42 @@ export async function updateClientAction(
     }
 
     await repository.updateClient(input)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+/**
+ * Reasigna el asesor de varios clientes a la vez. Solo toca `profiles.advisor_id`
+ * (no reescribe email/estado/integraciones como `updateClientAction`), y es
+ * admin-only: un asesor no puede reasignar su propia cartera en bloque.
+ */
+export async function bulkAssignAdvisorAction(
+  clientIds: string[],
+  advisorId: string | null
+): Promise<DirectoryUpdateResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+    if (clientIds.length === 0) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Selecciona al menos un cliente.',
+      }
+    }
+
+    await getDirectoryRepository().bulkAssignAdvisor(clientIds, advisorId)
     return { ok: true }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
@@ -396,7 +470,7 @@ export async function deleteClientAction(
 
 export async function resendClientAccessEmailAction(
   clientId: string
-): Promise<ResendClientAccessResult> {
+): Promise<ResendAccessResult> {
   try {
     await requireDirectorySession()
     const scope = await buildDirectoryScope()
@@ -425,19 +499,77 @@ export async function resendClientAccessEmailAction(
   }
 }
 
-export async function listOdooPartnersForImportAction(): Promise<ListOdooPartnersForImportActionResult> {
+export async function resendGestorAccessEmailAction(
+  gestorId: string
+): Promise<ResendAccessResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const scope = await buildDirectoryScope()
+    if (scope.userId === gestorId) {
+      return {
+        ok: false,
+        error: 'forbidden',
+        message: 'No puedes restablecer tu propia contraseña desde aquí. Usa «olvidé mi contraseña».',
+      }
+    }
+
+    const repository = getDirectoryRepository()
+    const existing = await repository.getGestor(gestorId)
+
+    if (!existing) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    await repository.resendGestorAccessEmail(gestorId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return mapDirectoryEmailError(error)
+  }
+}
+
+export async function listOdooPartnersForImportAction(options?: {
+  includeLinked?: boolean
+}): Promise<ListOdooPartnersForImportActionResult> {
   try {
     const session = await requireDirectorySession()
     if (session.user.role === 'client') {
       return { ok: false, error: 'forbidden' }
     }
 
-    const result = await listOdooPartnersForImport()
+    const result = await listOdooPartnersForImport(options)
     if (!result.ok) {
       return { ok: false, error: result.error }
     }
 
     return { ok: true, partners: result.partners }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    throw error
+  }
+}
+
+export async function listOdooGestoresForImportAction(): Promise<ListOdooGestoresForImportActionResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role !== 'admin') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const result = await listOdooGestoresForImport()
+    if (!result.ok) {
+      return { ok: false, error: result.error }
+    }
+
+    return { ok: true, users: result.users }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

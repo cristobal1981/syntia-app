@@ -111,6 +111,9 @@ export function RecordAttachmentsPanel({
     if (!active || recordId <= 0) return
 
     if (knownAttachmentCount === 0 && refreshToken === 0) {
+      // Efecto de fetch con caché propia (attachmentsClientCache) — no es
+      // una simple derivación de render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false)
       setError(null)
       setAttachments([])
@@ -120,7 +123,14 @@ export function RecordAttachmentsPanel({
 
     const cacheKey = attachmentsCacheKey(kind, recordId)
     const cached = attachmentsClientCache.get(cacheKey)
-    if (cached && Date.now() - cached.at < ATTACHMENTS_CLIENT_CACHE_MS && refreshToken === 0) {
+    const cacheMatchesKnownCount =
+      knownAttachmentCount === undefined || knownAttachmentCount === cached?.attachments.length
+    if (
+      cached &&
+      cacheMatchesKnownCount &&
+      Date.now() - cached.at < ATTACHMENTS_CLIENT_CACHE_MS &&
+      refreshToken === 0
+    ) {
       setLoading(false)
       setError(null)
       setAttachments(cached.attachments)

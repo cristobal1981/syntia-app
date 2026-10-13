@@ -1,10 +1,12 @@
 'use client'
 
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
 
 import { portal } from '@/content/portal'
 import { AuthErrorBanner } from '@/src/modules/auth/ui/auth-error-banner'
+import { authTextLinkClassName } from '@/src/modules/auth/ui/auth-field-styles'
 import { AuthFormPanel } from '@/src/modules/auth/ui/auth-form-panel'
 import { AuthPageShell } from '@/src/modules/auth/ui/auth-page-shell'
 import { LoginForm } from '@/src/modules/auth/ui/login-form'
@@ -17,10 +19,8 @@ export function LoginScreen() {
       title={portal.login.title}
       description={portal.login.description}
       footer={
-        <Link
-          href={landingUrl}
-          className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
+        <Link href={landingUrl} className={authTextLinkClassName}>
+          <ArrowLeft className="size-4" aria-hidden />
           {portal.login.backToSiteLabel}
         </Link>
       }

@@ -1,7 +1,8 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { ExternalLink, FileSignature } from 'lucide-react'
+
+import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 
 import { Button } from '@/components/ui/button'
 import { firmas } from '@/content/firmas'
@@ -14,7 +15,6 @@ import type { PendingSignatureRequest } from '@/src/modules/firmas/domain/types'
 
 type FirmasRequestsListProps = {
   requests: PendingSignatureRequest[]
-  headerAction?: ReactNode
 }
 
 type FirmaDateFieldProps = {
@@ -170,55 +170,25 @@ function FirmasRequestItem({ request }: { request: PendingSignatureRequest }) {
 
 function FirmasEmptyState() {
   return (
-    <div className="portal-home-card flex flex-col items-center rounded-xl px-6 py-12 text-center md:px-8">
-      <div
-        className="flex size-12 items-center justify-center rounded-xl bg-muted/60 dark:bg-muted/40"
-        aria-hidden
-      >
-        <FileSignature className="size-6 text-muted-foreground" />
-      </div>
-      <h3 className="mt-5 font-sans text-lg font-semibold text-foreground">
-        {firmas.emptyTitle}
-      </h3>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        {firmas.emptyDescription}
-      </p>
-      <p className="mt-3 max-w-lg text-sm leading-relaxed text-subtle-foreground">
-        {firmas.emptyHint}
-      </p>
-    </div>
+    <PortalEmptyState
+      icon={FileSignature}
+      title={firmas.emptyTitle}
+      description={firmas.emptyDescription}
+      hint={firmas.emptyHint}
+    />
   )
 }
 
-export function FirmasRequestsList({
-  requests,
-  headerAction,
-}: FirmasRequestsListProps) {
-  const copy = firmas.list
+export function FirmasRequestsList({ requests }: FirmasRequestsListProps) {
+  if (!requests.length) {
+    return <FirmasEmptyState />
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-            {copy.title}
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {copy.description}
-          </p>
-        </div>
-        {headerAction}
-      </header>
-
-      {requests.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {requests.map((request) => (
-            <FirmasRequestItem key={request.id} request={request} />
-          ))}
-        </ul>
-      ) : (
-        <FirmasEmptyState />
-      )}
-    </div>
+    <ul className="flex flex-col gap-2">
+      {requests.map((request) => (
+        <FirmasRequestItem key={request.id} request={request} />
+      ))}
+    </ul>
   )
 }

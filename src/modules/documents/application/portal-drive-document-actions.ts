@@ -1,88 +1,102 @@
 'use server'
 
-import { getSession } from '@/src/modules/auth/application/get-session'
+import { getDocumentsSession } from '@/src/modules/documents/application/get-documents-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
+import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveClientDriveRootId } from '@/src/modules/documents/application/resolve-client-drive-root'
 import {
-  createMockDriveFolder,
-  deleteMockDriveItem,
   getMockDriveFileBinary,
+  findMockDriveDuplicate,
   getMockDriveRootId,
   listMockDriveFolder,
-  moveMockDriveItem,
-  renameMockDriveItem,
   uploadMockDriveFiles,
 } from '@/src/modules/documents/domain/mock-drive-items'
+import {
+  guardDriveAction,
+  logDriveFailure,
+  mapDriveErrorToCode,
+} from '@/src/modules/documents/application/drive-error-mapping'
 import { shouldUseMockDrive } from '@/src/modules/documents/infrastructure/drive-runtime'
 import type {
-  DriveDeleteResult,
   DriveDocumentErrorCode,
   DriveFileDownloadResult,
   DriveFolderListResult,
-  DriveItemMutationResult,
   DriveUploadResult,
 } from '@/src/modules/documents/domain/types'
 import {
-  getDriveMaxFilesPerBatch,
-  getDriveMaxUploadBytes,
+  getDriveMaxDownloadBytes,
   getDrivePreviewMaxBytes,
-  validateDriveItemName,
 } from '@/src/modules/documents/infrastructure/drive-env'
+import {
+  currentYearInMadrid,
+  INVOICE_YEAR_FOLDER_NAME,
+  invoiceFolderName,
+} from '@/src/modules/documents/domain/invoice-upload-target'
+import {
+  findUploadPolicyViolation,
+  type UploadPolicyViolation,
+} from '@/src/modules/portal/domain/upload-policy'
 import { isGoogleDriveApiConfigured } from '@/src/modules/documents/infrastructure/google-drive-auth'
 import {
-  createDriveFolder,
-  deleteDriveItem,
   downloadDriveFile,
+  findChildFolderIdByName,
+  findDuplicateInSubtree,
   listDriveFolder,
-  moveDriveItem,
-  renameDriveItem,
   uploadDriveFile,
 } from '@/src/modules/documents/infrastructure/google-drive-repository'
 
-async function resolveClientDriveAccess(): Promise<
+async function resolveClientDriveAccess(
+  requiredLevel: WorkerAccessLevel = 'read'
+): Promise<
   | { ok: true; rootId: string }
   | { ok: false; error: DriveDocumentErrorCode }
 > {
-  const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  const session = await getDocumentsSession()
+  if (!session) {
+    return { ok: false, error: 'session_expired' }
+  }
+  if (!isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  if (session.user.role === 'worker') {
+    const sections =
+      requiredLevel === 'write'
+        ? await getWorkerWriteSections(session.user)
+        : await getAllowedSectionsForWorker(session.user)
+    if (!sections.has('/documentos')) {
+      return { ok: false, error: 'forbidden' }
+    }
   }
 
   if (shouldUseMockDrive()) {
     return { ok: true, rootId: getMockDriveRootId() }
   }
 
-  const rootId = await resolveClientDriveRootId(session.user)
-  if (!rootId) {
-    return { ok: false, error: 'not_linked' }
+  // Sin credenciales de Google no hay Documentos (y en producción nunca hay demo).
+  if (!isGoogleDriveApiConfigured()) {
+    return { ok: false, error: 'not_configured' }
   }
 
-  if (!isGoogleDriveApiConfigured()) {
-    return { ok: false, error: 'drive_unavailable' }
+  const rootId = (await resolveClientDriveRootId(session.user))?.trim()
+  if (!rootId) {
+    return { ok: false, error: 'not_linked' }
   }
 
   return { ok: true, rootId }
 }
 
-function resolveDriveError(error: unknown): DriveDocumentErrorCode {
-  if (!(error instanceof Error)) {
-    return 'drive_unavailable'
-  }
-
-  switch (error.message) {
-    case 'DRIVE_ACCESS_FORBIDDEN':
-      return 'forbidden'
-    case 'DRIVE_ITEM_NOT_FOUND':
-      return 'not_found'
-    case 'DRIVE_NAME_CONFLICT':
-      return 'name_conflict'
-    case 'GOOGLE_DRIVE_NOT_CONFIGURED':
-      return 'drive_unavailable'
-    default:
-      return 'drive_unavailable'
-  }
+export async function listDriveFolderAction(input?: { folderId?: string }): Promise<DriveFolderListResult> {
+  return guardDriveAction(
+    'list',
+    () => listDriveFolderActionImpl(input),
+    (error) => ({ ok: false, error })
+  )
 }
 
-export async function listDriveFolderAction(input?: {
+async function listDriveFolderActionImpl(input?: {
   folderId?: string
 }): Promise<DriveFolderListResult> {
   const access = await resolveClientDriveAccess()
@@ -100,11 +114,20 @@ export async function listDriveFolderAction(input?: {
     const listing = await listDriveFolder(folderId, access.rootId)
     return { ok: true, listing }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('list', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
-export async function getDriveFilePreviewAction(input: {
+export async function getDriveFilePreviewAction(input: { fileId: string }): Promise<DriveFileDownloadResult> {
+  return guardDriveAction(
+    'preview',
+    () => getDriveFilePreviewActionImpl(input),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function getDriveFilePreviewActionImpl(input: {
   fileId: string
 }): Promise<DriveFileDownloadResult> {
   const access = await resolveClientDriveAccess()
@@ -135,7 +158,9 @@ export async function getDriveFilePreviewAction(input: {
   }
 
   try {
-    const binary = await downloadDriveFile(fileId, access.rootId)
+    const binary = await downloadDriveFile(fileId, access.rootId, {
+      maxBytes: Math.min(getDrivePreviewMaxBytes(), getDriveMaxDownloadBytes()),
+    })
     if (binary.size > getDrivePreviewMaxBytes()) {
       return { ok: false, error: 'too_large' }
     }
@@ -147,11 +172,20 @@ export async function getDriveFilePreviewAction(input: {
       dataBase64: binary.dataBase64,
     }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('preview', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
-export async function downloadDriveFileAction(input: {
+export async function downloadDriveFileAction(input: { fileId: string }): Promise<DriveFileDownloadResult> {
+  return guardDriveAction(
+    'download',
+    () => downloadDriveFileActionImpl(input),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function downloadDriveFileActionImpl(input: {
   fileId: string
 }): Promise<DriveFileDownloadResult> {
   const access = await resolveClientDriveAccess()
@@ -178,7 +212,9 @@ export async function downloadDriveFileAction(input: {
   }
 
   try {
-    const binary = await downloadDriveFile(fileId, access.rootId)
+    const binary = await downloadDriveFile(fileId, access.rootId, {
+      maxBytes: getDriveMaxDownloadBytes(),
+    })
     return {
       ok: true,
       filename: binary.filename,
@@ -186,7 +222,8 @@ export async function downloadDriveFileAction(input: {
       dataBase64: binary.dataBase64,
     }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('download', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
@@ -194,10 +231,34 @@ export async function getDriveDocumentsModeAction(): Promise<{ demo: boolean }> 
   return { demo: shouldUseMockDrive() }
 }
 
-export async function uploadDriveFilesAction(
+const DRIVE_CODE_BY_VIOLATION: Record<UploadPolicyViolation, DriveDocumentErrorCode> = {
+  empty: 'upload_failed',
+  too_many_files: 'upload_failed',
+  invalid_name: 'invalid_name',
+  invalid_type: 'invalid_type',
+  file_too_large: 'too_large',
+  total_too_large: 'too_large',
+}
+
+function validateUploadBatch(files: File[]): DriveDocumentErrorCode | null {
+  const violation = findUploadPolicyViolation(
+    files.map((file) => ({ name: file.name, mimeType: file.type, size: file.size }))
+  )
+  return violation ? DRIVE_CODE_BY_VIOLATION[violation] : null
+}
+
+export async function uploadDriveFilesAction(formData: FormData): Promise<DriveUploadResult> {
+  return guardDriveAction(
+    'upload',
+    () => uploadDriveFilesActionImpl(formData),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function uploadDriveFilesActionImpl(
   formData: FormData
 ): Promise<DriveUploadResult> {
-  const access = await resolveClientDriveAccess()
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }
@@ -207,216 +268,147 @@ export async function uploadDriveFilesAction(
     return { ok: false, error: 'not_found' }
   }
 
-  if (shouldUseMockDrive()) {
-    const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
-    if (!files.length) {
-      return { ok: false, error: 'upload_failed' }
-    }
+  return uploadFilesIntoFolder(
+    access.rootId,
+    parentFolderId,
+    formData.getAll('files').filter((entry): entry is File => entry instanceof File)
+  )
+}
 
-    const maxFiles = getDriveMaxFilesPerBatch()
-    if (files.length > maxFiles) {
-      return { ok: false, error: 'upload_failed' }
-    }
+/** Validación, duplicados y subida: el único camino por el que se escribe en Drive. */
+async function uploadFilesIntoFolder(
+  rootId: string,
+  parentFolderId: string,
+  files: File[]
+): Promise<DriveUploadResult> {
+  // Todo el lote se valida antes de subir nada: un archivo malo no deja subidas a medias.
+  const invalid = validateUploadBatch(files)
+  if (invalid) {
+    return { ok: false, error: invalid }
+  }
 
-    const maxBytes = getDriveMaxUploadBytes()
-    for (const file of files) {
-      if (file.size > maxBytes) {
-        return { ok: false, error: 'too_large' }
-      }
-      if (!validateDriveItemName(file.name)) {
-        return { ok: false, error: 'invalid_name' }
-      }
-    }
+  const names = files.map((file) => file.name.trim())
 
-    try {
+  try {
+    if (shouldUseMockDrive()) {
+      const duplicate = findMockDriveDuplicate(parentFolderId, names)
+      if (duplicate) return { ok: false, error: 'duplicate', duplicate }
+
       const uploaded = uploadMockDriveFiles(
         parentFolderId,
-        files.map((file) => ({
-          name: file.name,
+        files.map((file, index) => ({
+          name: names[index],
           mimeType: file.type || 'application/octet-stream',
           size: file.size,
         }))
       )
       return { ok: true, uploaded }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
     }
-  }
 
-  const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
-  if (!files.length) {
-    return { ok: false, error: 'upload_failed' }
-  }
+    // Mismo nombre en la carpeta de destino o en cualquiera de sus subcarpetas.
+    const duplicate = await findDuplicateInSubtree(parentFolderId, names, rootId)
+    if (duplicate) return { ok: false, error: 'duplicate', duplicate }
 
-  const maxFiles = getDriveMaxFilesPerBatch()
-  if (files.length > maxFiles) {
-    return { ok: false, error: 'upload_failed' }
-  }
-
-  const maxBytes = getDriveMaxUploadBytes()
-  for (const file of files) {
-    if (file.size > maxBytes) {
-      return { ok: false, error: 'too_large' }
-    }
-    if (!validateDriveItemName(file.name)) {
-      return { ok: false, error: 'invalid_name' }
-    }
-  }
-
-  try {
     const uploaded = []
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       const buffer = Buffer.from(await file.arrayBuffer())
       const item = await uploadDriveFile(
         parentFolderId,
         {
-          name: file.name,
+          name: names[index],
           mimeType: file.type || 'application/octet-stream',
           buffer,
         },
-        access.rootId
+        rootId
       )
       uploaded.push(item)
     }
 
     return { ok: true, uploaded }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('upload', error)
+    return { ok: false, error: mapDriveErrorToCode(error) }
   }
 }
 
-export async function renameDriveItemAction(input: {
-  itemId: string
-  newName: string
-}): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess()
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
+// ---------------------------------------------------------------------------
+// Subida rápida de facturas de compra
+// ---------------------------------------------------------------------------
 
-  const itemId = input.itemId?.trim()
-  const newName = input.newName?.trim()
-  if (!itemId || !newName || !validateDriveItemName(newName)) {
-    return { ok: false, error: 'invalid_name' }
-  }
+type InvoiceTarget = { folderId: string; folderName: string }
 
-  if (shouldUseMockDrive()) {
-    try {
-      const item = renameMockDriveItem(itemId, newName)
-      return { ok: true, item }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
+const INVOICE_TARGET_TTL_MS = 60_000
+const INVOICE_TARGET_CACHE_MAX = 2000
+const invoiceTargetCache = new Map<
+  string,
+  { target: InvoiceTarget | null; expiresAt: number }
+>()
 
+/**
+ * «Año en curso» > «Facturas de compras [año]» dentro de la Pública. El destino
+ * lo decide siempre el servidor desde la raíz del cliente: el navegador no
+ * manda ningún id de carpeta. Si falta alguna carpeta o es ambigua, no hay destino.
+ */
+async function resolveInvoiceTarget(rootId: string): Promise<InvoiceTarget | null> {
+  const year = currentYearInMadrid()
+  const key = `${rootId}|${year}`
+  const cached = invoiceTargetCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.target
+
+  const yearFolderId = await findChildFolderIdByName(rootId, rootId, INVOICE_YEAR_FOLDER_NAME)
+  const folderName = invoiceFolderName(year)
+  const invoiceFolderId = yearFolderId
+    ? await findChildFolderIdByName(yearFolderId, rootId, folderName)
+    : null
+  const target = invoiceFolderId ? { folderId: invoiceFolderId, folderName } : null
+
+  if (invoiceTargetCache.size >= INVOICE_TARGET_CACHE_MAX) invoiceTargetCache.clear()
+  invoiceTargetCache.set(key, { target, expiresAt: Date.now() + INVOICE_TARGET_TTL_MS })
+  return target
+}
+
+export type InvoiceUploadAvailability = { available: boolean; folderName?: string }
+
+/** ¿Debe mostrarse el botón de factura rápida? Nunca falla: ante cualquier duda, no. */
+export async function getInvoiceUploadAvailabilityAction(): Promise<InvoiceUploadAvailability> {
   try {
-    const item = await renameDriveItem(itemId, newName, access.rootId)
-    return { ok: true, item }
+    const access = await resolveClientDriveAccess('write')
+    if (!access.ok || shouldUseMockDrive()) return { available: false }
+
+    const target = await resolveInvoiceTarget(access.rootId)
+    return target ? { available: true, folderName: target.folderName } : { available: false }
   } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
+    logDriveFailure('invoice-availability', error)
+    return { available: false }
   }
 }
 
-export async function deleteDriveItemAction(input: {
-  itemId: string
-}): Promise<DriveDeleteResult> {
-  const access = await resolveClientDriveAccess()
+export async function uploadInvoiceFilesAction(formData: FormData): Promise<DriveUploadResult> {
+  return guardDriveAction(
+    'upload',
+    () => uploadInvoiceFilesActionImpl(formData),
+    (error) => ({ ok: false, error })
+  )
+}
+
+async function uploadInvoiceFilesActionImpl(formData: FormData): Promise<DriveUploadResult> {
+  const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
   }
-
-  const itemId = input.itemId?.trim()
-  if (!itemId) {
+  if (shouldUseMockDrive()) {
     return { ok: false, error: 'not_found' }
   }
 
-  if (itemId === access.rootId) {
-    return { ok: false, error: 'forbidden' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      deleteMockDriveItem(itemId)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    await deleteDriveItem(itemId, access.rootId)
-    return { ok: true }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
-}
-
-export async function createDriveFolderAction(input: {
-  parentFolderId: string
-  name: string
-}): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess()
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
-
-  const parentFolderId = input.parentFolderId?.trim()
-  const name = input.name?.trim()
-  if (!parentFolderId || !name || !validateDriveItemName(name)) {
-    return { ok: false, error: 'invalid_name' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      const item = createMockDriveFolder(parentFolderId, name)
-      return { ok: true, item }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    const item = await createDriveFolder(parentFolderId, name, access.rootId)
-    return { ok: true, item }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
-}
-
-export async function moveDriveItemAction(input: {
-  itemId: string
-  targetFolderId: string
-  sourceFolderId: string
-}): Promise<DriveItemMutationResult> {
-  const access = await resolveClientDriveAccess()
-  if (!access.ok) {
-    return { ok: false, error: access.error }
-  }
-
-  const itemId = input.itemId?.trim()
-  const targetFolderId = input.targetFolderId?.trim()
-  const sourceFolderId = input.sourceFolderId?.trim()
-  if (!itemId || !targetFolderId || !sourceFolderId) {
+  const target = await resolveInvoiceTarget(access.rootId)
+  if (!target) {
     return { ok: false, error: 'not_found' }
   }
 
-  if (itemId === access.rootId) {
-    return { ok: false, error: 'forbidden' }
-  }
-
-  if (shouldUseMockDrive()) {
-    try {
-      const item = moveMockDriveItem(itemId, targetFolderId, sourceFolderId)
-      return { ok: true, item }
-    } catch (error) {
-      return { ok: false, error: resolveDriveError(error) }
-    }
-  }
-
-  try {
-    const item = await moveDriveItem(itemId, targetFolderId, sourceFolderId, access.rootId)
-    return { ok: true, item }
-  } catch (error) {
-    return { ok: false, error: resolveDriveError(error) }
-  }
+  // Cualquier `parentFolderId` que mande el navegador se ignora a propósito.
+  return uploadFilesIntoFolder(
+    access.rootId,
+    target.folderId,
+    formData.getAll('files').filter((entry): entry is File => entry instanceof File)
+  )
 }

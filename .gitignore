@@ -17,3 +17,15 @@ docs/*.pdf
 # OS
 .DS_Store
 Thumbs.db
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+
+# Impeccable local state
+.impeccable/
+
+# Next.js generated types
+next-env.d.ts
+
+# Cursor local MCP config
+.cursor/mcp.json

@@ -16,11 +16,12 @@ import {
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolvePublicDriveFolderMap } from '@/src/modules/portal/infrastructure/google-drive-public-folder'
 
-function getOdooPartnerCatalogCacheKey(): string[] {
+function getOdooPartnerCatalogCacheKey(includeLinked: boolean): string[] {
   return [
     ODOO_PARTNER_CATALOG_CACHE_TAG,
     getOdooDriveFieldName(),
     getOdooContactEmailFieldName(),
+    includeLinked ? 'all' : 'unlinked',
   ]
 }
 
@@ -88,18 +89,28 @@ async function fetchOdooPartnersForImport(
   )
 }
 
-async function loadOdooPartnerCatalog(): Promise<OdooPartnerImportOption[]> {
-  const linkedIds = await listLinkedOdooPartnerIds()
+async function loadOdooPartnerCatalog(
+  includeLinked: boolean
+): Promise<OdooPartnerImportOption[]> {
+  const linkedIds = includeLinked ? [] : await listLinkedOdooPartnerIds()
   return fetchOdooPartnersForImport(linkedIds)
 }
 
-export async function getOdooPartnerCatalog(): Promise<OdooPartnerImportOption[]> {
+export async function getOdooPartnerCatalog(options?: {
+  /** Si true, no excluye contactos que ya son clientes en el portal. */
+  includeLinked?: boolean
+}): Promise<OdooPartnerImportOption[]> {
+  const includeLinked = options?.includeLinked ?? false
   const ttl = getOdooPartnerCatalogTtlSeconds()
 
-  const cached = unstable_cache(loadOdooPartnerCatalog, getOdooPartnerCatalogCacheKey(), {
-    revalidate: ttl,
-    tags: [ODOO_PARTNER_CATALOG_CACHE_TAG],
-  })
+  const cached = unstable_cache(
+    () => loadOdooPartnerCatalog(includeLinked),
+    getOdooPartnerCatalogCacheKey(includeLinked),
+    {
+      revalidate: ttl,
+      tags: [ODOO_PARTNER_CATALOG_CACHE_TAG],
+    }
+  )
 
   return cached()
 }

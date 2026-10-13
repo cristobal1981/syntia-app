@@ -61,6 +61,7 @@ export type PortalChatterPostResult =
         | 'invalid_attachment'
         | 'attachment_too_large'
         | 'too_many_attachments'
+        | 'rate_limited'
     }
 
 export type PortalChatterUploadFile = {
@@ -73,6 +74,12 @@ export type ListRecordMessagesInput = {
   kind: PortalRecordKind
   recordId: number
   beforeId?: number
+}
+
+export type ListNewerRecordMessagesInput = {
+  kind: PortalRecordKind
+  recordId: number
+  afterId: number
 }
 
 export type PostRecordMessageInput = {

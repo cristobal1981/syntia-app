@@ -60,19 +60,6 @@ function getWatchableStateLabel(record: PortalWatchableRecord): string {
   return mapTaskStateLabel(record.state) ?? '—'
 }
 
-function tramiteListItemFromWatchable(record: PortalWatchableRecord): TramiteListItem {
-  return {
-    id: record.recordId,
-    name: record.name,
-    kind: record.scope === 'consulta' ? 'consulta' : 'tramite',
-    state: record.state,
-    isClosed: record.isClosed,
-    attachmentCount: record.attachmentCount,
-    modifiedAt: record.modifiedAt,
-    assignedNotifyPartnerIds: [],
-  }
-}
-
 function portalNotificationFromTramiteItem(
   item: TramiteListItem,
   reason: PortalNotification['reason'],
@@ -308,17 +295,19 @@ export function computeFirmaWatchDeltas(input: {
 export function mergeAndSortPortalNotifications(
   ...groups: PortalNotification[][]
 ): PortalNotification[] {
-  const newTramiteIds = new Set(
+  // Un trámite recién creado con mensaje del gestor sin leer es ambas cosas
+  // a la vez; se queda solo con "mensaje sin leer" (más accionable, gana en
+  // REASON_PRIORITY) para no duplicar entrada en la campana de avisos.
+  const unreadChatterTramiteIds = new Set(
     groups
       .flat()
-      .filter((item) => item.reason === 'new_tramite')
+      .filter((item) => item.reason === 'unread_chatter' && item.listKind === 'tramite')
       .map((item) => item.recordId)
   )
 
   const merged = groups.flat().filter((item) => {
-    if (item.reason !== 'unread_chatter') return true
-    if (item.listKind !== 'tramite') return true
-    return !newTramiteIds.has(item.recordId)
+    if (item.reason !== 'new_tramite') return true
+    return !unreadChatterTramiteIds.has(item.recordId)
   })
 
   return merged.sort((a, b) =>
@@ -412,4 +401,19 @@ export function removePortalNotificationsByScope(
     return item.reason !== reason
   })
   return next.length === items.length ? items : next
+}
+
+/** Usado por `openNotification` — a diferencia de las dos funciones de arriba, compara por `scope`+`recordId`+`reason` exactos (no por `recordKind`, que `PortalNotification` no siempre trae). */
+export function removeNotificationFromList(
+  items: PortalNotification[],
+  notification: PortalNotification
+): PortalNotification[] {
+  return items.filter(
+    (item) =>
+      !(
+        item.scope === notification.scope &&
+        item.recordId === notification.recordId &&
+        item.reason === notification.reason
+      )
+  )
 }

@@ -1,27 +1,34 @@
 'use client'
 
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 
 import { portal } from '@/content/portal'
-import { usePrefersReducedMotion } from '@/lib/gsap/use-prefers-reduced-motion'
+import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
+import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
+import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
-import { ChatterNotificationsProvider } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
+import {
+  PortalQuickInvoiceButton,
+  PortalQuickInvoiceProvider,
+} from '@/src/modules/portal/ui/portal-quick-invoice-context'
+import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
+import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import {
   PortalEntryLoadingProvider,
   usePortalEntryLoading,
 } from '@/src/modules/portal/ui/portal-entry-loading-context'
-import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
-import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
+import { PortalProfileMenu } from '@/src/modules/portal/ui/portal-profile-menu'
+import { renderNavItem } from '@/src/modules/portal/ui/portal-nav-items'
+import { PortalBottomBar } from '@/src/modules/portal/ui/portal-bottom-bar'
+import { PortalMobileMenu } from '@/src/modules/portal/ui/portal-mobile-menu'
 import { PortalShortcutOverlayProvider } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import {
   PortalRouteLoadingProvider,
@@ -36,206 +43,8 @@ const menuEase = [0.22, 1, 0.36, 1] as const
 type PortalShellProps = {
   user: PortalUser
   navItems?: NavItem[]
+  workerWriteSections?: WorkerSectionHref[]
   children: React.ReactNode
-}
-
-function isNavItemActive(pathname: string, href?: string) {
-  if (!href) return false
-  return pathname === href || pathname.startsWith(`${href}/`)
-}
-
-function isNavGroupActive(pathname: string, item: NavItem) {
-  return (
-    item.children?.some((child) => isNavItemActive(pathname, child.href)) ?? false
-  )
-}
-
-function NavLink({
-  href,
-  label,
-  icon,
-  isActive,
-  collapsed,
-  nested = false,
-  isPending = false,
-  onNavigate,
-  onNavStart,
-}: {
-  href: string
-  label: string
-  icon: Parameters<typeof PortalNavIcon>[0]['icon']
-  isActive: boolean
-  collapsed: boolean
-  nested?: boolean
-  isPending?: boolean
-  onNavigate?: () => void
-  onNavStart?: (href: string) => void
-}) {
-  const link = (
-    <Link
-      href={href}
-      onClick={() => {
-        onNavStart?.(href)
-        onNavigate?.()
-      }}
-      className={cn(
-        'flex min-h-10 items-center rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
-        collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
-        nested && !collapsed && 'ml-2 pl-4',
-        isPending && !isActive && 'text-subtle-foreground',
-        isActive
-          ? 'bg-sidebar-active font-medium text-sidebar-active-foreground shadow-sm'
-          : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
-      )}
-      aria-current={isActive ? 'page' : undefined}
-      aria-busy={isPending || undefined}
-    >
-      <PortalNavIcon icon={icon} className="size-4 shrink-0" />
-      {!collapsed ? <span className="truncate">{label}</span> : null}
-      {collapsed ? <span className="sr-only">{label}</span> : null}
-    </Link>
-  )
-
-  if (collapsed) {
-    return (
-      <PortalActionTooltip content={label} side="right">
-        {link}
-      </PortalActionTooltip>
-    )
-  }
-
-  return link
-}
-
-function NavGroup({
-  item,
-  pathname,
-  collapsed,
-  pendingHref,
-  onNavigate,
-  onNavStart,
-}: {
-  item: NavItem
-  pathname: string
-  collapsed: boolean
-  pendingHref: string | null
-  onNavigate?: () => void
-  onNavStart?: (href: string) => void
-}) {
-  const children = item.children ?? []
-  const groupActive = isNavGroupActive(pathname, item)
-  const [open, setOpen] = useState(groupActive)
-
-  useEffect(() => {
-    if (groupActive) setOpen(true)
-  }, [groupActive])
-
-  if (collapsed) {
-    return (
-      <>
-        {children.map((child) =>
-          child.href ? (
-            <NavLink
-              key={child.label}
-              href={child.href}
-              label={child.label}
-              icon={child.icon}
-              isActive={isNavItemActive(pathname, child.href)}
-              isPending={pendingHref === child.href}
-              collapsed
-              onNavigate={onNavigate}
-              onNavStart={onNavStart}
-            />
-          ) : null
-        )}
-      </>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className={cn(
-          'flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
-          groupActive
-            ? 'text-sidebar-active-foreground'
-            : 'text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
-        )}
-      >
-        <PortalNavIcon icon={item.icon} className="size-4 shrink-0" />
-        <span className="flex-1 truncate">{item.label}</span>
-        <ChevronDown
-          className={cn(
-            'size-4 shrink-0 transition-transform',
-            open ? 'rotate-180' : undefined
-          )}
-          aria-hidden
-        />
-      </button>
-      {open ? (
-        <div className="flex flex-col gap-1 border-l border-sidebar-border pl-2">
-          {children.map((child) =>
-            child.href ? (
-              <NavLink
-                key={child.label}
-                href={child.href}
-                label={child.label}
-                icon={child.icon}
-                isActive={isNavItemActive(pathname, child.href)}
-                isPending={pendingHref === child.href}
-                collapsed={false}
-                nested
-                onNavigate={onNavigate}
-                onNavStart={onNavStart}
-              />
-            ) : null
-          )}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function renderNavItem(
-  item: NavItem,
-  pathname: string,
-  collapsed: boolean,
-  pendingHref: string | null,
-  onNavigate?: () => void,
-  onNavStart?: (href: string) => void
-) {
-  if (item.children?.length) {
-    return (
-      <NavGroup
-        key={item.label}
-        item={item}
-        pathname={pathname}
-        collapsed={collapsed}
-        pendingHref={pendingHref}
-        onNavigate={onNavigate}
-        onNavStart={onNavStart}
-      />
-    )
-  }
-
-  if (!item.href) return null
-
-  return (
-    <NavLink
-      key={item.label}
-      href={item.href}
-      label={item.label}
-      icon={item.icon}
-      isActive={isNavItemActive(pathname, item.href)}
-      isPending={pendingHref === item.href}
-      collapsed={collapsed}
-      onNavigate={onNavigate}
-      onNavStart={onNavStart}
-    />
-  )
 }
 
 function PortalContentProgress({
@@ -270,7 +79,12 @@ function PortalContentProgress({
   )
 }
 
-export function PortalShell({ user, navItems: navItemsProp, children }: PortalShellProps) {
+export function PortalShell({
+  user,
+  navItems: navItemsProp,
+  workerWriteSections,
+  children,
+}: PortalShellProps) {
   const pathname = usePathname()
   const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -278,18 +92,34 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   const [navPending, setNavPending] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = navItemsProp ?? getNavForRole(user.role)
+  const isClientOrWorker = user.role === 'client' || user.role === 'worker'
+  /**
+   * "Nueva consulta" crea un ticket/trámite — una mutación, no basta con
+   * tener /tramites en lectura (eso solo decide si `navItems` lo incluye).
+   * Si el grant o la funcionalidad de colaboradores están desactivados,
+   * `workerWriteSections` llega vacío igual que `navItems`.
+   */
+  const canCreateConsulta =
+    user.role === 'client' ||
+    (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites'))
+  const { bottomBarItems, moreNavItems } = getBottomBarSplit(navItems, user.role)
   const roleLabel = portal.roles[user.role]
-  const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
   useEffect(() => {
+    // localStorage solo existe en cliente — no se puede leer durante SSR.
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === 'true') setSidebarCollapsed(true)
   }, [])
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): limpia el indicador de
+  // navegación pendiente en cuanto la URL realmente cambia.
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setNavPending(false)
     setPendingHref(null)
-  }, [pathname])
+  }
 
   const handleNavStart = (href: string) => {
     if (href !== pathname) {
@@ -309,8 +139,11 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
   return (
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
-    <ChatterNotificationsProvider enabled={user.role === 'client'}>
-    <PortalCreateConsultaProvider enabled={user.role === 'client'}>
+    <PortalNotificationsProvider enabled={isClientOrWorker}>
+    <OnboardingChecklistProvider enabled={user.role === 'client'}>
+    <PortalCreateConsultaProvider enabled={canCreateConsulta}>
+    <PortalReportProblemProvider enabled={isClientOrWorker}>
+    <PortalQuickInvoiceProvider enabled={isClientOrWorker}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -337,39 +170,24 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
           )}
           aria-label="Principal"
         >
-          {navItems.map((item) =>
-            renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
-          )}
+          {/* «Perfil» ya está en el menú del pie del sidebar; en móvil (sin ese menú) se mantiene. */}
+          {navItems
+            .filter((item) => item.href !== '/perfil')
+            .map((item) =>
+              renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
+            )}
+          <div className="mt-auto pt-3">
+            <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
+          </div>
         </nav>
 
-        <div className={cn('py-4', sidebarCollapsed ? 'px-2' : 'px-4')}>
-          {sidebarCollapsed ? (
-            <PortalActionTooltip
-              content={`${user.name} · ${roleLabel}`}
-              side="right"
-            >
-              <span
-                tabIndex={0}
-                className="mx-auto flex size-9 cursor-default items-center justify-center rounded-full bg-sidebar-active text-xs font-semibold text-sidebar-active-foreground"
-                role="img"
-                aria-label={`${user.name} · ${roleLabel}`}
-              >
-                {userInitial}
-              </span>
-            </PortalActionTooltip>
-          ) : (
-            <>
-              <p className="truncate text-sm font-medium text-sidebar-foreground">
-                {user.name}
-              </p>
-              <p className="mt-0.5 text-xs text-sidebar-muted-foreground">
-                {roleLabel}
-              </p>
-            </>
-          )}
-          <div className={cn('mt-3', sidebarCollapsed && 'flex justify-center')}>
-            <SignOutButton collapsed={sidebarCollapsed} />
-          </div>
+        <div className={cn('border-t border-sidebar-border py-3', sidebarCollapsed ? 'px-2' : 'px-3')}>
+          <PortalProfileMenu
+            user={user}
+            roleLabel={roleLabel}
+            collapsed={sidebarCollapsed}
+            onNavigate={handleNavStart}
+          />
         </div>
       </aside>
 
@@ -378,6 +196,7 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip bg-background">
         <PortalTopBar
           role={user.role}
+          navItems={navItems}
           mobileNavOpen={mobileOpen}
           onMobileNavToggle={() => setMobileOpen((open) => !open)}
           sidebarCollapsed={sidebarCollapsed}
@@ -395,57 +214,50 @@ export function PortalShell({ user, navItems: navItemsProp, children }: PortalSh
             {mobileOpen ? (
               <m.div
                 key="mobile-nav"
-                className="absolute inset-x-0 top-12 z-40 overflow-hidden lg:hidden"
-                initial={reducedMotion ? false : { height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={reducedMotion ? undefined : { height: 0, opacity: 0 }}
-                transition={{ duration: reducedMotion ? 0 : 0.28, ease: menuEase }}
+                className="fixed inset-x-0 top-12 bottom-0 z-40 lg:hidden"
+                initial={reducedMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reducedMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: reducedMotion ? 0 : 0.2, ease: menuEase }}
               >
-                <nav
-                  id="mobile-nav"
-                  className="max-h-[calc(100dvh-3rem)] overflow-y-auto bg-sidebar px-3 py-3 text-sidebar-foreground shadow-lg"
-                  aria-label="Principal"
-                >
-                  <div className="mb-4 flex justify-center py-2">
-                    <PortalBrandMark className="max-w-[200px]" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {navItems.map((item) =>
-                      renderNavItem(
-                        item,
-                        pathname,
-                        false,
-                        pendingHref,
-                        () => setMobileOpen(false),
-                        handleNavStart
-                      )
-                    )}
-                  </div>
-                  <div className="mt-4 px-1 py-2">
-                    <p className="px-2 text-sm font-medium text-sidebar-foreground">
-                      {user.name}
-                    </p>
-                    <p className="mt-0.5 px-2 text-xs text-sidebar-muted-foreground">
-                      {roleLabel}
-                    </p>
-                    <div className="mt-2 px-1">
-                      <SignOutButton />
-                    </div>
-                  </div>
-                </nav>
+                <PortalMobileMenu
+                  navItems={moreNavItems}
+                  pathname={pathname}
+                  pendingHref={pendingHref}
+                  user={user}
+                  roleLabel={roleLabel}
+                  onNavigate={() => setMobileOpen(false)}
+                  onNavStart={handleNavStart}
+                />
               </m.div>
             ) : null}
           </AnimatePresence>
         </LazyMotion>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-10">{children}</main>
+        <main
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto p-4 sm:p-10',
+            bottomBarItems.length > 0 && 'pb-24 lg:pb-10'
+          )}
+        >
+          {children}
+        </main>
+
+        <PortalBottomBar
+          items={bottomBarItems}
+          pendingHref={pendingHref}
+          onNavStart={handleNavStart}
+        />
       </div>
     </div>
     </PortalEntryLoadingProvider>
     </Suspense>
     </PortalRouteLoadingProvider>
+    </PortalQuickInvoiceProvider>
+    </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
-    </ChatterNotificationsProvider>
+    </OnboardingChecklistProvider>
+    </PortalNotificationsProvider>
     </TooltipProvider>
     </PortalShortcutOverlayProvider>
   )

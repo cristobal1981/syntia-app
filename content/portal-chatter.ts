@@ -1,8 +1,11 @@
+import { uploadFormatCopy } from '@/content/upload-format'
+
 export const portalChatter = {
   title: 'Conversación',
   tabConversation: 'Conversación',
   loading: 'Cargando mensajes…',
   loadingOlder: 'Cargando mensajes anteriores…',
+  newMessagesDivider: 'Mensajes nuevos',
   empty: 'Todavía no hay mensajes en este trámite.',
   composerPlaceholder: 'Escribe un mensaje…',
   formatBold: 'Negrita',
@@ -16,6 +19,8 @@ export const portalChatter = {
   sending: 'Enviando…',
   readOnlyClosedTicket:
     'Esta consulta está cerrada. Puedes leer el historial, pero no enviar mensajes nuevos.',
+  readOnlyNoWriteAccess:
+    'No tienes permiso para enviar mensajes en esta sección. Puedes leer el historial.',
   youLabel: 'Tú',
   authorAvatarAlt: 'Foto de {name}',
   authorAvatarLoading: 'Cargando foto de {name}',
@@ -28,11 +33,10 @@ export const portalChatter = {
   attachFile: 'Adjuntar archivo',
   removeAttachment: 'Quitar {name}',
   uploading: 'Subiendo…',
-  previousMessage: 'Mensaje anterior',
   mockBadge: 'Vista de prueba (sin Odoo)',
   errors: {
     forbidden: 'No tienes permiso para ver esta conversación.',
-    not_linked: 'Tu cuenta no está vinculada con Odoo.',
+    not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
     not_found: 'No encontramos el trámite solicitado.',
     odoo_unavailable: 'No pudimos acceder a la conversación. Inténtalo de nuevo.',
     odoo_rate_limited:
@@ -40,8 +44,25 @@ export const portalChatter = {
     invalid_body: 'El mensaje debe tener entre 1 y 2000 caracteres.',
     read_only: 'No puedes enviar mensajes en este trámite.',
     invalid_parent: 'No pudimos responder a ese mensaje.',
-    invalid_attachment: 'El archivo no tiene un formato permitido.',
-    attachment_too_large: 'El archivo supera el tamaño máximo permitido.',
-    too_many_attachments: 'Puedes adjuntar como máximo 5 archivos por mensaje.',
+    invalid_attachment: uploadFormatCopy.inline,
+    attachment_too_large: 'Los archivos adjuntos no pueden superar los 10 MB en total.',
+    too_many_attachments: 'Puedes adjuntar como máximo 10 archivos por mensaje.',
+    rate_limited: 'Has enviado demasiados mensajes seguidos. Espera un momento e inténtalo de nuevo.',
+  },
+  /** Avisos con título y explicación cuando se rechazan adjuntos. */
+  attachmentNotices: {
+    invalid_attachment: {
+      title: uploadFormatCopy.title,
+      description: uploadFormatCopy.description,
+    },
+    attachment_too_large: {
+      title: 'Los archivos pesan demasiado',
+      description:
+        'Los adjuntos de un mensaje no pueden superar los 10 MB en total. Reduce el tamaño o envíalos en mensajes distintos.',
+    },
+    too_many_attachments: {
+      title: 'Demasiados archivos',
+      description: 'Puedes adjuntar como máximo 10 archivos por mensaje.',
+    },
   },
 } as const

@@ -2,7 +2,7 @@ import { listGestoresAction } from '@/src/modules/directory/application/director
 import {
   listAutomatizacionesAction,
   listAutomationsForAccessAdminAction,
-} from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+} from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
 import { AutomatizacionesPageView } from '@/src/modules/automatizaciones/ui/automatizaciones-page-view'
 
 export async function AutomatizacionesPage() {
@@ -26,6 +26,7 @@ export async function AutomatizacionesPage() {
   const advisorOptions = gestores.map((gestor) => ({
     id: gestor.id,
     name: gestor.name,
+    email: gestor.email,
   }))
 
   return (

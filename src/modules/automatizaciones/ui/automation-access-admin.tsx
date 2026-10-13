@@ -18,12 +18,10 @@ import type {
   AdvisorVisibility,
   PortalAutomationListItem,
 } from '@/src/modules/automatizaciones/domain/types'
-import {
-  listAutomationsForAccessAdminAction,
-  updateAutomationAccessAction,
-} from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+import { listAutomationsForAccessAdminAction } from '@/src/modules/automatizaciones/application/automatizaciones-list-actions'
+import { updateAutomationAccessAction } from '@/src/modules/automatizaciones/application/automatizaciones-crud-actions'
 
-type AdvisorOption = { id: string; name: string }
+type AdvisorOption = { id: string; name: string; email: string }
 
 type AutomationAccessRowState = {
   isActive: boolean
@@ -274,10 +272,16 @@ export function AutomationAccessAdmin({
                                       grantedAdvisorIds: next,
                                     })
                                   }}
-                                  className="size-4 cursor-pointer accent-primary"
+                                  className="size-4 shrink-0 cursor-pointer accent-primary"
                                 />
-                                <span className="text-sm text-foreground">
-                                  {advisor.name}
+                                <span
+                                  className="min-w-0 truncate text-sm text-foreground"
+                                  title={`${advisor.name} (${advisor.email})`}
+                                >
+                                  {advisor.name}{' '}
+                                  <span className="text-muted-foreground">
+                                    ({advisor.email})
+                                  </span>
                                 </span>
                               </label>
                             )

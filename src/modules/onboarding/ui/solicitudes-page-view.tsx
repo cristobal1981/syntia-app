@@ -1,463 +1,35 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { Copy, Plus, Send, Trash2, XCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { solicitudes } from '@/content/solicitudes'
-import { cn } from '@/lib/utils'
-import type { ClientRecord } from '@/src/modules/directory/domain/types'
+import type { OnboardingSolicitudRow } from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
+import { AltaAutonomoCreateDialog } from '@/src/modules/onboarding/ui/alta-autonomo-create-dialog'
 import {
-  createAltaAutonomoAccessLinkAction,
-  deleteOnboardingSolicitudAction,
-  listOnboardingSolicitudesAction,
-  resendOnboardingSolicitudLinkAction,
-  revokeOnboardingSolicitudAction,
-  type OnboardingSolicitudRow,
-} from '@/src/modules/onboarding/application/onboarding-solicitudes-actions'
-import { formatOnboardingDateNumeric } from '@/src/modules/onboarding/ui/format-onboarding-date'
-import { OnboardingTokenSecret } from '@/src/modules/onboarding/ui/onboarding-token-secret'
-import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
+  OnboardingSolicitudTable,
+  type SolicitudListFilter,
+} from '@/src/modules/onboarding/ui/onboarding-solicitud-table'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 type SolicitudesPageViewProps = {
-  initialClients: ClientRecord[]
   initialRows: OnboardingSolicitudRow[]
 }
 
-type ListFilter = 'pending' | 'all'
-const UNSELECTED_CLIENT_VALUE = '__unselected_client__'
-
-function AltaAutonomoCreateDialog({
-  open,
-  clients,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean
-  clients: ClientRecord[]
-  onOpenChange: (open: boolean) => void
-  onCreated: (rows: OnboardingSolicitudRow[]) => void
-}) {
-  const copy = solicitudes.altaAutonomo
-  const [clientId, setClientId] = useState('')
-  const [linkUrl, setLinkUrl] = useState('')
-  const [pending, startTransition] = useTransition()
-
-  const sortedClients = useMemo(
-    () => [...clients].sort((a, b) => a.name.localeCompare(b.name, 'es')),
-    [clients]
-  )
-  const selectedClientName = useMemo(
-    () => sortedClients.find((client) => client.id === clientId)?.name ?? '—',
-    [clientId, sortedClients]
-  )
-
-  useEffect(() => {
-    if (!open) {
-      setClientId('')
-      setLinkUrl('')
-    }
-  }, [open])
-
-  function handleGenerateLink() {
-    if (!clientId) return
-    startTransition(async () => {
-      const result = await createAltaAutonomoAccessLinkAction(clientId)
-      if (!result.ok) {
-        toast.error(result.message ?? copy.generateError)
-        return
-      }
-      setLinkUrl(result.url)
-      toast.success(copy.generated)
-      const listResult = await listOnboardingSolicitudesAction()
-      if (listResult.ok) {
-        onCreated(listResult.rows)
-      }
-    })
-  }
-
-  async function handleCopyLink() {
-    const value = linkUrl.trim()
-    if (!value) return
-
-    // Try sync fallback first to keep browser user-gesture context.
-    const textarea = document.createElement('textarea')
-    textarea.value = value
-    textarea.setAttribute('readonly', '')
-    textarea.style.position = 'fixed'
-    textarea.style.left = '-9999px'
-    document.body.appendChild(textarea)
-    textarea.focus()
-    textarea.select()
-    textarea.setSelectionRange(0, textarea.value.length)
-    let copied = false
-    try {
-      copied = document.execCommand('copy')
-    } finally {
-      document.body.removeChild(textarea)
-    }
-
-    if (!copied && navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(value)
-        copied = true
-      } catch {
-        copied = false
-      }
-    }
-
-    if (copied) {
-      toast.success(copy.linkCopied)
-      return
-    }
-    toast.error(copy.copyLinkError)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{copy.modalTitle}</DialogTitle>
-          <DialogDescription>{copy.modalDescription}</DialogDescription>
-        </DialogHeader>
-
-        {sortedClients.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{copy.noClients}</p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {linkUrl ? (
-              <div className="rounded-md border border-border bg-muted/30 p-3">
-                <p className="text-sm font-medium text-foreground">
-                  {copy.generatedStateTitle}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {copy.generatedStateDescription}
-                </p>
-                <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {copy.clientLabel}
-                </p>
-                <p className="mt-1 text-sm text-foreground">{selectedClientName}</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <label htmlFor="solicitud-client" className="text-sm font-medium">
-                  {copy.clientLabel}
-                </label>
-                <Select
-                  value={clientId || UNSELECTED_CLIENT_VALUE}
-                  onValueChange={(next) => {
-                    if (next === UNSELECTED_CLIENT_VALUE) return
-                    setClientId(next)
-                    setLinkUrl('')
-                  }}
-                >
-                  <SelectTrigger
-                    id="solicitud-client"
-                    aria-label={copy.clientLabel}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <SelectValue placeholder={copy.clientPlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UNSELECTED_CLIENT_VALUE} disabled>
-                      {copy.clientPlaceholder}
-                    </SelectItem>
-                    {sortedClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {linkUrl ? <input type="hidden" readOnly value={linkUrl} aria-hidden /> : null}
-          </div>
-        )}
-
-        <DialogFooter className="flex-row items-center justify-end">
-          {linkUrl ? (
-            <Button
-              type="button"
-              variant="secondary"
-              className="order-1 flex-1 gap-2"
-              onClick={handleCopyLink}
-            >
-              <Copy className="size-4" aria-hidden />
-              {copy.copyLink}
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            className="order-2 w-auto flex-none"
-            onClick={() => onOpenChange(false)}
-          >
-            Cerrar
-          </Button>
-          {sortedClients.length > 0 && !linkUrl ? (
-            <Button
-              type="button"
-              className="order-1"
-              onClick={handleGenerateLink}
-              disabled={pending || !clientId}
-              aria-busy={pending}
-            >
-              {pending ? copy.creating : copy.createButton}
-            </Button>
-          ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function OnboardingSolicitudRowActions({
-  row,
-  onUpdated,
-}: {
-  row: OnboardingSolicitudRow
-  onUpdated: (rows: OnboardingSolicitudRow[]) => void
-}) {
-  const copy = solicitudes.list
-  const [pendingAction, setPendingAction] = useState<'resend' | 'revoke' | 'delete' | null>(
-    null
-  )
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-
-  async function refreshRows() {
-    const result = await listOnboardingSolicitudesAction()
-    if (result.ok) {
-      onUpdated(result.rows)
-    }
-  }
-
-  async function handleResend() {
-    setPendingAction('resend')
-    const result = await resendOnboardingSolicitudLinkAction(row.token)
-    setPendingAction(null)
-    if (!result.ok) {
-      toast.error(copy.resendError)
-      return
-    }
-    toast.success(copy.resendSuccess)
-    await refreshRows()
-  }
-
-  async function handleRevoke() {
-    setPendingAction('revoke')
-    const result = await revokeOnboardingSolicitudAction(row.token)
-    setPendingAction(null)
-    if (!result.ok) {
-      toast.error(copy.revokeError)
-      return
-    }
-    toast.success(copy.revokeSuccess)
-    await refreshRows()
-  }
-
-  async function handleDelete() {
-    setPendingAction('delete')
-    const result = await deleteOnboardingSolicitudAction(row.token)
-    setPendingAction(null)
-    if (!result.ok) {
-      toast.error(copy.deleteError)
-      return
-    }
-    toast.success(copy.deleteSuccess)
-    await refreshRows()
-  }
-
-  return (
-    <div
-      className="flex flex-wrap items-center justify-end gap-1"
-      onClick={(event) => event.stopPropagation()}
-    >
-      {row.status === 'active' ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleResend}
-          disabled={pendingAction !== null}
-          aria-label={pendingAction === 'resend' ? copy.actions.sendingLink : copy.actions.sendLink}
-          className="h-8 gap-1 px-2"
-        >
-          <Send className="size-3.5" aria-hidden />
-          <span className="hidden sm:inline">
-            {pendingAction === 'resend' ? copy.actions.sendingLink : copy.actions.sendLink}
-          </span>
-        </Button>
-      ) : null}
-      {row.status === 'active' ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleRevoke}
-          disabled={pendingAction !== null}
-          aria-label={pendingAction === 'revoke' ? copy.actions.revoking : copy.actions.revoke}
-          className="h-8 gap-1 px-2"
-        >
-          <XCircle className="size-3.5" aria-hidden />
-          <span className="hidden sm:inline">
-            {pendingAction === 'revoke' ? copy.actions.revoking : copy.actions.revoke}
-          </span>
-        </Button>
-      ) : null}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => setDeleteConfirmOpen(true)}
-        disabled={pendingAction !== null}
-        aria-label={pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
-        className="h-8 gap-1 px-2 text-destructive hover:text-destructive"
-      >
-        <Trash2 className="size-3.5" aria-hidden />
-        <span className="hidden sm:inline">
-          {pendingAction === 'delete' ? copy.actions.deleting : copy.actions.delete}
-        </span>
-      </Button>
-      <PortalConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        title={copy.actions.delete}
-        description={copy.deleteConfirm}
-        confirmLabel={copy.actions.delete}
-        confirmVariant="destructive"
-        onConfirm={() => {
-          void handleDelete()
-        }}
-      />
-    </div>
-  )
-}
-
-function OnboardingSolicitudTable({
-  rows,
-  filter,
-  onUpdated,
-}: {
-  rows: OnboardingSolicitudRow[]
-  filter: ListFilter
-  onUpdated: (rows: OnboardingSolicitudRow[]) => void
-}) {
-  const copy = solicitudes.list
-  const router = useRouter()
-
-  const filteredRows = useMemo(() => {
-    if (filter === 'all') return rows
-    return rows.filter((row) => row.status === 'active')
-  }, [filter, rows])
-
-  if (filteredRows.length === 0) {
-    return (
-      <div className="portal-home-card rounded-xl px-5 py-10 text-center">
-        <p className="font-sans text-base font-medium text-foreground">
-          {filter === 'pending' ? copy.emptyPendingTitle : copy.emptyAllTitle}
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {filter === 'pending'
-            ? copy.emptyPendingDescription
-            : copy.emptyAllDescription}
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="portal-home-card overflow-x-auto rounded-xl">
-      <table className="w-full min-w-[640px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-border dark:border-border/50">
-            {Object.entries(copy.columns).map(([key, header]) => (
-              <th
-                key={key}
-                scope="col"
-                className={cn(
-                  'px-4 py-3 font-sans font-medium text-muted-foreground',
-                  key === 'actions' && 'text-right'
-                )}
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {filteredRows.map((row) => (
-            <tr
-              key={row.token}
-              onClick={() => router.push(`/solicitudes/${row.token}`)}
-              className="cursor-pointer border-b border-border last:border-b-0 hover:bg-muted/40 dark:border-border/50"
-            >
-              <td className="max-w-[160px] truncate px-4 py-3 text-foreground sm:max-w-[220px]">
-                {row.clientName ?? copy.unknownClient}
-              </td>
-              <td
-                className="max-w-[140px] truncate px-4 py-3 text-muted-foreground sm:max-w-[240px]"
-                title={row.recipientEmail ?? undefined}
-              >
-                {row.recipientEmail ?? '—'}
-              </td>
-              <td
-                className="px-4 py-3"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <OnboardingTokenSecret
-                  token={row.token}
-                  className="min-w-0 sm:min-w-[12rem]"
-                />
-              </td>
-              <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-                {formatOnboardingDateNumeric(row.expiresAt)}
-              </td>
-              <td className="px-4 py-3 text-right">
-                <OnboardingSolicitudRowActions row={row} onUpdated={onUpdated} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-export function SolicitudesPageView({
-  initialClients,
-  initialRows,
-}: SolicitudesPageViewProps) {
+export function SolicitudesPageView({ initialRows }: SolicitudesPageViewProps) {
   const copy = solicitudes.page
   const altaCopy = solicitudes.altaAutonomo
   const listCopy = solicitudes.list
   const [rows, setRows] = useState(initialRows)
-  const [filter, setFilter] = useState<ListFilter>('pending')
+  const [filter, setFilter] = useState<SolicitudListFilter>('pending')
   const [createOpen, setCreateOpen] = useState(false)
 
   const pendingCount = useMemo(
     () => rows.filter((row) => row.status === 'active').length,
     [rows]
   )
+  const closedCount = rows.length - pendingCount
 
   return (
     <div className="flex flex-col gap-6">
@@ -483,10 +55,10 @@ export function SolicitudesPageView({
               onClick={() => setFilter('pending')}
             />
             <PortalFilterChip
-              label={listCopy.filterAll}
-              count={rows.length}
-              active={filter === 'all'}
-              onClick={() => setFilter('all')}
+              label={listCopy.filterClosed}
+              count={closedCount}
+              active={filter === 'closed'}
+              onClick={() => setFilter('closed')}
             />
           </div>
           <Button
@@ -504,7 +76,6 @@ export function SolicitudesPageView({
 
       <AltaAutonomoCreateDialog
         open={createOpen}
-        clients={initialClients}
         onOpenChange={setCreateOpen}
         onCreated={setRows}
       />

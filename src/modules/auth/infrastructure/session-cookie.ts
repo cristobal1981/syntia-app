@@ -69,7 +69,13 @@ export async function parseSessionToken(
 }
 
 export function getSessionSecret(): string {
-  return process.env.PORTAL_SESSION_SECRET || 'syntia-dev-session-secret'
+  const secret = process.env.PORTAL_SESSION_SECRET
+  if (!secret) {
+    throw new Error(
+      'PORTAL_SESSION_SECRET no está configurada. Es obligatoria para firmar la cookie de sesión.'
+    )
+  }
+  return secret
 }
 
 export async function getSessionFromToken(

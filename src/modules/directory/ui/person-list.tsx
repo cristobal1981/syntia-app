@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Search, UserRound, Users } from 'lucide-react'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { equipo } from '@/content/equipo'
 import type { PersonStatus } from '@/src/modules/directory/domain/types'
@@ -26,6 +27,19 @@ type PersonListProps = {
   emptyTitle: string
   emptyDescription: string
   onSelect: (id: string) => void
+  /** Selección múltiple (checkboxes) — omitir para desactivarla por completo. */
+  selectedIds?: Set<string>
+  onToggleSelected?: (id: string) => void
+  onToggleSelectAll?: (ids: string[]) => void
+  /**
+   * Búsqueda controlada por el padre (server-side, ya aplicada a `items`
+   * antes de pasarlos aquí) — cuando se pasa, `PersonList` deja de filtrar
+   * en memoria y el checkbox "seleccionar todo" selecciona exactamente lo
+   * recibido en `items` (la página actual). Sin esto, mantiene el filtrado
+   * 100% client-side de siempre (usado hoy por la lista de gestores).
+   */
+  searchValue?: string
+  onSearchChange?: (value: string) => void
 }
 
 export function PersonList({
@@ -35,12 +49,22 @@ export function PersonList({
   emptyTitle,
   emptyDescription,
   onSelect,
+  selectedIds,
+  onToggleSelected,
+  onToggleSelectAll,
+  searchValue,
+  onSearchChange,
 }: PersonListProps) {
-  const [query, setQuery] = useState('')
+  const selectable = Boolean(selectedIds && onToggleSelected && onToggleSelectAll)
+  const bulkCopy = equipo.clientes.bulk
+  const serverSearch = Boolean(onSearchChange)
+  const [localQuery, setLocalQuery] = useState('')
+  const query = serverSearch ? searchValue ?? '' : localQuery
   const gestorColumns = equipo.gestores.columns
   const clientColumns = equipo.clientes.columns
 
   const filtered = useMemo(() => {
+    if (serverSearch) return items
     const normalized = query.trim().toLowerCase()
     if (!normalized) return items
     return items.filter((item) => {
@@ -56,9 +80,13 @@ export function PersonList({
         .toLowerCase()
       return haystack.includes(normalized)
     })
-  }, [items, query])
+  }, [items, query, serverSearch])
 
-  if (!items.length) {
+  // En modo server-search, `items` ya es el resultado de la búsqueda actual
+  // — vacío por "0 resultados para esta búsqueda" no es lo mismo que "0
+  // personas en total", así que el estado vacío grande solo aplica sin
+  // búsqueda activa; con búsqueda, cae al mensaje "sin resultados" de abajo.
+  if (!items.length && !(serverSearch && query.trim())) {
     return (
       <div className="portal-home-card rounded-2xl px-6 py-12 text-center">
         <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -85,7 +113,11 @@ export function PersonList({
         />
         <Input
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) =>
+            serverSearch
+              ? onSearchChange?.(event.target.value)
+              : setLocalQuery(event.target.value)
+          }
           placeholder={searchPlaceholder}
           className="pl-9"
           aria-label={searchPlaceholder}
@@ -96,6 +128,20 @@ export function PersonList({
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
+              {selectable ? (
+                <th className="w-10 px-4 py-3">
+                  <Checkbox
+                    aria-label={bulkCopy.selectAll}
+                    checked={
+                      filtered.length > 0 &&
+                      filtered.every((item) => selectedIds?.has(item.id))
+                    }
+                    onCheckedChange={() =>
+                      onToggleSelectAll?.(filtered.map((item) => item.id))
+                    }
+                  />
+                </th>
+              ) : null}
               <th className="px-4 py-3 font-medium">{gestorColumns.name}</th>
               <th className="px-4 py-3 font-medium">{gestorColumns.email}</th>
               {kind === 'gestor' ? (
@@ -104,6 +150,9 @@ export function PersonList({
               <th className="px-4 py-3 font-medium">
                 {kind === 'gestor' ? gestorColumns.company : clientColumns.company}
               </th>
+              {kind === 'gestor' ? (
+                <th className="px-4 py-3 font-medium">{gestorColumns.clients}</th>
+              ) : null}
               {kind === 'client' ? (
                 <th className="px-4 py-3 font-medium">{clientColumns.advisor}</th>
               ) : null}
@@ -127,6 +176,18 @@ export function PersonList({
                 tabIndex={0}
                 role="button"
               >
+                {selectable ? (
+                  <td
+                    className="px-4 py-3"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Checkbox
+                      aria-label={bulkCopy.selectRow}
+                      checked={selectedIds?.has(item.id) ?? false}
+                      onCheckedChange={() => onToggleSelected?.(item.id)}
+                    />
+                  </td>
+                ) : null}
                 <td className="px-4 py-3 font-medium text-foreground">
                   {item.name}
                 </td>
@@ -139,6 +200,11 @@ export function PersonList({
                 <td className="px-4 py-3 text-muted-foreground">
                   {item.companyName ?? '—'}
                 </td>
+                {kind === 'gestor' ? (
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {item.meta ?? '—'}
+                  </td>
+                ) : null}
                 {kind === 'client' ? (
                   <td className="px-4 py-3 text-muted-foreground">
                     {item.meta ?? '—'}

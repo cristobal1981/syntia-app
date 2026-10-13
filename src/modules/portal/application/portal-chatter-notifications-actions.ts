@@ -1,6 +1,12 @@
 'use server'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import {
+  filterNotificationsForWorker,
+  maskStatsForWorker,
+} from '@/src/modules/colaboradores/application/mask-dashboard-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import type {
   PortalAckNotificationResult,
@@ -30,11 +36,11 @@ import { verifyClientRecordAccess } from '@/src/modules/portal/infrastructure/po
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 async function resolveClientAccess(): Promise<
-  | { ok: true; partnerId: number; actorId: string }
+  | { ok: true; partnerId: number; actorId: string; user: PortalUser }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 
@@ -48,7 +54,7 @@ async function resolveClientAccess(): Promise<
   }
 
   const actorId = await resolveDirectoryActorId(session.user)
-  return { ok: true, partnerId, actorId }
+  return { ok: true, partnerId, actorId, user: session.user }
 }
 
 function readStateMapToObject(map: Map<string, number>): ChatterReadStateMap {
@@ -61,12 +67,23 @@ export async function checkPortalNotificationsAction(): Promise<PortalNotificati
     return { ok: false, error: access.error }
   }
 
-  return loadClientPortalNotifications({
+  const result = await loadClientPortalNotifications({
     partnerId: access.partnerId,
     actorId: access.actorId,
     cache: false,
     persist: true,
   })
+
+  if (access.user.role === 'worker' && result.ok) {
+    const allowedSections = await getAllowedSectionsForWorker(access.user)
+    return {
+      ...result,
+      stats: maskStatsForWorker(result.stats, allowedSections),
+      unread: filterNotificationsForWorker(result.unread, allowedSections),
+    }
+  }
+
+  return result
 }
 
 /** @deprecated Use checkPortalNotificationsAction */

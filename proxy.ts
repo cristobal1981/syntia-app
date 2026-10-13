@@ -25,7 +25,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (pathname.startsWith(AUTH_PAGES_PREFIX) && isAuthenticated) {
+  /**
+   * Un `worker` puede tener un token firmado válido (superficie que este
+   * proxy comprueba sin ir a la base de datos) cuyo acceso real ya ha sido
+   * revocado (grant/toggle del titular) — eso solo lo sabe el chequeo
+   * profundo de `getSession()` en cada página, que entonces lo manda de
+   * vuelta a `/login`. Si aquí lo rebotáramos igual que a un `client`/`admin`
+   * autenticado, entraría en un bucle infinito /dashboard -> /login ->
+   * /dashboard. Para un worker, dejar pasar `/login` y que sea la página la
+   * que decida si de verdad tiene sesión válida.
+   */
+  if (
+    pathname.startsWith(AUTH_PAGES_PREFIX) &&
+    isAuthenticated &&
+    session?.user.role !== 'worker'
+  ) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

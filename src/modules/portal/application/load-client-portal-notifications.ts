@@ -1,3 +1,5 @@
+import { revalidateTag } from 'next/cache'
+
 import {
   computeFirmaWatchDeltas,
   computeRecordWatchDeltas,
@@ -8,6 +10,7 @@ import {
 } from '@/src/modules/portal/domain/compute-portal-notifications'
 import type {
   PortalNotificationsCheckResult,
+  PortalNotificationsStats,
   ChatterReadStateMap,
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
@@ -25,6 +28,7 @@ import {
   getFreshPendingSignaturesSnapshotSafe,
   getFreshTramitesSnapshotSafe,
   getFreshUnreadChatterCandidates,
+  tramitesSnapshotCacheTag,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import {
@@ -35,10 +39,9 @@ import {
   fetchWatchStateForUser,
   upsertWatchStateBatch,
 } from '@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
-import { ensureTramitesListSeenInitialized } from '@/src/modules/tramites/application/tramites-list-seen-actions'
+import { ensureTramitesListSeenInitialized } from '@/src/modules/tramites/application/tramites-list-seen-loader'
 import { fetchTramitesListSeenState } from '@/src/modules/tramites/infrastructure/tramites-list-seen-state.supabase'
 import {
-  formatTramiteListItemKey,
   getTramiteListItemKey,
   getTramiteListRecordKind,
   mergeTramitesList,
@@ -56,6 +59,7 @@ function obligacionWatchables(
   leaves: Array<{
     id: number
     name: string
+    displayLabel: string
     state?: string
     modifiedAt: string
     attachmentCount: number
@@ -64,7 +68,9 @@ function obligacionWatchables(
   return leaves.map((leaf) => ({
     scope: 'obligacion',
     recordId: leaf.id,
-    name: leaf.name,
+    // Título client-friendly ("Modelo 111 · Trimestre 2"), nunca el nombre
+    // crudo de la tarea en Odoo (que arrastra el nombre del cliente).
+    name: leaf.displayLabel,
     state: leaf.state,
     isClosed: isTaskClosed(leaf.state),
     attachmentCount: leaf.attachmentCount,
@@ -229,13 +235,6 @@ export async function loadClientPortalNotifications(input: {
 
     const newTramiteKeys = new Set(computeNewTramiteListItemKeys(items, seenState))
 
-    const unreadChatterFiltered = unreadChatterWithMeta.filter((item) => {
-      if (item.listKind !== 'tramite') return true
-      return !newTramiteKeys.has(
-        formatTramiteListItemKey('tramite', item.recordId)
-      )
-    })
-
     const newTramiteNotifications = items
       .filter(
         (item) =>
@@ -267,7 +266,7 @@ export async function loadClientPortalNotifications(input: {
     }
 
     const allUnread = mergeAndSortPortalNotifications(
-      unreadChatterFiltered,
+      unreadChatterWithMeta,
       newTramiteNotifications,
       recordDeltas.notifications,
       firmaDeltas.notifications
@@ -301,6 +300,36 @@ export async function loadClientPortalNotifications(input: {
         watchUpdates.length > 0 ||
         tramitesBaselineInitialized)
 
+    // El snapshot de trámites vive en unstable_cache (90s) para no repetir
+    // peticiones a Odoo en cada render; sin esto, un cambio de estado
+    // detectado aquí tardaría hasta 90s en reflejarse en /tramites pese a
+    // que el poll ya fuerza un router.refresh() justo después.
+    const tramitesChanged =
+      newTramiteNotifications.length > 0 ||
+      recordDeltas.notifications.some(
+        (notification) =>
+          notification.scope === 'tramite' || notification.scope === 'consulta'
+      )
+    if (persist && tramitesChanged) {
+      revalidateTag(tramitesSnapshotCacheTag(input.partnerId), { expire: 0 })
+    }
+
+    const openObligaciones = obligSnap.leaves.filter((leaf) => !isTaskClosed(leaf.state))
+    const nextObligacion =
+      openObligaciones
+        .filter(
+          (leaf): leaf is typeof leaf & { deadline: string } => Boolean(leaf.deadline)
+        )
+        .sort((a, b) => a.deadline.localeCompare(b.deadline))
+        .map((leaf) => ({ name: leaf.displayLabel, deadline: leaf.deadline }))[0] ?? null
+
+    const stats: PortalNotificationsStats = {
+      activeTramitesAndConsultas: openItems.length,
+      obligacionesInProgress: openObligaciones.length,
+      pendingSignatures: firmasSnap.requests.length,
+      nextObligacion,
+    }
+
     return {
       ok: true,
       unread: allUnread,
@@ -311,6 +340,7 @@ export async function loadClientPortalNotifications(input: {
         newTramiteNotifications.length > 0 ||
         recordDeltas.notifications.length > 0 ||
         firmaDeltas.notifications.length > 0,
+      stats,
     }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }

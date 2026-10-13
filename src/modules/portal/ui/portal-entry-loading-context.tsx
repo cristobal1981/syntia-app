@@ -12,7 +12,7 @@ import {
 } from 'react'
 
 import { AuthSessionOverlay } from '@/src/modules/auth/ui/auth-session-overlay'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
 export const PORTAL_ENTRY_SESSION_KEY = 'syntia-portal-entry'
 
@@ -54,6 +54,9 @@ export function PortalEntryLoadingProvider({ children }: { children: ReactNode }
 
     if (!pending) return
 
+    // Depende de sessionStorage/searchParams (solo legibles en cliente, tras
+    // montar) — no es estado derivable durante el render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEntryLoading(true)
     setEntryInitialized(true)
 
@@ -61,6 +64,17 @@ export function PortalEntryLoadingProvider({ children }: { children: ReactNode }
       router.replace('/dashboard', { scroll: false })
     }
   }, [entryInitialized, pathname, router, searchParams])
+
+  // El layout del portal sobrevive (oculto) entre sesiones; al desmontar sus efectos
+  // se reinicia el estado para que un nuevo login vuelva a mostrar el loader de entrada.
+  useEffect(
+    () => () => {
+      setEntryLoading(false)
+      setEntryReady(false)
+      setEntryInitialized(false)
+    },
+    []
+  )
 
   const dismissEntryOverlay = useCallback(() => {
     try {
@@ -113,7 +127,7 @@ function useCompletePortalEntry() {
 export function PortalDashboardReadyMarker() {
   const pathname = usePathname()
   const completePortalEntry = useCompletePortalEntry()
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
 
   useEffect(() => {
     if (pathname !== '/dashboard') return

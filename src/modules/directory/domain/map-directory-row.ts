@@ -47,6 +47,7 @@ export type UserRow = {
   role: string | null
   status: string | null
   is_active: boolean | null
+  odoo_user_id: number | null
 }
 
 export type DirectoryPersonSource = {
@@ -61,7 +62,7 @@ export const PROFILE_SELECT =
 export const CLIENT_INTEGRATION_SELECT =
   'user_id, odoo_partner_id, odoo_user_id, drive_folder_id'
 
-export const USER_SELECT = 'id, email, role, status, is_active'
+export const USER_SELECT = 'id, email, role, status, is_active, odoo_user_id'
 
 export function mapDbRoleToPortal(role: string | null | undefined): PortalRole | null {
   if (!role) return null
@@ -86,11 +87,14 @@ export function mapStatusToPersonStatus(
   status: string | null | undefined
 ): PersonStatus {
   if (!status) return 'invited'
-  return status.toLowerCase() === 'active' ? 'active' : 'invited'
+  const normalized = status.toLowerCase()
+  if (normalized === 'active') return 'active'
+  if (normalized === 'archived') return 'archived'
+  return 'invited'
 }
 
 export function mapPersonStatusToDb(status: PersonStatus): string {
-  return status === 'active' ? 'active' : 'invited'
+  return status
 }
 
 export function sanitizeNullable(value: string | null | undefined): string | undefined {
@@ -209,6 +213,7 @@ export function mapDirectorySourceToGestor(
     companyName,
     phone,
     status: resolvePersonStatus(source),
+    odooUserId: formatOdooPartnerId(source.user.odoo_user_id),
   }
 }
 

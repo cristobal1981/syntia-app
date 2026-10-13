@@ -5,18 +5,26 @@ import { ChevronRight } from 'lucide-react'
 
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { cn } from '@/lib/utils'
-import type { SolicitudPickerId } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  isProcedureTypeAvailable,
+  type SolicitudPickerId,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 
 type TramiteSolicitudPickerProps = {
   onSelect: (id: SolicitudPickerId) => void
 }
 
-const PICKER_OPTIONS = [
+const ALL_PICKER_OPTIONS = [
   tramiteSolicitudes.picker.altaTrabajador,
   tramiteSolicitudes.picker.bajaTrabajador,
   tramiteSolicitudes.picker.cartaVacaciones,
   tramiteSolicitudes.picker.general,
 ] as const
+
+/** Solo se ofrece lo que está disponible (ver `isProcedureTypeAvailable`). */
+const PICKER_OPTIONS = ALL_PICKER_OPTIONS.filter(
+  (option) => option.id === 'general' || isProcedureTypeAvailable(option.id)
+)
 
 export function TramiteSolicitudPicker({ onSelect }: TramiteSolicitudPickerProps) {
   const groupId = useId()

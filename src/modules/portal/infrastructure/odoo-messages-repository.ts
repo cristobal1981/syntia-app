@@ -3,7 +3,7 @@ import type {
   PortalChatterAttachmentRef,
   PortalChatterMessage,
 } from '@/src/modules/portal/domain/portal-chatter-types'
-import { chatterReadStateKey } from '@/src/modules/portal/domain/chatter-notifications-types'
+import { chatterReadStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
   filterOdooMailMessageRows,
   formatChatterBodyFromOdoo,
@@ -27,6 +27,7 @@ import {
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveAttachmentMetaByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
+import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 
 type OdooMailMessageBatchRow = OdooMailMessageRow & {
   res_id?: number | false | null
@@ -45,6 +46,7 @@ function buildBatchMessageDomain(
 
   if (shouldFilterInternalChatterMessages()) {
     domain.push(['is_internal', '=', false])
+    domain.push(['subtype_id.internal', '=', false])
   }
 
   if (typeof afterId === 'number' && afterId > 0) {
@@ -57,7 +59,7 @@ function buildBatchMessageDomain(
 function buildMessageDomain(
   resModel: string,
   recordId: number,
-  beforeId?: number
+  options?: { beforeId?: number; afterId?: number }
 ): unknown[] {
   const domain: unknown[] = [
     ['model', '=', resModel],
@@ -67,10 +69,15 @@ function buildMessageDomain(
 
   if (shouldFilterInternalChatterMessages()) {
     domain.push(['is_internal', '=', false])
+    domain.push(['subtype_id.internal', '=', false])
   }
 
-  if (typeof beforeId === 'number' && beforeId > 0) {
-    domain.push(['id', '<', beforeId])
+  if (typeof options?.beforeId === 'number' && options.beforeId > 0) {
+    domain.push(['id', '<', options.beforeId])
+  }
+
+  if (typeof options?.afterId === 'number' && options.afterId > 0) {
+    domain.push(['id', '>', options.afterId])
   }
 
   return domain
@@ -112,7 +119,7 @@ function mapOdooRowToPortalMessage(
   return {
     id: row.id,
     bodyHtml: hasBody ? formatChatterBodyFromOdoo(body) : '',
-    date,
+    date: parseOdooDateTime(date) || date,
     authorName,
     ...(isFromClient || !authorId ? {} : { authorPartnerId: authorId }),
     isFromClient,
@@ -150,7 +157,7 @@ export async function listPortalMessagesPage(input: {
 
   while (visible.length <= pageSize && !exhausted) {
     const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
-      domain: buildMessageDomain(input.resModel, input.recordId, cursor),
+      domain: buildMessageDomain(input.resModel, input.recordId, { beforeId: cursor }),
       fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
       order: 'id desc',
       limit: Math.max(pageSize + 1, 20),
@@ -191,26 +198,40 @@ export async function listPortalMessagesPage(input: {
   return { messages, hasMore }
 }
 
-async function readPortalMessageById(
-  messageId: number,
+/**
+ * Trae solo los mensajes posteriores a `afterId` para un registro. Pensado
+ * para refrescar un chat ya abierto sin repetir toda la conversación:
+ * se dispara puntualmente cuando el poll de novedades (que ya corre igual)
+ * detecta un mensaje nuevo para ese registro, no en cada tick.
+ */
+export async function listNewerPortalMessages(input: {
+  resModel: string
+  recordId: number
   clientPartnerId: number
-): Promise<PortalChatterMessage> {
+  afterId: number
+}): Promise<PortalChatterMessage[]> {
+  const excludedPartnerIds = getChatterExcludedPartnerIds()
+
   const rows = await odooSearchRead<OdooMailMessageRow>('mail.message', {
-    domain: [['id', '=', messageId]],
+    domain: buildMessageDomain(input.resModel, input.recordId, {
+      afterId: input.afterId,
+    }),
     fields: ['body', 'date', 'author_id', 'message_type', 'parent_id', 'attachment_ids'],
-    limit: 1,
+    order: 'id asc',
+    limit: 50,
   })
 
-  const attachmentMeta = await resolveAttachmentMetaForRows(rows)
-  const mapped = rows[0]
-    ? mapOdooRowToPortalMessage(rows[0], clientPartnerId, attachmentMeta)
-    : null
+  if (!rows.length) return []
 
-  if (!mapped) {
-    throw new Error('ODOO_MESSAGE_NOT_FOUND')
-  }
+  const filtered = filterOdooMailMessageRows(rows, {
+    clientPartnerId: input.clientPartnerId,
+    excludedPartnerIds,
+  })
 
-  return mapped
+  const attachmentMeta = await resolveAttachmentMetaForRows(filtered)
+  return filtered
+    .map((row) => mapOdooRowToPortalMessage(row, input.clientPartnerId, attachmentMeta))
+    .filter((message): message is PortalChatterMessage => message !== null)
 }
 
 function buildPostedPortalMessage(input: {
@@ -403,11 +424,44 @@ export async function findUnreadChatterCandidatesForRecords(input: {
       const maxVisibleId = Math.max(...recordRows.map((row) => row.id))
 
       if (lastSeen === undefined) {
-        bootstrapUpdates.push({
-          recordKind: group.recordKind,
-          recordId: record.recordId,
-          lastSeenMessageId: maxVisibleId,
+        // El baseline recién creado evita marcar como "sin leer" el propio
+        // primer mensaje del cliente en un registro que nunca tuvo lectura
+        // — pero si quien escribió primero fue el asesor (el cliente nunca
+        // abrió esto y ya tiene algo pendiente), el baseline se ancla justo
+        // antes de ese mensaje en vez de al final: así sigue apareciendo
+        // como "sin leer" en los polls siguientes en lugar de desaparecer
+        // solo tras el primer aviso, hasta que el cliente abra de verdad
+        // la conversación.
+        const latestFromGestorOnFirstSeen = recordRows.find((row) => {
+          const authorId = mapOdooMany2OneId(row.author_id)
+          return !isClientChatterAuthor(authorId, input.clientPartnerId)
         })
+
+        if (latestFromGestorOnFirstSeen) {
+          bootstrapUpdates.push({
+            recordKind: group.recordKind,
+            recordId: record.recordId,
+            lastSeenMessageId: latestFromGestorOnFirstSeen.id - 1,
+          })
+
+          unread.push({
+            recordKind: group.recordKind,
+            recordId: record.recordId,
+            latestMessageId: latestFromGestorOnFirstSeen.id,
+            latestDate:
+              typeof latestFromGestorOnFirstSeen.date === 'string'
+                ? parseOdooDateTime(latestFromGestorOnFirstSeen.date) ||
+                  latestFromGestorOnFirstSeen.date
+                : '',
+          })
+        } else {
+          bootstrapUpdates.push({
+            recordKind: group.recordKind,
+            recordId: record.recordId,
+            lastSeenMessageId: maxVisibleId,
+          })
+        }
+
         continue
       }
 
@@ -420,7 +474,9 @@ export async function findUnreadChatterCandidatesForRecords(input: {
       if (!latestFromGestor) continue
 
       const latestDate =
-        typeof latestFromGestor.date === 'string' ? latestFromGestor.date : ''
+        typeof latestFromGestor.date === 'string'
+          ? parseOdooDateTime(latestFromGestor.date) || latestFromGestor.date
+          : ''
 
       unread.push({
         recordKind: group.recordKind,

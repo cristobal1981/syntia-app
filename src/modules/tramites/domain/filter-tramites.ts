@@ -77,7 +77,9 @@ function getItemStateChip(item: TramiteListItem): TramitesFilterChip | null {
   }
 
   if (badge.variant === 'done') return 'done'
-  if (badge.variant === 'inProgress') return 'inProgress'
+  if (badge.variant === 'inProgress' || badge.variant === 'changesRequested') {
+    return 'inProgress'
+  }
 
   return null
 }

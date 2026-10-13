@@ -1,0 +1,140 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { revalidateTag, updateTag } from 'next/cache'
+
+import type { PortalSession } from '@/src/modules/auth/domain/types'
+import { createTicketAction } from '@/src/modules/tramites/application/create-ticket-action'
+
+const {
+  getSession,
+  getWorkerWriteSections,
+  resolveClientOdooPartnerId,
+  isOdooApiConfigured,
+  createPartnerTicket,
+  postRecordComment,
+  checkRateLimit,
+} = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  getWorkerWriteSections: vi.fn(),
+  resolveClientOdooPartnerId: vi.fn(),
+  isOdooApiConfigured: vi.fn(),
+  createPartnerTicket: vi.fn(),
+  postRecordComment: vi.fn(),
+  checkRateLimit: vi.fn(),
+}))
+
+vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
+vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
+vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
+  getWorkerWriteSections,
+}))
+vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({
+  resolveClientOdooPartnerId,
+}))
+vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
+  isOdooApiConfigured,
+}))
+vi.mock('@/src/modules/tramites/infrastructure/odoo-create-ticket-repository', () => ({
+  createPartnerTicket,
+}))
+vi.mock('@/src/modules/portal/infrastructure/odoo-messages-repository', () => ({
+  postRecordComment,
+}))
+vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
+  getOdooModelForRecordKind: () => 'helpdesk.ticket',
+}))
+vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
+  tramitesSnapshotCacheTag: () => 'tag',
+}))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), updateTag: vi.fn() }))
+
+function sessionFor(role: 'client' | 'worker'): PortalSession {
+  return {
+    user: { id: `u-${role}`, email: `${role}@example.com`, name: role, role },
+    expiresAt: Date.now() + 100000,
+  }
+}
+
+beforeEach(() => {
+  vi.resetAllMocks()
+  resolveClientOdooPartnerId.mockResolvedValue(999)
+  isOdooApiConfigured.mockReturnValue(true)
+  createPartnerTicket.mockResolvedValue(42)
+  postRecordComment.mockResolvedValue({})
+  checkRateLimit.mockResolvedValue(true)
+})
+
+describe('createTicketAction (/tramites section gate for colaboradores)', () => {
+  it('refuses a worker without /tramites in write before ever hitting Odoo', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/documentos']))
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toMatchObject({ ok: false, error: 'forbidden' })
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+    expect(createPartnerTicket).not.toHaveBeenCalled()
+  })
+
+  it('refuses a worker with /tramites only at "read" level (view-only cannot create)', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    getWorkerWriteSections.mockResolvedValue(new Set())
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toMatchObject({ ok: false, error: 'forbidden' })
+    expect(createPartnerTicket).not.toHaveBeenCalled()
+  })
+
+  it('lets a worker with /tramites granted at "write" level create the ticket', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    getWorkerWriteSections.mockResolvedValue(new Set(['/tramites']))
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(createPartnerTicket).toHaveBeenCalled()
+  })
+
+  it('expira el snapshot de trámites al instante (updateTag, no revalidateTag stale)', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(updateTag).toHaveBeenCalledWith('tag')
+    expect(revalidateTag).not.toHaveBeenCalled()
+  })
+
+  it('never section-checks a full client', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(getWorkerWriteSections).not.toHaveBeenCalled()
+  })
+})
+
+describe('createTicketAction (rate limiting)', () => {
+  it('rechaza con rate_limited sin tocar Odoo cuando se supera el límite', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    checkRateLimit.mockResolvedValue(false)
+
+    const result = await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(result).toEqual({ ok: false, error: 'rate_limited' })
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+    expect(createPartnerTicket).not.toHaveBeenCalled()
+  })
+
+  it('usa una clave por usuario, no global', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      expect.stringContaining('u-client'),
+      expect.objectContaining({ limit: expect.any(Number), windowSeconds: expect.any(Number) })
+    )
+  })
+})

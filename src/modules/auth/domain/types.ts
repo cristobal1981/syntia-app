@@ -1,4 +1,17 @@
-export type PortalRole = 'advisor' | 'admin' | 'client'
+export type PortalRole = 'advisor' | 'admin' | 'client' | 'worker'
+
+/**
+ * Un `worker` (colaborador) opera sobre los mismos datos de empresa que su
+ * titular `client` — cualquier check que hoy exija `role === 'client'` para
+ * acceder a datos de empresa (no a gestión de cuenta) debe aceptar también
+ * `worker`, y dejar que el filtrado fino de sección viva en
+ * `assertSectionAccess`/`getAllowedSectionsForWorker`.
+ */
+export function isClientOrWorkerRole(
+  role: PortalRole
+): role is 'client' | 'worker' {
+  return role === 'client' || role === 'worker'
+}
 
 export type PortalUser = {
   id: string

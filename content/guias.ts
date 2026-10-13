@@ -34,18 +34,25 @@ export const guias = {
     title: 'Guías',
     description:
       'Guías prácticas sobre impuestos, plazos y trámites habituales. Si tienes dudas sobre tu caso concreto, tu asesor te orientará.',
-    searchLabel: 'Buscar en las guías',
-    searchPlaceholder: 'Ej.: renta, IVA, autónomo…',
     nowTitle: 'Ahora toca',
     nowDescription: 'Plazos abiertos o a punto de abrirse.',
+    /** Bocadillo de Sappo sobre el plazo más urgente. {subject} = modelos o título. */
+    sappo: {
+      activeToday: 'Conste en acta: hoy es el último día para presentar {subject}.',
+      activeOne: 'Conste en acta: queda 1 día para presentar {subject}.',
+      activeMany: 'Conste en acta: quedan {days} días para presentar {subject}.',
+      upcomingOne: 'Atención: mañana se abre el plazo para presentar {subject}.',
+      upcomingMany: 'Atención: en {days} días se abre el plazo para presentar {subject}.',
+      oneModel: 'el modelo {codes}',
+      manyModels: 'los modelos {codes}',
+      moreModels: 'y otros {count}',
+    },
     activeBadge: 'Plazo abierto',
     upcomingBadge: 'Empieza pronto',
     relatedGuidesLabel: 'Guías relacionadas',
     relatedModelsLabel: 'Modelos',
     allTitle: 'Todas las guías',
-    noResultsTitle: 'Sin resultados',
-    noResultsDescription:
-      'No encontramos guías con ese término. Prueba con otra palabra.',
+    readGuide: 'Leer guía',
   },
   detail: {
     backToHub: 'Volver a guías',
@@ -90,13 +97,13 @@ export const guias = {
         '115',
       ],
       relatedModelCodes: ['303', '111', '115', '130', '131'],
-      calendarWindowIds: ['t1', 't2', 't3', 't4'],
+      calendarWindowIds: ['t1', 't2', 't3', 't4', 't4-retenciones'],
       sections: [
         {
           heading: 'Qué se presenta cada trimestre',
           paragraphs: [
             'Al cerrar cada trimestre natural se presentan las autoliquidaciones periódicas: el IVA (modelo 303) y, si procede, las retenciones practicadas a trabajadores y profesionales (modelo 111), las retenciones por alquileres (modelo 115) y los pagos fraccionados de IRPF para autónomos (modelos 130 o 131).',
-            'El plazo general es del 1 al 20 del mes siguiente al cierre del trimestre (abril, julio y octubre). El cuarto trimestre se presenta en enero, con plazo ampliado hasta el día 30.',
+            'El plazo general es del 1 al 20 del mes siguiente al cierre del trimestre (abril, julio y octubre). El cuarto trimestre se presenta en enero: el IVA tiene plazo ampliado hasta el día 30 (coincide con el resumen anual, modelo 390), mientras que las retenciones y pagos fraccionados mantienen el plazo general hasta el día 20.',
           ],
         },
         {

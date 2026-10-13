@@ -23,6 +23,10 @@ export const portal = {
         'El acceso con Google aún no está configurado. Contacta con tu administrador.',
       oauth_failed: 'No pudimos conectar con Google. Inténtalo de nuevo.',
       auth_callback: 'No pudimos completar el acceso. Vuelve a intentarlo.',
+      worker_access_disabled:
+        'Tu acceso como colaborador ha sido desactivado. Contacta con el titular de la cuenta.',
+      account_disabled:
+        'Esta cuenta no tiene acceso a la plataforma. Contacta con tu asesoría.',
     },
   },
   recovery: {
@@ -79,6 +83,8 @@ export const portal = {
       mismatch: 'Las contraseñas no coinciden.',
       same_password: 'La nueva contraseña debe ser distinta a la actual.',
       unknown: 'No pudimos actualizar la contraseña. Inténtalo de nuevo.',
+      account_disabled:
+        'Esta cuenta no tiene acceso a la plataforma. Contacta con tu asesoría.',
     },
   },
   search: {
@@ -95,9 +101,19 @@ export const portal = {
     actions: {
       tramites: 'Buscar trámites: «{query}»',
       obligaciones: 'Buscar obligaciones: «{query}»',
+      documentos: 'Buscar documentos: «{query}»',
+      clientes: 'Buscar clientes: «{query}»',
     },
     extras: {
       client: [
+        {
+          id: 'extra:guias',
+          label: 'Guías',
+          description: 'Guías prácticas y plazos fiscales',
+          href: '/guias',
+          icon: 'guides' as const,
+          keywords: ['guías', 'guias', 'plazos', 'calendario fiscal', 'ayuda'],
+        },
         {
           id: 'extra:guia-modelos',
           label: 'Guía de modelos tributarios',
@@ -107,12 +123,26 @@ export const portal = {
           keywords: ['modelos', 'iva', 'irpf', 'guía', 'fiscal', 'tributario'],
         },
       ],
+      worker: [
+        {
+          id: 'extra:guias',
+          label: 'Guías',
+          description: 'Guías prácticas y plazos fiscales',
+          href: '/guias',
+          icon: 'guides' as const,
+          keywords: ['guías', 'guias', 'plazos', 'calendario fiscal', 'ayuda'],
+        },
+      ],
       admin: [],
       advisor: [],
     },
   },
   shell: {
     signOutLabel: 'Cerrar sesión',
+    profileMenu: {
+      triggerLabel: 'Abrir menú de perfil',
+      settings: 'Configurar perfil',
+    },
     dashboardTitle: 'Inicio',
     searchPlaceholder: 'Buscar…',
     sidebarExpandLabel: 'Mostrar menú',
@@ -141,6 +171,101 @@ export const portal = {
       },
       highContrast: 'Alto contraste',
       underlineLinks: 'Subrayar enlaces',
+    },
+    quickInvoice: {
+      label: 'Factura de compra',
+      shortLabel: 'Factura',
+      subtitle: 'Subida rápida',
+      busy: 'Subiendo…',
+      hint: 'Subir una factura de compra a «{folder}»',
+      notice: {
+        title: 'Subir factura de compra',
+        intro: 'Elige tus facturas y se guardarán directamente en esta carpeta de Documentos:',
+        pathRoot: 'Documentos',
+        limits: 'PDF, imágenes u Office. Hasta 10 archivos y 10 MB en total.',
+        confirm: 'Elegir archivos',
+        cancel: 'Cancelar',
+      },
+    },
+    reportProblem: {
+      label: 'Reportar un problema',
+      title: 'Reportar un problema',
+      description:
+        'Cuéntanos qué no está funcionando. Cuanto más contexto nos des, antes lo solucionaremos.',
+      areaLabel: 'Apartado afectado',
+      areaPlaceholder: 'Selecciona un apartado',
+      areas: {
+        inicio: 'Inicio',
+        obligaciones: 'Obligaciones',
+        tramites: 'Trámites',
+        documentos: 'Documentos',
+        firmas: 'Firmas',
+        guias: 'Guías',
+        perfil: 'Perfil',
+        otro: 'Otro / no lo sé',
+      },
+      problemLabel: 'Descripción del problema',
+      problemPlaceholder: 'Qué esperabas que pasara y qué pasó en realidad…',
+      stepsLabel: 'Pasos para reproducirlo (opcional)',
+      stepsHelp: 'Ej. 1. Entro en Trámites 2. Busco "303" 3. No aparece nada…',
+      errorLabel: 'Error mostrado, si lo hubo (opcional)',
+      errorHelp: 'Copia aquí el mensaje de error tal cual lo viste.',
+      submit: 'Enviar reporte',
+      creating: 'Enviando…',
+      successToast: 'Gracias por reportar el problema. Lo revisaremos en breve.',
+      cancel: 'Cancelar',
+      unsavedTitle: '¿Descartar el reporte?',
+      unsavedDescription:
+        'Tienes cambios sin enviar. Si cierras ahora, se perderá lo que has escrito.',
+      discard: 'Descartar',
+      keepEditing: 'Seguir editando',
+      errors: {
+        areaRequired: 'Selecciona el apartado afectado.',
+        problemRequired: 'La descripción es obligatoria.',
+        problemTooLong: 'La descripción no puede superar 2000 caracteres.',
+        stepsTooLong: 'Los pasos no pueden superar 1000 caracteres.',
+        errorShownTooLong: 'El error no puede superar 1000 caracteres.',
+        forbidden: 'No tienes permiso para reportar problemas.',
+        odoo_unavailable: 'No pudimos enviar tu reporte. Inténtalo de nuevo.',
+        create_failed:
+          'No pudimos enviar tu reporte. Inténtalo de nuevo o contacta con tu asesor.',
+        unknown: 'No pudimos enviar tu reporte. Inténtalo de nuevo.',
+      },
+    },
+  },
+  onboardingChecklist: {
+    title: 'Primeros pasos',
+    progressLabel: '{completed} de {total}',
+    minimizeLabel: 'Minimizar guía',
+    finishLabel: 'Finalizar guía',
+    dismissedToast: 'Guía finalizada. Puedes volver a abrirla desde el menú de tu perfil.',
+    reopenLabel: 'Ver primeros pasos',
+    tipDismissLabel: 'Cerrar aviso',
+    steps: {
+      tramites: {
+        title: 'Trámites',
+        description:
+          'Aquí sigues cada trámite y consulta que gestionamos por ti, con su estado siempre actualizado.',
+      },
+      firmas: {
+        title: 'Firmas',
+        description: 'Si te llega una solicitud de firma, la encontrarás aquí.',
+      },
+      guias: {
+        title: 'Guías',
+        description:
+          'Si tienes dudas sobre modelos o plazos fiscales, consulta las guías antes de preguntar.',
+      },
+      buscador: {
+        title: 'Buscador',
+        description:
+          'Busca cualquier trámite, documento o guía desde aquí, en cualquier momento.',
+      },
+      nuevaConsulta: {
+        title: 'Nueva consulta',
+        description:
+          '¿No encuentras la respuesta? Envía una consulta directa a tu asesor asignado.',
+      },
     },
   },
   authLoading: {
@@ -205,6 +330,7 @@ export const portal = {
     advisor: 'Asesor Syntia',
     admin: 'Administrador',
     client: 'Cliente',
+    worker: 'Colaborador',
   } satisfies Record<PortalRole, string>,
   nav: {
     client: [
@@ -216,8 +342,23 @@ export const portal = {
         icon: 'obligations',
       },
       { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
+      { label: 'Documentos', href: '/documentos', implemented: true, icon: 'documents' },
       { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
+      { label: 'Guías', href: '/guias', implemented: true, icon: 'guides' },
       { label: 'Perfil', href: '/perfil', implemented: true, icon: 'profile' },
+    ],
+    worker: [
+      { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
+      {
+        label: 'Obligaciones',
+        href: '/obligaciones',
+        implemented: true,
+        icon: 'obligations',
+      },
+      { label: 'Trámites', href: '/tramites', implemented: true, icon: 'procedures' },
+      { label: 'Documentos', href: '/documentos', implemented: true, icon: 'documents' },
+      { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
+      { label: 'Guías', href: '/guias', implemented: true, icon: 'guides' },
     ],
     admin: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
@@ -238,28 +379,38 @@ export const portal = {
             implemented: true,
             icon: 'clients',
           },
+          {
+            label: 'Colaboradores',
+            href: '/equipo/colaboradores',
+            implemented: true,
+            icon: 'clients',
+          },
         ],
       },
       { label: 'Solicitudes', href: '/solicitudes', implemented: true, icon: 'requests' },
+      { label: 'Oportunidades', href: '/oportunidades', implemented: true, icon: 'leads' },
       {
         label: 'Automatizaciones',
         href: '/automatizaciones',
         implemented: true,
         icon: 'automations',
       },
-      { label: 'Integraciones', href: '/integraciones', implemented: true, icon: 'integrations' },
-      { label: 'Configuración', href: '/proximamente', implemented: false, icon: 'settings' },
     ],
     advisor: [
       { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
       { label: 'Clientes', href: '/clientes', implemented: true, icon: 'clients' },
       {
+        label: 'Colaboradores',
+        href: '/colaboradores',
+        implemented: true,
+        icon: 'clients',
+      },
+      {
         label: 'Automatizaciones',
         href: '/automatizaciones',
         implemented: true,
         icon: 'automations',
       },
-      { label: 'Tareas', href: '/proximamente', implemented: false, icon: 'tasks' },
     ],
   },
   home: {
@@ -270,6 +421,17 @@ export const portal = {
         activeTramitesAndConsultas: 'Trámites y consultas activos',
         obligacionesInProgress: 'Obligaciones en curso',
         pendingSignatures: 'Solicitudes de firma',
+      },
+      headline: {
+        deadlineOne: '{name}, con plazo el {date}',
+        signaturesOne: 'Tienes una firma pendiente',
+        signaturesMany: 'Tienes {count} firmas pendientes',
+        obligacionesOne: 'Tienes una obligación en curso',
+        obligacionesMany: 'Tienes {count} obligaciones en curso',
+        tramitesOne: 'Tienes un trámite o consulta activo',
+        tramitesMany: 'Tienes {count} trámites y consultas activos',
+        allClear: 'Todo al día. No tienes trámites, obligaciones ni firmas pendientes.',
+        deadlineLabel: 'Tu próximo plazo',
       },
       unreadLoading: 'Comprobando novedades…',
       unreadTitle: 'Novedades',
@@ -285,8 +447,17 @@ export const portal = {
         'El servidor está recibiendo mucha demanda y no pudimos cargar el resumen. Vuelve a intentarlo en unos minutos.',
       quickLinksTitle: 'Accesos rápidos',
     },
+    solicitudesStats: {
+      total: 'Pendientes',
+      empty: 'Sin solicitudes pendientes',
+      clicked: 'Clicadas',
+      received: 'Recibidas',
+      failed: 'Fallidas',
+    },
     admin: {
       greeting: 'Panel de administración',
+      clientsStat: 'Clientes',
+      advisorsStat: 'Asesores',
       teamTitle: 'Asesores',
       viewTeamLink: 'Ver todos',
       requestsTitle: 'Solicitudes abiertas',
@@ -294,6 +465,8 @@ export const portal = {
     },
     advisor: {
       greeting: 'Buenos días,',
+      requestsTitle: 'Solicitudes abiertas',
+      clientsStat: 'Clientes asignados',
       clientsTitle: 'Clientes recientes',
       queueTitle: 'Cola de automatización',
       integrationsTitle: 'Integraciones',
@@ -301,24 +474,8 @@ export const portal = {
   },
   integrations: {
     title: 'Integraciones',
-    description:
-      'Estado de conexión con los servicios que alimentan el portal. Odoo y n8n se comprueban en tiempo real.',
     refreshLabel: 'Comprobar conexión',
     refreshingLabel: 'Comprobando…',
-    summaryConnected: 'conectadas',
-    summaryPending: 'pendientes',
-    summaryError: 'con errores',
-    items: {
-      odoo: {
-        description: 'ERP, tareas y operaciones de asesoría.',
-      },
-      google: {
-        description: 'Acceso con Google y documentos en Drive.',
-      },
-      n8n: {
-        description: 'Automatizaciones y flujos entre sistemas.',
-      },
-    },
   },
   pagination: {
     previous: 'Anterior',

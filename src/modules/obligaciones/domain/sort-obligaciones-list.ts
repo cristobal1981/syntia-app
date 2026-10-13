@@ -46,11 +46,11 @@ function getStateSortRank(state?: string): number {
   return 1
 }
 
-export function sortObligacionListRows(
-  rows: ObligacionListRow[],
+export function sortObligacionListRows<T extends ObligacionListRow>(
+  rows: T[],
   column: ObligacionListSortColumn,
   direction: 'asc' | 'desc'
-): ObligacionListRow[] {
+): T[] {
   const multiplier = direction === 'asc' ? 1 : -1
 
   return [...rows].sort((a, b) => {

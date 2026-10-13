@@ -38,3 +38,45 @@ Checklist:
 - Caducidad por defecto: 14 dias (`expires_at`).
 - Estados invalidos esperados por la landing: `expired`, `used`, `revoked`, `not_found`.
 - Al generar el enlace, Syntia envía el correo branded al cliente (Resend) con CTA, caducidad y aviso de formulario único.
+
+## Flujo v2: Odoo → Syntia directo (sin pasar por la UI)
+
+Permite crear una solicitud desde una automatización en Odoo sobre un `crm.lead` (que debe
+llegar ya con `partner_id` vinculado), sin que un asesor la genere manualmente. Syntia solo entra
+para la trazabilidad del envío.
+
+- Endpoint: `POST https://app.syntia.es/api/odoo/solicitudes`
+- Header obligatorio: `X-Odoo-Solicitud-Secret` = `ODOO_SOLICITUD_WEBHOOK_SECRET`.
+- Body JSON esperado (acepta nombres de campo técnicos de `crm.lead` directamente):
+  ```json
+  { "email": "...", "email_from": "...", "name": "...", "contact_name": "...", "partner_id": 123 }
+  ```
+  Solo hacen falta un email (`email` o `email_from`) y `partner_id` (número, o tupla `[id, label]`
+  si se manda tal cual la devuelve el ORM de Odoo). `name`/`contact_name`/`partner_name` es
+  opcional (si falta, se usa el email como nombre).
+- Respuesta minimal: `{ "ok": true }` o `{ "ok": false, "error": "..." }` — nunca se devuelve el
+  token, la URL de acceso privada ni el `odoo_partner_id`.
+- Reutiliza exactamente la misma lógica de creación que la UI
+  (`createAltaAutonomoAccessLinkCore` en `onboarding-solicitudes-actions.ts`): si ese
+  `partner_id`/email ya corresponde a un cliente existente en el portal, usa su email/nombre
+  actuales de Supabase en vez de los que traiga el payload.
+- **Importante sobre el trigger en Odoo**: cada llamada revoca la solicitud activa anterior (si
+  la hay) para ese contacto y crea una nueva, reenviando el correo. La automatización debe
+  disparar sobre una condición precisa (p. ej. "al cambiar a esta etapa concreta"), no en cada
+  guardado del lead, o el cliente recibirá el correo repetidas veces.
+- Ejemplo de automatización en Odoo (acción "Ejecutar código Python" sobre un método del modelo,
+  no el snippet limitado de Studio, que no permite `import requests`):
+  ```python
+  import requests
+  payload = {
+      "email": record.email_from,
+      "name": record.contact_name or record.partner_name,
+      "partner_id": record.partner_id.id,
+  }
+  requests.post(
+      "https://app.syntia.es/api/odoo/solicitudes",
+      json=payload,
+      headers={"X-Odoo-Solicitud-Secret": "<secreto>"},
+      timeout=0.5,
+  )
+  ```

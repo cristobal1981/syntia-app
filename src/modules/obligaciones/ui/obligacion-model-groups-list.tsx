@@ -1,10 +1,14 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
+import type { KeyboardEvent } from 'react'
+import { ChevronRight } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
 import { obligaciones } from '@/content/obligaciones'
+import type { ObligacionListRowWithDeadline } from '@/src/modules/obligaciones/domain/categorize-obligaciones'
 import type { ObligacionModelGroup } from '@/src/modules/obligaciones/domain/group-obligaciones-by-model'
 import { getObligacionStateBadge } from '@/src/modules/obligaciones/domain/map-obligacion-state'
-import type { ObligacionListRow } from '@/src/modules/obligaciones/domain/sort-obligaciones-list'
+import type { ObligacionDeadlineStatus } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
 import type { ObligacionTask } from '@/src/modules/obligaciones/domain/types'
 import { PortalDocumentsCell } from '@/src/modules/portal/ui/portal-documents-cell'
 import {
@@ -16,7 +20,7 @@ import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 const MODEL_GROUPS_PAGE_SIZE = 10
 
 type ObligacionModelGroupsListProps = {
-  groups: ObligacionModelGroup[]
+  groups: ObligacionModelGroup<ObligacionListRowWithDeadline>[]
   page: number
   onPageChange: (page: number) => void
   paginationId: string
@@ -42,6 +46,7 @@ export function ObligacionModelGroupsList({
               copy.columns.name,
               copy.columns.period,
               copy.columns.stage,
+              copy.columns.deadline,
               copy.columns.documents,
             ].map((header) => (
               <th
@@ -77,7 +82,7 @@ export function ObligacionModelGroupsList({
 }
 
 type ModelGroupRowsProps = {
-  group: ObligacionModelGroup
+  group: ObligacionModelGroup<ObligacionListRowWithDeadline>
   onOpenTask: (task: ObligacionTask) => void
 }
 
@@ -99,7 +104,7 @@ function ModelGroupRows({ group, onOpenTask }: ModelGroupRowsProps) {
 }
 
 type PeriodRowProps = {
-  entry: ObligacionListRow
+  entry: ObligacionListRowWithDeadline
   modelLabel: string
   showModelLabel: boolean
   rowSpan: number
@@ -116,10 +121,20 @@ function PeriodRow({
   const copy = obligaciones
   const stateBadge = getObligacionStateBadge(entry.state)
 
+  function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    onOpenTask(entry)
+  }
+
   return (
     <tr
-      className="cursor-pointer border-b border-border transition-colors hover:bg-muted/40"
+      className="cursor-pointer border-b border-border transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      role="button"
+      tabIndex={0}
       onClick={() => onOpenTask(entry)}
+      onKeyDown={handleKeyDown}
+      aria-label={`${copy.list.viewDocuments}: ${modelLabel} · ${entry.periodLabel}`}
     >
       {showModelLabel ? (
         <td
@@ -135,23 +150,55 @@ function PeriodRow({
       <td className="px-4 py-3">
         <TaskStateBadge label={stateBadge.label} variant={stateBadge.variant} />
       </td>
+      <td className="whitespace-nowrap px-4 py-3">
+        <ObligacionDeadlineCell deadline={entry.deadline} status={entry.deadlineStatus} />
+      </td>
       <td className="px-4 py-3">
         <PortalDocumentsCell count={entry.attachmentCount} />
       </td>
       <td className="w-px whitespace-nowrap px-4 py-3 text-right">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={(event) => {
-            event.stopPropagation()
-            onOpenTask(entry)
-          }}
-          aria-label={`${copy.list.viewDocuments}: ${modelLabel} · ${entry.periodLabel}`}
-        >
-          {copy.list.viewDocuments}
-        </Button>
+        <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
       </td>
     </tr>
+  )
+}
+
+type ObligacionDeadlineCellProps = {
+  deadline: Date | null
+  status: ObligacionDeadlineStatus
+}
+
+export function ObligacionDeadlineCell({ deadline, status }: ObligacionDeadlineCellProps) {
+  const copy = obligaciones
+
+  if (!deadline) {
+    return <span className="text-muted-foreground">—</span>
+  }
+
+  const dateLabel = deadline.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+  })
+
+  // Fuera de "qué toca ahora" (p. ej. filas ya cerradas) el estado se fuerza
+  // a "none" — aquí solo importa si hay fecha, no el badge de urgencia.
+  if (status !== 'overdue' && status !== 'dueSoon') {
+    return <span className="text-muted-foreground">{dateLabel}</span>
+  }
+
+  const badgeClassName =
+    status === 'overdue' ? 'badge-status-canceled' : 'badge-status-changes-requested'
+  const label =
+    status === 'overdue' ? copy.deadlineStatus.overdue : copy.deadlineStatus.dueSoon
+
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium',
+        badgeClassName
+      )}
+    >
+      {label} · {dateLabel}
+    </span>
   )
 }

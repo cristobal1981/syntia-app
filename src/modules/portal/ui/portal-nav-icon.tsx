@@ -4,12 +4,12 @@ import {
   FileText,
   Inbox,
   LayoutDashboard,
-  ListChecks,
   MessageSquare,
   PenLine,
   Plug,
   Scale,
   Settings,
+  TrendingUp,
   UserCircle,
   Users,
   UsersRound,
@@ -31,10 +31,10 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   requests: Inbox,
   settings: Settings,
   clients: UsersRound,
-  tasks: ListChecks,
   integrations: Plug,
   automations: Workflow,
   guides: BookOpen,
+  leads: TrendingUp,
 }
 
 type PortalNavIconProps = {

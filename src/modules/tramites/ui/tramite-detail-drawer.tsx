@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
   Archive,
   ChevronLeft,
   ChevronRight,
-  FileText,
   Loader2,
   MessageSquare,
+  Paperclip,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -19,13 +19,26 @@ import {
 import { portalChatter } from '@/content/portal-chatter'
 import { portalDocuments } from '@/content/portal-documents'
 import { tramites } from '@/content/tramites'
+import { cn } from '@/lib/utils'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
 import { downloadAllAttachmentsZipAction } from '@/src/modules/portal/application/portal-document-actions'
 import { RecordAttachmentsPanel } from '@/src/modules/portal/ui/record-attachments-panel'
 import { RecordChatterPanel } from '@/src/modules/portal/ui/record-chatter-panel'
 import { RecordDetailTabs } from '@/src/modules/portal/ui/record-detail-tabs'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
+import {
+  buildPortalShortcutTooltipCopy,
+  getPortalShortcutModifierLabelFor,
+} from '@/src/modules/portal/domain/portal-shortcut-platform'
+import { formatPortalShortcutLabel } from '@/src/modules/portal/domain/portal-shortcuts'
+import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
+import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
+import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import {
+  TRAMITE_DRAWER_NEXT_SHORTCUT,
+  TRAMITE_DRAWER_PREV_SHORTCUT,
+} from '@/src/modules/tramites/domain/tramite-drawer-shortcuts'
 import { getTramiteListItemStateBadge } from '@/src/modules/tramites/domain/filter-tramites'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { getTramiteListRecordKind } from '@/src/modules/tramites/domain/merge-tramites-list'
@@ -51,6 +64,7 @@ type TramiteDetailDrawerProps = {
   pageItems?: TramiteListItem[]
   pageItemIndex?: number
   onNavigateItem?: (item: TramiteListItem) => void
+  canWriteTramites: boolean
 }
 
 export function TramiteDetailDrawer({
@@ -62,8 +76,9 @@ export function TramiteDetailDrawer({
   pageItems = [],
   pageItemIndex = -1,
   onNavigateItem,
+  canWriteTramites,
 }: TramiteDetailDrawerProps) {
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<TramiteDetailTab>(initialTab)
@@ -80,10 +95,18 @@ export function TramiteDetailDrawer({
   const [liveAttachmentCount, setLiveAttachmentCount] = useState(0)
   const [attachmentsRefreshToken, setAttachmentsRefreshToken] = useState(0)
 
-  useEffect(() => {
-    if (!item) return
-    setLiveAttachmentCount(item.attachmentCount)
-  }, [item?.attachmentCount, item?.id])
+  // Ajuste durante el render (no en un efecto): refleja el contador de
+  // adjuntos del item actual cuando cambia.
+  const [prevItemIdForCount, setPrevItemIdForCount] = useState(item?.id)
+  const [prevAttachmentCount, setPrevAttachmentCount] = useState(item?.attachmentCount)
+  if (item?.id !== prevItemIdForCount || item?.attachmentCount !== prevAttachmentCount) {
+    setPrevItemIdForCount(item?.id)
+    setPrevAttachmentCount(item?.attachmentCount)
+    const attachmentCount = item?.attachmentCount
+    if (attachmentCount !== undefined) {
+      setLiveAttachmentCount(attachmentCount)
+    }
+  }
 
   const ackDocumentsIfNeeded = useCallback(
     (item: TramiteListItem) => {
@@ -99,15 +122,30 @@ export function TramiteDetailDrawer({
     [liveAttachmentCount, notifications]
   )
 
+  // Ajuste durante el render (no en un efecto): reinicia el estado local del
+  // drawer al cambiar de item.
+  const [prevResetKey, setPrevResetKey] = useState([item?.id, item?.kind, initialTab])
+  if (
+    item?.id !== prevResetKey[0] ||
+    item?.kind !== prevResetKey[1] ||
+    initialTab !== prevResetKey[2]
+  ) {
+    setPrevResetKey([item?.id, item?.kind, initialTab])
+    if (item?.id !== undefined) {
+      setActiveTab(initialTab)
+      setScrollPin(0)
+      setZipError(null)
+      setHighlightAttachmentId(null)
+      setPreviewAttachment(null)
+      setPreviewOpen(false)
+    }
+  }
+
+  // El ref (a diferencia del estado de arriba) solo puede escribirse fuera
+  // del render — un efecto aparte, mismo disparador.
   useEffect(() => {
-    if (!item) return
-    setActiveTab(initialTab)
-    setScrollPin(0)
-    setZipError(null)
+    if (item?.id === undefined) return
     documentsAckRef.current = null
-    setHighlightAttachmentId(null)
-    setPreviewAttachment(null)
-    setPreviewOpen(false)
   }, [item?.id, item?.kind, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
@@ -117,14 +155,32 @@ export function TramiteDetailDrawer({
     notifications?.dismissNewTramiteNotification
   const ackStatusChangeSeen = notifications?.ackStatusChangeSeen
 
+  // Calculado en el render (no solo dentro del efecto) para que el valor
+  // llegue a RecordChatterPanel como prop antes de que el ack de abajo lo
+  // retire de `unread` — evita una carrera entre "marcar visto" y "cargar
+  // el mensaje nuevo en el chat ya abierto".
+  const chatterNotification = item
+    ? notifications?.unread.find(
+        (notification) =>
+          notification.reason === 'unread_chatter' &&
+          notificationMatchesTramiteRecord(notification, recordKind, item.id)
+      )
+    : undefined
+
+  // Congelado por trámite (no se recalcula en cada render, a diferencia de
+  // chatterNotification de arriba): es el "hasta aquí ya lo habías leído"
+  // de ANTES de entrar, para el separador "mensajes nuevos" del chat. Si
+  // dependiera de notifications completo se recalcularía en cada poll y
+  // perdería el valor previo al ack de abajo.
+  const lastSeenMessageIdBeforeOpen = useMemo(() => {
+    if (!item) return 0
+    return notifications?.getLastSeenMessageId(recordKind, item.id) ?? 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id, item?.kind])
+
   useEffect(() => {
     if (!open || !item) return
 
-    const chatterNotification = notifications?.unread.find(
-      (notification) =>
-        notification.reason === 'unread_chatter' &&
-        notificationMatchesTramiteRecord(notification, recordKind, item.id)
-    )
     if (chatterNotification?.latestMessageId) {
       void markConversationSeen?.(
         recordKind,
@@ -138,10 +194,10 @@ export function TramiteDetailDrawer({
     }
   }, [
     ackStatusChangeSeen,
+    chatterNotification,
     item,
     markConversationSeen,
-    notifications?.hasTramiteNotification,
-    notifications?.unread,
+    notifications,
     open,
     recordKind,
   ])
@@ -155,8 +211,9 @@ export function TramiteDetailDrawer({
   )
 
   useEffect(() => {
-    if (!open || !item || item.kind !== 'tramite') return
-    dismissNewTramiteNotification?.(recordKind, item.id)
+    const itemId = item?.id
+    if (!open || item?.kind !== 'tramite' || itemId === undefined) return
+    dismissNewTramiteNotification?.(recordKind, itemId)
   }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
 
   useEffect(() => {
@@ -164,23 +221,11 @@ export function TramiteDetailDrawer({
     ackDocumentsIfNeeded(item)
   }, [ackDocumentsIfNeeded, activeTab, item, open])
 
-  if (!item) {
-    return null
-  }
-
-  const tramite = item
-  const stateBadge = getTramiteListItemStateBadge(tramite)
-  const showZipButton = liveAttachmentCount > 1
-  const canReply = !(tramite.kind === 'consulta' && tramite.isClosed)
-  const conversationUnread =
-    notifications?.hasUnreadChatter(recordKind, tramite.id) ?? false
-
   const pageTotal = pageItems.length
   const showPageNav =
     Boolean(onNavigateItem) && pageTotal > 0 && pageItemIndex >= 0
   const canGoPrevious = showPageNav && pageItemIndex > 0
   const canGoNext = showPageNav && pageItemIndex < pageTotal - 1
-  const navCopy = tramites.list.detailNav
 
   function handleGoPrevious() {
     if (!canGoPrevious || !onNavigateItem) return
@@ -191,6 +236,45 @@ export function TramiteDetailDrawer({
     if (!canGoNext || !onNavigateItem) return
     onNavigateItem(pageItems[pageItemIndex + 1]!)
   }
+
+  usePortalShortcut(TRAMITE_DRAWER_PREV_SHORTCUT, handleGoPrevious, {
+    enabled: open && canGoPrevious,
+    allowInEditableTarget: true,
+  })
+  usePortalShortcut(TRAMITE_DRAWER_NEXT_SHORTCUT, handleGoNext, {
+    enabled: open && canGoNext,
+    allowInEditableTarget: true,
+  })
+  const overlayActive = usePortalShortcutOverlay()
+
+  if (!item) {
+    return null
+  }
+
+  const tramite = item
+  const stateBadge = getTramiteListItemStateBadge(tramite)
+  const showZipButton = liveAttachmentCount > 1
+  const canReply = canWriteTramites && !(tramite.kind === 'consulta' && tramite.isClosed)
+  const conversationUnread =
+    notifications?.hasUnreadChatter(recordKind, tramite.id) ?? false
+  const navCopy = tramites.list.detailNav
+
+  const prevShortcutLabel = formatPortalShortcutLabel(TRAMITE_DRAWER_PREV_SHORTCUT)
+  const nextShortcutLabel = formatPortalShortcutLabel(TRAMITE_DRAWER_NEXT_SHORTCUT)
+  const prevTooltipCopy = buildPortalShortcutTooltipCopy(
+    navCopy,
+    navCopy.previousHint,
+    prevShortcutLabel,
+    getPortalShortcutModifierLabelFor(TRAMITE_DRAWER_PREV_SHORTCUT)
+  )
+  const nextTooltipCopy = buildPortalShortcutTooltipCopy(
+    navCopy,
+    navCopy.nextHint,
+    nextShortcutLabel,
+    getPortalShortcutModifierLabelFor(TRAMITE_DRAWER_NEXT_SHORTCUT)
+  )
+  const prevTooltip = overlayActive ? prevTooltipCopy.active : prevTooltipCopy.idle
+  const nextTooltip = overlayActive ? nextTooltipCopy.active : nextTooltipCopy.idle
 
   function handleAttachmentsChanged(attachmentCount: number) {
     setLiveAttachmentCount(attachmentCount)
@@ -273,32 +357,50 @@ export function TramiteDetailDrawer({
                     .replace('{current}', String(pageItemIndex + 1))
                     .replace('{total}', String(pageTotal))}
                 >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    disabled={!canGoPrevious}
-                    onClick={handleGoPrevious}
-                    aria-label={navCopy.previous}
-                  >
-                    <ChevronLeft className="size-4" aria-hidden />
-                  </Button>
+                  <PortalActionTooltip content={prevTooltip} disabled={!canGoPrevious}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      disabled={!canGoPrevious}
+                      onClick={handleGoPrevious}
+                      aria-label={navCopy.previous}
+                      aria-keyshortcuts={prevShortcutLabel}
+                      className={cn(
+                        'relative',
+                        overlayActive &&
+                          canGoPrevious &&
+                          'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                      )}
+                    >
+                      <ChevronLeft className="size-4" aria-hidden />
+                    </Button>
+                  </PortalActionTooltip>
                   <span
                     className="min-w-[3.25rem] text-center text-xs tabular-nums text-muted-foreground"
                     aria-hidden
                   >
                     {pageItemIndex + 1}/{pageTotal}
                   </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    disabled={!canGoNext}
-                    onClick={handleGoNext}
-                    aria-label={navCopy.next}
-                  >
-                    <ChevronRight className="size-4" aria-hidden />
-                  </Button>
+                  <PortalActionTooltip content={nextTooltip} disabled={!canGoNext}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      disabled={!canGoNext}
+                      onClick={handleGoNext}
+                      aria-label={navCopy.next}
+                      aria-keyshortcuts={nextShortcutLabel}
+                      className={cn(
+                        'relative',
+                        overlayActive &&
+                          canGoNext &&
+                          'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                      )}
+                    >
+                      <ChevronRight className="size-4" aria-hidden />
+                    </Button>
+                  </PortalActionTooltip>
                 </div>
               ) : null}
             </div>
@@ -316,7 +418,7 @@ export function TramiteDetailDrawer({
             {
               id: 'documents',
               label: portalDocuments.tabLabel,
-              icon: FileText,
+              icon: Paperclip,
               badge: liveAttachmentCount,
             },
           ]}
@@ -329,26 +431,23 @@ export function TramiteDetailDrawer({
               recordId={tramite.id}
               active={open}
               canReply={canReply}
+              readOnlyReason={canWriteTramites ? 'closed' : 'permission'}
               notifyPartnerIds={tramite.assignedNotifyPartnerIds}
               scrollPin={scrollPin}
               markReadOnView={open && activeTab === 'conversation'}
               onConversationViewed={handleConversationViewed}
               onOpenAttachment={handleOpenAttachment}
               onAttachmentsChanged={handleAttachmentsChanged}
+              latestKnownMessageId={chatterNotification?.latestMessageId}
+              lastSeenMessageIdBeforeOpen={lastSeenMessageIdBeforeOpen}
             />
           ) : (
             <section
-              aria-labelledby="tramite-documents-heading"
+              aria-label={portalDocuments.tabLabel}
               className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
             >
-              <div className="flex items-center justify-between gap-3 px-6 py-4">
-                <h3
-                  id="tramite-documents-heading"
-                  className="font-sans text-sm font-semibold text-foreground"
-                >
-                  {portalDocuments.attachmentsTitle}
-                </h3>
-                {showZipButton ? (
+              {showZipButton ? (
+                <div className="flex items-center justify-end gap-3 px-6 py-4">
                   <Button
                     type="button"
                     variant="outline"
@@ -366,8 +465,8 @@ export function TramiteDetailDrawer({
                     )}
                     <span className="ml-2">{tramites.list.downloadZip}</span>
                   </Button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
 
               {zipError ? (
                 <p className="px-6 py-2 text-sm text-destructive" role="alert">

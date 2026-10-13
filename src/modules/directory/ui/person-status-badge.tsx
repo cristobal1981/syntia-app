@@ -6,6 +6,13 @@ const statusClass: Record<PersonStatus, string> = {
   active: 'bg-turquesa/15 text-turquesa dark:bg-primary/15 dark:text-primary',
   invited:
     'bg-service-fiscal/25 text-service-fiscal-on-light dark:bg-service-fiscal/15 dark:text-service-fiscal-on-dark',
+  archived: 'bg-muted text-muted-foreground',
+}
+
+const statusDotClass: Record<PersonStatus, string> = {
+  active: 'bg-turquesa dark:bg-primary',
+  invited: 'bg-service-fiscal-on-light dark:bg-service-fiscal-on-dark',
+  archived: 'bg-muted-foreground',
 }
 
 export function PersonStatusBadge({ status }: { status: PersonStatus }) {
@@ -16,15 +23,7 @@ export function PersonStatusBadge({ status }: { status: PersonStatus }) {
         statusClass[status]
       )}
     >
-      <span
-        className={cn(
-          'size-1.5 rounded-full',
-          status === 'active'
-            ? 'bg-turquesa dark:bg-primary'
-            : 'bg-service-fiscal-on-light dark:bg-service-fiscal-on-dark'
-        )}
-        aria-hidden
-      />
+      <span className={cn('size-1.5 rounded-full', statusDotClass[status])} aria-hidden />
       {equipo.status[status]}
     </span>
   )

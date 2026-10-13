@@ -4,15 +4,15 @@ import {
   type ObligacionListRow,
 } from '@/src/modules/obligaciones/domain/sort-obligaciones-list'
 
-export type ObligacionModelGroup = {
+export type ObligacionModelGroup<T extends ObligacionListRow = ObligacionListRow> = {
   modelLabel: string
-  entries: ObligacionListRow[]
+  entries: T[]
 }
 
-export function groupObligacionesByModel(
-  rows: ObligacionListRow[]
-): ObligacionModelGroup[] {
-  const groups = new Map<string, ObligacionListRow[]>()
+export function groupObligacionesByModel<T extends ObligacionListRow>(
+  rows: T[]
+): ObligacionModelGroup<T>[] {
+  const groups = new Map<string, T[]>()
 
   for (const row of rows) {
     const modelLabel = formatObligacionModelLabel(row.name)

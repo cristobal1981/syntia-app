@@ -21,7 +21,7 @@ export function BrandLogo({
   return (
     <Link
       href={href}
-      className={cn('inline-flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', className)}
+      className={cn('inline-flex flex-col items-start justify-center gap-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', className)}
     >
       {variant === 'isotipo' ? (
         <Image
@@ -52,6 +52,11 @@ export function BrandLogo({
           />
         </>
       )}
+      {variant === 'horizontal' ? (
+        <span className="text-xs tracking-wide text-muted-foreground">
+          {site.brand.byLine}
+        </span>
+      ) : null}
     </Link>
   )
 }

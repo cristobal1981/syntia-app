@@ -10,10 +10,10 @@ export type NavIconId =
   | 'requests'
   | 'settings'
   | 'clients'
-  | 'tasks'
   | 'integrations'
   | 'automations'
   | 'guides'
+  | 'leads'
 
 export type NavItem = {
   label: string

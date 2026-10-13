@@ -12,9 +12,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { automatizaciones } from '@/content/automatizaciones'
-import type {
-  AutomationInputField,
-  AutomationInputFieldType,
+import {
+  buildYearInputOptions,
+  type AutomationInputField,
+  type AutomationInputFieldType,
 } from '@/src/modules/automatizaciones/domain/types'
 
 export type DraftInputOption = {
@@ -131,6 +132,9 @@ export function AutomationInputFieldsEditor({
         if (patch.type === 'checkbox') {
           return { ...next, options: [], defaultValue: 'false' }
         }
+        if (patch.type === 'year') {
+          return { ...next, options: [], defaultValue: '' }
+        }
         if (patch.type === 'select' && !next.options.length) {
           return { ...next, options: [emptyDraftInputOption()] }
         }
@@ -198,6 +202,7 @@ export function AutomationInputFieldsEditor({
                   <SelectItem value="odoo_companies_multi">
                     {copy.typeOdooCompaniesMulti}
                   </SelectItem>
+                  <SelectItem value="year">{copy.typeYear}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -308,6 +313,10 @@ export function AutomationInputFieldsEditor({
             </div>
           ) : null}
 
+          {field.type === 'year' ? (
+            <p className="text-xs text-muted-foreground">{copy.yearRangeHint}</p>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2">
             {field.type !== 'odoo_companies_multi' &&
             field.type !== 'checkbox' ? (
@@ -365,6 +374,33 @@ export function AutomationInputFieldsEditor({
                           {option.label.trim() || option.value.trim()}
                         </SelectItem>
                       ))}
+                  </SelectContent>
+                </Select>
+              ) : field.type === 'year' ? (
+                <Select
+                  value={field.defaultValue === '' ? NONE_DEFAULT_VALUE : field.defaultValue}
+                  onValueChange={(next) =>
+                    patchField(field.localId, {
+                      defaultValue: next === NONE_DEFAULT_VALUE ? '' : next,
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    id={`field-default-${field.localId}`}
+                    className={SELECT_CLASS}
+                    aria-label={copy.defaultValue}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_DEFAULT_VALUE}>
+                      {copy.noDefault}
+                    </SelectItem>
+                    {buildYearInputOptions().map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : null}
@@ -462,6 +498,16 @@ export function AutomationInputFieldsEditor({
         >
           <Plus className="size-4" aria-hidden />
           {copy.addOdooCompaniesField}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => onChange([...fields, emptyDraftInputField('year')])}
+        >
+          <Plus className="size-4" aria-hidden />
+          {copy.addYearField}
         </Button>
       </div>
     </div>

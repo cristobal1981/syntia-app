@@ -1,29 +1,27 @@
-import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import {
+  filterNotificationsForWorker,
+  maskStatsForWorker,
+} from '@/src/modules/colaboradores/application/mask-dashboard-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
-import type { ChatterNotificationsCheckResult } from '@/src/modules/portal/domain/chatter-notifications-types'
+import type { PortalNotificationsCheckResult } from '@/src/modules/portal/domain/portal-notifications-types'
 import { loadClientPortalNotifications } from '@/src/modules/portal/application/load-client-portal-notifications'
 import type {
   ClientDashboardSnapshot,
   ClientDashboardSnapshotResult,
 } from '@/src/modules/portal/application/get-client-dashboard-snapshot'
-import {
-  getCachedObligacionTaskIndex,
-  getCachedPendingSignaturesSnapshotSafe,
-  getCachedTramitesSnapshotSafe,
-} from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
-import { isTaskClosed } from '@/src/modules/tramites/domain/map-task-state'
-import { mergeTramitesList } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 export type ClientHomeData = {
   snapshot: ClientDashboardSnapshot | null
   snapshotError: Extract<ClientDashboardSnapshotResult, { ok: false }>['error'] | null
-  notifications: ChatterNotificationsCheckResult | null
+  notifications: PortalNotificationsCheckResult | null
 }
 
 export async function getClientHomeData(user: PortalUser): Promise<ClientHomeData> {
-  if (user.role !== 'client') {
+  if (!isClientOrWorkerRole(user.role)) {
     return {
       snapshot: null,
       snapshotError: 'forbidden',
@@ -51,51 +49,36 @@ export async function getClientHomeData(user: PortalUser): Promise<ClientHomeDat
   const actorId = await resolveDirectoryActorId(user)
 
   try {
-    const [tramitesResult, obligIndex, firmasResult, notifications] =
-      await Promise.all([
-        getCachedTramitesSnapshotSafe(partnerId),
-        getCachedObligacionTaskIndex(partnerId),
-        getCachedPendingSignaturesSnapshotSafe(partnerId),
-        loadClientPortalNotifications({
-          partnerId,
-          actorId,
-          cache: false,
-          persist: false,
-        }),
-      ])
+    // Un único fetch (fresco, sin unstable_cache) alimenta tanto las
+    // novedades como el resumen del home: evita pedirle a Odoo dos veces
+    // los mismos trámites/obligaciones/firmas en cada render del home.
+    const notifications = await loadClientPortalNotifications({
+      partnerId,
+      actorId,
+      cache: false,
+      persist: false,
+    })
 
-    const tramitesSnap = tramitesResult.data
-    const items = mergeTramitesList(tramitesSnap.tasks, tramitesSnap.tickets)
-    const activeTramitesAndConsultas = items.filter((item) => !item.isClosed).length
-    const obligacionesInProgress = obligIndex.leaves.filter(
-      (leaf) => !isTaskClosed(leaf.state)
-    ).length
-    const pendingSignatures = firmasResult.data.requests.length
-
-    const odooErrors = [
-      tramitesResult.odooError,
-      firmasResult.odooError,
-    ].filter((error): error is NonNullable<typeof error> => Boolean(error))
-
-    const allOdooFailed =
-      tramitesResult.odooError &&
-      firmasResult.odooError &&
-      items.length === 0 &&
-      obligIndex.leaves.length === 0 &&
-      firmasResult.data.requests.length === 0
-
-    let snapshot: ClientDashboardSnapshot | null = {
-      activeTramitesAndConsultas,
-      obligacionesInProgress,
-      pendingSignatures,
+    if (user.role === 'worker' && notifications.ok) {
+      const allowedSections = await getAllowedSectionsForWorker(user)
+      const maskedNotifications = {
+        ...notifications,
+        stats: maskStatsForWorker(notifications.stats, allowedSections),
+        unread: filterNotificationsForWorker(notifications.unread, allowedSections),
+      }
+      return {
+        snapshot: maskedNotifications.stats,
+        snapshotError: null,
+        notifications: maskedNotifications,
+      }
     }
-    let snapshotError: ClientHomeData['snapshotError'] = null
 
-    if (allOdooFailed) {
-      const rateLimited = odooErrors.every((error) => error === 'odoo_rate_limited')
-      snapshot = null
-      snapshotError = rateLimited ? 'odoo_rate_limited' : 'odoo_unavailable'
-    }
+    const snapshot: ClientDashboardSnapshot | null = notifications.ok
+      ? notifications.stats
+      : null
+    const snapshotError: ClientHomeData['snapshotError'] = notifications.ok
+      ? null
+      : notifications.error
 
     return {
       snapshot,

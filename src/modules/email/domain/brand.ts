@@ -75,6 +75,8 @@ export const EMAIL_LOGO_WIDTH_INFORME = 120
 
 export const EMAIL_FOOTER = {
   companyName: 'Syntia',
+  brandLine: 'Syntia, un producto de tenaasesores',
+  logoTagline: 'by tenaasesores',
   confidentiality:
     'La información contenida en este email y sus archivos adjuntos es confidencial y privilegiada, destinada a ser leída solo por las personas a las que va dirigida.',
   ecoNote: 'Protegemos el medio ambiente, imprima este email solo si es necesario. Gracias.',

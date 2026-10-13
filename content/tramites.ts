@@ -1,7 +1,7 @@
 export const tramites = {
-  title: 'Trámites',
+  title: 'Tus trámites',
   description:
-    'Gestiones generales, consultas de soporte y documentación asociada. Por defecto ves solo lo que está en curso.',
+    'Gestiones generales, consultas de soporte y documentación asociada. Por defecto ves solo lo que sigue abierto.',
   refreshButton: 'Actualizar',
   refreshing: 'Actualizando…',
   createConsulta: {
@@ -29,9 +29,10 @@ export const tramites = {
       bodyRequired: 'La descripción es obligatoria.',
       bodyTooLong: 'La descripción no puede superar 2000 caracteres.',
       forbidden: 'No tienes permiso para crear consultas.',
-      not_linked: 'Tu cuenta no está vinculada con Odoo.',
+      not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',
       odoo_unavailable: 'No pudimos crear la consulta. Inténtalo de nuevo.',
-      create_failed: 'No pudimos crear la consulta en Odoo.',
+      create_failed: 'No pudimos crear la consulta. Inténtalo de nuevo o contacta con tu asesor.',
+      rate_limited: 'Has creado demasiadas consultas en poco tiempo. Espera unos minutos e inténtalo de nuevo.',
       unknown: 'No pudimos crear la consulta. Inténtalo de nuevo.',
     },
   },
@@ -41,18 +42,21 @@ export const tramites = {
     pageLabel: 'Página',
     ofLabel: 'de',
   },
+  activity: {
+    extraCount: '+{count} más',
+  },
   filters: {
     searchLabel: 'Buscar trámites',
     searchPlaceholder: 'Buscar por nombre…',
     includeClosed: 'Incluir cerrados',
     includeClosedHint:
       'En «Todos» muestra abiertos y cerrados. Con otros filtros activos, marca Hecho y Cancelado.',
+    typeLabel: 'Tipo',
+    stateLabel: 'Estado',
+    clearFilters: 'Limpiar filtros',
     views: {
-      label: 'Filtrar trámites',
-      all: 'Todos',
       tramites: 'Trámites',
       consultas: 'Consultas',
-      inProgress: 'En curso',
       done: 'Hecho',
       canceled: 'Cancelado',
       withDocuments: 'Con documentos',
@@ -62,26 +66,21 @@ export const tramites = {
       'No hay trámites que coincidan con los filtros actuales. Prueba otra búsqueda, cambia el filtro o activa «Incluir cerrados».',
   },
   list: {
-    title: 'Tus trámites',
-    description:
-      'Trámites de proyecto y consultas de soporte en un solo listado.',
-    tagFilterNote:
-      'Las tareas de proyecto se muestran si están marcadas para Syntia, junto con sus subtareas.',
     emptyTitle: 'Sin trámites',
     emptyDescription: 'No hay trámites en curso en tu cuenta en este momento.',
     columns: {
       name: 'Trámite',
-      type: 'Tipo',
-      state: 'Estado',
-      documents: 'Documentos',
-      actions: 'Detalle',
+      tags: 'Etiquetas',
+      documents: 'adjuntos',
     },
-    viewItem: 'Ver detalles',
-    newItemBadge: 'Nuevo',
     downloadZip: 'Descargar todo',
     detailNav: {
       previous: 'Anterior de la lista',
       next: 'Siguiente de la lista',
+      previousHint: 'Trámite anterior',
+      nextHint: 'Trámite siguiente',
+      buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',
+      buttonHintActive: '{action} ({shortcut})',
       positionLabel: 'Trámite {current} de {total} en esta página',
     },
     types: {
@@ -104,12 +103,12 @@ export const tramites = {
     notLinked: {
       title: 'Cuenta sin vincular',
       description:
-        'Tu perfil aún no está vinculado con Odoo. Contacta con tu asesor para activar tus trámites en el portal.',
+        'Tu perfil aún no está vinculado. Contacta con tu asesor para activar tus trámites en el portal.',
     },
     odooUnavailable: {
       title: 'No pudimos cargar tus trámites',
       description:
-        'El servicio de Odoo no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
+        'El servicio no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
     },
     odooRateLimited: {
       title: 'Demanda elevada',

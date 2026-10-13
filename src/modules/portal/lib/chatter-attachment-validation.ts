@@ -1,57 +1,50 @@
 import {
-  getChatterMaxAttachmentBytes,
-  getChatterMaxAttachmentsPerMessage,
-} from '@/src/modules/portal/infrastructure/portal-chatter-env'
+  findUploadPolicyViolation,
+  type UploadCandidate,
+  type UploadPolicyViolation,
+} from '@/src/modules/portal/domain/upload-policy'
 import type { PortalChatterUploadFile } from '@/src/modules/portal/domain/portal-chatter-types'
-
-const ALLOWED_MIME_PREFIXES = ['image/'] as const
-
-const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'text/plain',
-  'text/csv',
-])
 
 export type ChatterAttachmentValidationError =
   | 'invalid_attachment'
   | 'attachment_too_large'
   | 'too_many_attachments'
 
-export function isAllowedChatterMimeType(mimetype: string): boolean {
-  const normalized = mimetype.trim().toLowerCase()
-  if (!normalized) return false
-  if (ALLOWED_MIME_TYPES.has(normalized)) return true
-  return ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+export function isAttachmentError(code: string): code is ChatterAttachmentValidationError {
+  return (
+    code === 'invalid_attachment' ||
+    code === 'attachment_too_large' ||
+    code === 'too_many_attachments'
+  )
+}
+
+const ERROR_BY_VIOLATION: Record<UploadPolicyViolation, ChatterAttachmentValidationError> = {
+  empty: 'invalid_attachment',
+  too_many_files: 'too_many_attachments',
+  invalid_name: 'invalid_attachment',
+  invalid_type: 'invalid_attachment',
+  file_too_large: 'attachment_too_large',
+  total_too_large: 'attachment_too_large',
+}
+
+/** Misma política que Documentos: ver `upload-policy.ts`. */
+export function validateChatterCandidates(
+  candidates: readonly UploadCandidate[]
+): { ok: true } | { ok: false; error: ChatterAttachmentValidationError } {
+  const violation = findUploadPolicyViolation(candidates)
+  return violation ? { ok: false, error: ERROR_BY_VIOLATION[violation] } : { ok: true }
 }
 
 export function validateChatterUploadFiles(
   files: PortalChatterUploadFile[]
 ): { ok: true } | { ok: false; error: ChatterAttachmentValidationError } {
-  const maxCount = getChatterMaxAttachmentsPerMessage()
-  const maxBytes = getChatterMaxAttachmentBytes()
-
-  if (files.length > maxCount) {
-    return { ok: false, error: 'too_many_attachments' }
-  }
-
-  for (const file of files) {
-    if (!isAllowedChatterMimeType(file.mimetype)) {
-      return { ok: false, error: 'invalid_attachment' }
-    }
-
-    const byteLength = Buffer.byteLength(file.dataBase64, 'base64')
-    if (byteLength > maxBytes) {
-      return { ok: false, error: 'attachment_too_large' }
-    }
-  }
-
-  return { ok: true }
+  return validateChatterCandidates(
+    files.map((file) => ({
+      name: file.name,
+      mimeType: file.mimetype,
+      size: Buffer.byteLength(file.dataBase64, 'base64'),
+    }))
+  )
 }
 
 export async function readFilesAsUploadPayload(
@@ -80,15 +73,4 @@ export async function readFilesAsUploadPayload(
         })
     )
   )
-}
-
-export function validatePendingFilesSelection(
-  currentCount: number,
-  incomingCount: number
-): { ok: true } | { ok: false; error: ChatterAttachmentValidationError } {
-  const maxCount = getChatterMaxAttachmentsPerMessage()
-  if (currentCount + incomingCount > maxCount) {
-    return { ok: false, error: 'too_many_attachments' }
-  }
-  return { ok: true }
 }

@@ -1,20 +1,11 @@
 'use client'
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { portalChatter } from '@/content/portal-chatter'
-import {
-  listRecordMessagesAction,
-  postRecordMessageAction,
-} from '@/src/modules/portal/application/portal-chatter-actions'
+import { postRecordMessageAction } from '@/src/modules/portal/application/portal-chatter-actions'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
 import { isChatterHtmlEmpty } from '@/src/modules/portal/domain/filter-portal-messages'
 import type {
@@ -23,15 +14,15 @@ import type {
 } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
-  isAllowedChatterMimeType,
+  isAttachmentError,
   readFilesAsUploadPayload,
-  validatePendingFilesSelection,
+  validateChatterCandidates,
 } from '@/src/modules/portal/lib/chatter-attachment-validation'
-import { isPortalChatterMockEnabled } from '@/src/modules/portal/lib/portal-chatter-mock'
 import {
   ChatterComposer,
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
+import { toastAttachmentRejected } from '@/src/modules/portal/ui/toast-attachment-rejected'
 import { ChatterSendButton } from '@/src/modules/portal/ui/chatter-send-button'
 import {
   ChatterComposerSkeleton,
@@ -41,12 +32,11 @@ import {
   buildParentPreview,
   ChatterMessageItem,
 } from '@/src/modules/portal/ui/chatter-message-item'
+import { ChatterTypingIndicator } from '@/src/modules/portal/ui/chatter-typing-indicator'
 import { ChatterPendingAttachments } from '@/src/modules/portal/ui/chatter-pending-attachments'
 import { ChatterReplyBanner } from '@/src/modules/portal/ui/chatter-reply-banner'
-import {
-  CHATTER_MOCK_MESSAGES,
-  createMockMessageId,
-} from '@/src/modules/portal/ui/chatter-mock-data'
+import { chatterMockEnabled, useChatterMessages } from '@/src/modules/portal/ui/use-chatter-messages'
+import { createMockMessageId } from '@/src/modules/portal/ui/chatter-mock-data'
 import { invalidateAttachmentsClientCache } from '@/src/modules/portal/ui/record-attachments-panel'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
@@ -55,19 +45,33 @@ type RecordChatterPanelProps = {
   recordId: number
   active: boolean
   canReply: boolean
+  /** Por qué no se puede responder, para el copy del estado de solo lectura. */
+  readOnlyReason?: 'closed' | 'permission'
   notifyPartnerIds?: number[]
   scrollPin?: number
   markReadOnView?: boolean
   onConversationViewed?: (latestMessageId: number) => void
   onOpenAttachment?: (attachment: PortalChatterAttachmentRef) => void
   onAttachmentsChanged?: (attachmentCount: number) => void
+  /**
+   * Id del último mensaje que el poll de novedades ya sabe que existe para
+   * este registro. Cuando sube por encima de lo que este panel tiene
+   * cargado, se pide a Odoo solo lo nuevo (no toda la conversación) para
+   * reflejarlo sin necesidad de cerrar y reabrir el drawer.
+   */
+  latestKnownMessageId?: number
+  /**
+   * Id del último mensaje ya leído justo ANTES de abrir esta vez (0 si no
+   * había nada leído todavía). Pinta un separador "Mensajes nuevos" antes
+   * del primer mensaje no leído — pero solo si además hay algún mensaje
+   * anterior ya leído; si todo es nuevo (o nada lo es), no se pinta nada.
+   */
+  lastSeenMessageIdBeforeOpen?: number
 }
 
 function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
   return kind === 'task' ? 'tramite' : 'consulta'
 }
-
-const chatterMockEnabled = isPortalChatterMockEnabled()
 
 function formatMessageDate(value: string): string {
   const date = new Date(value)
@@ -86,20 +90,18 @@ export function RecordChatterPanel({
   recordId,
   active,
   canReply,
+  readOnlyReason = 'closed',
   notifyPartnerIds = [],
   scrollPin = 0,
   markReadOnView = false,
   onConversationViewed,
   onOpenAttachment,
   onAttachmentsChanged,
+  latestKnownMessageId,
+  lastSeenMessageIdBeforeOpen = 0,
 }: RecordChatterPanelProps) {
   const router = useRouter()
   const notifications = usePortalNotificationsOptional()
-  const [messages, setMessages] = useState<PortalChatterMessage[]>([])
-  const [hasMore, setHasMore] = useState(false)
-  const [loadingInitial, setLoadingInitial] = useState(false)
-  const [loadingOlder, setLoadingOlder] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [composerEmpty, setComposerEmpty] = useState(true)
   const [composerResetToken, setComposerResetToken] = useState(0)
@@ -112,20 +114,6 @@ export function RecordChatterPanel({
   const topSentinelRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<ChatterComposerHandle>(null)
   const shouldStickToBottomRef = useRef(true)
-  const loadingOlderRef = useRef(false)
-  const lastNotifiedMessageIdRef = useRef(0)
-  const onConversationViewedRef = useRef(onConversationViewed)
-  const loadGenerationRef = useRef(0)
-
-  const canSend = canReply && (!composerEmpty || pendingFiles.length > 0)
-
-  useEffect(() => {
-    onConversationViewedRef.current = onConversationViewed
-  }, [onConversationViewed])
-
-  useEffect(() => {
-    lastNotifiedMessageIdRef.current = 0
-  }, [kind, recordId])
 
   const notifyPartnerIdsRef = useRef(notifyPartnerIds)
   useEffect(() => {
@@ -138,18 +126,44 @@ export function RecordChatterPanel({
     node.scrollTop = node.scrollHeight
   }, [])
 
-  const notifyConversationViewed = useCallback(
-    (nextMessages: PortalChatterMessage[]) => {
-      if (!markReadOnView || !nextMessages.length) return
-      const latestId = nextMessages[nextMessages.length - 1]?.id
-      if (!latestId || latestId <= lastNotifiedMessageIdRef.current) return
-      lastNotifiedMessageIdRef.current = latestId
-      queueMicrotask(() => {
-        onConversationViewedRef.current?.(latestId)
-      })
-    },
-    [markReadOnView]
-  )
+  const clearReplyMode = useCallback(() => {
+    replyParentIdRef.current = null
+    setReplyTarget(null)
+  }, [])
+
+  const resetComposerState = useCallback(() => {
+    clearReplyMode()
+    setPendingFiles([])
+    setComposerEmpty(true)
+    setComposerResetToken((token) => token + 1)
+    composerRef.current?.clear()
+  }, [clearReplyMode])
+
+  const {
+    messages,
+    setMessages,
+    loadingInitial,
+    loadingOlder,
+    loadingNewer,
+    error,
+    firstUnreadIndex,
+    setDividerDismissed,
+    loadOlder,
+  } = useChatterMessages({
+    kind,
+    recordId,
+    active,
+    markReadOnView,
+    onConversationViewed,
+    lastSeenMessageIdBeforeOpen,
+    latestKnownMessageId,
+    notifications,
+    scrollRef,
+    shouldStickToBottomRef,
+    resetComposerState,
+  })
+
+  const canSend = canReply && (!composerEmpty || pendingFiles.length > 0)
 
   const handleComposerEmptyChange = useCallback(
     (empty: boolean) => {
@@ -167,84 +181,20 @@ export function RecordChatterPanel({
     scrollToBottom()
   }, [composerEmpty, pendingFiles.length, scrollToBottom])
 
-  const clearReplyMode = useCallback(() => {
-    replyParentIdRef.current = null
-    setReplyTarget(null)
-  }, [])
-
-  const resetComposerState = useCallback(() => {
-    clearReplyMode()
-    setPendingFiles([])
-    setComposerEmpty(true)
-    setComposerResetToken((token) => token + 1)
-    composerRef.current?.clear()
-  }, [clearReplyMode])
-
-  const loadInitial = useCallback(async () => {
-    if (recordId <= 0) return
-
-    const generation = ++loadGenerationRef.current
-
-    setLoadingInitial(true)
-    setError(null)
-    setMessages([])
-    setHasMore(false)
-    setSendError(null)
-    resetComposerState()
-    shouldStickToBottomRef.current = true
-
-    try {
-      if (chatterMockEnabled) {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        if (generation !== loadGenerationRef.current) return
-        const mockMessages = enrichPortalChatterMessages([...CHATTER_MOCK_MESSAGES])
-        setMessages(mockMessages)
-        setHasMore(false)
-        notifyConversationViewed(mockMessages)
-        return
-      }
-
-      const result = await listRecordMessagesAction({ kind, recordId })
-      if (generation !== loadGenerationRef.current) return
-
-      if (!result.ok) {
-        setError(
-          portalChatter.errors[result.error] ??
-            portalChatter.errors.odoo_unavailable
-        )
-        return
-      }
-
-      const enriched = enrichPortalChatterMessages(result.messages)
-      setMessages(enriched)
-      setHasMore(result.hasMore)
-      notifyConversationViewed(enriched)
-    } catch {
-      if (generation !== loadGenerationRef.current) return
-      setError(portalChatter.errors.odoo_unavailable)
-    } finally {
-      if (generation === loadGenerationRef.current) {
-        setLoadingInitial(false)
-      }
-    }
-  }, [kind, recordId, notifyConversationViewed, resetComposerState])
-
-  useEffect(() => {
-    if (!active || recordId <= 0) return
-    void loadInitial()
-  }, [active, recordId, loadInitial])
-
-  useEffect(() => {
-    if (!active || loadingInitial || !markReadOnView || !messages.length) return
-    notifyConversationViewed(messages)
-  }, [active, loadingInitial, markReadOnView, messages.length, notifyConversationViewed])
-
   useLayoutEffect(() => {
     if (!active || loadingInitial) return
     if (shouldStickToBottomRef.current) {
       scrollToBottom()
     }
-  }, [active, loadingInitial, messages, pendingFiles.length, replyTarget, scrollToBottom])
+  }, [
+    active,
+    loadingInitial,
+    loadingNewer,
+    messages,
+    pendingFiles.length,
+    replyTarget,
+    scrollToBottom,
+  ])
 
   useLayoutEffect(() => {
     if (!active || loadingInitial || scrollPin <= 0) return
@@ -254,59 +204,13 @@ export function RecordChatterPanel({
 
   useEffect(() => {
     if (!active || !canReply || loadingInitial || sending) return
+    // En táctil, enfocar el editor aquí (navegación pasiva entre récords, no
+    // una acción explícita del usuario) abre el teclado y hace saltar la
+    // vista en cada flecha ← → de la lista. En "responder" (handleReply) el
+    // foco sí es intencional y se mantiene en cualquier dispositivo.
+    if (window.matchMedia('(pointer: coarse)').matches) return
     queueMicrotask(() => composerRef.current?.focus())
   }, [active, canReply, loadingInitial, sending, kind, recordId, scrollPin])
-
-  const loadOlder = useCallback(async () => {
-    if (recordId <= 0 || loadingOlderRef.current || !hasMore || !messages.length) {
-      return
-    }
-
-    if (chatterMockEnabled) return
-
-    loadingOlderRef.current = true
-    setLoadingOlder(true)
-    setError(null)
-
-    const scrollNode = scrollRef.current
-    const previousHeight = scrollNode?.scrollHeight ?? 0
-
-    const result = await listRecordMessagesAction({
-      kind,
-      recordId,
-      beforeId: messages[0]?.id,
-    })
-
-    loadingOlderRef.current = false
-    setLoadingOlder(false)
-
-    if (!result.ok) {
-      setError(
-        portalChatter.errors[result.error] ?? portalChatter.errors.odoo_unavailable
-      )
-      return
-    }
-
-    if (!result.messages.length) {
-      setHasMore(false)
-      return
-    }
-
-    shouldStickToBottomRef.current = false
-    setMessages((current) => {
-      const existingIds = new Set(current.map((message) => message.id))
-      const older = result.messages.filter((message) => !existingIds.has(message.id))
-      return enrichPortalChatterMessages([...older, ...current])
-    })
-    setHasMore(result.hasMore)
-
-    requestAnimationFrame(() => {
-      const node = scrollRef.current
-      if (!node) return
-      const nextHeight = node.scrollHeight
-      node.scrollTop += nextHeight - previousHeight
-    })
-  }, [hasMore, kind, messages, recordId])
 
   useEffect(() => {
     const sentinel = topSentinelRef.current
@@ -334,17 +238,16 @@ export function RecordChatterPanel({
   }
 
   function handleAddFiles(files: File[]) {
-    const validation = validatePendingFilesSelection(pendingFiles.length, files.length)
+    const validation = validateChatterCandidates(
+      [...pendingFiles, ...files].map((file) => ({
+        name: file.name,
+        mimeType: file.type,
+        size: file.size,
+      }))
+    )
     if (!validation.ok) {
-      setSendError(portalChatter.errors[validation.error])
+      toastAttachmentRejected(validation.error)
       return
-    }
-
-    for (const file of files) {
-      if (!isAllowedChatterMimeType(file.type || 'application/octet-stream')) {
-        setSendError(portalChatter.errors.invalid_attachment)
-        return
-      }
     }
 
     setSendError(null)
@@ -410,6 +313,7 @@ export function RecordChatterPanel({
           }
           resetComposerState()
           shouldStickToBottomRef.current = true
+          setDividerDismissed(true)
           setMessages((current) => [...current, newMessage])
           return
         }
@@ -428,6 +332,10 @@ export function RecordChatterPanel({
         })
 
         if (!result.ok) {
+          if (isAttachmentError(result.error)) {
+            toastAttachmentRejected(result.error)
+            return
+          }
           setSendError(
             portalChatter.errors[result.error] ?? portalChatter.errors.odoo_unavailable
           )
@@ -436,17 +344,27 @@ export function RecordChatterPanel({
 
         resetComposerState()
         shouldStickToBottomRef.current = true
+        setDividerDismissed(true)
         const postedMessage = effectiveReplyParentId
           ? result.message
-          : (({ parentId: _parentId, parentPreview: _preview, ...message }) => message)(
-              result.message
-            )
+          : (() => {
+              const stripped = { ...result.message }
+              delete stripped.parentId
+              delete stripped.parentPreview
+              return stripped
+            })()
         setMessages((current) => {
           if (current.some((message) => message.id === postedMessage.id)) {
             return current
           }
           return enrichPortalChatterMessages([...current, postedMessage])
         })
+
+        notifications?.notifyRecordMutated(
+          recordScopeFromKind(kind),
+          recordId,
+          postedMessage
+        )
 
         if (hadAttachments && typeof result.attachmentCount === 'number') {
           queueMicrotask(() => {
@@ -522,16 +440,27 @@ export function RecordChatterPanel({
 
         {!loadingInitial && !error && messages.length > 0 ? (
           <ul className="flex flex-col gap-3">
-            {messages.map((message) => (
-              <ChatterMessageItem
-                key={message.id}
-                message={message}
-                canReply={canReply}
-                formatDate={formatMessageDate}
-                onReply={handleReply}
-                onOpenAttachment={onOpenAttachment}
-              />
+            {messages.map((message, index) => (
+              <Fragment key={message.id}>
+                {index === firstUnreadIndex ? (
+                  <li className="flex items-center gap-3 py-1" role="separator">
+                    <span className="h-px flex-1 bg-primary/30" aria-hidden />
+                    <span className="shrink-0 text-xs font-medium text-primary">
+                      {portalChatter.newMessagesDivider}
+                    </span>
+                    <span className="h-px flex-1 bg-primary/30" aria-hidden />
+                  </li>
+                ) : null}
+                <ChatterMessageItem
+                  message={message}
+                  canReply={canReply}
+                  formatDate={formatMessageDate}
+                  onReply={handleReply}
+                  onOpenAttachment={onOpenAttachment}
+                />
+              </Fragment>
             ))}
+            {loadingNewer ? <ChatterTypingIndicator /> : null}
           </ul>
         ) : null}
       </div>
@@ -539,7 +468,9 @@ export function RecordChatterPanel({
       <div className="shrink-0 border-t border-border px-6 py-4 dark:border-border/50">
         {!canReply ? (
           <p className="text-sm text-muted-foreground">
-            {portalChatter.readOnlyClosedTicket}
+            {readOnlyReason === 'permission'
+              ? portalChatter.readOnlyNoWriteAccess
+              : portalChatter.readOnlyClosedTicket}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">

@@ -19,6 +19,9 @@ export function PreviewDocx({ dataBase64, fallbackMessage }: PreviewDocxProps) {
 
   useEffect(() => {
     let cancelled = false
+    // Decodifica/renderiza el .docx de forma asíncrona (mammoth) con
+    // cancelación en cleanup — efecto externo real, no una simple derivación.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHtml(null)
     setError(false)
 

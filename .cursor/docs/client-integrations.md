@@ -79,7 +79,7 @@ El navegador del cliente **nunca** recibe `odoo_partner_id` ni `drive_folder_id`
 - Service account con scope `drive` (JWT en `google-drive-auth.ts`).
 - Rol **Editor** del service account en la subcarpeta pública de cada cliente (o Shared drive contenedor).
 - Variables: `GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY`.
-- Límites opcionales: `DRIVE_MAX_UPLOAD_BYTES` (default 25 MB), `DRIVE_MAX_FILES_PER_BATCH` (default 10).
+- Subida: política única en `src/modules/portal/domain/upload-policy.ts` (lista blanca de extensiones, 10 MB en total, 10 archivos), compartida con los adjuntos de Odoo. Límite opcional de descarga: `DRIVE_MAX_DOWNLOAD_BYTES` (default 15 MB).
 - Desarrollo UI sin API: `DRIVE_DOCUMENTS_MOCK=true` (datos estáticos; mutaciones deshabilitadas).
 
 ### Drive (import equipo — legacy)

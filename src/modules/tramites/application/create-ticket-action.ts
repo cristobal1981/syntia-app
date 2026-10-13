@@ -2,6 +2,7 @@
 
 import { updateTag } from 'next/cache'
 
+import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import { validateChatterHtmlBody, stripHtmlToText } from '@/src/modules/portal/domain/filter-portal-messages'
 import { getOdooModelForRecordKind } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
@@ -11,6 +12,8 @@ import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/r
 import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 
 const SUBJECT_MAX_LENGTH = 120
 
@@ -24,8 +27,12 @@ export type CreateTicketResult =
         | 'odoo_unavailable'
         | 'validation'
         | 'create_failed'
+        | 'rate_limited'
       fieldErrors?: Record<string, string>
     }
+
+/** Crear tickets es una mutación deliberada hacia Odoo; un uso legítimo no la repite así de rápido. */
+const CREATE_TICKET_RATE_LIMIT = { limit: 5, windowSeconds: 300 }
 
 function validateSubject(subject: string): { ok: true; value: string } | { ok: false } {
   const value = subject.trim()
@@ -39,8 +46,27 @@ export async function createTicketAction(input: {
   body: string
 }): Promise<CreateTicketResult> {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  /**
+   * Crear una consulta es una mutación sobre /tramites: un colaborador solo
+   * con lectura en esa sección (o sin ella, o con el grant/la funcionalidad
+   * desactivados) no debe poder crearla aunque conozca el endpoint — ver
+   * `resolveClientPartnerId` en portal-chatter-actions.ts para el mismo
+   * patrón sobre el chatter.
+   */
+  if (session.user.role === 'worker') {
+    const writeSections = await getWorkerWriteSections(session.user)
+    if (!writeSections.has('/tramites')) {
+      return { ok: false, error: 'forbidden' }
+    }
+  }
+
+  const allowed = await checkRateLimit(`create-ticket:${session.user.id}`, CREATE_TICKET_RATE_LIMIT)
+  if (!allowed) {
+    return { ok: false, error: 'rate_limited' }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)

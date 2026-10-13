@@ -1,10 +1,15 @@
-import type { PendingSignatureRequest } from '@/src/modules/firmas/domain/types'
+import type {
+  CompletedSignatureRequest,
+  PendingSignatureRequest,
+} from '@/src/modules/firmas/domain/types'
 import {
   buildOdooSignPublicUrl,
+  getOdooSignItemDoneStates,
   getOdooSignItemPendingStates,
   getOdooSignRequestActiveStates,
   getOdooSignRequestDueDateField,
   getOdooSignRequestItemModel,
+  getOdooSignRequestItemSignedDateField,
   getOdooSignRequestModel,
 } from '@/src/modules/firmas/infrastructure/firmas-env'
 import {
@@ -160,4 +165,179 @@ export async function fetchPendingSignaturesFromOdoo(
   }
 
   return pending
+}
+
+type OdooSignRequestHistoryItemRow = {
+  id: number
+  sign_request_id?: [number, string] | false | null
+  [signedDateField: string]: unknown
+}
+
+type OdooSignRequestHistoryRow = {
+  id: number
+  reference?: string | false | null
+  create_date?: string | false | null
+  completed_document_attachment_ids?: number[] | false | null
+}
+
+function readOdooSignedDate(
+  row: OdooSignRequestHistoryItemRow,
+  signedDateField: string
+): string | undefined {
+  const value = row[signedDateField]
+  return parseOdooDateTime(
+    typeof value === 'string' || value === false || value === null
+      ? value
+      : undefined
+  )
+}
+
+/**
+ * El nombre del certificado de finalización de Odoo Sign varía con el idioma
+ * ("Certificate of completion - ...", "Certificado de firma electrónica - ...")
+ * pero siempre termina con el mismo sufijo de fecha/hora generado por Odoo —
+ * ese sufijo es estable entre idiomas, el texto delante no lo es.
+ */
+const COMPLETION_CERTIFICATE_SUFFIX_PATTERN =
+  / - \d{4}-\d{2}-\d{2} - \d{2}:\d{2}:\d{2}\.pdf$/i
+
+async function fetchAttachmentNamesByIds(
+  attachmentIds: number[]
+): Promise<Map<number, string>> {
+  const names = new Map<number, string>()
+  if (!attachmentIds.length) return names
+
+  const rows = await odooSearchRead<{ id: number; name?: string | false | null }>(
+    'ir.attachment',
+    {
+      domain: [['id', 'in', attachmentIds]],
+      fields: ['name'],
+      limit: attachmentIds.length,
+    }
+  )
+
+  for (const row of rows) {
+    if (typeof row.name === 'string') {
+      names.set(row.id, row.name)
+    }
+  }
+
+  return names
+}
+
+/**
+ * De entre los adjuntos completados de una solicitud, separa el documento
+ * real del certificado de finalización: el documento se identifica primero
+ * por coincidencia exacta con la referencia de la solicitud, si no por NO
+ * tener el sufijo de fecha del certificado; el certificado es el que sí lo
+ * tiene.
+ */
+function pickSignatureAttachments(
+  completedIds: number[],
+  reference: string | false | null | undefined,
+  namesById: Map<number, string>
+): { documentAttachmentId?: number; certificateAttachmentId?: number } {
+  const certificateAttachmentId = completedIds.find((id) => {
+    const name = namesById.get(id)
+    return name !== undefined && COMPLETION_CERTIFICATE_SUFFIX_PATTERN.test(name)
+  })
+
+  if (typeof reference === 'string' && reference.trim()) {
+    const exactMatch = completedIds.find(
+      (id) => namesById.get(id) === reference.trim()
+    )
+    if (exactMatch !== undefined) {
+      return { documentAttachmentId: exactMatch, certificateAttachmentId }
+    }
+  }
+
+  const documentAttachmentId = completedIds.find(
+    (id) => id !== certificateAttachmentId && namesById.has(id)
+  )
+
+  return { documentAttachmentId, certificateAttachmentId }
+}
+
+export async function fetchSignatureHistoryFromOdoo(
+  partnerId: number
+): Promise<CompletedSignatureRequest[]> {
+  if (!isOdooApiConfigured()) {
+    throw new Error('ODOO_NOT_CONFIGURED')
+  }
+
+  const itemModel = getOdooSignRequestItemModel()
+  const requestModel = getOdooSignRequestModel()
+  const itemDoneStates = getOdooSignItemDoneStates()
+  const signedDateField = getOdooSignRequestItemSignedDateField()
+
+  const itemRows = await odooSearchRead<OdooSignRequestHistoryItemRow>(
+    itemModel,
+    {
+      domain: [
+        ['partner_id', '=', partnerId],
+        ['state', 'in', itemDoneStates],
+      ],
+      fields: ['sign_request_id', signedDateField],
+      order: `${signedDateField} desc, id desc`,
+      limit: 50,
+    }
+  )
+
+  const signedDateByRequestId = new Map<number, string>()
+  for (const row of itemRows) {
+    if (!Array.isArray(row.sign_request_id)) continue
+    const [requestId] = row.sign_request_id
+    const signedDate = readOdooSignedDate(row, signedDateField)
+    if (signedDate && !signedDateByRequestId.has(requestId)) {
+      signedDateByRequestId.set(requestId, signedDate)
+    }
+  }
+
+  const requestIds = [...signedDateByRequestId.keys()]
+  if (!requestIds.length) {
+    return []
+  }
+
+  const requestRows = await odooSearchRead<OdooSignRequestHistoryRow>(
+    requestModel,
+    {
+      domain: [['id', 'in', requestIds]],
+      fields: ['reference', 'create_date', 'completed_document_attachment_ids'],
+      limit: requestIds.length,
+    }
+  )
+
+  const allCompletedAttachmentIds = requestRows.flatMap((row) =>
+    Array.isArray(row.completed_document_attachment_ids)
+      ? row.completed_document_attachment_ids
+      : []
+  )
+  const attachmentNamesById = await fetchAttachmentNamesByIds(
+    allCompletedAttachmentIds
+  )
+
+  const history: CompletedSignatureRequest[] = requestRows.map((row) => {
+    const completedIds = Array.isArray(row.completed_document_attachment_ids)
+      ? row.completed_document_attachment_ids
+      : []
+    const { documentAttachmentId, certificateAttachmentId } = pickSignatureAttachments(
+      completedIds,
+      row.reference,
+      attachmentNamesById
+    )
+    return {
+      id: row.id,
+      reference: sanitizeReference(row.reference, undefined, row.id),
+      createDate: parseOdooDateTime(row.create_date),
+      signedDate: signedDateByRequestId.get(row.id),
+      documentAttachmentId,
+      certificateAttachmentId,
+    }
+  })
+
+  history.sort((a, b) => (a.signedDate && b.signedDate
+    ? b.signedDate.localeCompare(a.signedDate)
+    : 0))
+
+  return history
 }

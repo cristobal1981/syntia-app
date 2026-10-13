@@ -14,14 +14,31 @@ export type AltaTrabajadorDraft = {
   lastStepId: AltaTrabajadorStepId
 }
 
+function splitLegacyFullName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim()
+  if (!trimmed) return { firstName: '', lastName: '' }
+  const [firstName, ...rest] = trimmed.split(/\s+/)
+  return { firstName: firstName ?? '', lastName: rest.join(' ') }
+}
+
 function parseLegacyValues(
-  parsed: Partial<AltaTrabajadorFormValues> & { taxId?: string }
+  parsed: Partial<AltaTrabajadorFormValues> & { taxId?: string; fullName?: string }
 ): AltaTrabajadorFormValues {
-  const { taxId: legacyTaxId, ...rest } = parsed
+  const { taxId: legacyTaxId, fullName: legacyFullName, ...rest } = parsed
+
+  const needsNameMigration =
+    (!rest.firstName?.trim() && !rest.lastName?.trim()) && legacyFullName?.trim()
+  const migratedName = needsNameMigration
+    ? splitLegacyFullName(legacyFullName as string)
+    : null
+
   return {
     ...EMPTY_ALTA_TRABAJADOR_FORM,
     ...rest,
     dni: rest.dni ?? legacyTaxId ?? '',
+    ...(migratedName
+      ? { firstName: migratedName.firstName, lastName: migratedName.lastName }
+      : {}),
   }
 }
 
@@ -32,7 +49,7 @@ function normalizeLastStepId(value: unknown): AltaTrabajadorStepId {
   ) {
     return value as AltaTrabajadorStepId
   }
-  return 'datos-trabajador'
+  return 'datos-personales'
 }
 
 export function hasAltaTrabajadorDraftContent(
@@ -67,7 +84,7 @@ export function readAltaTrabajadorDraft(): AltaTrabajadorDraft | null {
 
     return {
       values,
-      lastStepId: 'datos-trabajador',
+      lastStepId: 'datos-personales',
     }
   } catch {
     return null

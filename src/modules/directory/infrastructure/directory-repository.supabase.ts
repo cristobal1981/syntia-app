@@ -1,8 +1,7 @@
+import { z } from 'zod'
+
 import { mapClientProfileFields } from '@/src/modules/directory/domain/client-kind'
 import {
-  PROFILE_SELECT,
-  USER_SELECT,
-  buildDisplayName,
   isClientDbRole,
   isGestorDbRole,
   mapDirectorySourceToClient,
@@ -10,259 +9,44 @@ import {
   mapNamePartsToProfileFields,
   mapPersonStatusToDb,
   parseOdooPartnerId,
-  type DirectoryPersonSource,
-  type ProfileRow,
-  type UserRow,
 } from '@/src/modules/directory/domain/map-directory-row'
-import type {
-  ClientRecord,
-  DirectoryListScope,
-  GestorRecord,
-  UpdateClientInput,
-  UpdateGestorInput,
-} from '@/src/modules/directory/domain/types'
+import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
+import { sendClientAccessEmailForClient } from '@/src/modules/directory/infrastructure/client-access-link'
+import { upsertClientIntegration } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
+import { propagateOwnerIntegrationToWorkers } from '@/src/modules/colaboradores/infrastructure/worker-grants.supabase'
 import {
-  deliverClientAccessEmail,
-  getPortalAccessRedirectUrl,
-  sendClientAccessEmailForClient,
-} from '@/src/modules/directory/infrastructure/client-access-link'
+  buildAdvisorNameMap,
+  buildDirectorySources,
+  fetchClientIdsForAdvisor,
+  fetchDirectorySearchIndex,
+  fetchUserIdsByRole,
+  paginateSearchIndex,
+  resolveAdvisorDisplayName,
+} from '@/src/modules/directory/infrastructure/directory-query-helpers.supabase'
 import {
-  deleteClientIntegration,
-  fetchClientIntegrationMap,
-  upsertClientIntegration,
-} from '@/src/modules/directory/infrastructure/client-integrations.supabase'
-import {
-  shouldSkipClientInviteEmail,
-  shouldUseResendClientInvite,
-} from '@/src/modules/directory/infrastructure/directory-env'
+  buildRandomStrongPassword,
+  createAuthUserForClient,
+  isDuplicateEmailError,
+  rollbackCreatedPortalUser,
+  upsertProfile,
+} from '@/src/modules/directory/infrastructure/portal-account-provisioning.supabase'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
-import { isResendConfigured } from '@/src/modules/email/infrastructure/resend-env'
 
-async function fetchUserMap(ids?: string[]) {
-  const supabase = createSupabaseAdminClient()
-  let query = supabase.from('users').select(USER_SELECT)
-
-  if (ids?.length) {
-    query = query.in('id', ids)
-  }
-
-  const { data, error } = await query
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return new Map((data as UserRow[]).map((row) => [row.id, row]))
-}
-
-async function fetchProfileMap(ids?: string[]) {
-  const supabase = createSupabaseAdminClient()
-  let query = supabase.from('profiles').select(PROFILE_SELECT)
-
-  if (ids?.length) {
-    query = query.in('user_id', ids)
-  }
-
-  const { data, error } = await query
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return new Map(
-    ((data ?? []) as unknown as ProfileRow[]).map((row) => [row.user_id, row])
-  )
-}
-
-async function buildDirectorySources(ids?: string[]) {
-  const [userMap, profileMap, integrationMap] = await Promise.all([
-    fetchUserMap(ids),
-    fetchProfileMap(ids),
-    fetchClientIntegrationMap(ids),
-  ])
-
-  const allIds = ids?.length ? ids : [...userMap.keys()]
-
-  return allIds
-    .map((id): DirectoryPersonSource | null => {
-      const user = userMap.get(id)
-      if (!user) return null
-
-      const profile = profileMap.get(id)
-      const integration = integrationMap.get(id)
-
-      return {
-        user,
-        ...(profile ? { profile } : {}),
-        ...(integration ? { integration } : {}),
-      }
-    })
-    .filter((entry): entry is DirectoryPersonSource => entry !== null)
-}
-
-async function buildAdvisorNameMap(
-  sources: DirectoryPersonSource[]
-): Promise<Map<string, string>> {
-  const advisorIds = [
-    ...new Set(
-      sources
-        .map((source) => source.profile?.advisor_id)
-        .filter((id): id is string => Boolean(id))
-    ),
-  ]
-
-  if (!advisorIds.length) {
-    return new Map()
-  }
-
-  const advisorSources = await buildDirectorySources(advisorIds)
-  return new Map(
-    advisorSources.map((source) => [
-      source.user.id,
-      resolveAdvisorDisplayName(source),
-    ])
-  )
-}
-
-function resolveAdvisorDisplayName(source: DirectoryPersonSource): string {
-  if (source.profile) {
-    return buildDisplayName(
-      source.profile.first_name,
-      source.profile.first_surname,
-      source.profile.second_surname
-    )
-  }
-  return source.user.email ?? ''
-}
-
-async function upsertProfile(userId: string, fields: Partial<ProfileRow>) {
-  const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('profiles').upsert(
-    {
-      user_id: userId,
-      ...fields,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  )
-
-  if (error) {
-    throw new Error(error.message)
-  }
-}
-
-async function rollbackCreatedPortalUser(
-  authUserId: string,
-  portalUserId?: string
-) {
-  const supabase = createSupabaseAdminClient()
-
-  if (portalUserId) {
-    await deleteClientIntegration(portalUserId)
-    await supabase.from('users').delete().eq('id', portalUserId)
-  }
-
-  await supabase.auth.admin.deleteUser(authUserId)
-}
-
-function isDuplicateEmailError(message: string): boolean {
-  const normalized = message.toLowerCase()
-  return (
-    normalized.includes('already registered') ||
-    normalized.includes('already exists') ||
-    normalized.includes('duplicate') ||
-    normalized.includes('unique')
-  )
-}
-
-function isEmailRateLimitError(message: string): boolean {
-  return message.toLowerCase().includes('rate limit')
-}
-
-type AuthUserCreation = {
-  authUserId: string
-  inviteSent: boolean
-}
-
-async function createAuthUserWithoutInvite(
-  email: string
-): Promise<AuthUserCreation> {
-  const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  })
-
-  if (error || !data.user) {
-    if (error && isDuplicateEmailError(error.message)) {
-      throw new Error('DUPLICATE_EMAIL')
-    }
-    throw new Error(error?.message ?? 'No se pudo crear el usuario de auth.')
-  }
-
-  return { authUserId: data.user.id, inviteSent: false }
-}
-
-async function createAuthUserWithResendInvite(
-  email: string
-): Promise<AuthUserCreation> {
-  const supabase = createSupabaseAdminClient()
-
-  const { data, error } = await supabase.auth.admin.generateLink({
-    type: 'invite',
-    email,
-    options: { redirectTo: getPortalAccessRedirectUrl() },
-  })
-
-  if (error || !data.user) {
-    if (error && isDuplicateEmailError(error.message)) {
-      throw new Error('DUPLICATE_EMAIL')
-    }
-    throw new Error(error?.message ?? 'No se pudo generar la invitación.')
-  }
-
-  await deliverClientAccessEmail(email, 'invite')
-
-  return { authUserId: data.user.id, inviteSent: true }
-}
-
-async function createAuthUserForClient(email: string): Promise<AuthUserCreation> {
-  if (shouldSkipClientInviteEmail()) {
-    return createAuthUserWithoutInvite(email)
-  }
-
-  if (shouldUseResendClientInvite()) {
-    if (!isResendConfigured()) {
-      throw new Error('RESEND_NOT_CONFIGURED')
-    }
-    return createAuthUserWithResendInvite(email)
-  }
-
-  const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: getPortalAccessRedirectUrl(),
-  })
-
-  if (!error && data.user) {
-    return { authUserId: data.user.id, inviteSent: true }
-  }
-
-  if (error?.message && isEmailRateLimitError(error.message)) {
-    if (process.env.NODE_ENV === 'development') {
-      return createAuthUserWithoutInvite(email)
-    }
-    throw new Error('EMAIL_RATE_LIMIT')
-  }
-
-  if (error && isDuplicateEmailError(error.message)) {
-    throw new Error('DUPLICATE_EMAIL')
-  }
-
-  throw new Error(error?.message ?? 'No se pudo invitar al usuario.')
-}
+/** Forma del `jsonb` del RPC `count_clients_by_advisor` — frontera real (SQL). */
+const clientCountsByAdvisorSchema = z.record(z.string(), z.number())
 
 export const supabaseDirectoryRepository: DirectoryRepository = {
   async listGestores() {
-    const sources = await buildDirectorySources()
+    // Filtra por role en SQL en vez de traer toda `users`/`profiles`/
+    // `client_integrations` y descartar no-gestores en memoria — a
+    // isGestorDbRole() en mapDirectorySourceToGestor() se mantiene como
+    // cinturón de seguridad por si el role real no encaja (p.ej. row
+    // borrado entre esta query y buildDirectorySources).
+    const ids = await fetchUserIdsByRole(['advisor', 'admin'])
+    if (!ids.length) return []
+
+    const sources = await buildDirectorySources(ids)
     const gestores: GestorRecord[] = []
 
     for (const source of sources) {
@@ -274,7 +58,19 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
   },
 
   async listClients(scope) {
-    const sources = await buildDirectorySources()
+    // Para advisor, resolver primero los ids con advisor_id = scope.userId
+    // en SQL (reduce el dataset antes del join) en vez de traer todos los
+    // clientes. El `advisorId !== scope.userId` de abajo se mantiene igual
+    // como cinturón de seguridad — scoping por asesor es seguridad-sensible
+    // (visibilidad entre clientes de distintos asesores) y no debe depender
+    // solo del filtro SQL.
+    const ids =
+      scope.role === 'advisor'
+        ? await fetchClientIdsForAdvisor(scope.userId)
+        : await fetchUserIdsByRole(['client'])
+    if (!ids.length) return []
+
+    const sources = await buildDirectorySources(ids)
     const advisorNames = await buildAdvisorNameMap(sources)
     const clients: ClientRecord[] = []
 
@@ -298,6 +94,71 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     }
 
     return clients.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  },
+
+  async listClientsPage(scope, params) {
+    const ids =
+      scope.role === 'advisor'
+        ? await fetchClientIdsForAdvisor(scope.userId)
+        : await fetchUserIdsByRole(['client'])
+    if (!ids.length) return { items: [], totalCount: 0 }
+
+    const index = await fetchDirectorySearchIndex(ids)
+    const { pageIds, totalCount } = paginateSearchIndex(index, params)
+    if (!pageIds.length) return { items: [], totalCount }
+
+    // Enriquece (3 tablas, todas las columnas) solo la página actual —
+    // nunca el scope completo, a diferencia de `listClients` arriba.
+    const sources = await buildDirectorySources(pageIds)
+    const advisorNames = await buildAdvisorNameMap(sources)
+    const clients: ClientRecord[] = []
+
+    for (const source of sources) {
+      if (!isClientDbRole(source.user.role)) continue
+
+      if (scope.role === 'advisor') {
+        const advisorId = source.profile?.advisor_id
+        if (!advisorId || advisorId !== scope.userId) continue
+      }
+
+      const advisorName = source.profile?.advisor_id
+        ? advisorNames.get(source.profile.advisor_id)
+        : undefined
+      const mapped = mapDirectorySourceToClient(source, advisorName)
+      if (mapped) clients.push(mapped)
+    }
+
+    // `sources` preserva el orden de `pageIds` (ya alfabético, resuelto
+    // sobre el índice ligero) — no hace falta reordenar otra vez.
+    return { items: clients, totalCount }
+  },
+
+  async listGestoresPage(params) {
+    const ids = await fetchUserIdsByRole(['advisor', 'admin'])
+    if (!ids.length) return { items: [], totalCount: 0 }
+
+    const index = await fetchDirectorySearchIndex(ids)
+    const { pageIds, totalCount } = paginateSearchIndex(index, params)
+    if (!pageIds.length) return { items: [], totalCount }
+
+    const sources = await buildDirectorySources(pageIds)
+    const gestores: GestorRecord[] = []
+
+    for (const source of sources) {
+      const mapped = mapDirectorySourceToGestor(source)
+      if (mapped) gestores.push(mapped)
+    }
+
+    return { items: gestores, totalCount }
+  },
+
+  async countClientsByAdvisor() {
+    const supabase = createSupabaseAdminClient()
+    const { data, error } = await supabase.rpc('count_clients_by_advisor')
+    if (error) {
+      throw new Error(error.message)
+    }
+    return clientCountsByAdvisorSchema.parse(data)
   },
 
   async getGestor(id) {
@@ -357,12 +218,13 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
           role: input.role,
           status: 'invited',
           is_active: false,
+          odoo_user_id: parseOdooPartnerId(input.odooUserId),
         })
         .select('id')
         .single()
 
       if (userError || !userRow) {
-        if (userError && isDuplicateEmailError(userError.message)) {
+        if (userError && isDuplicateEmailError(userError)) {
           throw new Error('DUPLICATE_EMAIL')
         }
         throw new Error(userError?.message ?? 'No se pudo crear la cuenta.')
@@ -427,7 +289,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
         .single()
 
       if (userError || !userRow) {
-        if (userError && isDuplicateEmailError(userError.message)) {
+        if (userError && isDuplicateEmailError(userError)) {
           throw new Error('DUPLICATE_EMAIL')
         }
         throw new Error(userError?.message ?? 'No se pudo crear la cuenta.')
@@ -475,6 +337,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
         role: input.role,
         status,
         is_active: input.status === 'active',
+        odoo_user_id: parseOdooPartnerId(input.odooUserId),
         updated_at: new Date().toISOString(),
       })
       .eq('id', input.id)
@@ -521,10 +384,12 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       advisor_id: input.advisorId ?? null,
     })
 
-    await upsertClientIntegration(input.id, {
+    const integrationFields = {
       odoo_partner_id: parseOdooPartnerId(input.odooPartnerId),
       drive_folder_id: input.driveFolderId?.trim() || null,
-    })
+    }
+    await upsertClientIntegration(input.id, integrationFields)
+    await propagateOwnerIntegrationToWorkers(input.id, integrationFields)
 
     const updated = await this.getClient(input.id)
     if (!updated) throw new Error('Cliente no encontrado tras actualizar')
@@ -605,7 +470,7 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     const supabase = createSupabaseAdminClient()
     const { data: userRow, error: fetchError } = await supabase
       .from('users')
-      .select('id, email, auth_user_id, role')
+      .select('id, email, auth_user_id, role, status')
       .eq('id', clientId)
       .maybeSingle()
 
@@ -621,11 +486,78 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
       throw new Error('NO_AUTH_ACCOUNT')
     }
 
+    if (userRow.status === 'archived') {
+      throw new Error('ACCOUNT_ARCHIVED')
+    }
+
+    if (userRow.status === 'active') {
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        String(userRow.auth_user_id),
+        { password: buildRandomStrongPassword() }
+      )
+      if (passwordError) {
+        throw new Error('PASSWORD_RESET_FAILED')
+      }
+    }
+
+    await sendClientAccessEmailForClient(String(userRow.email))
+  },
+
+  async resendGestorAccessEmail(gestorId) {
+    const supabase = createSupabaseAdminClient()
+    const { data: userRow, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, auth_user_id, role, status')
+      .eq('id', gestorId)
+      .maybeSingle()
+
+    if (fetchError) {
+      throw new Error(fetchError.message)
+    }
+
+    if (!userRow || !isGestorDbRole(userRow.role)) {
+      throw new Error('NOT_FOUND')
+    }
+
+    if (!userRow.auth_user_id) {
+      throw new Error('NO_AUTH_ACCOUNT')
+    }
+
+    if (userRow.status === 'archived') {
+      throw new Error('ACCOUNT_ARCHIVED')
+    }
+
+    if (userRow.status === 'active') {
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        String(userRow.auth_user_id),
+        { password: buildRandomStrongPassword() }
+      )
+      if (passwordError) {
+        throw new Error('PASSWORD_RESET_FAILED')
+      }
+    }
+
     await sendClientAccessEmailForClient(String(userRow.email))
   },
 
   async listAdvisorOptions() {
     const gestores = await this.listGestores()
-    return gestores.map((gestor) => ({ id: gestor.id, name: gestor.name }))
+    return gestores.map((gestor) => ({
+      id: gestor.id,
+      name: gestor.name,
+      email: gestor.email,
+    }))
+  },
+
+  async bulkAssignAdvisor(clientIds, advisorId) {
+    const supabase = createSupabaseAdminClient()
+    const { error } = await supabase
+      .from('profiles')
+      .update({ advisor_id: advisorId, updated_at: new Date().toISOString() })
+      .in('user_id', clientIds)
+
+    if (error) {
+      throw new Error(error.message)
+    }
   },
 }

@@ -11,23 +11,28 @@ export type PortalShortcutDefinition = {
   shift?: boolean
   meta?: boolean
   key: string
+  /** Ver resolvePortalShortcutModifier: mantiene Option físico en Mac en vez de traducir a ⌘. */
+  keepAltOnMac?: boolean
 }
 
 export const PORTAL_REFRESH_SHORTCUT: PortalShortcutDefinition = {
   id: 'refresh',
   alt: true,
+  keepAltOnMac: true,
   key: 'r',
 }
 
 export const PORTAL_CREATE_CONSULTA_SHORTCUT: PortalShortcutDefinition = {
   id: 'create-consulta',
   alt: true,
+  keepAltOnMac: true,
   key: 'n',
 }
 
 export const PORTAL_SEARCH_SHORTCUT: PortalShortcutDefinition = {
   id: 'search',
   alt: true,
+  keepAltOnMac: true,
   key: 'k',
 }
 
@@ -43,7 +48,7 @@ export function getPortalShortcutKeys(
   const keys: string[] = []
   const modifier = resolvePortalShortcutModifier(shortcut)
 
-  if (modifier === 'alt') keys.push('Alt')
+  if (modifier === 'alt') keys.push(isMacPlatform() ? '⌥' : 'Alt')
   if (modifier === 'meta') keys.push('⌘')
   if (shortcut.ctrl) keys.push('Ctrl')
   if (shortcut.shift) keys.push('Shift')

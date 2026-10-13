@@ -1,3 +1,6 @@
+import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
+import type { PortalNotificationsStats } from '@/src/modules/portal/domain/portal-notifications-types'
+
 const CHANNEL_NAME = 'syntia-portal-notifications'
 const LEADER_STORAGE_KEY = 'syntia-notifications-leader'
 const HEARTBEAT_MS = 10_000
@@ -10,6 +13,7 @@ export type PortalNotificationsPollPayload = {
   pendingFirmaIds: number[]
   hasChanges: boolean
   polledAt: number
+  stats: PortalNotificationsStats
 }
 
 export type PortalNotificationsStateSyncPayload = {
@@ -19,15 +23,31 @@ export type PortalNotificationsStateSyncPayload = {
   pendingFirmaIds: number[]
 }
 
+/** Un registro cambió por una acción propia de esta pestaña (subida, mensaje). */
+export type PortalRecordMutatedPayload = {
+  sourceTabId: string
+  scope: 'tramite' | 'consulta' | 'obligacion'
+  recordId: number
+  /**
+   * Cuando la mutación fue un mensaje de chat, se adjunta el mensaje ya
+   * construido (la pestaña que lo envió lo tiene en memoria) para que un
+   * chat abierto en otra pestaña lo pinte directamente, sin pedir nada
+   * nuevo a Odoo.
+   */
+  message?: PortalChatterMessage
+}
+
 type CoordinatorMessage =
   | { type: 'poll-result'; payload: PortalNotificationsPollPayload }
   | { type: 'state-sync'; payload: PortalNotificationsStateSyncPayload }
+  | { type: 'record-mutated'; payload: PortalRecordMutatedPayload }
   | { type: 'request-poll' }
   | { type: 'leader-claim'; tabId: string }
   | { type: 'leader-resign'; tabId: string }
 
 type PollResultListener = (payload: PortalNotificationsPollPayload) => void
 type StateSyncListener = (payload: PortalNotificationsStateSyncPayload) => void
+type RecordMutatedListener = (payload: PortalRecordMutatedPayload) => void
 type PollRequestListener = () => void
 
 function createTabId(): string {
@@ -65,10 +85,12 @@ function writeLeaderRecord(tabId: string) {
 export class PortalNotificationsTabCoordinator {
   private readonly tabId = createTabId()
   private readonly channel: BroadcastChannel | null
+  private closed = false
   private isLeader = false
   private heartbeatTimer: number | null = null
   private pollResultListeners = new Set<PollResultListener>()
   private stateSyncListeners = new Set<StateSyncListener>()
+  private recordMutatedListeners = new Set<RecordMutatedListener>()
   private pollRequestListeners = new Set<PollRequestListener>()
 
   constructor() {
@@ -115,6 +137,14 @@ export class PortalNotificationsTabCoordinator {
       return
     }
 
+    if (message.type === 'record-mutated') {
+      if (message.payload.sourceTabId === this.tabId) return
+      for (const listener of this.recordMutatedListeners) {
+        listener(message.payload)
+      }
+      return
+    }
+
     if (message.type === 'request-poll' && this.isLeader) {
       for (const listener of this.pollRequestListeners) {
         listener()
@@ -139,6 +169,7 @@ export class PortalNotificationsTabCoordinator {
     this.resignLeadership()
     window.removeEventListener('storage', this.handleStorageChange)
     window.removeEventListener('beforeunload', this.handleBeforeUnload)
+    this.closed = true
     this.channel?.close()
   }
 
@@ -164,6 +195,13 @@ export class PortalNotificationsTabCoordinator {
     }
   }
 
+  onRecordMutated(listener: RecordMutatedListener): () => void {
+    this.recordMutatedListeners.add(listener)
+    return () => {
+      this.recordMutatedListeners.delete(listener)
+    }
+  }
+
   onPollRequest(listener: PollRequestListener): () => void {
     this.pollRequestListeners.add(listener)
     return () => {
@@ -171,23 +209,35 @@ export class PortalNotificationsTabCoordinator {
     }
   }
 
+  private post(message: CoordinatorMessage) {
+    if (this.closed) return
+    this.channel?.postMessage(message)
+  }
+
   broadcastPollResult(payload: PortalNotificationsPollPayload) {
-    this.channel?.postMessage({
+    this.post({
       type: 'poll-result',
       payload,
     } satisfies CoordinatorMessage)
   }
 
   broadcastStateSync(payload: PortalNotificationsStateSyncPayload) {
-    this.channel?.postMessage({
+    this.post({
       type: 'state-sync',
+      payload,
+    } satisfies CoordinatorMessage)
+  }
+
+  broadcastRecordMutated(payload: PortalRecordMutatedPayload) {
+    this.post({
+      type: 'record-mutated',
       payload,
     } satisfies CoordinatorMessage)
   }
 
   requestPollFromLeader() {
     if (this.isLeader) return
-    this.channel?.postMessage({ type: 'request-poll' } satisfies CoordinatorMessage)
+    this.post({ type: 'request-poll' } satisfies CoordinatorMessage)
     this.tryBecomeLeader()
   }
 
@@ -203,7 +253,7 @@ export class PortalNotificationsTabCoordinator {
 
     this.isLeader = true
     writeLeaderRecord(this.tabId)
-    this.channel?.postMessage({
+    this.post({
       type: 'leader-claim',
       tabId: this.tabId,
     } satisfies CoordinatorMessage)
@@ -232,7 +282,7 @@ export class PortalNotificationsTabCoordinator {
       this.heartbeatTimer = null
     }
 
-    this.channel?.postMessage({
+    this.post({
       type: 'leader-resign',
       tabId: this.tabId,
     } satisfies CoordinatorMessage)

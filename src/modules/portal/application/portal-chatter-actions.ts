@@ -1,15 +1,17 @@
 'use server'
 
 import { after } from 'next/server'
-import { updateTag } from 'next/cache'
+import { revalidateTag, updateTag } from 'next/cache'
 
 import { portalChatter } from '@/content/portal-chatter'
 
+import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import {
   isChatterHtmlEmpty,
   validateChatterHtmlBody,
 } from '@/src/modules/portal/domain/filter-portal-messages'
 import type {
+  ListNewerRecordMessagesInput,
   ListRecordMessagesInput,
   PortalChatterMessagesPageResult,
   PortalChatterPostResult,
@@ -18,6 +20,10 @@ import type {
 import { portalWatchStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
+import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
@@ -35,24 +41,48 @@ import {
 } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
+  listNewerPortalMessages,
   listPortalMessagesPage,
   postRecordComment,
   verifyParentMessageBelongsToRecord,
 } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import {
+  fetchChatterReplyLinks,
+  recordChatterReplyLink,
+} from '@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase'
+import {
   fetchWatchStateForUser,
   upsertWatchStateBatch,
 } from '@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
+import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
-async function resolveClientPartnerId(): Promise<
+async function resolveClientPartnerId(
+  requiredLevel: WorkerAccessLevel = 'read'
+): Promise<
   | { ok: true; partnerId: number; actorId: string }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
+  }
+
+  /**
+   * Toda esta acción es chatter de trámites/tickets — ambos viven bajo
+   * `/tramites` (ver `recordScopeFromKind`). Un colaborador sin ese nivel
+   * concedido no debe poder leer (o, si `requiredLevel` es 'write',
+   * escribir) mensajes aquí, aunque conozca el `recordId`.
+   */
+  if (session.user.role === 'worker') {
+    const sections =
+      requiredLevel === 'write'
+        ? await getWorkerWriteSections(session.user)
+        : await getAllowedSectionsForWorker(session.user)
+    if (!sections.has('/tramites')) {
+      return { ok: false, error: 'forbidden' }
+    }
   }
 
   const partnerId = await resolveClientOdooPartnerId(session.user)
@@ -85,6 +115,13 @@ function parseBeforeId(beforeId?: number): number | undefined {
   return value
 }
 
+/** A diferencia de beforeId, 0 es válido: "sin cota inferior" (chat vacío). */
+function parseAfterId(afterId: number): number | null {
+  const value = Number(afterId)
+  if (!Number.isInteger(value) || value < 0) return null
+  return value
+}
+
 function parseParentId(parentId?: number): number | undefined {
   if (parentId === undefined) return undefined
   const value = Number(parentId)
@@ -99,6 +136,37 @@ function sanitizeNotifyPartnerIds(partnerIds: number[] | undefined): number[] {
       partnerIds.filter((partnerId) => Number.isInteger(partnerId) && partnerId > 0)
     ),
   ]
+}
+
+function stripUntrustedParentId(message: PortalChatterMessage): PortalChatterMessage {
+  if (!message.parentId) return message
+  const rest = { ...message }
+  delete rest.parentId
+  return rest
+}
+
+/**
+ * Odoo autocompleta `parent_id` encadenando al mensaje anterior del hilo,
+ * elija o no elija el remitente responder a algo (ver
+ * enrich-portal-chatter-messages.ts y portal-chatter-reply-links.supabase.ts
+ * para el porqué). Antes de mostrar cualquier "respondiendo a X", se
+ * sustituye ese dato por el registrado en Supabase, que solo se escribe
+ * cuando el cliente pulsa "Responder" en el composer del portal.
+ */
+async function applyTrustedReplyLinks(
+  messages: PortalChatterMessage[]
+): Promise<PortalChatterMessage[]> {
+  const replyLinks = await fetchChatterReplyLinks(messages.map((message) => message.id))
+  if (!replyLinks.size) {
+    return messages.map(stripUntrustedParentId)
+  }
+
+  return messages.map((message) => {
+    const parentMessageId = replyLinks.get(message.id)
+    return parentMessageId
+      ? { ...message, parentId: parentMessageId }
+      : stripUntrustedParentId(message)
+  })
 }
 
 async function advanceAttachmentWatchState(input: {
@@ -158,7 +226,7 @@ export async function listRecordMessagesAction(
 
     return {
       ok: true,
-      messages: page.messages,
+      messages: await applyTrustedReplyLinks(page.messages),
       hasMore: page.hasMore,
     }
   } catch (error) {
@@ -166,12 +234,61 @@ export async function listRecordMessagesAction(
   }
 }
 
-export async function postRecordMessageAction(
-  input: PostRecordMessageInput
-): Promise<PortalChatterPostResult> {
+export async function listNewerRecordMessagesAction(
+  input: ListNewerRecordMessagesInput
+): Promise<PortalChatterMessagesPageResult> {
   const access = await resolveClientPartnerId()
   if (!access.ok) {
     return { ok: false, error: access.error }
+  }
+
+  const recordId = parseRecordId(input.recordId)
+  if (!recordId) {
+    return { ok: false, error: 'not_found' }
+  }
+
+  const afterId = parseAfterId(input.afterId)
+  if (afterId === null) {
+    return { ok: false, error: 'not_found' }
+  }
+
+  try {
+    const resModel = getOdooModelForRecordKind(input.kind)
+
+    const [allowed, messages] = await Promise.all([
+      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      listNewerPortalMessages({
+        resModel,
+        recordId,
+        clientPartnerId: access.partnerId,
+        afterId,
+      }),
+    ])
+
+    if (!allowed) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    return { ok: true, messages: await applyTrustedReplyLinks(messages), hasMore: false }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
+  }
+}
+
+/** Mandar mensajes de chatter es más frecuente que crear tickets, pero sigue acotado. */
+const POST_MESSAGE_RATE_LIMIT = { limit: 20, windowSeconds: 300 }
+
+export async function postRecordMessageAction(
+  input: PostRecordMessageInput
+): Promise<PortalChatterPostResult> {
+  const access = await resolveClientPartnerId('write')
+  if (!access.ok) {
+    return { ok: false, error: access.error }
+  }
+
+  const allowed = await checkRateLimit(`chatter-post:${access.actorId}`, POST_MESSAGE_RATE_LIMIT)
+  if (!allowed) {
+    return { ok: false, error: 'rate_limited' }
   }
 
   const recordId = parseRecordId(input.recordId)
@@ -263,10 +380,22 @@ export async function postRecordMessageAction(
     const hadAttachments = files.length > 0
     const attachmentCountEstimate = hadAttachments ? files.length : undefined
 
+    if (parentId) {
+      after(() => {
+        void recordChatterReplyLink({
+          messageId: message.id,
+          parentMessageId: parentId,
+        }).catch(() => {
+          // Best-effort: si falla, esta respuesta simplemente no mostrará
+          // la cita al recargar la conversación; no bloquea el envío.
+        })
+      })
+    }
+
     after(() => {
       if (!hadAttachments) return
 
-      updateTag(tramitesSnapshotCacheTag(access.partnerId))
+      revalidateTag(tramitesSnapshotCacheTag(access.partnerId), 'max')
 
       void (async () => {
         const counts = await countAttachmentsByRecordIds(resModel, [recordId])

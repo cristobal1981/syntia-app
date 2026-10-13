@@ -1,22 +1,4 @@
 import { guias, type GuideCategoryId, type GuideEntry } from '@/content/guias'
-import { normalizeGuideSearchText } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
-
-export function guideMatchesQuery(entry: GuideEntry, query: string): boolean {
-  const normalizedQuery = normalizeGuideSearchText(query.trim())
-  if (!normalizedQuery) return true
-
-  const haystack = normalizeGuideSearchText(
-    [
-      entry.title,
-      entry.description,
-      ...entry.tags,
-      ...entry.keywords,
-      ...(entry.relatedModelCodes ?? []),
-    ].join(' ')
-  )
-
-  return haystack.includes(normalizedQuery)
-}
 
 export function getGuideBySlug(slug: string): GuideEntry | undefined {
   return guias.entries.find((entry) => entry.slug === slug)
@@ -28,6 +10,11 @@ export function getGuidesForWindowSlugs(
   return slugs
     .map((slug) => getGuideBySlug(slug))
     .filter((entry): entry is GuideEntry => entry !== undefined)
+}
+
+/** Guías que mencionan un modelo fiscal concreto en su `relatedModelCodes`. */
+export function getGuidesForModelCode(code: string): GuideEntry[] {
+  return guias.entries.filter((entry) => entry.relatedModelCodes?.includes(code))
 }
 
 export type GuideCategoryGroup = {

@@ -37,23 +37,31 @@ async function fetchGoogleAccessToken(): Promise<string> {
   const signature = sign.sign(normalizePrivateKey(privateKeyRaw), 'base64url')
   const jwt = `${unsigned}.${signature}`
 
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-    cache: 'no-store',
-  })
+  let response: Response
+  try {
+    response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt,
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch {
+    throw new Error('GOOGLE_DRIVE_AUTH_FAILED')
+  }
 
   if (!response.ok) {
     throw new Error('GOOGLE_DRIVE_AUTH_FAILED')
   }
 
-  const payload = (await response.json()) as {
-    access_token?: string
-    expires_in?: number
+  let payload: { access_token?: string; expires_in?: number }
+  try {
+    payload = (await response.json()) as typeof payload
+  } catch {
+    throw new Error('GOOGLE_DRIVE_AUTH_FAILED')
   }
 
   if (!payload.access_token) {
@@ -67,6 +75,11 @@ async function fetchGoogleAccessToken(): Promise<string> {
   }
 
   return payload.access_token
+}
+
+/** Descarta el token en caché (p. ej. tras un 401) para que el siguiente uso pida uno nuevo. */
+export function invalidateGoogleDriveAccessToken(): void {
+  cachedAccessToken = null
 }
 
 export async function getGoogleDriveAccessToken(): Promise<string> {

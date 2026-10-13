@@ -10,7 +10,8 @@ import {
 import { usePathname, useRouter } from 'next/navigation'
 
 import { PORTAL_CREATE_CONSULTA_SHORTCUT } from '@/src/modules/portal/domain/portal-shortcuts'
-import { useChatterNotificationsOptional } from '@/src/modules/portal/ui/chatter-notifications-context'
+import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
+import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import { acknowledgeTramiteListItemSeenAction } from '@/src/modules/tramites/application/tramites-list-seen-actions'
 import {
   formatTramiteListItemKey,
@@ -59,7 +60,8 @@ export function PortalCreateConsultaProvider({
 }: PortalCreateConsultaProviderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const notifications = useChatterNotificationsOptional()
+  const notifications = usePortalNotificationsOptional()
+  const onboardingChecklist = useOnboardingChecklistOptional()
   const [open, setOpen] = useState(false)
   const [initialProcedure, setInitialProcedure] =
     useState<ProcedureTicketType | null>(null)
@@ -70,12 +72,15 @@ export function PortalCreateConsultaProvider({
   const openCreateConsulta = useCallback(
     (options?: OpenCreateConsultaOptions) => {
       if (!isAvailable) return
-      // Solicitudes tipadas desactivadas en prod: solo consulta general.
-      void options
-      setInitialProcedure(null)
+      onboardingChecklist?.markStepComplete('nuevaConsulta')
+      if (options?.procedure === 'alta-trabajador') {
+        router.push('/alta-trabajador')
+        return
+      }
+      setInitialProcedure(options?.procedure ?? null)
       setOpen(true)
     },
-    [isAvailable]
+    [isAvailable, onboardingChecklist, router]
   )
 
   usePortalShortcut(

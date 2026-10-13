@@ -3,6 +3,7 @@ import type { TaskStateBadgeVariant } from '@/src/modules/tramites/domain/map-ta
 
 const variantClasses: Record<TaskStateBadgeVariant, string> = {
   inProgress: 'badge-status-pending',
+  changesRequested: 'badge-status-changes-requested',
   done: 'badge-status-done',
   canceled: 'badge-status-canceled',
   unknown: 'bg-muted text-muted-foreground dark:bg-background dark:text-subtle-foreground',

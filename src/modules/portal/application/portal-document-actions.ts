@@ -3,6 +3,8 @@
 import JSZip from 'jszip'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
+import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import type {
   PortalAttachmentDownloadResult,
   PortalAttachmentsZipResult,
@@ -10,22 +12,24 @@ import type {
   PortalRecordKind,
 } from '@/src/modules/portal/domain/portal-record-types'
 import {
+  fetchAttachmentBinariesByIds,
   fetchAttachmentBinary,
   listAttachmentsForRecord,
 } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   getOdooModelForRecordKind,
+  resolveTaskWorkerSection,
   verifyClientRecordAccess,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
 async function resolveClientPartnerId(): Promise<
-  | { ok: true; partnerId: number }
+  | { ok: true; partnerId: number; user: PortalUser }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession()
-  if (!session || session.user.role !== 'client') {
+  if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 
@@ -38,7 +42,29 @@ async function resolveClientPartnerId(): Promise<
     return { ok: false, error: 'odoo_unavailable' }
   }
 
-  return { ok: true, partnerId }
+  return { ok: true, partnerId, user: session.user }
+}
+
+/**
+ * Un `ticket` solo existe bajo `/tramites`; un `task` puede ser un trámite o
+ * una obligación (mismo modelo de Odoo) — hay que mirar en qué snapshot
+ * cacheado del cliente aparece para saber cuál de las dos es.
+ */
+async function workerHasRecordSectionAccess(
+  user: PortalUser,
+  kind: PortalRecordKind,
+  recordId: number,
+  partnerId: number
+): Promise<boolean> {
+  if (user.role !== 'worker') return true
+
+  const allowedSections = await getAllowedSectionsForWorker(user)
+  if (kind === 'ticket') {
+    return allowedSections.has('/tramites')
+  }
+
+  const section = await resolveTaskWorkerSection(recordId, partnerId)
+  return section !== null && allowedSections.has(section)
 }
 
 export async function getRecordAttachmentsAction(input: {
@@ -62,6 +88,17 @@ export async function getRecordAttachmentsAction(input: {
       access.partnerId
     )
     if (!allowed) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    if (
+      !(await workerHasRecordSectionAccess(
+        access.user,
+        input.kind,
+        recordId,
+        access.partnerId
+      ))
+    ) {
       return { ok: false, error: 'not_found' }
     }
 
@@ -104,6 +141,17 @@ export async function downloadAttachmentAction(input: {
       access.partnerId
     )
     if (!allowed) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    if (
+      !(await workerHasRecordSectionAccess(
+        access.user,
+        input.kind,
+        recordId,
+        access.partnerId
+      ))
+    ) {
       return { ok: false, error: 'not_found' }
     }
 
@@ -162,6 +210,17 @@ export async function downloadAllAttachmentsZipAction(input: {
       return { ok: false, error: 'not_found' }
     }
 
+    if (
+      !(await workerHasRecordSectionAccess(
+        access.user,
+        input.kind,
+        recordId,
+        access.partnerId
+      ))
+    ) {
+      return { ok: false, error: 'not_found' }
+    }
+
     const attachments = await listAttachmentsForRecord(
       getOdooModelForRecordKind(input.kind),
       recordId
@@ -172,11 +231,12 @@ export async function downloadAllAttachmentsZipAction(input: {
     }
 
     const zip = new JSZip()
+    const expectedModel = getOdooModelForRecordKind(input.kind)
+    const binaries = await fetchAttachmentBinariesByIds(
+      attachments.map((attachment) => attachment.id)
+    )
 
-    for (const attachment of attachments) {
-      const binary = await fetchAttachmentBinary(attachment.id)
-      const expectedModel = getOdooModelForRecordKind(input.kind)
-
+    for (const binary of binaries) {
       if (binary.resModel !== expectedModel || binary.resId !== recordId) {
         return { ok: false, error: 'not_found' }
       }

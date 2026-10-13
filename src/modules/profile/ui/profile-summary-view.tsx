@@ -12,6 +12,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { portal } from '@/content/portal'
 import { profile } from '@/content/profile'
 import { maskIban } from '@/lib/profile/validate-profile-change'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ import type {
 import { ProfileAssignedAdvisorCard } from '@/src/modules/profile/ui/profile-assigned-advisor-card'
 import { ProfileChangeDrawer } from '@/src/modules/profile/ui/profile-change-drawer'
 import { ProfileFieldRow } from '@/src/modules/profile/ui/profile-field-row'
+import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 
 type ProfileSummaryViewProps = {
   initialProfile: ClientProfile
@@ -59,6 +61,7 @@ export function ProfileSummaryView({
   assignedAdvisor,
 }: ProfileSummaryViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const onboardingChecklist = useOnboardingChecklistOptional()
   const hasIban = Boolean(initialProfile.iban.trim())
   const displayIban = hasIban ? maskIban(initialProfile.iban) : ''
   const { address } = initialProfile
@@ -82,15 +85,25 @@ export function ProfileSummaryView({
               {profile.pageDescription}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="default"
-            className="shrink-0"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <PenLine className="size-4" aria-hidden />
-            {profile.actions.requestChange}
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {onboardingChecklist ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onboardingChecklist.start}
+              >
+                {portal.onboardingChecklist.reopenLabel}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="default"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <PenLine className="size-4" aria-hidden />
+              {profile.actions.requestChange}
+            </Button>
+          </div>
         </header>
 
         <div

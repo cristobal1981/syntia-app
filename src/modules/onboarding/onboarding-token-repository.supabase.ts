@@ -14,6 +14,7 @@ export type OnboardingFormAccessToken = {
   token: string
   form_kind: OnboardingFormKind
   recipient_email: string | null
+  recipient_name: string | null
   odoo_partner_id: number | null
   expires_at: string
   used_at: string | null
@@ -27,11 +28,14 @@ export type OnboardingFormAccessToken = {
   email_clicked_at: string | null
   email_bounced_at: string | null
   email_complained_at: string | null
+  email_subject: string | null
+  email_html: string | null
 }
 
 type CreateOnboardingFormAccessTokenInput = {
   formKind?: OnboardingFormKind
   recipientEmail?: string
+  recipientName?: string
   odooPartnerId?: number
   createdBy: string
 }
@@ -41,6 +45,7 @@ type OnboardingTokenRow = {
   token: string
   form_kind: OnboardingFormKind
   recipient_email: string | null
+  recipient_name: string | null
   odoo_partner_id: number | null
   expires_at: string
   used_at: string | null
@@ -54,10 +59,12 @@ type OnboardingTokenRow = {
   email_clicked_at: string | null
   email_bounced_at: string | null
   email_complained_at: string | null
+  email_subject: string | null
+  email_html: string | null
 }
 
 const TOKEN_SELECT =
-  'id, token, form_kind, recipient_email, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at'
+  'id, token, form_kind, recipient_email, recipient_name, odoo_partner_id, expires_at, used_at, revoked_at, created_by, created_at, resend_email_id, email_sent_at, email_delivered_at, email_opened_at, email_clicked_at, email_bounced_at, email_complained_at, email_subject, email_html'
 
 function normalizeEmail(value: string | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? ''
@@ -70,6 +77,7 @@ function toOnboardingToken(row: OnboardingTokenRow): OnboardingFormAccessToken {
     token: row.token,
     form_kind: row.form_kind,
     recipient_email: row.recipient_email,
+    recipient_name: row.recipient_name,
     odoo_partner_id: row.odoo_partner_id,
     expires_at: row.expires_at,
     used_at: row.used_at,
@@ -83,6 +91,8 @@ function toOnboardingToken(row: OnboardingTokenRow): OnboardingFormAccessToken {
     email_clicked_at: row.email_clicked_at,
     email_bounced_at: row.email_bounced_at,
     email_complained_at: row.email_complained_at,
+    email_subject: row.email_subject,
+    email_html: row.email_html,
   }
 }
 
@@ -100,26 +110,32 @@ export async function createOnboardingFormAccessToken(
   const supabase = createSupabaseAdminClient()
   const revokeAt = new Date().toISOString()
 
-  let revokeQuery = supabase
-    .from('onboarding_form_access_tokens')
-    .update({ revoked_at: revokeAt })
-    .eq('form_kind', formKind)
-    .is('used_at', null)
-    .is('revoked_at', null)
+  // Dos updates independientes en vez de un .or() con la cadena interpolada:
+  // recipientEmail no está validado como email estricto en este punto, y
+  // construir el filtro de Postgrest por interpolación permitiría inyectar
+  // condiciones extra (p. ej. una coma en el valor) en la cláusula OR.
+  async function revokeMatching(
+    column: 'recipient_email' | 'odoo_partner_id',
+    value: string | number
+  ) {
+    const { error } = await supabase
+      .from('onboarding_form_access_tokens')
+      .update({ revoked_at: revokeAt })
+      .eq('form_kind', formKind)
+      .is('used_at', null)
+      .is('revoked_at', null)
+      .eq(column, value)
 
-  if (recipientEmail && odooPartnerId !== null) {
-    revokeQuery = revokeQuery.or(
-      `recipient_email.eq.${recipientEmail},odoo_partner_id.eq.${odooPartnerId}`
-    )
-  } else if (recipientEmail) {
-    revokeQuery = revokeQuery.eq('recipient_email', recipientEmail)
-  } else {
-    revokeQuery = revokeQuery.eq('odoo_partner_id', odooPartnerId as number)
+    if (error) {
+      throw new Error(error.message)
+    }
   }
 
-  const { error: revokeError } = await revokeQuery
-  if (revokeError) {
-    throw new Error(revokeError.message)
+  if (recipientEmail) {
+    await revokeMatching('recipient_email', recipientEmail)
+  }
+  if (odooPartnerId !== null) {
+    await revokeMatching('odoo_partner_id', odooPartnerId)
   }
 
   const token = crypto.randomUUID()
@@ -129,6 +145,7 @@ export async function createOnboardingFormAccessToken(
       token,
       form_kind: formKind,
       recipient_email: recipientEmail,
+      recipient_name: input.recipientName?.trim() || null,
       odoo_partner_id: odooPartnerId,
       created_by: input.createdBy,
     })
@@ -239,7 +256,13 @@ export async function revokeOnboardingFormAccessToken(
 
 export async function recordOnboardingEmailSent(
   token: string,
-  emailId: string | null
+  emailId: string | null,
+  options?: {
+    recipientEmail?: string
+    recipientName?: string
+    emailSubject?: string
+    emailHtml?: string
+  }
 ): Promise<void> {
   const normalized = token.trim()
   if (!normalized) {
@@ -257,6 +280,16 @@ export async function recordOnboardingEmailSent(
       email_clicked_at: null,
       email_bounced_at: null,
       email_complained_at: null,
+      ...(options?.recipientEmail !== undefined
+        ? { recipient_email: options.recipientEmail }
+        : {}),
+      ...(options?.recipientName !== undefined
+        ? { recipient_name: options.recipientName }
+        : {}),
+      ...(options?.emailSubject !== undefined
+        ? { email_subject: options.emailSubject }
+        : {}),
+      ...(options?.emailHtml !== undefined ? { email_html: options.emailHtml } : {}),
     })
     .eq('token', normalized)
 

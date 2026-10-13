@@ -2,7 +2,10 @@
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
-import type { DirectoryListScope } from '@/src/modules/directory/domain/types'
+import type {
+  DirectoryListScope,
+  DirectoryPageParams,
+} from '@/src/modules/directory/domain/types'
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
 
 export async function requireDirectorySession() {
@@ -44,4 +47,28 @@ export async function listAdvisorOptionsAction() {
     return []
   }
   return getDirectoryRepository().listAdvisorOptions()
+}
+
+export async function listClientsPageAction(params: DirectoryPageParams) {
+  const scope = await buildDirectoryScope()
+  if (scope.role === 'client') {
+    throw new Error('forbidden')
+  }
+  return getDirectoryRepository().listClientsPage(scope, params)
+}
+
+export async function listGestoresPageAction(params: DirectoryPageParams) {
+  const session = await requireDirectorySession()
+  if (session.user.role !== 'admin') {
+    throw new Error('forbidden')
+  }
+  return getDirectoryRepository().listGestoresPage(params)
+}
+
+export async function countClientsByAdvisorAction() {
+  const session = await requireDirectorySession()
+  if (session.user.role !== 'admin') {
+    throw new Error('forbidden')
+  }
+  return getDirectoryRepository().countClientsByAdvisor()
 }

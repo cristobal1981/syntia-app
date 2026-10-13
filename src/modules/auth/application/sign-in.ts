@@ -6,10 +6,19 @@ import { establishPortalSession } from '@/src/modules/auth/application/establish
 import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
+import { getWorkerAccessStatus } from '@/src/modules/colaboradores/application/get-worker-access-status'
 
 export type SignInResult =
   | { ok: true }
-  | { ok: false; error: 'invalid_credentials' | 'not_configured' | 'unknown' }
+  | {
+      ok: false
+      error:
+        | 'invalid_credentials'
+        | 'not_configured'
+        | 'unknown'
+        | 'worker_access_disabled'
+        | 'account_disabled'
+    }
 
 export async function signInAction(
   _prev: SignInResult | null,
@@ -32,6 +41,18 @@ export async function signInAction(
     return { ok: false, error: 'invalid_credentials' }
   }
 
-  await establishPortalSession(await resolvePortalUserFromAuth(data.user))
+  const user = await resolvePortalUserFromAuth(data.user)
+  if (!user) {
+    return { ok: false, error: 'account_disabled' }
+  }
+
+  if (user.role === 'worker') {
+    const { active } = await getWorkerAccessStatus(user)
+    if (!active) {
+      return { ok: false, error: 'worker_access_disabled' }
+    }
+  }
+
+  await establishPortalSession(user)
   redirect('/dashboard')
 }

@@ -39,9 +39,13 @@ export function ChatterAuthorAvatar({
   const initial = authorInitial(name)
   const dimensions = AVATAR_SIZE[size]
 
-  useEffect(() => {
+  // Ajuste durante el render (no en un efecto): reinicia el estado de carga
+  // al cambiar de avatar/partner.
+  const [prevPartnerId, setPrevPartnerId] = useState(partnerId)
+  if (partnerId !== prevPartnerId) {
+    setPrevPartnerId(partnerId)
     setStatus('loading')
-  }, [partnerId])
+  }
 
   useEffect(() => {
     const img = imgRef.current
@@ -79,6 +83,10 @@ export function ChatterAuthorAvatar({
           </span>
         </>
       ) : null}
+      {/* next/image añadiría un proxy de optimización sobre este endpoint propio
+          sin beneficio real (avatar pequeño, no crítico para LCP) y complicaría
+          el skeleton de carga ya implementado a mano con onLoad/onError. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imgRef}
         src={getPartnerAvatarUrl(partnerId)}

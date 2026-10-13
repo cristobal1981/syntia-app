@@ -1,6 +1,7 @@
+import { DIRECTORY_PAGE_SIZE } from '@/src/modules/directory/domain/types'
 import {
   listAdvisorOptionsAction,
-  listClientsAction,
+  listClientsPageAction,
 } from '@/src/modules/directory/application/directory-queries'
 import { ClientsPageView } from '@/src/modules/directory/ui/clients-page-view'
 
@@ -9,14 +10,14 @@ type ClientsPageProps = {
 }
 
 export async function ClientsPage({ canAssignAdvisor }: ClientsPageProps) {
-  const [clients, advisorOptions] = await Promise.all([
-    listClientsAction(),
+  const [page, advisorOptions] = await Promise.all([
+    listClientsPageAction({ page: 1, pageSize: DIRECTORY_PAGE_SIZE }),
     canAssignAdvisor ? listAdvisorOptionsAction() : Promise.resolve([]),
   ])
 
   return (
     <ClientsPageView
-      initialClients={clients}
+      initialPage={page}
       advisorOptions={advisorOptions}
       canAssignAdvisor={canAssignAdvisor}
     />

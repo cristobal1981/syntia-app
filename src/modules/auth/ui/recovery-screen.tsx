@@ -11,6 +11,7 @@ export function RecoveryScreen() {
       title={portal.recovery.title}
       description={portal.recovery.description}
       logoHref="/login"
+      footer={null}
     >
       <AuthFormPanel>
         <RequestPasswordResetForm />

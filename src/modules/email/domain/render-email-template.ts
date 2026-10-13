@@ -48,6 +48,7 @@ function envolverCliente(input: {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#FFFFFF; border-radius:10px; overflow:hidden;">
         <tr><td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid ${EMAIL_COLORES.bordeClaro};">
           ${logo}
+          <p style="margin: 4px 0 0 0; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 11px; color: ${EMAIL_COLORES.textoSecundario};">${EMAIL_FOOTER.logoTagline}</p>
         </td></tr>
         <tr><td style="padding: 32px;">
           <p style="margin: 0 0 16px 0; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 15px; line-height: 1.6; color: ${EMAIL_COLORES.textoPrincipal};">${input.saludo}</p>
@@ -55,7 +56,7 @@ function envolverCliente(input: {
           <p style="margin: 24px 0 0 0; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 15px; color: ${EMAIL_COLORES.textoPrincipal};">${input.despedida}</p>
         </td></tr>
         <tr><td style="padding: 20px 32px 28px 32px; border-top: 1px solid ${EMAIL_COLORES.bordeClaro};">
-          <p style="font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal}; margin: 0 0 10px 0; font-weight: 600;">${EMAIL_FOOTER.companyName}</p>
+          <p style="font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal}; margin: 0 0 10px 0; font-weight: 600;">${EMAIL_FOOTER.brandLine}</p>
           <p style="font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 12px; color: ${EMAIL_COLORES.textoSecundario}; margin: 0 0 6px 0;">
             ${EMAIL_FOOTER.confidentiality}
           </p>
@@ -87,7 +88,8 @@ function envolverInforme(input: {
     <tr><td align="center">
       <table role="presentation" width="700" cellpadding="0" cellspacing="0" style="max-width:700px; width:100%; background-color:#FFFFFF; border-radius:10px; overflow:hidden;">
         <tr><td style="background-color: ${EMAIL_COLORES.verdeNoche}; padding: 24px 28px;">
-          <div style="margin-bottom:16px;">${logo}</div>
+          <div style="margin-bottom:4px;">${logo}</div>
+          <p style="margin: 0 0 16px 0; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 11px; color: ${EMAIL_COLORES.verdeBrisa};">${EMAIL_FOOTER.logoTagline}</p>
           <h2 style="margin:0; font-family: ${EMAIL_FUENTE_TITULAR}; color:#FFFFFF; font-size:19px;">${input.tituloBanner || ''}</h2>
           ${
             input.subtituloBanner

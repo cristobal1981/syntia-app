@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { getTramitesForClient } from '@/src/modules/tramites/application/get-tramites-for-client'
 import { getTramitesListSeenStateForUser } from '@/src/modules/tramites/application/get-tramites-list-seen-state'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
+import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import {
   TramitesPageView,
@@ -16,10 +17,12 @@ type TramitesPageProps = {
 
 export async function TramitesPage({ user }: TramitesPageProps) {
   const actorId = await resolveDirectoryActorId(user)
-  const [tramitesResult, seenState] = await Promise.all([
+  const [tramitesResult, seenState, writeSections] = await Promise.all([
     getTramitesForClient(user),
     getTramitesListSeenStateForUser(actorId),
+    user.role === 'worker' ? getWorkerWriteSections(user) : null,
   ])
+  const canWriteTramites = user.role !== 'worker' || (writeSections?.has('/tramites') ?? false)
 
   const result = tramitesResult
 
@@ -60,7 +63,11 @@ export async function TramitesPage({ user }: TramitesPageProps) {
 
   return (
     <Suspense fallback={null}>
-      <TramitesPageView data={result.data} seenState={seenState} />
+      <TramitesPageView
+        data={result.data}
+        seenState={seenState}
+        canWriteTramites={canWriteTramites}
+      />
     </Suspense>
   )
 }

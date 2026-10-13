@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button'
 import { automatizaciones } from '@/content/automatizaciones'
 import { cn } from '@/lib/utils'
 import type { PortalAutomationListItem } from '@/src/modules/automatizaciones/domain/types'
-import { triggerAutomationAction } from '@/src/modules/automatizaciones/application/automatizaciones-actions'
+import { triggerAutomationAction } from '@/src/modules/automatizaciones/application/automatizaciones-run-actions'
 import { isAutomationIconId } from '@/src/modules/automatizaciones/domain/automation-icons'
 import { automationIcons } from '@/src/modules/automatizaciones/ui/automation-icon'
-import { AutomationLaunchPopover } from '@/src/modules/automatizaciones/ui/automation-launch-popover'
+import { AutomationLaunchDrawer } from '@/src/modules/automatizaciones/ui/automation-launch-drawer'
 import { PortalActionButton } from '@/src/modules/portal/ui/portal-action-button'
 
 function formatRelativeTime(value: string): string {
@@ -209,24 +209,22 @@ export function AutomationCard({
               {copy.inactive}
             </span>
           ) : null}
-          {hasInputFields ? (
-            <AutomationLaunchPopover
-              automationTitle={automation.title}
-              fields={automation.inputFields}
-              open={paramsOpen}
-              onOpenChange={setParamsOpen}
-              pending={pending}
-              onLaunch={(values, companyIdsByField) =>
-                launch(values, companyIdsByField)
-              }
-            >
-              {launchButton}
-            </AutomationLaunchPopover>
-          ) : (
-            launchButton
-          )}
+          {launchButton}
         </div>
       </div>
+
+      {hasInputFields ? (
+        <AutomationLaunchDrawer
+          automationTitle={automation.title}
+          fields={automation.inputFields}
+          open={paramsOpen}
+          onOpenChange={setParamsOpen}
+          pending={pending}
+          onLaunch={(values, companyIdsByField) =>
+            launch(values, companyIdsByField)
+          }
+        />
+      ) : null}
     </div>
   )
 }

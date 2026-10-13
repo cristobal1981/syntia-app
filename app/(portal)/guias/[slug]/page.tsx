@@ -1,9 +1,10 @@
 import { notFound, redirect } from 'next/navigation'
 
-import { notImplementedPath } from '@/content/errors'
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { assertSectionAccess } from '@/src/modules/colaboradores/application/assert-section-access'
 import { getGuideBySlug } from '@/src/modules/guias/domain/guide-search'
 import { FiscalModelsGuideView } from '@/src/modules/guias/ui/fiscal-models-guide-view'
+import { GuideDetailView } from '@/src/modules/guias/ui/guide-detail-view'
 
 type GuideRoutePageProps = {
   params: Promise<{ slug: string }>
@@ -15,9 +16,7 @@ export default async function GuideRoutePage({ params }: GuideRoutePageProps) {
     redirect('/login')
   }
 
-  if (session.user.role !== 'client') {
-    redirect('/dashboard')
-  }
+  await assertSectionAccess(session, '/guias')
 
   const { slug } = await params
   const guide = getGuideBySlug(slug)
@@ -29,5 +28,5 @@ export default async function GuideRoutePage({ params }: GuideRoutePageProps) {
     return <FiscalModelsGuideView />
   }
 
-  redirect(notImplementedPath)
+  return <GuideDetailView guide={guide} />
 }

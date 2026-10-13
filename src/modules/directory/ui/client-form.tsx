@@ -18,14 +18,22 @@ import {
   updateClientAction,
   type DirectoryUpdateResult,
 } from '@/src/modules/directory/application/directory-mutations'
-import { validateClientForm } from '@/src/modules/directory/application/validate-directory'
+import {
+  normalizeDriveFolderInput,
+  validateClientForm,
+} from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
   OdooNameSplitMode,
   OdooPartnerImportOption,
 } from '@/src/modules/directory/domain/odoo-partner-import'
 import { resolveOdooPartnerEmails } from '@/src/modules/directory/domain/odoo-partner-import'
-import type { ClientKind, ClientRecord } from '@/src/modules/directory/domain/types'
+import type {
+  ClientKind,
+  ClientRecord,
+  PersonStatus,
+} from '@/src/modules/directory/domain/types'
+import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
 import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
 import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selector'
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
@@ -43,8 +51,9 @@ function parseClientFormData(formData: FormData) {
     companyName: String(formData.get('companyName') ?? '').trim() || undefined,
     odooPartnerId:
       String(formData.get('odooPartnerId') ?? '').trim() || undefined,
-    driveFolderId:
-      String(formData.get('driveFolderId') ?? '').trim() || undefined,
+    driveFolderId: normalizeDriveFolderInput(
+      String(formData.get('driveFolderId') ?? '')
+    ),
   }
 }
 
@@ -66,7 +75,7 @@ type ClientFormProps = {
   client?: ClientRecord
   clientKind: ClientKind
   onClientKindChange: (kind: ClientKind) => void
-  advisorOptions: Array<{ id: string; name: string }>
+  advisorOptions: Array<{ id: string; name: string; email: string }>
   canAssignAdvisor: boolean
   onSuccess: () => void
   onCancel: () => void
@@ -155,17 +164,22 @@ export function ClientForm({
       }
 
   const [advisorIdValue, setAdvisorIdValue] = useState(defaults.advisorId)
-  const [statusValue, setStatusValue] = useState<
-    'active' | 'invited'
-  >(client?.status ?? 'invited')
-
-  useEffect(() => {
+  const [prevDefaultsAdvisorId, setPrevDefaultsAdvisorId] = useState(
+    defaults.advisorId
+  )
+  if (defaults.advisorId !== prevDefaultsAdvisorId) {
+    setPrevDefaultsAdvisorId(defaults.advisorId)
     setAdvisorIdValue(defaults.advisorId)
-  }, [defaults.advisorId])
+  }
 
-  useEffect(() => {
-    setStatusValue((client?.status ?? 'invited') as 'active' | 'invited')
-  }, [client?.status])
+  const [statusValue, setStatusValue] = useState<PersonStatus>(
+    client?.status ?? 'invited'
+  )
+  const [prevClientStatus, setPrevClientStatus] = useState(client?.status)
+  if (client?.status !== prevClientStatus) {
+    setPrevClientStatus(client?.status)
+    setStatusValue(client?.status ?? 'invited')
+  }
 
   const corporateEmailHint =
     isCompany &&
@@ -209,13 +223,29 @@ export function ClientForm({
     onSuccessRef.current = onSuccess
   })
 
+  // Syncing localFieldErrors off `state` (clear on success, replace on a
+  // validation result) is a plain "adjust state in response to a value
+  // change" — done during render (React's documented pattern for this)
+  // rather than in the effect below, which is reserved for the parts that
+  // are genuinely side effects (toast, the onSuccess callback) and must run
+  // after commit.
+  const [lastFieldErrorsSyncedState, setLastFieldErrorsSyncedState] =
+    useState<DirectoryUpdateResult | null>(null)
+  if (state && state !== lastFieldErrorsSyncedState) {
+    setLastFieldErrorsSyncedState(state)
+    if (state.ok) {
+      setLocalFieldErrors({})
+    } else if (state.error === 'validation' && state.fieldErrors) {
+      setLocalFieldErrors(state.fieldErrors)
+    }
+  }
+
   useEffect(() => {
     if (!state) return
     if (handledStateRef.current === state) return
     handledStateRef.current = state
 
     if (state.ok) {
-      setLocalFieldErrors({})
       toast.success(
         isCreate
           ? state.inviteSent === false
@@ -232,10 +262,6 @@ export function ClientForm({
     }
     if (state.error !== 'validation') {
       toast.error(state.message ?? copy.errors.unknown)
-      return
-    }
-    if (state.fieldErrors) {
-      setLocalFieldErrors(state.fieldErrors)
     }
   }, [state, copy, isCreate])
 
@@ -487,11 +513,17 @@ export function ClientForm({
             <SelectTrigger aria-label={copy.fields.advisor} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
               <SelectValue placeholder={copy.fields.unassigned} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-w-[calc(100vw-3rem)]">
               <SelectItem value="">{copy.fields.unassigned}</SelectItem>
               {advisorOptions.map((advisor) => (
                 <SelectItem key={advisor.id} value={advisor.id}>
-                  {advisor.name}
+                  <span
+                    className="block max-w-[min(22rem,70vw)] truncate"
+                    title={`${advisor.name} (${advisor.email})`}
+                  >
+                    {advisor.name}{' '}
+                    <span className="text-muted-foreground">({advisor.email})</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -507,9 +539,7 @@ export function ClientForm({
           <input type="hidden" name="status" value={statusValue} />
           <Select
             value={statusValue}
-            onValueChange={(next) =>
-              setStatusValue(next as 'active' | 'invited')
-            }
+            onValueChange={(next) => setStatusValue(next as PersonStatus)}
           >
             <SelectTrigger aria-label={copy.fields.status} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
               <SelectValue />
@@ -517,6 +547,7 @@ export function ClientForm({
             <SelectContent>
               <SelectItem value="active">{equipo.status.active}</SelectItem>
               <SelectItem value="invited">{equipo.status.invited}</SelectItem>
+              <SelectItem value="archived">{equipo.status.archived}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -536,6 +567,8 @@ export function ClientForm({
               : copy.save}
         </Button>
       </div>
+
+      {!isCreate && client ? <ClientAccessSection client={client} /> : null}
 
       {!isCreate && client && onDeleted ? (
         <ClientDangerZone client={client} onDeleted={onDeleted} />

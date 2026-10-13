@@ -1,4 +1,4 @@
-import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
 import type { TramitesResult } from '@/src/modules/tramites/domain/types'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 import { getCachedTramitesSnapshot } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
@@ -7,7 +7,7 @@ import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/
 export async function getTramitesForClient(
   user: PortalUser
 ): Promise<TramitesResult> {
-  if (user.role !== 'client') {
+  if (!isClientOrWorkerRole(user.role)) {
     return { ok: false, error: 'forbidden' }
   }
 

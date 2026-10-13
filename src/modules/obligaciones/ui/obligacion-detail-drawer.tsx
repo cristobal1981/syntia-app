@@ -49,7 +49,6 @@ export function ObligacionDetailDrawer({
   }, [notifications, open, task])
 
   useEffect(() => {
-    if (!task) return
     documentsAckRef.current = null
   }, [task?.id])
 

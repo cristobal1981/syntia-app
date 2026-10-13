@@ -1,6 +1,5 @@
 import { portal } from '@/content/portal'
-import type { PortalRole } from '@/src/modules/auth/domain/types'
-import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
+import { isClientOrWorkerRole, type PortalRole } from '@/src/modules/auth/domain/types'
 import type { PortalSearchItem } from '@/src/modules/portal/domain/portal-search-types'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 
@@ -49,12 +48,24 @@ function extrasForRole(role: PortalRole): PortalSearchItem[] {
   }))
 }
 
-export function buildPortalSearchIndex(role: PortalRole): PortalSearchItem[] {
-  const navItems = flattenNavItems(getNavForRole(role))
-  const extras = extrasForRole(role)
+/**
+ * `navItems` debe ser el nav ya resuelto para el usuario concreto (p. ej. el
+ * de `getNavForUser`, que para un colaborador ya viene filtrado por sus
+ * secciones permitidas) — usar `getNavForRole(role)` aquí ignoraría ese
+ * filtrado y mostraría en el buscador secciones a las que no tiene acceso.
+ */
+export function buildPortalSearchIndex(
+  role: PortalRole,
+  navItems: NavItem[],
+  allowedHrefs?: Set<string>
+): PortalSearchItem[] {
+  const navSearchItems = flattenNavItems(navItems)
+  const extras = extrasForRole(role).filter(
+    (item) => !allowedHrefs || (item.href != null && allowedHrefs.has(item.href))
+  )
   const seen = new Set<string>()
 
-  return [...navItems, ...extras].filter((item) => {
+  return [...navSearchItems, ...extras].filter((item) => {
     if (!item.href || seen.has(item.href)) return false
     seen.add(item.href)
     return true
@@ -63,7 +74,8 @@ export function buildPortalSearchIndex(role: PortalRole): PortalSearchItem[] {
 
 export function buildPortalSearchActions(
   role: PortalRole,
-  query: string
+  query: string,
+  allowedHrefs?: Set<string>
 ): PortalSearchItem[] {
   const trimmed = query.trim()
   if (!trimmed) return []
@@ -71,21 +83,57 @@ export function buildPortalSearchActions(
   const actions: PortalSearchItem[] = []
   const encoded = encodeURIComponent(trimmed)
 
-  if (role === 'client') {
+  if (isClientOrWorkerRole(role)) {
+    if (!allowedHrefs || allowedHrefs.has('/tramites')) {
+      actions.push({
+        id: 'action:tramites',
+        kind: 'action',
+        label: portal.search.actions.tramites.replace('{query}', trimmed),
+        href: `/tramites?q=${encoded}`,
+        icon: 'procedures',
+        keywords: [],
+      })
+    }
+    if (!allowedHrefs || allowedHrefs.has('/obligaciones')) {
+      actions.push({
+        id: 'action:obligaciones',
+        kind: 'action',
+        label: portal.search.actions.obligaciones.replace('{query}', trimmed),
+        href: `/obligaciones?q=${encoded}`,
+        icon: 'obligations',
+        keywords: [],
+      })
+    }
+    if (!allowedHrefs || allowedHrefs.has('/documentos')) {
+      actions.push({
+        id: 'action:documentos',
+        kind: 'action',
+        label: portal.search.actions.documentos.replace('{query}', trimmed),
+        href: `/documentos?q=${encoded}`,
+        icon: 'documents',
+        keywords: [],
+      })
+    }
+  }
+
+  if (role === 'advisor' && (!allowedHrefs || allowedHrefs.has('/clientes'))) {
     actions.push({
-      id: 'action:tramites',
+      id: 'action:clientes',
       kind: 'action',
-      label: portal.search.actions.tramites.replace('{query}', trimmed),
-      href: `/tramites?q=${encoded}`,
-      icon: 'procedures',
+      label: portal.search.actions.clientes.replace('{query}', trimmed),
+      href: `/clientes?q=${encoded}`,
+      icon: 'clients',
       keywords: [],
     })
+  }
+
+  if (role === 'admin' && (!allowedHrefs || allowedHrefs.has('/equipo/clientes'))) {
     actions.push({
-      id: 'action:obligaciones',
+      id: 'action:clientes',
       kind: 'action',
-      label: portal.search.actions.obligaciones.replace('{query}', trimmed),
-      href: `/obligaciones?q=${encoded}`,
-      icon: 'obligations',
+      label: portal.search.actions.clientes.replace('{query}', trimmed),
+      href: `/equipo/clientes?q=${encoded}`,
+      icon: 'clients',
       keywords: [],
     })
   }

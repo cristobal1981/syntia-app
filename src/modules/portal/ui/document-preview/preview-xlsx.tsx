@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
@@ -174,26 +174,28 @@ function PreviewXlsxSheetTabs({
 }
 
 export function PreviewXlsx({ dataBase64, fallbackMessage }: PreviewXlsxProps) {
-  const [workbook, setWorkbook] = useState<ParsedWorkbook | null>(null)
-  const [activeSheetIndex, setActiveSheetIndex] = useState(0)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    setWorkbook(null)
-    setActiveSheetIndex(0)
-    setError(false)
-
+  // parseWorkbook es síncrono y puro: se deriva con useMemo en vez de
+  // useState+efecto.
+  const { workbook, error } = useMemo<{
+    workbook: ParsedWorkbook | null
+    error: boolean
+  }>(() => {
     try {
       const parsed = parseWorkbook(dataBase64)
-      if (!parsed) {
-        setError(true)
-        return
-      }
-      setWorkbook(parsed)
+      return parsed ? { workbook: parsed, error: false } : { workbook: null, error: true }
     } catch {
-      setError(true)
+      return { workbook: null, error: true }
     }
   }, [dataBase64])
+
+  const [activeSheetIndex, setActiveSheetIndex] = useState(0)
+  // Ajuste durante el render (no en un efecto): vuelve a la primera hoja al
+  // cambiar de documento.
+  const [prevDataBase64, setPrevDataBase64] = useState(dataBase64)
+  if (dataBase64 !== prevDataBase64) {
+    setPrevDataBase64(dataBase64)
+    setActiveSheetIndex(0)
+  }
 
   const activeSheet = workbook?.sheets[activeSheetIndex]
 

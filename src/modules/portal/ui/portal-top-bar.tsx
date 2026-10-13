@@ -5,7 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import type { PortalRole } from '@/src/modules/auth/domain/types'
-import { AccessibilityMenu } from '@/src/modules/portal/ui/accessibility-menu'
+import type { NavItem } from '@/src/modules/portal/domain/types'
 import { NotificationBell } from '@/src/modules/portal/ui/notification-bell'
 import { PortalTopBarCreateConsulta } from '@/src/modules/portal/ui/portal-top-bar-create-consulta'
 import { PortalTopBarSearch } from '@/src/modules/portal/ui/portal-top-bar-search'
@@ -15,6 +15,7 @@ import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
 type PortalTopBarProps = {
   className?: string
   role: PortalRole
+  navItems: NavItem[]
   mobileNavOpen: boolean
   onMobileNavToggle: () => void
   sidebarCollapsed: boolean
@@ -25,6 +26,7 @@ type PortalTopBarProps = {
 export function PortalTopBar({
   className,
   role,
+  navItems,
   mobileNavOpen,
   onMobileNavToggle,
   sidebarCollapsed,
@@ -39,8 +41,6 @@ export function PortalTopBar({
       )}
     >
       <div className="flex shrink-0 items-center gap-1">
-        <NotificationBell className="lg:hidden" />
-
         <PortalActionTooltip
           content={
             sidebarCollapsed
@@ -51,7 +51,7 @@ export function PortalTopBar({
           <button
             type="button"
             onClick={onSidebarToggle}
-            className="hidden size-8 items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
+            className="hidden size-8 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
             aria-label={
               sidebarCollapsed
                 ? portal.shell.sidebarExpandLabel
@@ -76,7 +76,7 @@ export function PortalTopBar({
           <button
             type="button"
             onClick={onMobileNavToggle}
-            className="flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+            className="flex size-9 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
             aria-expanded={mobileNavOpen}
             aria-controls="mobile-nav"
             aria-label={
@@ -94,14 +94,21 @@ export function PortalTopBar({
         </PortalActionTooltip>
       </div>
 
-      <PortalTopBarSearch role={role} onNavigate={onNavigate} />
+      <PortalTopBarSearch role={role} navItems={navItems} onNavigate={onNavigate} />
 
       <div className="min-w-2 flex-1" aria-hidden />
 
-      <div className="flex shrink-0 items-center gap-2">
+      {/* Móvil/tablet: burger (arriba) → buscador → notificaciones → nueva consulta. */}
+      <div className="flex shrink-0 items-center gap-1 lg:hidden">
+        <NotificationBell />
         <PortalTopBarCreateConsulta />
-        <NotificationBell className="hidden lg:flex" />
-        <AccessibilityMenu className="shrink-0" />
+      </div>
+
+      {/* Desktop: nueva consulta → notificaciones → tema. Accesibilidad y reportar un
+          problema viven en el menú del perfil (pie del sidebar). */}
+      <div className="hidden shrink-0 items-center gap-2 lg:flex">
+        <PortalTopBarCreateConsulta dataTour="tour-nueva-consulta" />
+        <NotificationBell />
         <ThemeToggle className="shrink-0" />
       </div>
     </header>

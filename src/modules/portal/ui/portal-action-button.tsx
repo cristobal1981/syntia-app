@@ -35,6 +35,7 @@ type PortalActionButtonProps = {
   overlayRingClassName?: string
   className?: string
   type?: 'button' | 'submit'
+  dataTour?: string
 }
 
 function resolveIconClassName(
@@ -96,6 +97,7 @@ export function PortalActionButton({
   overlayRingClassName,
   className,
   type = 'button',
+  dataTour,
 }: PortalActionButtonProps) {
   const overlayActive = usePortalShortcutOverlay()
   const resolvedDisabled = disabled || pending
@@ -110,6 +112,7 @@ export function PortalActionButton({
         disabled={resolvedDisabled}
         aria-busy={pending || undefined}
         aria-keyshortcuts={ariaKeyshortcuts}
+        data-tour={dataTour}
         onClick={onClick}
         className={cn(
           'group',

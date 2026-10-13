@@ -2,7 +2,7 @@
   "name": "syntia-app",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.33.4",
+  "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -11,13 +11,13 @@
     "build": "next build",
     "start": "next start",
     "diagnose:chatter": "node scripts/diagnose-chatter-messages.mjs",
-    "diagnose:chatter-notify": "node scripts/probe-chatter-notify.mjs"
+    "diagnose:chatter-notify": "node scripts/probe-chatter-notify.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@gsap/react": "^2.1.2",
     "@radix-ui/react-dialog": "^1.1.16",
     "@radix-ui/react-popover": "^1.1.17",
     "@radix-ui/react-select": "^2.3.3",
@@ -34,30 +34,34 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.4.11",
     "framer-motion": "^12.40.0",
-    "gsap": "^3.15.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.564.0",
     "mammoth": "^1.12.0",
-    "next": "16.2.6",
+    "next": "16.3.8",
     "next-themes": "^0.4.6",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19",
     "react-dom": "^19",
     "resend": "^6.14.0",
+    "simple-icons": "^16.27.1",
     "sonner": "^2.0.7",
     "svix": "^1.99.1",
     "tailwind-merge": "^3.3.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.3.8",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "tw-animate-css": "1.3.3",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "vitest": "^4.1.11"
   }
 }

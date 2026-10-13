@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition, type FormEvent } from 'react'
+import { useState, useTransition, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -29,6 +29,7 @@ import {
   type ImpuestoSociedadesConfig,
   type TipoEmpresaKey,
 } from '@/src/modules/automatizaciones/domain/impuesto-sociedades-config'
+import { buildYearInputOptions } from '@/src/modules/automatizaciones/domain/types'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 
 const FORM_ID = 'impuesto-sociedades-config-drawer-form'
@@ -103,14 +104,26 @@ export function ImpuestoSociedadesConfigDrawer({
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [pending, startTransition] = useTransition()
 
-  useEffect(() => {
-    if (!open) return
-    setForm(config ? formFromConfig(config) : EMPTY_FORM)
-  }, [open, config])
+  // Ajuste durante el render (no en un efecto): resiembra el formulario
+  // cada vez que el diálogo se abre o cambia la config a editar.
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevConfig, setPrevConfig] = useState(config)
+  if (open !== prevOpen || config !== prevConfig) {
+    setPrevOpen(open)
+    setPrevConfig(config)
+    if (open) {
+      setForm(config ? formFromConfig(config) : EMPTY_FORM)
+    }
+  }
 
   function updateForm(patch: Partial<FormState>) {
     setForm((current) => ({ ...current, ...patch }))
   }
+
+  const yearOptions = buildYearInputOptions()
+  const anioOptions = yearOptions.some((option) => option.value === form.anio)
+    ? yearOptions
+    : [{ value: form.anio, label: form.anio }, ...yearOptions]
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -179,18 +192,25 @@ export function ImpuestoSociedadesConfigDrawer({
             <label htmlFor="is-config-anio" className="text-sm font-medium">
               {copy.fields.anio}
             </label>
-            <Input
-              id="is-config-anio"
-              type="number"
-              inputMode="numeric"
-              min={2000}
-              max={2100}
-              step={1}
-              required
+            <Select
               value={form.anio}
-              onChange={(event) => updateForm({ anio: event.target.value })}
-              className={RECESSED_FIELD_CLASS}
-            />
+              onValueChange={(next) => updateForm({ anio: next })}
+            >
+              <SelectTrigger
+                id="is-config-anio"
+                aria-label={copy.fields.anio}
+                className={SELECT_FIELD_CLASS}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {anioOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">

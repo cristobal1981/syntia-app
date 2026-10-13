@@ -1,29 +1,21 @@
 import { DOCUMENT_PREVIEW_MAX_BYTES } from '@/src/modules/portal/domain/classify-document-preview'
+import { isValidUploadFileName } from '@/src/modules/portal/domain/upload-policy'
 
-const DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
-const DEFAULT_MAX_FILES_PER_BATCH = 10
+// Todo el archivo se carga en memoria al descargar (y en base64 ocupa ~1,33x).
+// Los límites de subida ya no se configuran aquí: ver `upload-policy.ts`.
+const DEFAULT_MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024
 
-export function getDriveMaxUploadBytes(): number {
-  const raw = process.env.DRIVE_MAX_UPLOAD_BYTES?.trim()
-  if (!raw) return DEFAULT_MAX_UPLOAD_BYTES
+export function getDriveMaxDownloadBytes(): number {
+  const raw = process.env.DRIVE_MAX_DOWNLOAD_BYTES?.trim()
+  if (!raw) return DEFAULT_MAX_DOWNLOAD_BYTES
   const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_UPLOAD_BYTES
-}
-
-export function getDriveMaxFilesPerBatch(): number {
-  const raw = process.env.DRIVE_MAX_FILES_PER_BATCH?.trim()
-  if (!raw) return DEFAULT_MAX_FILES_PER_BATCH
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_FILES_PER_BATCH
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_DOWNLOAD_BYTES
 }
 
 export function getDrivePreviewMaxBytes(): number {
   return DOCUMENT_PREVIEW_MAX_BYTES
 }
 
-const INVALID_NAME_PATTERN = /[\\/:*?"<>|]/
-
 export function validateDriveItemName(name: string): boolean {
-  const trimmed = name.trim()
-  return trimmed.length > 0 && trimmed.length <= 255 && !INVALID_NAME_PATTERN.test(trimmed)
+  return isValidUploadFileName(name)
 }

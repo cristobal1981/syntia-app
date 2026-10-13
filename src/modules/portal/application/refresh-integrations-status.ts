@@ -1,6 +1,7 @@
 'use server'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
+import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
 import type { IntegrationStatus } from '@/src/modules/portal/domain/types'
 
@@ -15,7 +16,7 @@ export async function refreshIntegrationsStatusAction(): Promise<RefreshIntegrat
   }
 
   const { role } = session.user
-  if (role === 'client') {
+  if (isClientOrWorkerRole(role)) {
     return { ok: false, error: 'unauthorized' }
   }
 
