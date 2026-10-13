@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import { Fragment } from 'react'
 import { usePathname } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/src/modules/portal/domain/types'
+import { PortalQuickInvoiceBottomBarButton } from '@/src/modules/portal/ui/portal-quick-invoice-context'
 import { isNavItemActive } from '@/src/modules/portal/ui/portal-nav-items'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 
@@ -19,17 +21,21 @@ export function PortalBottomBar({ items, pendingHref, onNavStart }: PortalBottom
 
   if (items.length === 0) return null
 
+  // La subida rápida ocupa el centro (si no hay destino, el botón no se pinta).
+  const centerIndex = Math.ceil(items.length / 2)
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden"
       aria-label="Principal"
     >
-      {items.map((item) => {
+      {items.map((item, index) => {
         if (!item.href) return null
         const active = isNavItemActive(pathname, item.href)
         return (
+          <Fragment key={item.href}>
+            {index === centerIndex ? <PortalQuickInvoiceBottomBarButton /> : null}
           <Link
-            key={item.href}
             href={item.href}
             onClick={() => onNavStart?.(item.href as string)}
             aria-current={active ? 'page' : undefined}
@@ -44,6 +50,7 @@ export function PortalBottomBar({ items, pendingHref, onNavStart }: PortalBottom
             <PortalNavIcon icon={item.icon} className="size-5 shrink-0" />
             <span className="truncate">{item.label}</span>
           </Link>
+          </Fragment>
         )
       })}
     </nav>

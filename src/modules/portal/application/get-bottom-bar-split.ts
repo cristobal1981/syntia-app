@@ -7,8 +7,9 @@ import type { NavItem } from '@/src/modules/portal/domain/types'
  * muestra en el drawer ("more") en su lugar.
  */
 export const BOTTOM_BAR_HREFS: Record<PortalRole, string[]> = {
-  client: ['/dashboard', '/tramites', '/obligaciones', '/documentos', '/firmas'],
-  worker: ['/dashboard', '/tramites', '/obligaciones', '/documentos', '/firmas'],
+  // Firmas va al menú: el hueco central es la subida rápida de facturas.
+  client: ['/dashboard', '/tramites', '/obligaciones', '/documentos'],
+  worker: ['/dashboard', '/tramites', '/obligaciones', '/documentos'],
   advisor: ['/dashboard', '/clientes', '/colaboradores', '/automatizaciones'],
   admin: ['/dashboard', '/solicitudes', '/oportunidades', '/automatizaciones'],
 }

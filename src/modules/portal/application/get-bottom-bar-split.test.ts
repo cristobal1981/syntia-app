@@ -42,10 +42,10 @@ describe('getBottomBarSplit', () => {
   })
 
   it('a BOTTOM_BAR_HREFS href missing from navItems (e.g. feature-gated out) is silently skipped, not inserted as undefined', () => {
-    const navItems = getNavForRole('client').filter((item) => item.href !== '/firmas')
+    const navItems = getNavForRole('client').filter((item) => item.href !== '/documentos')
     const { bottomBarItems } = getBottomBarSplit(navItems, 'client')
 
-    expect(bottomBarItems.some((item) => item.href === '/firmas')).toBe(false)
+    expect(bottomBarItems.some((item) => item.href === '/documentos')).toBe(false)
     expect(bottomBarItems.every((item) => item != null)).toBe(true)
   })
 
@@ -55,4 +55,15 @@ describe('getBottomBarSplit', () => {
 
     expect(bottomBarItems.some((item) => item.href == null)).toBe(false)
   })
+
+  it.each(['client', 'worker'] as const)(
+    'para %s, Firmas va al menú y no a la barra inferior (el centro es la subida rápida)',
+    (role) => {
+      const { bottomBarItems, moreNavItems } = getBottomBarSplit(getNavForRole(role), role)
+
+      expect(bottomBarItems.map((item) => item.href)).not.toContain('/firmas')
+      expect(moreNavItems.map((item) => item.href)).toContain('/firmas')
+      expect(bottomBarItems).toHaveLength(4)
+    }
+  )
 })

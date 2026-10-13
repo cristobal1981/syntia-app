@@ -11,8 +11,17 @@ import {
   type ReactNode,
 } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Upload } from 'lucide-react'
+import { ChevronRight, Loader2, Upload } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import {
@@ -25,6 +34,7 @@ import {
 } from '@/src/modules/documents/domain/drive-error-presentation'
 import { DRIVE_DOCUMENTS_CHANGED_EVENT } from '@/src/modules/documents/domain/drive-events'
 import type { DriveUiErrorCode } from '@/src/modules/documents/domain/drive-error-presentation'
+import { INVOICE_YEAR_FOLDER_NAME } from '@/src/modules/documents/domain/invoice-upload-target'
 import type { DriveDuplicate } from '@/src/modules/documents/domain/types'
 import { callDriveAction } from '@/src/modules/documents/ui/call-drive-action'
 import {
@@ -42,6 +52,8 @@ type PortalQuickInvoiceContextValue = {
   folderName: string | null
   /** Abre directamente el selector de archivos. */
   openPicker: () => void
+  /** Antes del selector, un aviso con qué se sube y a dónde (pensado para móvil). */
+  requestUpload: () => void
 }
 
 const PortalQuickInvoiceContext = createContext<PortalQuickInvoiceContextValue | null>(null)
@@ -66,6 +78,7 @@ export function PortalQuickInvoiceProvider({
   const [phase, setPhase] = useState<DriveDropOverlayUploadPhase>('idle')
   const [duplicate, setDuplicate] = useState<DriveDuplicate | null>(null)
   const [rejection, setRejection] = useState<DriveUiErrorCode | null>(null)
+  const [noticeOpen, setNoticeOpen] = useState(false)
 
   // El botón solo aparece si el servidor confirma que existe la carpeta de
   // facturas del año; se pregunta una vez, sin bloquear la carga de la página.
@@ -135,9 +148,14 @@ export function PortalQuickInvoiceProvider({
     inputRef.current?.click()
   }, [enabled, available, busy])
 
+  const requestUpload = useCallback(() => {
+    if (!enabled || !available || busy) return
+    setNoticeOpen(true)
+  }, [enabled, available, busy])
+
   const value = useMemo<PortalQuickInvoiceContextValue>(
-    () => ({ available: enabled && available, busy, folderName, openPicker }),
-    [enabled, available, busy, folderName, openPicker]
+    () => ({ available: enabled && available, busy, folderName, openPicker, requestUpload }),
+    [enabled, available, busy, folderName, openPicker, requestUpload]
   )
 
   return (
@@ -159,6 +177,62 @@ export function PortalQuickInvoiceProvider({
               void upload(files)
             }}
           />
+          <Dialog open={noticeOpen} onOpenChange={setNoticeOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{copy.notice.title}</DialogTitle>
+                <DialogDescription>{copy.notice.intro}</DialogDescription>
+              </DialogHeader>
+              <ol
+                className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm"
+                aria-label="Carpeta de destino"
+              >
+                {[copy.notice.pathRoot, INVOICE_YEAR_FOLDER_NAME, folderName ?? ''].map(
+                  (crumb, index, all) => (
+                    <li key={`${index}-${crumb}`} className="flex min-w-0 items-center gap-1">
+                      {index > 0 ? (
+                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      ) : null}
+                      <span
+                        className={cn(
+                          'truncate',
+                          index === all.length - 1
+                            ? 'font-semibold text-foreground'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {crumb}
+                      </span>
+                    </li>
+                  )
+                )}
+              </ol>
+              <p className="text-sm text-muted-foreground">{copy.notice.limits}</p>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="cursor-pointer"
+                  onClick={() => setNoticeOpen(false)}
+                >
+                  {copy.notice.cancel}
+                </Button>
+                <Button
+                  type="button"
+                  className="cursor-pointer"
+                  autoFocus
+                  onClick={() => {
+                    setNoticeOpen(false)
+                    // El selector se abre desde un gesto del usuario: este mismo clic.
+                    inputRef.current?.click()
+                  }}
+                >
+                  <Upload className="size-4" aria-hidden />
+                  {copy.notice.confirm}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <DriveDropOverlay
             active={phase !== 'idle'}
             uploadPhase={phase}
@@ -273,4 +347,41 @@ export function PortalQuickInvoiceButton({
   }
 
   return button
+}
+
+/**
+ * Botón central de la barra inferior (móvil): círculo elevado con el degradado
+ * de marca. Pulsarlo abre primero un aviso con qué se sube y a dónde.
+ */
+export function PortalQuickInvoiceBottomBarButton() {
+  const quickInvoice = usePortalQuickInvoiceOptional()
+  if (!quickInvoice?.available) return null
+
+  const Icon = quickInvoice.busy ? Loader2 : Upload
+
+  return (
+    <button
+      type="button"
+      onClick={quickInvoice.requestUpload}
+      disabled={quickInvoice.busy}
+      aria-label={copy.label}
+      className="group flex min-h-14 flex-1 cursor-pointer flex-col items-center justify-end gap-0.5 pb-1.5 text-[11px] font-medium text-sidebar-foreground focus-visible:outline-none disabled:cursor-wait"
+    >
+      <span
+        className={cn(
+          '-mt-6 flex size-12 items-center justify-center rounded-full text-primary-foreground shadow-lg',
+          'bg-[linear-gradient(135deg,var(--primary),var(--turquesa))]',
+          'ring-4 ring-sidebar transition-transform active:scale-95',
+          'group-focus-visible:ring-sidebar-ring'
+        )}
+      >
+        <Icon
+          className={cn('size-5', quickInvoice.busy && 'animate-spin motion-reduce:animate-none')}
+          strokeWidth={2.25}
+          aria-hidden
+        />
+      </span>
+      <span className="truncate">{quickInvoice.busy ? copy.busy : copy.shortLabel}</span>
+    </button>
+  )
 }

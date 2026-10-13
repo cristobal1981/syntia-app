@@ -170,9 +170,18 @@ export const portal = {
     },
     quickInvoice: {
       label: 'Factura de compra',
+      shortLabel: 'Factura',
       subtitle: 'Subida rápida',
       busy: 'Subiendo…',
       hint: 'Subir una factura de compra a «{folder}»',
+      notice: {
+        title: 'Subir factura de compra',
+        intro: 'Elige tus facturas y se guardarán directamente en esta carpeta de Documentos:',
+        pathRoot: 'Documentos',
+        limits: 'PDF, imágenes u Office. Hasta 10 archivos y 10 MB en total.',
+        confirm: 'Elegir archivos',
+        cancel: 'Cancelar',
+      },
     },
     reportProblem: {
       label: 'Reportar un problema',
