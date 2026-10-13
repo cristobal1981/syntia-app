@@ -1,3 +1,5 @@
+import { uploadFormatCopy } from '@/content/upload-format'
+
 /**
  * Textos de los avisos de error de Documentos. Cada aviso dice qué ha pasado y
  * qué puede hacer la persona; nunca expone términos técnicos (Drive, API, códigos).
@@ -46,12 +48,12 @@ export const driveErrorCopy = {
     description: 'Evita caracteres especiales como / \\ : * ? " < > | y los nombres vacíos.',
   },
   invalid_type: {
-    title: 'Tipo de archivo no permitido',
-    description: 'Por seguridad no se pueden subir archivos ejecutables ni de instalación.',
+    title: uploadFormatCopy.title,
+    description: uploadFormatCopy.description,
   },
   upload_failed: {
     title: 'No hemos podido subir los archivos',
-    description: 'Revisa la selección (hay un máximo de archivos por subida) e inténtalo de nuevo.',
+    description: 'Revisa la selección (máximo 10 archivos por subida) e inténtalo de nuevo.',
   },
   name_conflict: {
     title: 'Ya existe un elemento con ese nombre',
@@ -110,7 +112,7 @@ export const driveErrorCopyByContext = {
     },
     upload: {
       title: 'El archivo es demasiado grande',
-      description: 'Supera el tamaño máximo permitido para subir. Reduce su tamaño e inténtalo de nuevo.',
+      description: 'Cada subida admite hasta 10 MB en total. Reduce el tamaño o sube los archivos por separado.',
     },
     home: {
       title: 'El archivo es demasiado grande',

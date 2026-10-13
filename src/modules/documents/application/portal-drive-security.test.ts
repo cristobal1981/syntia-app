@@ -345,8 +345,6 @@ function pdf(name = 'nuevo.pdf', text = '%PDF-1.4', type = 'application/pdf'): F
 }
 
 const ENV_KEYS = [
-  'DRIVE_MAX_UPLOAD_BYTES',
-  'DRIVE_MAX_FILES_PER_BATCH',
   'DRIVE_MAX_DOWNLOAD_BYTES',
 ] as const
 
@@ -700,42 +698,65 @@ describe.each([
   })
 
   describe('límites de subida', () => {
-    it('un archivo mayor que el máximo se rechaza sin tocar Drive; el exacto pasa', async () => {
-      process.env.DRIVE_MAX_UPLOAD_BYTES = '100'
+    const MB = 1024 * 1024
 
+    it('por defecto el máximo por archivo es 10 MB: 10 MB sube, 10 MB + 1 se rechaza sin tocar Drive', async () => {
       expect(
-        await actions.uploadDriveFilesAction(uploadForm([pdf('a.pdf', 'x'.repeat(101))], SUB))
-      ).toMatchObject({ ok: false, error: 'too_large' })
-      expect(fake.count('upload')).toBe(0)
-
-      expect(
-        await actions.uploadDriveFilesAction(uploadForm([pdf('a.pdf', 'x'.repeat(100))], SUB))
-      ).toMatchObject({ ok: true })
-    })
-
-    it('por defecto el máximo por archivo es 15 MB: 15 MB sube, 15 MB + 1 se rechaza sin tocar Drive', async () => {
-      const MB = 1024 * 1024
-      expect(
-        await actions.uploadDriveFilesAction(uploadForm([pdf('justo.pdf', 'x'.repeat(15 * MB))], SUB))
+        await actions.uploadDriveFilesAction(uploadForm([pdf('justo.pdf', 'x'.repeat(10 * MB))], SUB))
       ).toMatchObject({ ok: true })
 
       const before = fake.count('upload')
       expect(
-        await actions.uploadDriveFilesAction(uploadForm([pdf('pasado.pdf', 'x'.repeat(15 * MB + 1))], SUB))
+        await actions.uploadDriveFilesAction(uploadForm([pdf('pasado.pdf', 'x'.repeat(10 * MB + 1))], SUB))
       ).toMatchObject({ ok: false, error: 'too_large' })
       expect(fake.count('upload')).toBe(before)
     })
 
-    it('más archivos que el máximo por lote → rechazo total', async () => {
-      process.env.DRIVE_MAX_FILES_PER_BATCH = '2'
-
+    it('la suma del lote no puede pasar de 10 MB: rechazo total sin subir nada', async () => {
+      const before = fake.count('upload')
       const result = await actions.uploadDriveFilesAction(
-        uploadForm([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')], SUB)
+        uploadForm(
+          [pdf('a.pdf', 'x'.repeat(5 * MB)), pdf('b.pdf', 'x'.repeat(5 * MB + 1))],
+          SUB
+        )
       )
-
-      expect(result).toMatchObject({ ok: false })
-      expect(fake.count('upload')).toBe(0)
+      expect(result).toMatchObject({ ok: false, error: 'too_large' })
+      expect(fake.count('upload')).toBe(before)
     })
+
+    it('más de 10 archivos en el lote → rechazo total', async () => {
+      const before = fake.count('upload')
+      const files = Array.from({ length: 11 }, (_, i) => pdf(`f${i}.pdf`))
+
+      const result = await actions.uploadDriveFilesAction(uploadForm(files, SUB))
+
+      expect(result).toMatchObject({ ok: false, error: 'upload_failed' })
+      expect(fake.count('upload')).toBe(before)
+    })
+
+    it('extensión permitida pero MIME declarado ajeno (svg disfrazado de png) → rechazo sin tocar Drive', async () => {
+      const before = fake.count('upload')
+      const result = await actions.uploadDriveFilesAction(
+        uploadForm([pdf('foto.png', '<svg/>', 'image/svg+xml')], SUB)
+      )
+      expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
+      expect(fake.count('upload')).toBe(before)
+    })
+
+    it.each(['zip', 'rar', '7z', 'html', 'svg', 'docm', 'xlsm', 'sh', 'py', 'php', 'reg', 'url'])(
+      '.%s no entra en ningún caso: rechazo total sin tocar Drive',
+      async (ext) => {
+        const before = fake.count('upload')
+        const file = new File(['x'], `archivo.${ext}`, { type: '' })
+
+        const result = await actions.uploadDriveFilesAction(
+          uploadForm([pdf('bueno.pdf'), file], SUB)
+        )
+
+        expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
+        expect(fake.count('upload')).toBe(before)
+      }
+    )
 
     it('sin archivos o con entradas que no son File → rechazo', async () => {
       expect(await actions.uploadDriveFilesAction(uploadForm([], SUB))).toMatchObject({ ok: false })
@@ -752,17 +773,6 @@ describe.each([
       expect(await actions.uploadDriveFilesAction(form)).toMatchObject({ ok: false })
       expect(fake.requests).toEqual([])
     })
-
-    it.each(['abc', '-5', '0', 'NaN', 'Infinity', ''])(
-      'DRIVE_MAX_UPLOAD_BYTES=%j (valor roto) cae al límite por defecto, no a "sin límite"',
-      async (value) => {
-        process.env.DRIVE_MAX_UPLOAD_BYTES = value
-        const { getDriveMaxUploadBytes } = await import(
-          '@/src/modules/documents/infrastructure/drive-env'
-        )
-        expect(getDriveMaxUploadBytes()).toBe(15 * 1024 * 1024)
-      }
-    )
   })
 
   describe('descarga: tope de tamaño alto pero prudente', () => {

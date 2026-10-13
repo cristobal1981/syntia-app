@@ -1,5 +1,6 @@
 'use client'
 
+import { UPLOAD_ACCEPT_ATTRIBUTE } from '@/src/modules/portal/domain/upload-policy'
 import { DriveBrowserItemList } from '@/src/modules/documents/ui/drive-browser-item-list'
 import { DriveBrowserSearchBar } from '@/src/modules/documents/ui/drive-browser-search-bar'
 import { DriveBrowserToolbar } from '@/src/modules/documents/ui/drive-browser-toolbar'
@@ -82,6 +83,7 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
         ref={fileInputRef}
         type="file"
         multiple
+        accept={UPLOAD_ACCEPT_ATTRIBUTE}
         className="sr-only"
         disabled={!canWrite || uploading || pending || loading || !currentFolderId}
         onChange={(event) => {

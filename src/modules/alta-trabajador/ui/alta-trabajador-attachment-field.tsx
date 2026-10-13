@@ -5,7 +5,8 @@ import { Paperclip, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { altaTrabajadorWizard } from '@/content/alta-trabajador-wizard'
-import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
+import { portalChatter } from '@/content/portal-chatter'
+import { UPLOAD_ACCEPT_ATTRIBUTE } from '@/src/modules/portal/domain/upload-policy'
 import {
   readFilesAsUploadPayload,
   validateChatterUploadFiles,
@@ -50,7 +51,7 @@ export function AltaTrabajadorAttachmentField({
 
     const validation = validateChatterUploadFiles([payload])
     if (!validation.ok) {
-      setLocalError(tramiteSolicitudes.errors.attachmentRequired)
+      setLocalError(portalChatter.errors[validation.error])
       return
     }
 
@@ -73,6 +74,7 @@ export function AltaTrabajadorAttachmentField({
         <input
           id={inputId}
           type="file"
+          accept={UPLOAD_ACCEPT_ATTRIBUTE}
           className="hidden"
           aria-describedby={errorId}
           onChange={handleFileChange}

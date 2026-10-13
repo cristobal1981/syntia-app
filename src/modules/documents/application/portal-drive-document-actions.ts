@@ -27,12 +27,12 @@ import type {
 } from '@/src/modules/documents/domain/types'
 import {
   getDriveMaxDownloadBytes,
-  getDriveMaxFilesPerBatch,
-  getDriveMaxUploadBytes,
   getDrivePreviewMaxBytes,
-  isDangerousDriveUpload,
-  validateDriveItemName,
 } from '@/src/modules/documents/infrastructure/drive-env'
+import {
+  findUploadPolicyViolation,
+  type UploadPolicyViolation,
+} from '@/src/modules/portal/domain/upload-policy'
 import { isGoogleDriveApiConfigured } from '@/src/modules/documents/infrastructure/google-drive-auth'
 import {
   downloadDriveFile,
@@ -225,17 +225,20 @@ export async function getDriveDocumentsModeAction(): Promise<{ demo: boolean }> 
   return { demo: shouldUseMockDrive() }
 }
 
-function validateUploadBatch(files: File[]): DriveDocumentErrorCode | null {
-  if (!files.length) return 'upload_failed'
-  if (files.length > getDriveMaxFilesPerBatch()) return 'upload_failed'
+const DRIVE_CODE_BY_VIOLATION: Record<UploadPolicyViolation, DriveDocumentErrorCode> = {
+  empty: 'upload_failed',
+  too_many_files: 'upload_failed',
+  invalid_name: 'invalid_name',
+  invalid_type: 'invalid_type',
+  file_too_large: 'too_large',
+  total_too_large: 'too_large',
+}
 
-  const maxBytes = getDriveMaxUploadBytes()
-  for (const file of files) {
-    if (file.size > maxBytes) return 'too_large'
-    if (!validateDriveItemName(file.name)) return 'invalid_name'
-    if (isDangerousDriveUpload(file.name, file.type)) return 'invalid_type'
-  }
-  return null
+function validateUploadBatch(files: File[]): DriveDocumentErrorCode | null {
+  const violation = findUploadPolicyViolation(
+    files.map((file) => ({ name: file.name, mimeType: file.type, size: file.size }))
+  )
+  return violation ? DRIVE_CODE_BY_VIOLATION[violation] : null
 }
 
 export async function uploadDriveFilesAction(formData: FormData): Promise<DriveUploadResult> {

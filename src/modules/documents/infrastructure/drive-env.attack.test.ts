@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  isDangerousDriveUpload,
-  validateDriveItemName,
-} from '@/src/modules/documents/infrastructure/drive-env'
+import { validateDriveItemName } from '@/src/modules/documents/infrastructure/drive-env'
+import { isAllowedUploadType } from '@/src/modules/portal/domain/upload-policy'
 
-describe('isDangerousDriveUpload — intentos de colar un ejecutable', () => {
+describe('isAllowedUploadType — intentos de colar un ejecutable', () => {
   const dangerous: Array<[string, string]> = [
     ['virus.exe', 'application/octet-stream'],
     ['VIRUS.EXE', 'application/octet-stream'],
@@ -44,6 +42,11 @@ describe('isDangerousDriveUpload — intentos de colar un ejecutable', () => {
     ['factura.pdf', 'application/vnd.microsoft.portable-executable'],
     ['factura.pdf', 'application/java-archive'],
     ['factura.pdf', 'application/x-msdos-program'],
+    // Extensión permitida pero el MIME declarado delata otra cosa
+    ['foto.png', 'image/svg+xml'],
+    ['informe.pdf', 'text/html'],
+    ['informe.pdf', 'application/zip'],
+    ['informe.docx', 'application/x-sh'],
     // Trucos de nombre
     ['factura.pdf‮exe.', 'application/pdf'],
     ['virus.exe\u0000.pdf', 'application/pdf'],
@@ -53,8 +56,8 @@ describe('isDangerousDriveUpload — intentos de colar un ejecutable', () => {
   ]
 
   it.each(dangerous)('bloquea %j con mime %j', (name, mime) => {
-    // Aceptable bloquearlo por extensión/mime (isDangerous) o por nombre inválido.
-    expect(isDangerousDriveUpload(name, mime) || !validateDriveItemName(name)).toBe(true)
+    // Aceptable rechazarlo por tipo (lista blanca) o por nombre inválido.
+    expect(!isAllowedUploadType(name, mime) || !validateDriveItemName(name)).toBe(true)
   })
 
   const harmless: Array<[string, string]> = [
@@ -66,14 +69,14 @@ describe('isDangerousDriveUpload — intentos de colar un ejecutable', () => {
     ['balance 2026.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
     ['ñandú.pdf', 'application/pdf'],
     ['foto.JPG', 'image/jpeg'],
-    ['sin-extension', ''],
-    ['comprimido.zip', 'application/zip'],
     ['datos.csv', 'text/csv'],
     ['x.pdf', 'application/pdf; charset=binary'],
+    ['sin-mime.pdf', ''],
+    ['foto.heic', ''],
   ]
 
-  it.each(harmless)('NO bloquea el legítimo %j (%j)', (name, mime) => {
-    expect(isDangerousDriveUpload(name, mime)).toBe(false)
+  it.each(harmless)('admite el legítimo %j (%j)', (name, mime) => {
+    expect(isAllowedUploadType(name, mime)).toBe(true)
     expect(validateDriveItemName(name)).toBe(true)
   })
 })

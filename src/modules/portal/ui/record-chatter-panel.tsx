@@ -14,9 +14,8 @@ import type {
 } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
-  isAllowedChatterMimeType,
   readFilesAsUploadPayload,
-  validatePendingFilesSelection,
+  validateChatterCandidates,
 } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
   ChatterComposer,
@@ -237,17 +236,16 @@ export function RecordChatterPanel({
   }
 
   function handleAddFiles(files: File[]) {
-    const validation = validatePendingFilesSelection(pendingFiles.length, files.length)
+    const validation = validateChatterCandidates(
+      [...pendingFiles, ...files].map((file) => ({
+        name: file.name,
+        mimeType: file.type,
+        size: file.size,
+      }))
+    )
     if (!validation.ok) {
       setSendError(portalChatter.errors[validation.error])
       return
-    }
-
-    for (const file of files) {
-      if (!isAllowedChatterMimeType(file.type || 'application/octet-stream')) {
-        setSendError(portalChatter.errors.invalid_attachment)
-        return
-      }
     }
 
     setSendError(null)

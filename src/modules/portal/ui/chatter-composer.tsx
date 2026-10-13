@@ -1,5 +1,6 @@
 'use client'
 
+import { UPLOAD_ACCEPT_ATTRIBUTE } from '@/src/modules/portal/domain/upload-policy'
 import {
   forwardRef,
   useEffect,
@@ -248,6 +249,7 @@ export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposer
           ref={fileInputRef}
           type="file"
           multiple
+          accept={UPLOAD_ACCEPT_ATTRIBUTE}
           className="sr-only"
           disabled={disabled || !canAttach}
           onChange={handleFileChange}
