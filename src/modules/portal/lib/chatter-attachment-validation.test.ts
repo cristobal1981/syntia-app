@@ -91,3 +91,16 @@ describe('validateChatterCandidates — selección en el cliente', () => {
     ).toEqual({ ok: true })
   })
 })
+
+describe('isAttachmentError', () => {
+  it('reconoce solo los tres códigos de adjuntos', async () => {
+    const { isAttachmentError } = await import(
+      '@/src/modules/portal/lib/chatter-attachment-validation'
+    )
+    expect(isAttachmentError('invalid_attachment')).toBe(true)
+    expect(isAttachmentError('attachment_too_large')).toBe(true)
+    expect(isAttachmentError('too_many_attachments')).toBe(true)
+    expect(isAttachmentError('odoo_unavailable')).toBe(false)
+    expect(isAttachmentError('rate_limited')).toBe(false)
+  })
+})

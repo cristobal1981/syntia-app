@@ -1,11 +1,11 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { Paperclip, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { altaTrabajadorWizard } from '@/content/alta-trabajador-wizard'
-import { portalChatter } from '@/content/portal-chatter'
+import { toastAttachmentRejected } from '@/src/modules/portal/ui/toast-attachment-rejected'
 import { UPLOAD_ACCEPT_ATTRIBUTE } from '@/src/modules/portal/domain/upload-policy'
 import {
   readFilesAsUploadPayload,
@@ -35,9 +35,8 @@ export function AltaTrabajadorAttachmentField({
   onChange,
 }: AltaTrabajadorAttachmentFieldProps) {
   const inputId = useId()
-  const [localError, setLocalError] = useState<string | null>(null)
   const copy = altaTrabajadorWizard.attachment
-  const displayError = error ?? localError ?? undefined
+  const displayError = error
   const errorId = displayError ? `${inputId}-error` : undefined
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,13 +44,12 @@ export function AltaTrabajadorAttachmentField({
     event.target.value = ''
     if (!file) return
 
-    setLocalError(null)
     const [payload] = await readFilesAsUploadPayload([file])
     if (!payload) return
 
     const validation = validateChatterUploadFiles([payload])
     if (!validation.ok) {
-      setLocalError(portalChatter.errors[validation.error])
+      toastAttachmentRejected(validation.error)
       return
     }
 

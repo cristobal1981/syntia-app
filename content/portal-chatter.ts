@@ -49,4 +49,20 @@ export const portalChatter = {
     too_many_attachments: 'Puedes adjuntar como máximo 10 archivos por mensaje.',
     rate_limited: 'Has enviado demasiados mensajes seguidos. Espera un momento e inténtalo de nuevo.',
   },
+  /** Avisos con título y explicación cuando se rechazan adjuntos. */
+  attachmentNotices: {
+    invalid_attachment: {
+      title: uploadFormatCopy.title,
+      description: uploadFormatCopy.description,
+    },
+    attachment_too_large: {
+      title: 'Los archivos pesan demasiado',
+      description:
+        'Los adjuntos de un mensaje no pueden superar los 10 MB en total. Reduce el tamaño o envíalos en mensajes distintos.',
+    },
+    too_many_attachments: {
+      title: 'Demasiados archivos',
+      description: 'Puedes adjuntar como máximo 10 archivos por mensaje.',
+    },
+  },
 } as const

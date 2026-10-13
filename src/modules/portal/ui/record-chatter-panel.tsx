@@ -14,6 +14,7 @@ import type {
 } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
+  isAttachmentError,
   readFilesAsUploadPayload,
   validateChatterCandidates,
 } from '@/src/modules/portal/lib/chatter-attachment-validation'
@@ -21,6 +22,7 @@ import {
   ChatterComposer,
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
+import { toastAttachmentRejected } from '@/src/modules/portal/ui/toast-attachment-rejected'
 import { ChatterSendButton } from '@/src/modules/portal/ui/chatter-send-button'
 import {
   ChatterComposerSkeleton,
@@ -244,7 +246,7 @@ export function RecordChatterPanel({
       }))
     )
     if (!validation.ok) {
-      setSendError(portalChatter.errors[validation.error])
+      toastAttachmentRejected(validation.error)
       return
     }
 
@@ -330,6 +332,10 @@ export function RecordChatterPanel({
         })
 
         if (!result.ok) {
+          if (isAttachmentError(result.error)) {
+            toastAttachmentRejected(result.error)
+            return
+          }
           setSendError(
             portalChatter.errors[result.error] ?? portalChatter.errors.odoo_unavailable
           )

@@ -10,6 +10,14 @@ export type ChatterAttachmentValidationError =
   | 'attachment_too_large'
   | 'too_many_attachments'
 
+export function isAttachmentError(code: string): code is ChatterAttachmentValidationError {
+  return (
+    code === 'invalid_attachment' ||
+    code === 'attachment_too_large' ||
+    code === 'too_many_attachments'
+  )
+}
+
 const ERROR_BY_VIOLATION: Record<UploadPolicyViolation, ChatterAttachmentValidationError> = {
   empty: 'invalid_attachment',
   too_many_files: 'too_many_attachments',

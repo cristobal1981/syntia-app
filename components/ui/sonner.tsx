@@ -41,7 +41,7 @@ export function Toaster({ ...props }: ToasterProps) {
             'border-destructive/40 bg-surface-light dark:border-border/40 dark:bg-card',
           success: 'border-primary/40 bg-surface-light dark:border-border/40 dark:bg-card',
           warning:
-            'border-service-fiscal/50 bg-card dark:border-border/40 dark:bg-card dark:text-foreground',
+            'border-amber-500/50! bg-amber-50! dark:border-amber-500/40! dark:bg-card!',
           info: 'border-turquesa/40 bg-card dark:border-border/40 dark:bg-card dark:text-foreground',
         },
       }}
