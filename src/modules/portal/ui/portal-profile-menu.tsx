@@ -2,13 +2,22 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bug, ChevronDown, EllipsisVertical, PersonStanding, PlayCircle, UserCog } from 'lucide-react'
+import {
+  Bug,
+  ChevronDown,
+  EllipsisVertical,
+  LogOut,
+  PersonStanding,
+  PlayCircle,
+  UserCog,
+} from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { portal } from '@/content/portal'
 import { cn } from '@/lib/utils'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
-import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
+import { SignOutOverlayPortal } from '@/src/modules/auth/ui/sign-out-button'
+import { useSignOut } from '@/src/modules/auth/ui/use-sign-out'
 import { AccessibilityControls } from '@/src/modules/portal/ui/accessibility-controls'
 import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
@@ -42,6 +51,7 @@ export function PortalProfileMenu({
   const [open, setOpen] = useState(false)
   const [accessibilityOpen, setAccessibilityOpen] = useState(false)
   const onboardingChecklist = useOnboardingChecklistOptional()
+  const { signOut, signingOut, busy: signOutBusy } = useSignOut()
   const reportProblem = usePortalReportProblemOptional()
   // El reporte de problemas solo existe para cliente y colaborador.
   const canReportProblem = user.role === 'client' || user.role === 'worker'
@@ -92,7 +102,9 @@ export function PortalProfileMenu({
   )
 
   return (
-    <Popover
+    <>
+      <SignOutOverlayPortal active={signingOut} />
+      <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
@@ -183,8 +195,21 @@ export function PortalProfileMenu({
 
         <div className="my-1 border-t border-sidebar-border" role="separator" />
 
-        <SignOutButton variant="menu" />
+        <button
+          type="button"
+          className={cn(ITEM_CLASS, 'disabled:cursor-not-allowed')}
+          disabled={signOutBusy}
+          onClick={() => {
+            // El panel se cierra y la despedida va a pantalla completa (fuera del panel).
+            setOpen(false)
+            signOut()
+          }}
+        >
+          <LogOut className="size-4 shrink-0" aria-hidden />
+          {portal.shell.signOutLabel}
+        </button>
       </PopoverContent>
     </Popover>
+    </>
   )
 }
