@@ -14,7 +14,17 @@ import {
   planFolderLoadFailure,
   type FolderLoadFailurePlan,
 } from '@/src/modules/documents/domain/drive-stale-recovery'
-import type { DriveBreadcrumb, DriveDuplicate, DriveItem } from '@/src/modules/documents/domain/types'
+import {
+  createDriveListingCache,
+  listingCacheKey,
+  ROOT_LISTING_KEY,
+} from '@/src/modules/documents/domain/drive-listing-cache'
+import type {
+  DriveBreadcrumb,
+  DriveDuplicate,
+  DriveFolderListing,
+  DriveItem,
+} from '@/src/modules/documents/domain/types'
 import { callDriveAction } from '@/src/modules/documents/ui/call-drive-action'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
 import {
@@ -33,16 +43,29 @@ export type DriveFolderError = { code: DriveUiErrorCode; context: DriveErrorCont
  * deja a la persona sin lista si ya tenía una: se conserva, se avisa con un
  * mensaje claro y, si lo que falló es "ya no existe", se sincroniza sola.
  */
-export function useDriveFolder() {
-  const [items, setItems] = useState<DriveItem[]>([])
-  const [breadcrumbs, setBreadcrumbs] = useState<DriveBreadcrumb[]>([])
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+export function useDriveFolder(initialListing?: DriveFolderListing) {
+  const [items, setItems] = useState<DriveItem[]>(initialListing?.items ?? [])
+  const [breadcrumbs, setBreadcrumbs] = useState<DriveBreadcrumb[]>(
+    initialListing?.breadcrumbs ?? []
+  )
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(
+    initialListing?.currentFolderId ?? null
+  )
+  // Con listado inicial del servidor no hay carga que esperar.
+  const [loading, setLoading] = useState(!initialListing)
   const [error, setError] = useState<DriveFolderError | null>(null)
   const [uploading, setUploading] = useState(false)
   const [actionError, setActionError] = useState<DriveFolderError | null>(null)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  // Carpetas ya vistas: se pintan al instante y se revalidan por detrás.
+  const listingCacheRef = useRef<ReturnType<typeof createDriveListingCache> | null>(null)
+  if (listingCacheRef.current === null) {
+    const cache = createDriveListingCache()
+    if (initialListing) cache.set(initialListing.currentFolderId, initialListing)
+    listingCacheRef.current = cache
+  }
 
   // Los planes de recuperación leen el estado más reciente sin recrear callbacks.
   const stateRef = useRef({ currentFolderId, hasListing: false })
@@ -76,6 +99,8 @@ export function useDriveFolder() {
       setLoading(false)
 
       if (result.ok) {
+        listingCacheRef.current?.set(result.listing.currentFolderId, result.listing)
+        if (!folderId) listingCacheRef.current?.set(ROOT_LISTING_KEY, result.listing)
         setItems(result.listing.items)
         setBreadcrumbs(result.listing.breadcrumbs)
         setCurrentFolderId(result.listing.currentFolderId)
@@ -104,7 +129,33 @@ export function useDriveFolder() {
   )
 
   const loadFolder = useCallback(
-    async (folderId?: string, options?: { silent?: boolean }): Promise<void> => {
+    async (
+      folderId?: string,
+      options?: { silent?: boolean; /** Ignora lo cacheado y muestra la carga (botón de actualizar). */ fresh?: boolean }
+    ): Promise<void> => {
+      // Una carpeta ya vista se muestra al instante y se revalida en segundo
+      // plano: si Drive cambió, la lista se corrige sola.
+      const cached =
+        options?.silent || options?.fresh
+          ? undefined
+          : listingCacheRef.current?.get(listingCacheKey(folderId))
+      if (cached) {
+        loadSeqRef.current += 1
+        setError(null)
+        setActionError(null)
+        setItems(cached.items)
+        setBreadcrumbs(cached.breadcrumbs)
+        setCurrentFolderId(cached.currentFolderId)
+        setLoading(false)
+        const refreshed = await applyLoad(folderId, { silent: true })
+        if (refreshed === 'refresh-current' && stateRef.current.currentFolderId) {
+          await applyLoad(stateRef.current.currentFolderId, { silent: true })
+        } else if (refreshed === 'go-home') {
+          await applyLoad(undefined, { silent: true })
+        }
+        return
+      }
+
       const fallback = await applyLoad(folderId, options)
       // La sincronización automática se intenta una sola vez (sin bucles).
       if (fallback === 'refresh-current' && stateRef.current.currentFolderId) {

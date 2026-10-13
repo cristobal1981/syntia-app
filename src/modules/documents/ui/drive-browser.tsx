@@ -8,13 +8,16 @@ import { DriveErrorNotice } from '@/src/modules/documents/ui/drive-error-notice'
 import { DriveDocumentPreviewDialog } from '@/src/modules/documents/ui/drive-document-preview-dialog'
 import { DriveDropOverlay } from '@/src/modules/documents/ui/drive-drop-overlay'
 import { isExternalFileDrag } from '@/src/modules/documents/ui/drive-drag'
+import type { DriveFolderListing } from '@/src/modules/documents/domain/types'
 import { useDriveBrowser } from '@/src/modules/documents/ui/use-drive-browser'
 
 type DriveBrowserProps = {
   canWrite: boolean
+  /** Listado que el servidor ya obtuvo al renderizar: evita pedirlo otra vez al montar. */
+  initialListing?: DriveFolderListing
 }
 
-export function DriveBrowser({ canWrite }: DriveBrowserProps) {
+export function DriveBrowser({ canWrite, initialListing }: DriveBrowserProps) {
   const {
     fileInputRef,
     breadcrumbs,
@@ -60,7 +63,7 @@ export function DriveBrowser({ canWrite }: DriveBrowserProps) {
     handleBreadcrumbNavigate,
     handleGoHome,
     handleFileUnavailable,
-  } = useDriveBrowser(canWrite)
+  } = useDriveBrowser(canWrite, initialListing)
 
   return (
     <div

@@ -8,12 +8,14 @@ import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/
 
 type DocumentsPageProps = {
   user: PortalUser
+  /** Carpeta pedida en la URL (`?carpeta=`); sin ella, Inicio. */
+  folderId?: string
 }
 
-export async function DocumentsPage({ user }: DocumentsPageProps) {
+export async function DocumentsPage({ user, folderId }: DocumentsPageProps) {
   const demoMode = shouldUseMockDrive()
   const [initial, writeSections] = await Promise.all([
-    listDriveFolderAction(),
+    listDriveFolderAction(folderId ? { folderId } : undefined),
     user.role === 'worker' ? getWorkerWriteSections(user) : null,
   ])
   const canWrite = user.role !== 'worker' || (writeSections?.has('/documentos') ?? false)
@@ -24,5 +26,13 @@ export async function DocumentsPage({ user }: DocumentsPageProps) {
     return <DocumentsLoadError code={initial.error} />
   }
 
-  return <DocumentsPageView demoMode={demoMode} canWrite={canWrite} />
+  // El listado ya obtenido viaja al cliente: no se vuelve a pedir al montar.
+  // Si la carpeta pedida ya no existe, el cliente se recupera por su cuenta.
+  return (
+    <DocumentsPageView
+      demoMode={demoMode}
+      canWrite={canWrite}
+      initialListing={initial.ok && !demoMode ? initial.listing : undefined}
+    />
+  )
 }

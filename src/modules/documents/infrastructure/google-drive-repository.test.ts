@@ -13,6 +13,7 @@ vi.mock('@/src/modules/documents/infrastructure/google-drive-auth', () => ({
 vi.mock('@/src/modules/documents/infrastructure/drive-folder-access', () => ({
   assertDriveItemWithinClientTree,
   buildDriveBreadcrumbs: vi.fn().mockResolvedValue([]),
+  rememberListedDriveItems: vi.fn(),
 }))
 
 const fetchMock = vi.fn()

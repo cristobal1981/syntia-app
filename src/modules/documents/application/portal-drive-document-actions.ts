@@ -1,6 +1,6 @@
 'use server'
 
-import { getSession } from '@/src/modules/auth/application/get-session'
+import { getDocumentsSession } from '@/src/modules/documents/application/get-documents-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
@@ -47,7 +47,7 @@ async function resolveClientDriveAccess(
   | { ok: true; rootId: string }
   | { ok: false; error: DriveDocumentErrorCode }
 > {
-  const session = await getSession()
+  const session = await getDocumentsSession()
   if (!session) {
     return { ok: false, error: 'session_expired' }
   }

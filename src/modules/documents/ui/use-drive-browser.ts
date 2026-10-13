@@ -11,7 +11,11 @@ import {
 } from '@/src/modules/documents/domain/drive-shortcuts'
 import { buildFolderUrl, parseFolderParam } from '@/src/modules/documents/domain/drive-folder-url'
 import { sortDriveItems } from '@/src/modules/documents/domain/sort-drive-items'
-import type { DriveDuplicate, DriveItem } from '@/src/modules/documents/domain/types'
+import type {
+  DriveDuplicate,
+  DriveFolderListing,
+  DriveItem,
+} from '@/src/modules/documents/domain/types'
 
 import type { DriveUiErrorCode } from '@/src/modules/documents/domain/drive-error-presentation'
 import { isExternalFileDrag } from '@/src/modules/documents/ui/drive-drag'
@@ -24,11 +28,11 @@ import { formatPortalShortcutLabel, isPortalShortcutBlockedTarget } from '@/src/
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
-export function useDriveBrowser(canWrite: boolean) {
+export function useDriveBrowser(canWrite: boolean, initialListing?: DriveFolderListing) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const driveFolder = useDriveFolder()
+  const driveFolder = useDriveFolder(initialListing)
   const { viewMode, setViewMode, toggleViewMode } = useDriveViewMode()
   const { pageDragActive, resetPageDrag } = useExternalFileDragOverlay(canWrite)
 
@@ -163,7 +167,7 @@ export function useDriveBrowser(canWrite: boolean) {
 
   function handleRefresh() {
     if (loading) return
-    void loadFolder(currentFolderId ?? undefined)
+    void loadFolder(currentFolderId ?? undefined, { fresh: true })
   }
 
   function handleUploadClick() {

@@ -3,14 +3,20 @@
 import { Info } from 'lucide-react'
 
 import { clientDocuments } from '@/content/client-documents'
+import type { DriveFolderListing } from '@/src/modules/documents/domain/types'
 import { DriveBrowser } from '@/src/modules/documents/ui/drive-browser'
 
 type DocumentsPageViewProps = {
   demoMode?: boolean
   canWrite: boolean
+  initialListing?: DriveFolderListing
 }
 
-export function DocumentsPageView({ demoMode = false, canWrite }: DocumentsPageViewProps) {
+export function DocumentsPageView({
+  demoMode = false,
+  canWrite,
+  initialListing,
+}: DocumentsPageViewProps) {
   return (
     <div className="flex flex-col gap-4">
       {demoMode ? (
@@ -30,7 +36,7 @@ export function DocumentsPageView({ demoMode = false, canWrite }: DocumentsPageV
         </div>
       ) : null}
 
-      <DriveBrowser canWrite={canWrite} />
+      <DriveBrowser canWrite={canWrite} initialListing={initialListing} />
     </div>
   )
 }

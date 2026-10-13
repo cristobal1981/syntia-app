@@ -18,17 +18,19 @@ import { authorizedDriveFetch } from '@/src/modules/documents/infrastructure/dri
 import {
   assertDriveItemWithinClientTree,
   buildDriveBreadcrumbs,
+  rememberListedDriveItems,
 } from '@/src/modules/documents/infrastructure/drive-folder-access'
 
 const DRIVE_SHARED_QUERY_FLAGS = 'supportsAllDrives=true&includeItemsFromAllDrives=true'
 const LIST_FIELDS =
-  'nextPageToken,files(id,name,mimeType,modifiedTime,size,iconLink,thumbnailLink)'
+  'nextPageToken,files(id,name,mimeType,parents,modifiedTime,size,iconLink,thumbnailLink)'
 
 type DriveListResponse = {
   files?: Array<{
     id?: string
     name?: string
     mimeType?: string
+    parents?: string[]
     modifiedTime?: string
     size?: string
     iconLink?: string
@@ -61,6 +63,7 @@ export async function listDriveFolder(
   }
 
   const payload = (await readDriveJson(response)) as DriveListResponse
+  rememberListedDriveItems(rootId, payload.files ?? [])
   const items: DriveItem[] = (payload.files ?? [])
     .filter((file): file is NonNullable<typeof file> & { id: string; name: string; mimeType: string } =>
       Boolean(file.id && file.name && file.mimeType)

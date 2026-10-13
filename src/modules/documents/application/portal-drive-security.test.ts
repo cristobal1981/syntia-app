@@ -402,7 +402,7 @@ describe.each([
       expect(sub).toMatchObject({ ok: true })
       if (sub.ok) {
         expect(sub.listing.items.map((item) => item.name)).toEqual(['factura.pdf'])
-        expect(sub.listing.breadcrumbs.map((crumb) => crumb.name)).toEqual(['Pública', 'Facturas'])
+        expect(sub.listing.breadcrumbs.map((crumb) => crumb.name)).toEqual(['Inicio', 'Facturas'])
       }
 
       const download = await actions.downloadDriveFileAction({ fileId: F1 })
@@ -535,8 +535,93 @@ describe.each([
       const dump = JSON.stringify(result)
       expect(dump).not.toMatch(/Privada|ZZ-Test|Shared Drive/)
       if (result.ok) {
-        expect(result.listing.breadcrumbs.map((crumb) => crumb.name)).toEqual(['Pública', 'Multi'])
+        expect(result.listing.breadcrumbs.map((crumb) => crumb.name)).toEqual(['Inicio', 'Multi'])
       }
+    })
+  })
+
+  describe('rendimiento sin ceder seguridad: caché de metadatos por raíz', () => {
+    const metaCalls = () => fake.requests.filter((request) => request.kind === 'meta')
+
+    it('no pide ni muestra el nombre real de la Pública: el primer tramo es «Inicio»', async () => {
+      const result = await actions.listDriveFolderAction()
+
+      expect(result).toMatchObject({ ok: true })
+      if (result.ok) {
+        expect(result.listing.breadcrumbs).toEqual([{ id: PUB, name: 'Inicio' }])
+      }
+      expect(metaCalls().map((request) => request.targetId)).not.toContain(PUB)
+      expect(JSON.stringify(result)).not.toContain('Pública')
+    })
+
+    it('listar la raíz cuesta 1 petición; entrar luego en una subcarpeta ya listada, otra más (solo el listado)', async () => {
+      await actions.listDriveFolderAction()
+      expect(fake.requests).toHaveLength(1)
+
+      const sub = await actions.listDriveFolderAction({ folderId: SUB })
+
+      expect(sub).toMatchObject({ ok: true })
+      expect(fake.requests).toHaveLength(2)
+      expect(fake.requests[1].kind).toBe('list')
+      expect(metaCalls()).toHaveLength(0)
+    })
+
+    it('entrada directa en frío a una subcarpeta: se consulta la cadena una sola vez (las migas no la repiten)', async () => {
+      const result = await actions.listDriveFolderAction({ folderId: SUB })
+
+      expect(result).toMatchObject({ ok: true })
+      // SUB cuelga directamente de PUB: 1 consulta de metadatos + 1 listado.
+      expect(metaCalls().map((request) => request.targetId)).toEqual([SUB])
+      expect(fake.count('list')).toBe(1)
+    })
+
+    it('el listado pide `parents` a Drive (el Drive real solo devuelve los campos pedidos)', async () => {
+      await actions.listDriveFolderAction()
+
+      const list = fake.requests.find((request) => request.kind === 'list')!
+      expect(new URL(list.url).searchParams.get('fields')).toMatch(/files\([^)]*\bparents\b/)
+    })
+
+    it('el acceso sigue comprobándose con lo cacheado: un id ajeno cacheado por otro cliente no entra', async () => {
+      // El cliente B lista su Pública y deja en la caché los metadatos de su árbol.
+      resolveClientDriveRootId.mockResolvedValue(PUB2)
+      await actions.listDriveFolderAction({ folderId: PUB2 })
+
+      // El cliente A intenta abrir una carpeta de B con su propia raíz.
+      resolveClientDriveRootId.mockResolvedValue(PUB)
+      const before = fake.leaks().length
+      const result = await actions.listDriveFolderAction({ folderId: PUB2 })
+
+      expect(result).toEqual({ ok: false, error: 'not_found' })
+      expect(fake.leaks().length).toBe(before)
+      expect(await actions.downloadDriveFileAction({ fileId: AJ })).toEqual({
+        ok: false,
+        error: 'not_found',
+      })
+    })
+
+    it('un elemento llevado a la papelera deja de ser accesible en cuanto caduca la caché (60 s)', async () => {
+      await actions.listDriveFolderAction()
+      fake.nodes.get(SUB)!.trashed = true
+
+      // Dentro del TTL se conserva lo ya comprobado (igual que antes de esta caché).
+      vi.setSystemTime(new Date(clock + 30_000))
+      const within = await actions.listDriveFolderAction({ folderId: SUB })
+      expect(within).toMatchObject({ ok: true })
+
+      vi.setSystemTime(new Date(clock + 61_000))
+      const after = await actions.listDriveFolderAction({ folderId: SUB })
+      expect(after).toEqual({ ok: false, error: 'not_found' })
+    })
+
+    it('una carpeta con dos padres sigue exigiendo que uno sea la raíz del cliente', async () => {
+      // MULTI se cachea con [Privada, Pública] al listar la raíz de A.
+      await actions.listDriveFolderAction()
+      // El cliente B no puede aprovechar ese metadato: su raíz es otra.
+      resolveClientDriveRootId.mockResolvedValue(PUB2)
+      const result = await actions.listDriveFolderAction({ folderId: MULTI })
+
+      expect(result).toEqual({ ok: false, error: 'not_found' })
     })
   })
 
