@@ -170,9 +170,12 @@ export function PortalShell({
           )}
           aria-label="Principal"
         >
-          {navItems.map((item) =>
-            renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
-          )}
+          {/* «Perfil» ya está en el menú del pie del sidebar; en móvil (sin ese menú) se mantiene. */}
+          {navItems
+            .filter((item) => item.href !== '/perfil')
+            .map((item) =>
+              renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
+            )}
           <div className="mt-auto pt-3">
             <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
           </div>
