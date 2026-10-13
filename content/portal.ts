@@ -139,6 +139,10 @@ export const portal = {
   },
   shell: {
     signOutLabel: 'Cerrar sesión',
+    profileMenu: {
+      triggerLabel: 'Abrir menú de perfil',
+      settings: 'Configurar perfil',
+    },
     dashboardTitle: 'Inicio',
     searchPlaceholder: 'Buscar…',
     sidebarExpandLabel: 'Mostrar menú',
@@ -234,8 +238,8 @@ export const portal = {
     progressLabel: '{completed} de {total}',
     minimizeLabel: 'Minimizar guía',
     finishLabel: 'Finalizar guía',
-    dismissedToast: 'Guía finalizada. Puedes volver a abrirla desde tu perfil.',
-    reopenLabel: 'Ver primeros pasos de nuevo',
+    dismissedToast: 'Guía finalizada. Puedes volver a abrirla desde el menú de tu perfil.',
+    reopenLabel: 'Ver primeros pasos',
     tipDismissLabel: 'Cerrar aviso',
     steps: {
       tramites: {

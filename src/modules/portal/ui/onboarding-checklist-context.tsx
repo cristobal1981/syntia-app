@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation'
 
 import {
   CHECKLIST_ROUTE_STEPS,
+  completedAfterRestart,
   getOnboardingChecklistSteps,
   type ChecklistStepId,
 } from '@/src/modules/portal/domain/onboarding-checklist-steps'
@@ -84,6 +85,16 @@ export function OnboardingChecklistProvider({
   // resolves) would write the still-default empty/false values right over
   // whatever was saved from a previous session.
   const [loaded, setLoaded] = useState(false)
+  // Ruta en la que se reabrió la guía de cero: esa visita no cuenta como paso
+  // hecho (si no, «de nuevo» empezaría ya con un paso marcado).
+  const [restartPath, setRestartPath] = useState<string | null>(null)
+  // Al navegar a otra ruta, las visitas vuelven a contar (ajuste durante el render,
+  // no en un efecto).
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
+    if (restartPath !== null) setRestartPath(null)
+  }
 
   useEffect(() => {
     if (!enabled) return
@@ -125,6 +136,8 @@ export function OnboardingChecklistProvider({
   // find, no waiting on layout: pathname is already the source of truth.
   useEffect(() => {
     if (!enabled || !loaded || dismissed) return
+    // La visita de la ruta en que se reabrió la guía no cuenta (ver `start`).
+    if (restartPath === pathname) return
     const step = (Object.keys(CHECKLIST_ROUTE_STEPS) as ChecklistStepId[]).find(
       (id) => CHECKLIST_ROUTE_STEPS[id] === pathname
     )
@@ -136,7 +149,7 @@ export function OnboardingChecklistProvider({
     // completeStep intentionally omitted: it changes identity with `completed`
     // on every completion, which would refire this on unrelated steps too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, loaded, dismissed, pathname])
+  }, [enabled, loaded, dismissed, pathname, restartPath])
 
   const markStepComplete = useCallback(
     (id: ChecklistStepId) => {
@@ -151,9 +164,16 @@ export function OnboardingChecklistProvider({
   const showTip = useCallback((id: ChecklistStepId) => setActiveTip(id), [])
 
   const start = useCallback(() => {
+    const next = completedAfterRestart([...completed])
+    if (next.length !== completed.size) {
+      // Guía ya terminada: vuelve a empezar de cero.
+      setCompleted(new Set(next))
+      setRestartPath(pathname)
+    }
+    setActiveTip(null)
     setDismissed(false)
     setExpanded(true)
-  }, [])
+  }, [completed, pathname])
 
   const expand = useCallback(() => setExpanded(true), [])
   // Collapsing to the pill also drops whatever tip was showing — it's part of

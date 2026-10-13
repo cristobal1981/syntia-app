@@ -32,3 +32,16 @@ export function getOnboardingChecklistSteps(): ChecklistStep[] {
     description: copy[id].description,
   }))
 }
+
+/**
+ * Al volver a abrir la guía: si ya estaba terminada (todos los pasos hechos),
+ * empieza de cero; si se dejó a medias, se retoma donde estaba.
+ */
+export function completedAfterRestart(
+  completed: readonly ChecklistStepId[],
+  allSteps: readonly ChecklistStepId[] = CHECKLIST_STEP_ORDER
+): ChecklistStepId[] {
+  const done = new Set(completed)
+  const finished = allSteps.length > 0 && allSteps.every((id) => done.has(id))
+  return finished ? [] : [...completed]
+}
