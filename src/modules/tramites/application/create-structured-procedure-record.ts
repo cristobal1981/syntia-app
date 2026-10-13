@@ -15,7 +15,10 @@ import {
   formatProcedureTicketChatterMessage,
   formatProcedureTicketSubject,
 } from '@/src/modules/tramites/domain/format-procedure-ticket'
-import type { ProcedureTicketPayload } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  isProcedureTypeAvailable,
+  type ProcedureTicketPayload,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
   normalizeProcedureTicketPayload,
   validateProcedureTicketPayload,
@@ -84,6 +87,11 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
     if (!writeSections.has('/tramites')) {
       return { ok: false, error: 'forbidden' }
     }
+  }
+
+  // Solicitudes retiradas: no se pueden crear ni llamando a la acción a mano.
+  if (!isProcedureTypeAvailable(payload.type)) {
+    return { ok: false, error: 'forbidden' }
   }
 
   const allowed = await checkRateLimit(

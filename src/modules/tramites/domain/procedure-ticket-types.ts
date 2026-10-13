@@ -7,6 +7,20 @@ export type ProcedureTicketType =
 
 export type SolicitudPickerId = ProcedureTicketType | 'general'
 
+/**
+ * Solicitudes retiradas de «Nueva solicitud» hasta su lanzamiento. El código
+ * (formularios, validación y payloads) se conserva; para volver a ofrecerlas
+ * basta con quitarlas de aquí.
+ */
+const UNAVAILABLE_PROCEDURE_TYPES: ReadonlySet<ProcedureTicketType> = new Set([
+  'baja-trabajador',
+  'carta-vacaciones',
+])
+
+export function isProcedureTypeAvailable(type: ProcedureTicketType): boolean {
+  return !UNAVAILABLE_PROCEDURE_TYPES.has(type)
+}
+
 export type TrabajadorAltaPayload = {
   type: 'alta-trabajador'
   firstName: string

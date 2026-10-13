@@ -32,7 +32,10 @@ import {
 } from '@/src/modules/portal/application/filter-portal-search'
 import type { PortalSearchItem } from '@/src/modules/portal/domain/portal-search-types'
 import type { NavItem } from '@/src/modules/portal/domain/types'
-import type { ProcedureTicketType } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  isProcedureTypeAvailable,
+  type ProcedureTicketType,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
   formatPortalShortcutLabel,
   PORTAL_SEARCH_SHORTCUT,
@@ -62,7 +65,7 @@ function collectNavHrefs(items: NavItem[]): Set<string> {
   return hrefs
 }
 
-const PROCEDURE_SEARCH_ACTIONS: Array<{
+const ALL_PROCEDURE_SEARCH_ACTIONS: Array<{
   id: string
   procedure: ProcedureTicketType
   label: string
@@ -91,6 +94,10 @@ const PROCEDURE_SEARCH_ACTIONS: Array<{
     keywords: ['vacaciones', 'carta', 'descanso', 'festivos'],
   },
 ]
+
+const PROCEDURE_SEARCH_ACTIONS = ALL_PROCEDURE_SEARCH_ACTIONS.filter((action) =>
+  isProcedureTypeAvailable(action.procedure)
+)
 
 function procedureActionMatchesQuery(query: string, keywords: string[]): boolean {
   const normalized = query.trim().toLowerCase()

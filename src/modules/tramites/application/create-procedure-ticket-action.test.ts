@@ -5,6 +5,7 @@ import { createProcedureTicketAction } from '@/src/modules/tramites/application/
 import type { TrabajadorBajaPayload } from '@/src/modules/tramites/domain/procedure-ticket-types'
 
 const {
+  availability,
   getSession,
   getWorkerWriteSections,
   resolveClientOdooPartnerId,
@@ -13,6 +14,9 @@ const {
   postRecordComment,
   checkRateLimit,
 } = vi.hoisted(() => ({
+  // Las pruebas de mecánica (permisos, chatter) fuerzan «disponible»; las de
+  // «tipos retirados» usan la implementación real.
+  availability: { forceAvailable: true },
   getSession: vi.fn(),
   getWorkerWriteSections: vi.fn(),
   resolveClientOdooPartnerId: vi.fn(),
@@ -22,6 +26,16 @@ const {
   checkRateLimit: vi.fn(),
 }))
 
+vi.mock('@/src/modules/tramites/domain/procedure-ticket-types', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('@/src/modules/tramites/domain/procedure-ticket-types')
+  >()
+  return {
+    ...actual,
+    isProcedureTypeAvailable: (type: Parameters<typeof actual.isProcedureTypeAvailable>[0]) =>
+      availability.forceAvailable ? true : actual.isProcedureTypeAvailable(type),
+  }
+})
 vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
@@ -64,6 +78,7 @@ const payload: TrabajadorBajaPayload = {
 }
 
 beforeEach(() => {
+  availability.forceAvailable = true
   vi.clearAllMocks()
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
@@ -112,5 +127,36 @@ describe('createProcedureTicketAction (chatter message)', () => {
 
     expect(result).toMatchObject({ ok: true })
     expect(postRecordComment).toHaveBeenCalled()
+  })
+})
+
+describe('createProcedureTicketAction (solicitudes retiradas de «Nueva solicitud»)', () => {
+  beforeEach(() => {
+    availability.forceAvailable = false
+    getSession.mockResolvedValue(sessionFor('client'))
+  })
+
+  it('baja-trabajador no se puede crear ni llamando a la acción a mano', async () => {
+    const result = await createProcedureTicketAction(payload)
+
+    expect(result).toEqual({ ok: false, error: 'forbidden' })
+    expect(createPartnerTicket).not.toHaveBeenCalled()
+    expect(postRecordComment).not.toHaveBeenCalled()
+    expect(checkRateLimit).not.toHaveBeenCalled()
+  })
+
+  it('carta-vacaciones tampoco', async () => {
+    const result = await createProcedureTicketAction({
+      type: 'carta-vacaciones',
+    } as unknown as Parameters<typeof createProcedureTicketAction>[0])
+
+    expect(result).toEqual({ ok: false, error: 'forbidden' })
+    expect(createPartnerTicket).not.toHaveBeenCalled()
+  })
+
+  it('el guard de sesión sigue yendo primero (sin sesión, forbidden por sesión)', async () => {
+    getSession.mockResolvedValue(null)
+
+    expect(await createProcedureTicketAction(payload)).toEqual({ ok: false, error: 'forbidden' })
   })
 })

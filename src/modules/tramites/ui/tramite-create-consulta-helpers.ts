@@ -1,8 +1,9 @@
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { tramites } from '@/content/tramites'
-import type {
-  ProcedureTicketType,
-  SolicitudPickerId,
+import {
+  isProcedureTypeAvailable,
+  type ProcedureTicketType,
+  type SolicitudPickerId,
 } from '@/src/modules/tramites/domain/procedure-ticket-types'
 import type { ProcedureFieldErrorKey } from '@/src/modules/tramites/domain/validate-procedure-ticket'
 import type { CartaVacacionesFormValues } from '@/src/modules/tramites/ui/tramite-carta-vacaciones-form'
@@ -61,6 +62,7 @@ export function procedureStepFromInitial(
   initialProcedure?: ProcedureTicketType | null
 ): DrawerStep {
   if (initialProcedure === 'alta-trabajador') return 'picker'
+  if (initialProcedure && !isProcedureTypeAvailable(initialProcedure)) return 'picker'
   return initialProcedure ?? 'picker'
 }
 
