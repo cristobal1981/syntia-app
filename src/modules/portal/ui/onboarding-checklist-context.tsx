@@ -13,7 +13,6 @@ import { usePathname } from 'next/navigation'
 
 import {
   CHECKLIST_ROUTE_STEPS,
-  completedAfterRestart,
   getOnboardingChecklistSteps,
   type ChecklistStepId,
 } from '@/src/modules/portal/domain/onboarding-checklist-steps'
@@ -164,16 +163,17 @@ export function OnboardingChecklistProvider({
   const showTip = useCallback((id: ChecklistStepId) => setActiveTip(id), [])
 
   const start = useCallback(() => {
-    const next = completedAfterRestart([...completed])
-    if (next.length !== completed.size) {
-      // Guía ya terminada: vuelve a empezar de cero.
-      setCompleted(new Set(next))
+    // Reabrir una guía que se había finalizado empieza siempre de cero, por poco
+    // que se hubiera completado. Si la tarjeta ya estaba abierta, solo se
+    // despliega y se conserva el progreso.
+    if (dismissed) {
+      setCompleted(new Set())
       setRestartPath(pathname)
     }
     setActiveTip(null)
     setDismissed(false)
     setExpanded(true)
-  }, [completed, pathname])
+  }, [dismissed, pathname])
 
   const expand = useCallback(() => setExpanded(true), [])
   // Collapsing to the pill also drops whatever tip was showing — it's part of

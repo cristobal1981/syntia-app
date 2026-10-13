@@ -4,7 +4,6 @@ import { portal } from '@/content/portal'
 import {
   CHECKLIST_ROUTE_STEPS,
   CHECKLIST_STEP_ORDER,
-  completedAfterRestart,
   getOnboardingChecklistSteps,
 } from '@/src/modules/portal/domain/onboarding-checklist-steps'
 
@@ -59,32 +58,3 @@ describe('CHECKLIST_ROUTE_STEPS', () => {
     expect(CHECKLIST_ROUTE_STEPS.nuevaConsulta).toBeUndefined()
   })
 })
-
-describe('completedAfterRestart', () => {
-  it('guía terminada: al abrirla de nuevo empieza de cero', () => {
-    expect(completedAfterRestart([...CHECKLIST_STEP_ORDER])).toEqual([])
-  })
-
-  it('guía terminada (en cualquier orden y con repetidos): también a cero', () => {
-    const shuffled = [...CHECKLIST_STEP_ORDER].reverse()
-    expect(completedAfterRestart([...shuffled, shuffled[0]])).toEqual([])
-  })
-
-  it('guía a medias: se retoma, no se pierde el progreso', () => {
-    expect(completedAfterRestart(['tramites', 'firmas'])).toEqual(['tramites', 'firmas'])
-  })
-
-  it('un paso menos de los necesarios no cuenta como terminada', () => {
-    const almost = CHECKLIST_STEP_ORDER.slice(0, -1)
-    expect(completedAfterRestart(almost)).toEqual(almost)
-  })
-
-  it('sin progreso se queda en cero', () => {
-    expect(completedAfterRestart([])).toEqual([])
-  })
-
-  it('con una lista de pasos vacía nunca se considera terminada', () => {
-    expect(completedAfterRestart(['tramites'], [])).toEqual(['tramites'])
-  })
-})
-
