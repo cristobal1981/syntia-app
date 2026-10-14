@@ -18,10 +18,14 @@ type SendObligacionReminderDigestEmailInput = {
  * bandeja de prueba en vez de al staff real (nunca en producción de
  * Vercel — ver `resend-env.ts`). Sin esto, probar el cron en dev mandaría
  * el aviso real a un admin/gestor real.
+ *
+ * Devuelve `true` solo si Resend confirmó el envío (id recibido). Con Resend
+ * sin configurar devuelve `false` sin lanzar, para que el cron NO dé por
+ * enviado un aviso que nunca salió.
  */
 export async function sendObligacionReminderDigestEmail(
   input: SendObligacionReminderDigestEmailInput
-): Promise<void> {
+): Promise<boolean> {
   const to = getInviteRecipientEmail(input.to)
 
   const { subject, html, text } = buildObligacionReminderDigestEmail({
@@ -30,7 +34,7 @@ export async function sendObligacionReminderDigestEmail(
     isOverrideRecipient: isInviteRecipientOverridden(),
   })
 
-  await sendEmail(
+  const { id } = await sendEmail(
     {
       to,
       subject,
@@ -39,4 +43,5 @@ export async function sendObligacionReminderDigestEmail(
     },
     { required: false }
   )
+  return id !== null
 }

@@ -18,6 +18,8 @@ export type RunObligacionRemindersSummary = {
   emailsSent: number
   skippedAlreadySent: number
   skippedNoEmail: number
+  /** Pendientes que no se registraron porque algún envío no se confirmó (p. ej. Resend sin configurar). */
+  skippedNotDelivered: number
 }
 
 /**
@@ -39,10 +41,10 @@ export type RunObligacionRemindersSummary = {
  * limit de Resend. El volumen de staff de este proyecto es bajo, así que
  * esto va sobrado incluso secuencial.
  *
- * Si el envío a algún destinatario falla, no se registra NINGÚN aviso
- * como enviado (se reintentan todos la próxima ejecución) — el digest es
- * una unidad: preferimos un duplicado ocasional a perder un aviso en
- * silencio.
+ * Si el envío a algún destinatario falla o no se confirma (lanza, o Resend
+ * sin configurar devuelve sin id), no se registra NINGÚN aviso como enviado
+ * (se reintentan todos la próxima ejecución) — el digest es una unidad:
+ * preferimos un duplicado ocasional a perder un aviso en silencio.
  */
 export async function runObligacionReminders(): Promise<RunObligacionRemindersSummary> {
   const candidates = await listUpcomingObligacionReminders(OBLIGACION_REMINDER_DAYS_AHEAD)
@@ -53,6 +55,7 @@ export async function runObligacionReminders(): Promise<RunObligacionRemindersSu
     emailsSent: 0,
     skippedAlreadySent: 0,
     skippedNoEmail: 0,
+    skippedNotDelivered: 0,
   }
 
   if (!candidates.length) return summary
@@ -86,8 +89,13 @@ export async function runObligacionReminders(): Promise<RunObligacionRemindersSu
   }))
 
   for (const email of staffEmails) {
-    await sendObligacionReminderDigestEmail({ to: email, items })
-    summary.emailsSent += 1
+    const delivered = await sendObligacionReminderDigestEmail({ to: email, items })
+    if (delivered) summary.emailsSent += 1
+  }
+
+  if (summary.emailsSent !== staffEmails.length) {
+    summary.skippedNotDelivered = pending.length
+    return summary
   }
 
   for (const candidate of pending) {

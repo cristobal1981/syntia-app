@@ -56,7 +56,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   filterAlreadyRemindedStages.mockResolvedValue(new Set())
   recordObligacionReminderSent.mockResolvedValue(undefined)
-  sendObligacionReminderDigestEmail.mockResolvedValue(undefined)
+  sendObligacionReminderDigestEmail.mockResolvedValue(true)
   buildOdooRecordUrl.mockImplementation(
     (model: string, id: number) => `https://odoo.example.com/web#id=${id}&model=${model}&view_type=form`
   )
@@ -78,6 +78,7 @@ describe('runObligacionReminders', () => {
       emailsSent: 0,
       skippedAlreadySent: 0,
       skippedNoEmail: 0,
+      skippedNotDelivered: 0,
     })
     expect(filterAlreadyRemindedStages).not.toHaveBeenCalled()
     expect(listStaffEmails).not.toHaveBeenCalled()
@@ -116,6 +117,7 @@ describe('runObligacionReminders', () => {
       emailsSent: 2,
       skippedAlreadySent: 0,
       skippedNoEmail: 0,
+      skippedNotDelivered: 0,
     })
   })
 
@@ -183,6 +185,7 @@ describe('runObligacionReminders', () => {
       emailsSent: 0,
       skippedAlreadySent: 1,
       skippedNoEmail: 0,
+      skippedNotDelivered: 0,
     })
   })
 
@@ -200,6 +203,7 @@ describe('runObligacionReminders', () => {
       emailsSent: 0,
       skippedAlreadySent: 0,
       skippedNoEmail: 1,
+      skippedNotDelivered: 0,
     })
   })
 
@@ -207,10 +211,54 @@ describe('runObligacionReminders', () => {
     listUpcomingObligacionReminders.mockResolvedValue([candidate()])
     listStaffEmails.mockResolvedValue(['admin@example.com', 'gestor@example.com'])
     sendObligacionReminderDigestEmail
-      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(true)
       .mockRejectedValueOnce(new Error('resend down'))
 
     await expect(runObligacionReminders()).rejects.toThrow('resend down')
     expect(recordObligacionReminderSent).not.toHaveBeenCalled()
+  })
+  describe('envíos no confirmados (p. ej. Resend sin configurar)', () => {
+    it('NO registra ningún aviso si el envío no se confirmó (devuelve false sin lanzar)', async () => {
+      listUpcomingObligacionReminders.mockResolvedValue([candidate()])
+      listStaffEmails.mockResolvedValue(['admin@example.com'])
+      sendObligacionReminderDigestEmail.mockResolvedValue(false)
+
+      const summary = await runObligacionReminders()
+
+      expect(recordObligacionReminderSent).not.toHaveBeenCalled()
+      expect(summary).toEqual({
+        candidates: 1,
+        sent: 0,
+        emailsSent: 0,
+        skippedAlreadySent: 0,
+        skippedNoEmail: 0,
+        skippedNotDelivered: 1,
+      })
+    })
+
+    it('si solo se confirma parte de los destinatarios, tampoco registra nada (se reintenta todo)', async () => {
+      listUpcomingObligacionReminders.mockResolvedValue([
+        candidate({ taskId: 1 }),
+        candidate({ taskId: 2 }),
+      ])
+      listStaffEmails.mockResolvedValue(['a@example.com', 'b@example.com'])
+      sendObligacionReminderDigestEmail.mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+
+      const summary = await runObligacionReminders()
+
+      expect(recordObligacionReminderSent).not.toHaveBeenCalled()
+      expect(summary.emailsSent).toBe(1)
+      expect(summary.sent).toBe(0)
+      expect(summary.skippedNotDelivered).toBe(2)
+    })
+
+    it('si el envío lanza, tampoco se registra nada y el error se propaga', async () => {
+      listUpcomingObligacionReminders.mockResolvedValue([candidate()])
+      listStaffEmails.mockResolvedValue(['admin@example.com'])
+      sendObligacionReminderDigestEmail.mockRejectedValue(new Error('boom'))
+
+      await expect(runObligacionReminders()).rejects.toThrow('boom')
+      expect(recordObligacionReminderSent).not.toHaveBeenCalled()
+    })
   })
 })

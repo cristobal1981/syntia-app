@@ -77,4 +77,15 @@ describe('sendObligacionReminderDigestEmail', () => {
     const [emailArg] = sendEmail.mock.calls[0]
     expect(emailArg.to).toBe('admin-real@example.com')
   })
+  it('devuelve true solo cuando Resend confirma el envío (id recibido)', async () => {
+    sendEmail.mockResolvedValue({ id: 'email-1' })
+
+    await expect(sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })).resolves.toBe(true)
+  })
+
+  it('devuelve false (sin lanzar) cuando Resend no está configurado y no hay id', async () => {
+    sendEmail.mockResolvedValue({ id: null })
+
+    await expect(sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })).resolves.toBe(false)
+  })
 })
