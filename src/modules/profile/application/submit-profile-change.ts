@@ -80,6 +80,10 @@ function getRequestedValue(key: ProfileFieldKey, input: ProfileChangeInput): str
   }
 }
 
+/**
+ * Valida y registra una solicitud de cambio de datos como ticket en Odoo.
+ * `website` es un honeypot: si viene relleno se responde ok sin hacer nada.
+ */
 export async function submitProfileChange(
   user: PortalUser,
   body: ProfileChangeRequestBody

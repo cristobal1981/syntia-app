@@ -9,6 +9,10 @@ type AdvisorPresenceResponse = {
   presence: AdvisorPresenceStatus
 }
 
+/**
+ * Consulta la presencia del asesor y la refresca al volver a la pestaña.
+ * Cualquier fallo deja `presence` en null (no se muestra indicador).
+ */
 export function useAdvisorPresence(partnerId?: number) {
   const [presence, setPresence] = useState<AdvisorPresenceStatus | null>(null)
   const [loading, setLoading] = useState(Boolean(partnerId))

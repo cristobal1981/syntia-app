@@ -302,7 +302,7 @@ async function resolveInvoiceTarget(rootId: string): Promise<InvoiceTarget | nul
   return target
 }
 
-export type InvoiceUploadAvailability = { available: boolean; folderName?: string }
+type InvoiceUploadAvailability = { available: boolean; folderName?: string }
 
 /** ¿Debe mostrarse el botón de factura rápida? Nunca falla: ante cualquier duda, no. */
 export async function getInvoiceUploadAvailabilityAction(): Promise<InvoiceUploadAvailability> {

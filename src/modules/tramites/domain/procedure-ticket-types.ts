@@ -95,7 +95,7 @@ export type TrabajadorBajaPayload = {
   observations: string
 }
 
-export type CartaVacacionesPayload = {
+type CartaVacacionesPayload = {
   type: 'carta-vacaciones'
   fullName: string
   dni: string

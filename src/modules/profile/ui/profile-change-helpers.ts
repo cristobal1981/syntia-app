@@ -17,6 +17,7 @@ const PROFILE_CHANGE_ERROR_KEYS = [
   'unknown',
 ] as const satisfies readonly ProfileChangeErrorCode[]
 
+/** Traduce el código de error del cambio de perfil a copy; lo desconocido cae en `unknown`. */
 export function mapProfileChangeError(error: ProfileChangeErrorCode): string {
   if (error === 'validation') {
     return profile.errors.unknown
@@ -27,6 +28,7 @@ export function mapProfileChangeError(error: ProfileChangeErrorCode): string {
   return profile.errors.unknown
 }
 
+/** Autocompleta ciudad/provincia desde un CP español; null si es inválido o falla (best-effort). */
 export async function lookupPostalCode(postalCode: string) {
   if (!/^[0-9]{5}$/.test(postalCode)) return null
 

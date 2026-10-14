@@ -1,9 +1,9 @@
-export function isMacPlatform(): boolean {
+function isMacPlatform(): boolean {
   if (typeof navigator === 'undefined') return false
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 }
 
-export function formatModKeyLabel(): string {
+function formatModKeyLabel(): string {
   return isMacPlatform() ? '⌘' : 'Ctrl'
 }
 

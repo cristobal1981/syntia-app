@@ -436,7 +436,6 @@ export const portal = {
       unreadLoading: 'Comprobando novedades…',
       unreadTitle: 'Novedades',
       unreadEmpty: 'No hay novedades de tu asesoría por ahora. Todo está al día — cualquier cosa, aquí estamos para ayudarte.',
- 
       unreadViewAll: 'Ver trámites',
       unreadMore: 'Ver {count} novedades más',
       unreadMorePending:

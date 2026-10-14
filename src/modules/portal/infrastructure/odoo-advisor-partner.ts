@@ -5,14 +5,6 @@ import {
 
 const memoryPartnerByUserId = new Map<number, number | null>()
 
-/** res.partner.id del asesor a partir de res.users.id (memoria de proceso). */
-export async function resolveOdooPartnerIdFromUserIdCached(
-  odooUserId: number
-): Promise<number | null> {
-  const map = await resolveOdooPartnerIdsByUserIds([odooUserId])
-  return map.get(odooUserId) ?? null
-}
-
 /** Una sola search_read para varios users (p. ej. al cargar lista de trámites). */
 export async function resolveOdooPartnerIdsByUserIds(
   odooUserIds: number[]

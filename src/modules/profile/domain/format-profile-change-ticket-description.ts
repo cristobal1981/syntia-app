@@ -24,7 +24,7 @@ function formatRequestedAt(isoDate: string): string {
 }
 
 /** Resumen en helpdesk.ticket.description para el asesor (vistazo rápido). */
-export function formatProfileChangeTicketOdooDescription(
+function formatProfileChangeTicketOdooDescription(
   lineItems: ProfileChangeLineItem[]
 ): string {
   const lines = lineItems.map(

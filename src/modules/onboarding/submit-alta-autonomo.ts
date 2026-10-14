@@ -52,6 +52,10 @@ function ensureRecipientEmailMatches(
   }
 }
 
+/**
+ * Valida token y payload, crea el alta en Odoo y solo entonces consume el token:
+ * si Odoo falla el enlace sigue siendo reutilizable.
+ */
 export async function submitAltaAutonomo(
   input: SubmitPayloadInput
 ): Promise<SubmitAltaAutonomoResult> {
@@ -92,7 +96,7 @@ export async function submitAltaAutonomo(
     }
 
     return { ok: true, odooRecordId }
-    } catch (error) {
+  } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'ODOO_ALTA_AUTONOMO_CREATE_FAILED') {
         return { ok: false, error: 'odoo_unavailable' }

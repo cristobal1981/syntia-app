@@ -6,6 +6,10 @@ import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/su
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 import { getWorkerAccessStatus } from '@/src/modules/colaboradores/application/get-worker-access-status'
 
+/**
+ * Retorno del flujo OAuth/enlace: canjea el code por sesión Supabase y solo
+ * entonces abre la sesión del portal; un worker con acceso revocado se rechaza.
+ */
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url))

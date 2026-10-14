@@ -10,10 +10,11 @@ import { portal } from '@/content/portal'
 import { usePrefersReducedMotion } from '@/lib/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils'
 
-const PHRASE_INTERVAL_MS = 2000;
-const PROGRESS_TICK_MS = 120;
-const PROGRESS_CAP = 92;
-const COMPLETE_DELAY_MS = 420;
+const PHRASE_INTERVAL_MS = 2000
+const PROGRESS_TICK_MS = 120
+/** La barra no pasa de aquí hasta que `ready`, para no aparentar terminar antes de tiempo. */
+const PROGRESS_CAP = 92
+const COMPLETE_DELAY_MS = 420
 
 type AuthSessionOverlayProps =
   | {

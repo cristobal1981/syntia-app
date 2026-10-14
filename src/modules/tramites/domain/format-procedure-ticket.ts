@@ -270,10 +270,6 @@ function buildProcedureSections(payload: ProcedureTicketPayload): OdooHtmlSectio
   return sections
 }
 
-function flattenSections(sections: OdooHtmlSection[]): OdooHtmlFieldRow[] {
-  return sections.flatMap((section) => section.rows)
-}
-
 function procedureTitle(payload: ProcedureTicketPayload): string {
   if (payload.type === 'alta-trabajador') {
     return tramiteSolicitudes.altaTrabajador.title
@@ -307,22 +303,6 @@ export function formatProcedureRecordDescriptionHtml(
     title: 'Solicitud enviada desde el portal Syntia',
     sections: buildProcedureSections(payload),
   })
-}
-
-/** @deprecated Usar formatProcedureRecordDescriptionHtml */
-export function formatProcedureTicketOdooDescriptionHtml(
-  payload: ProcedureTicketPayload
-): string {
-  return formatProcedureRecordDescriptionHtml(payload)
-}
-
-export function formatProcedureTicketOdooDescription(
-  payload: ProcedureTicketPayload
-): string {
-  const lines = flattenSections(buildProcedureSections(payload)).map(
-    (field) => `${field.label}: ${field.value.trim() || '—'}`
-  )
-  return [procedureTitle(payload), '', ...lines].join('\n')
 }
 
 export function formatProcedureTicketChatterMessage(input: {

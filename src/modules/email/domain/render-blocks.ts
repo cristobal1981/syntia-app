@@ -194,6 +194,7 @@ function renderHtml(b: EmailHtmlBlock): string {
   return b.html || ''
 }
 
+/** Despacha por `tipo`; un tipo desconocido se omite (cadena vacía) en vez de romper el email. */
 export function renderEmailBlock(b: EmailBlock): string {
   switch (b.tipo) {
     case 'parrafo':

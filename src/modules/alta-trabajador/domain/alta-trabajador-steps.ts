@@ -1,9 +1,7 @@
 import {
-  getWizardNextStep,
   getWizardPreviousStep,
   getWizardStepById,
   getWizardStepIndex,
-  isWizardStepId,
   type ProcedureWizardStepDefinition,
 } from '@/src/modules/tramites/domain/procedure-wizard-steps'
 
@@ -45,7 +43,7 @@ export function getAltaTrabajadorStepIndex(stepId: AltaTrabajadorStepId): number
   return getWizardStepIndex(ALTA_TRABAJADOR_STEP_IDS, stepId)
 }
 
-export function getAltaTrabajadorStepById(
+function getAltaTrabajadorStepById(
   stepId: AltaTrabajadorStepId
 ): AltaTrabajadorStepDefinition | undefined {
   return getWizardStepById(ALTA_TRABAJADOR_STEPS, stepId)
@@ -59,14 +57,4 @@ export function getAltaTrabajadorPreviousStep(
   stepId: AltaTrabajadorStepId
 ): AltaTrabajadorStepDefinition | null {
   return getWizardPreviousStep(ALTA_TRABAJADOR_STEP_IDS, ALTA_TRABAJADOR_STEPS, stepId)
-}
-
-export function getAltaTrabajadorNextStep(
-  stepId: AltaTrabajadorStepId
-): AltaTrabajadorStepDefinition | null {
-  return getWizardNextStep(ALTA_TRABAJADOR_STEP_IDS, ALTA_TRABAJADOR_STEPS, stepId)
-}
-
-export function isAltaTrabajadorStepId(value: string): value is AltaTrabajadorStepId {
-  return isWizardStepId(ALTA_TRABAJADOR_STEP_IDS, value)
 }

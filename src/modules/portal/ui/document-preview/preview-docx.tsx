@@ -13,6 +13,7 @@ type PreviewDocxProps = {
   fallbackMessage: string
 }
 
+/** Convierte el .docx a HTML en el cliente (mammoth) y lo sanea con DOMPurify antes de inyectarlo. */
 export function PreviewDocx({ dataBase64, fallbackMessage }: PreviewDocxProps) {
   const [html, setHtml] = useState<string | null>(null)
   const [error, setError] = useState(false)

@@ -5,6 +5,7 @@ export function isSupabaseConfigured(): boolean {
   )
 }
 
+/** URL pública del sitio (enlaces de correo/recuperación); NEXT_PUBLIC_ gana a SITE_URL. */
 export function getSiteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ??

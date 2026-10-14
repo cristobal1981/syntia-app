@@ -33,10 +33,3 @@ export function computeNewTramiteListItemKeys(
   const known = new Set(seen.openItemKeys)
   return openKeys.filter((key) => !known.has(key))
 }
-
-export function isTramiteListItemNew(
-  item: TramiteListItem,
-  newItemKeys: readonly string[]
-): boolean {
-  return newItemKeys.includes(getTramiteListItemKey(item))
-}

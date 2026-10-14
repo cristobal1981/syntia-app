@@ -1,4 +1,4 @@
-export type DirectoryEmailActionResult =
+type DirectoryEmailActionResult =
   | { ok: true }
   | {
       ok: false
@@ -6,6 +6,7 @@ export type DirectoryEmailActionResult =
       message?: string
     }
 
+/** Traduce errores de envío/reseteo de acceso a mensajes legibles para el staff; lo no reconocido pasa tal cual. */
 export function mapDirectoryEmailError(error: unknown): DirectoryEmailActionResult {
   if (error instanceof Error && error.message === 'unauthorized') {
     return { ok: false, error: 'unauthorized' }

@@ -244,9 +244,8 @@ export function usePortalNotificationActions({
       }
 
       if (notification.scope === 'obligacion') {
-        const tab = notification.reason === 'new_document' ? 'documents' : 'documents'
         router.push(
-          `/obligaciones?open=${encodeURIComponent(`task-${notification.recordId}`)}&tab=${tab}`
+          `/obligaciones?open=${encodeURIComponent(`task-${notification.recordId}`)}&tab=documents`
         )
         return
       }
@@ -257,11 +256,7 @@ export function usePortalNotificationActions({
           notification.recordId
         )
         const tab =
-          notification.reason === 'new_document'
-            ? 'documents'
-            : notification.reason === 'status_change'
-              ? 'conversation'
-              : 'conversation'
+          notification.reason === 'new_document' ? 'documents' : 'conversation'
         router.push(`/tramites?open=${encodeURIComponent(openParam)}&tab=${tab}`)
       }
     },

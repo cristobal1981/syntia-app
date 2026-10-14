@@ -252,16 +252,6 @@ export function PortalNotificationsProvider({
   )
 }
 
-export function usePortalNotifications() {
-  const context = useContext(PortalNotificationsContext)
-  if (!context) {
-    throw new Error(
-      'usePortalNotifications must be used within PortalNotificationsProvider'
-    )
-  }
-  return context
-}
-
 export function usePortalNotificationsOptional() {
   return useContext(PortalNotificationsContext)
 }

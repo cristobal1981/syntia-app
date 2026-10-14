@@ -85,12 +85,6 @@ export function listKindFromRecordKind(
   return recordKind === 'task' ? 'tramite' : 'consulta'
 }
 
-export function recordKindFromListKind(
-  listKind: TramiteListKindParam
-): PortalRecordKind {
-  return listKind === 'tramite' ? 'task' : 'ticket'
-}
-
 export function scopeFromTramiteListKind(
   listKind: TramiteListKindParam
 ): 'tramite' | 'consulta' {

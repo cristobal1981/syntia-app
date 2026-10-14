@@ -2,6 +2,7 @@ import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { getCachedClientDriveRootId } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
 
+/** Id de la carpeta Pública de Drive del actor de directorio del usuario; `null` si no está vinculada. */
 export async function resolveClientDriveRootId(
   user: PortalUser
 ): Promise<string | null> {

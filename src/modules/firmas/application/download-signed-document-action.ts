@@ -52,6 +52,11 @@ async function verifyAttachmentIsCompletedDocument(
   return Array.isArray(completedIds) && completedIds.includes(attachmentId)
 }
 
+/**
+ * Descarga un adjunto firmado solo si la firma pertenece al partner de la sesión,
+ * el adjunto es un documento completado de esa solicitud y el binario realmente
+ * cuelga de ella (evita IDOR por attachmentId arbitrario). Todo fallo → not_found.
+ */
 export async function downloadSignedDocumentAction(input: {
   requestId: number
   attachmentId: number

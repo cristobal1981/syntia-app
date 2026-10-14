@@ -29,6 +29,10 @@ import {
 
 const FORM_ID = 'alta-trabajador-retribucion-horario'
 
+/**
+ * Paso de retribución y horario. Si el teletrabajo fija los días de trabajo
+ * (derivedWorkDays), se validan y guardan esos días en lugar del campo manual.
+ */
 export function AltaTrabajadorRetribucionHorarioStepPage() {
   useAltaTrabajadorStepSession('retribucion-horario')
   const router = useRouter()

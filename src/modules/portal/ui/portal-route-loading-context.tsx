@@ -19,6 +19,10 @@ type PortalRouteLoadingContextValue = {
 const PortalRouteLoadingContext =
   createContext<PortalRouteLoadingContextValue | null>(null)
 
+/**
+ * Contador (no booleano) de marcadores de carga activos: varios
+ * `loading.tsx` pueden montarse a la vez y el indicador solo se apaga al salir el último.
+ */
 export function PortalRouteLoadingProvider({ children }: { children: ReactNode }) {
   const [routeLoadingCount, setRouteLoadingCount] = useState(0)
 

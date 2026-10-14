@@ -8,6 +8,7 @@ import { portalDocuments } from '@/content/portal-documents'
 import { PreviewFallback } from '@/src/modules/portal/ui/document-preview/preview-fallback'
 import { cn } from '@/lib/utils'
 
+/** Tope de filas/columnas por hoja: evita congelar el navegador con libros enormes. */
 const MAX_PREVIEW_ROWS = 200
 const MAX_PREVIEW_COLS = 26
 

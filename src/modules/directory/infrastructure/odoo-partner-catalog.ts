@@ -16,6 +16,7 @@ import {
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolvePublicDriveFolderMap } from '@/src/modules/portal/infrastructure/google-drive-public-folder'
 
+/** La clave incluye los campos Odoo configurables y `includeLinked` para no mezclar catálogos distintos. */
 function getOdooPartnerCatalogCacheKey(includeLinked: boolean): string[] {
   return [
     ODOO_PARTNER_CATALOG_CACHE_TAG,

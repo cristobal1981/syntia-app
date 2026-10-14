@@ -3,7 +3,7 @@ import { chatterReadStateKey } from '@/src/modules/portal/domain/portal-notifica
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
 
-export type ChatterReadStateRow = {
+type ChatterReadStateRow = {
   user_id: string
   record_kind: PortalRecordKind
   record_id: number

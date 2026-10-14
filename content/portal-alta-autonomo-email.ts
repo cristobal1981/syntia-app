@@ -16,7 +16,7 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;')
 }
 
-export function formatAltaAutonomoExpiryLabel(expiresAt: string): string {
+function formatAltaAutonomoExpiryLabel(expiresAt: string): string {
   const date = new Date(expiresAt)
   if (!Number.isFinite(date.getTime())) return expiresAt
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { getOnboardingAddressCatalog } from '@/src/modules/onboarding/onboarding-address-catalog'
 import { validateOnboardingToken } from '@/src/modules/onboarding/validate-onboarding-token'
+
 function getOnboardingSecret(): string | null {
   const value = process.env.LANDING_ONBOARDING_API_SECRET?.trim()
   return value || null

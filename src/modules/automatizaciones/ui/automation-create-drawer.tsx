@@ -135,13 +135,8 @@ export function AutomationCreateDrawer({
   if (open !== prevOpen || automation !== prevAutomation) {
     setPrevOpen(open)
     setPrevAutomation(automation)
-    if (!open) {
-      setForm(EMPTY_FORM)
-      setFieldError(null)
-    } else {
-      setForm(automation ? formFromAutomation(automation) : EMPTY_FORM)
-      setFieldError(null)
-    }
+    setForm(open && automation ? formFromAutomation(automation) : EMPTY_FORM)
+    setFieldError(null)
   }
 
   function patchForm(patch: Partial<FormState>) {

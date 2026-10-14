@@ -138,6 +138,10 @@ function mapTokenToRow(
   }
 }
 
+/**
+ * Sesión de asesor/staff: clientes y trabajadores no pueden gestionar
+ * solicitudes. Lanza 'forbidden' (las actions lo traducen a su resultado).
+ */
 async function requireSolicitudesSession() {
   const session = await requireDirectorySession()
   if (isClientOrWorkerRole(session.user.role)) {

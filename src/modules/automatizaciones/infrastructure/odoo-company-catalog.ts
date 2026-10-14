@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache'
 import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
-export const ODOO_COMPANY_CATALOG_CACHE_TAG = 'odoo-company-catalog'
+const ODOO_COMPANY_CATALOG_CACHE_TAG = 'odoo-company-catalog'
 const DEFAULT_CATALOG_TTL_SECONDS = 600
 const COMPANY_FETCH_LIMIT = 2000
 
@@ -40,6 +40,7 @@ async function fetchOdooCompanies(): Promise<OdooCompanyOption[]> {
     .filter((company): company is OdooCompanyOption => company !== null)
 }
 
+/** Catálogo de empresas raíz de Odoo cacheado (TTL configurable) para no consultar Odoo en cada render. */
 export async function getOdooCompanyCatalog(): Promise<OdooCompanyOption[]> {
   const ttl = getCatalogTtlSeconds()
 

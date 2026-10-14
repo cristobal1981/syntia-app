@@ -15,6 +15,10 @@ export function getMaxPollIntervalMs(): number {
   return getChatterNotificationsPollMaxIntervalMs()
 }
 
+/**
+ * Backoff del sondeo: con cambios vuelve al intervalo base; sin ellos sube
+ * un escalón de POLL_INTERVAL_STEPS_MS sin pasar del máximo configurado.
+ */
 export function nextPollIntervalMs(
   currentMs: number,
   hadChanges: boolean

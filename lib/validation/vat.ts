@@ -5,7 +5,7 @@ const NIE_RE = /^[XYZ][0-9]{7}[A-Z]$/
 const CIF_RE = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/
 
 /** NIF, NIE o CIF (contacto fiscal / res.partner.vat). */
-export function normalizeVat(value: string): string {
+function normalizeVat(value: string): string {
   return normalizeUpperNoSpaces(value)
 }
 

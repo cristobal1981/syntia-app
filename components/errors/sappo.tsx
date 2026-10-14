@@ -46,6 +46,10 @@ function restingLid(mood: SappoMood, eye: 'l' | 'r') {
   return 0
 }
 
+/**
+ * Pupilas que siguen al puntero; si no hay actividad reciente miran a su aire
+ * (salvo con prefers-reduced-motion). Escribe el transform directo para no re-renderizar.
+ */
 function useGaze(svgRef: React.RefObject<SVGSVGElement | null>, wanderFast: boolean) {
   useEffect(() => {
     const svg = svgRef.current

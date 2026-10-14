@@ -10,6 +10,10 @@ type PortalTemplateProps = {
   children: React.ReactNode
 }
 
+/**
+ * Template (se remonta en cada navegación): fundido de entrada de página.
+ * Se omite con prefers-reduced-motion.
+ */
 export default function PortalTemplate({ children }: PortalTemplateProps) {
   const reducedMotion = usePrefersReducedMotion()
 

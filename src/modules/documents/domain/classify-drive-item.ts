@@ -15,7 +15,7 @@ function extensionFromName(name: string): string {
   return name.slice(dot + 1).toLowerCase()
 }
 
-export function classifyDriveItemMime(mimeType: string, name: string): DriveItemKind {
+function classifyDriveItemMime(mimeType: string, name: string): DriveItemKind {
   const mime = mimeType.toLowerCase()
   const extension = extensionFromName(name)
 
@@ -50,8 +50,4 @@ export function mapDriveApiFileToItem(file: {
     thumbnailLink: file.thumbnailLink,
     kind: classifyDriveItemMime(file.mimeType, file.name),
   }
-}
-
-export function isDriveFolder(item: Pick<DriveItem, 'kind' | 'mimeType'>): boolean {
-  return item.kind === 'folder'
 }

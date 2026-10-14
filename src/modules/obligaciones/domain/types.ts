@@ -23,7 +23,7 @@ export type ObligacionesSnapshot = {
   years: ObligacionYear[]
 }
 
-export type ObligacionesErrorCode =
+type ObligacionesErrorCode =
   | 'forbidden'
   | 'not_linked'
   | 'odoo_unavailable'

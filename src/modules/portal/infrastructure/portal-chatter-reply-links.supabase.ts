@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
-export type PortalChatterReplyLinkRow = {
+type PortalChatterReplyLinkRow = {
   message_id: number
   parent_message_id: number
 }

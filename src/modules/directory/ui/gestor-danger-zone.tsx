@@ -23,6 +23,7 @@ type GestorDangerZoneProps = {
   onDeleted: () => void
 }
 
+/** Borrado de gestor: exige reescribir el email para confirmar (evita borrados accidentales). */
 export function GestorDangerZone({ gestor, onDeleted }: GestorDangerZoneProps) {
   const copy = equipo.form.gestorDangerZone
   const formCopy = equipo.form

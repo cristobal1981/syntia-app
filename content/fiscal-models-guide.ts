@@ -653,5 +653,3 @@ export const fiscalModelsGuide = {
     },
   ] satisfies FiscalModelGuideEntry[],
 } as const
-
-export type FiscalModelsGuide = typeof fiscalModelsGuide

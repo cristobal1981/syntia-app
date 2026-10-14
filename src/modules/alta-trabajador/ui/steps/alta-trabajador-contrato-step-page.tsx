@@ -56,6 +56,10 @@ const TEMPORARY_REASON_CONDITIONAL_FIELDS: (keyof AltaTrabajadorFormValues)[] = 
   'contractEndDate',
 ]
 
+/**
+ * Paso de contrato. Al cambiar el tipo o el motivo se vacían los campos
+ * condicionales dependientes para no enviar valores de una rama ya descartada.
+ */
 export function AltaTrabajadorContratoStepPage() {
   useAltaTrabajadorStepSession('contrato')
   const router = useRouter()

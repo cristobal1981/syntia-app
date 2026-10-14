@@ -1,6 +1,6 @@
 import type { NavIconId } from '@/src/modules/portal/domain/types'
 
-export type PortalSearchItemKind = 'page' | 'action'
+type PortalSearchItemKind = 'page' | 'action'
 
 export type PortalSearchItem = {
   id: string

@@ -30,8 +30,9 @@ const EMPTY_STATUS: WorkerAccessStatus = {
  * activa. Un colaborador nunca debe conservar acceso a datos de un cliente
  * archivado o desactivado, aunque su grant siga técnicamente "on" — si el
  * titular pierde acceso, el colaborador lo pierde con él.
+ * `cache()` deduplica llamadas repetidas (layout + página, por sección) dentro
+ * de una misma petición.
  */
-/** cache(): dedupe repeated calls (layout + page, per section, etc.) within one request. */
 export const getWorkerAccessStatus = cache(async function getWorkerAccessStatus(
   user: PortalUser
 ): Promise<WorkerAccessStatus> {

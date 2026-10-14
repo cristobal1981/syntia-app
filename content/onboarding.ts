@@ -36,5 +36,3 @@ export const onboarding = {
     },
   },
 } as const
-
-export type AltaAutonomoFormKind = typeof onboarding.altaAutonomo.formKind

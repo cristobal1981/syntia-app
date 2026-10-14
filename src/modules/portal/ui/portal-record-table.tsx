@@ -10,7 +10,7 @@ import {
   PORTAL_LIST_PAGE_SIZE,
 } from '@/src/modules/portal/ui/list-pagination'
 
-export type PortalRecordTableSort = {
+type PortalRecordTableSort = {
   columnId: string
   direction: 'asc' | 'desc'
 }

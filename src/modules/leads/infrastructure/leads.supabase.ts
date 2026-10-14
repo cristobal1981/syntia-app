@@ -23,7 +23,7 @@ export type LeadRow = {
   created_at: string
 }
 
-export const LEAD_SELECT =
+const LEAD_SELECT =
   'id, odoo_partner_id, nombre, email, telefono, tipo, residencia, facturacion_estimada, codigo_cuota, total_mensual, estado, motivo, created_at'
 
 const LEAD_TIPOS: readonly string[] = ['ALTA', 'CAMBIO']

@@ -7,13 +7,17 @@ import {
   type AltaTrabajadorFormValues,
 } from '@/src/modules/alta-trabajador/domain/alta-trabajador-form-types'
 
-export const ALTA_TRABAJADOR_DRAFT_STORAGE_KEY = 'syntia-alta-trabajador-draft'
+const ALTA_TRABAJADOR_DRAFT_STORAGE_KEY = 'syntia-alta-trabajador-draft'
 
 export type AltaTrabajadorDraft = {
   values: AltaTrabajadorFormValues
   lastStepId: AltaTrabajadorStepId
 }
 
+/**
+ * Borrador del asistente en sessionStorage. Acepta formatos antiguos (sin
+ * `values`, con `taxId`/`fullName`) para no perder borradores en curso.
+ */
 function splitLegacyFullName(fullName: string): { firstName: string; lastName: string } {
   const trimmed = fullName.trim()
   if (!trimmed) return { firstName: '', lastName: '' }
@@ -52,7 +56,7 @@ function normalizeLastStepId(value: unknown): AltaTrabajadorStepId {
   return 'datos-personales'
 }
 
-export function hasAltaTrabajadorDraftContent(
+function hasAltaTrabajadorDraftContent(
   values: AltaTrabajadorFormValues
 ): boolean {
   return Object.values(values).some((value) => value.trim().length > 0)

@@ -25,7 +25,7 @@ export type TramitesSnapshot = {
   tagFilterActive: boolean
 }
 
-export type TramitesErrorCode =
+type TramitesErrorCode =
   | 'forbidden'
   | 'not_linked'
   | 'odoo_unavailable'

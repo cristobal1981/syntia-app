@@ -15,9 +15,9 @@ export const GENERAL_FORM_ID = 'tramite-general-consulta-form'
 export const PROCEDURE_FORM_ID = 'tramite-procedure-form'
 
 export const generalCopy = tramites.createConsulta
-export const generalErrorCopy = generalCopy.errors
+const generalErrorCopy = generalCopy.errors
 export const solicitudCopy = tramiteSolicitudes
-export const solicitudErrorCopy = solicitudCopy.errors
+const solicitudErrorCopy = solicitudCopy.errors
 
 export function successMessageForStep(step: DrawerStep): string {
   if (step === 'general') return generalCopy.drawer.successToast

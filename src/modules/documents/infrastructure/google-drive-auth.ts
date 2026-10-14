@@ -10,6 +10,10 @@ function normalizePrivateKey(key: string): string {
   return key.replace(/\\n/g, '\n')
 }
 
+/**
+ * Pide un token a Google firmando a mano el JWT de la cuenta de servicio
+ * (RS256) y lo deja en caché 60 s antes de caducar, para no usar uno al límite.
+ */
 async function fetchGoogleAccessToken(): Promise<string> {
   const email = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL?.trim()
   const privateKeyRaw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim()
@@ -82,6 +86,7 @@ export function invalidateGoogleDriveAccessToken(): void {
   cachedAccessToken = null
 }
 
+/** Token en caché si sigue vigente; si no, uno nuevo. Falla si la cuenta de servicio no está configurada. */
 export async function getGoogleDriveAccessToken(): Promise<string> {
   if (!isGoogleDriveServiceAccountConfigured()) {
     throw new Error('GOOGLE_DRIVE_NOT_CONFIGURED')

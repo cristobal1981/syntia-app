@@ -36,6 +36,7 @@ export function flattenObligacionesYear(year: ObligacionYear): ObligacionListRow
 
 export type ObligacionListSortColumn = 'period' | 'model' | 'state' | 'documents'
 
+/** Orden por estado: presentadas(0) < abiertas(1) < canceladas(2). */
 function getStateSortRank(state?: string): number {
   if (isTaskClosed(state)) {
     return state === '1_canceled' || state === 'canceled' || state === 'cancelled'

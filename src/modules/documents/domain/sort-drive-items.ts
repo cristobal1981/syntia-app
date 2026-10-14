@@ -6,7 +6,7 @@ function driveFolderRank(item: DriveItem): number {
   return item.kind === 'folder' ? 0 : 1
 }
 
-export function compareDriveItems(a: DriveItem, b: DriveItem): number {
+function compareDriveItems(a: DriveItem, b: DriveItem): number {
   const folderOrder = driveFolderRank(a) - driveFolderRank(b)
   if (folderOrder !== 0) return folderOrder
 

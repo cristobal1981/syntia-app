@@ -39,21 +39,15 @@ export function usePortalCreateConsultaOptional() {
   return useContext(PortalCreateConsultaContext)
 }
 
-export function usePortalCreateConsulta() {
-  const context = useContext(PortalCreateConsultaContext)
-  if (!context) {
-    throw new Error(
-      'usePortalCreateConsulta must be used within PortalCreateConsultaProvider'
-    )
-  }
-  return context
-}
-
 type PortalCreateConsultaProviderProps = {
   children: ReactNode
   enabled: boolean
 }
 
+/**
+ * Provee la apertura del drawer «nueva consulta» y su atajo; no disponible en
+ * /perfil. «alta-trabajador» redirige a su ruta en vez de abrir el drawer.
+ */
 export function PortalCreateConsultaProvider({
   children,
   enabled,

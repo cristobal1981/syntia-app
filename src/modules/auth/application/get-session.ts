@@ -10,6 +10,11 @@ import { getSessionFromToken } from '@/src/modules/auth/infrastructure/session-c
 import { getWorkerAccessStatus } from '@/src/modules/colaboradores/application/get-worker-access-status'
 import { isSupabaseServiceRoleConfigured } from '@/src/modules/directory/infrastructure/supabase-admin'
 
+/**
+ * Lee la sesión de la cookie y la revalida contra BD en cada llamada: si la
+ * cuenta se archiva o el colaborador pierde acceso, la sesión deja de valer
+ * aunque la cookie firmada siga vigente.
+ */
 export async function getSession(): Promise<PortalSession | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
@@ -46,5 +51,3 @@ export async function getSession(): Promise<PortalSession | null> {
 
   return { ...session, user }
 }
-
-export { getSessionFromToken } from '@/src/modules/auth/infrastructure/session-cookie'

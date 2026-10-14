@@ -1,4 +1,4 @@
-export type MonthDay = {
+type MonthDay = {
   /** Mes 1–12 */
   month: number
   day: number

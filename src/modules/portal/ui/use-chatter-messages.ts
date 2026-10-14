@@ -10,7 +10,6 @@ import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-ch
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import type { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
-
 function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
   return kind === 'task' ? 'tramite' : 'consulta'
 }

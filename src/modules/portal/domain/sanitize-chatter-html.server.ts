@@ -1,5 +1,10 @@
 import { normalizeChatterDisplayBody } from '@/src/modules/portal/domain/normalize-chatter-display-body'
 
+/**
+ * Sanitizador de HTML del chatter (lista blanca de etiquetas, sin atributos
+ * salvo href/rel/target en enlaces). Se aplica al guardar y al mostrar; los
+ * tags no permitidos se eliminan conservando su texto.
+ */
 const CHATTER_ALLOWED_TAGS = new Set([
   'p',
   'br',

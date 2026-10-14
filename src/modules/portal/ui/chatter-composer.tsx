@@ -90,6 +90,11 @@ function FormatToolbarButton({
   )
 }
 
+/**
+ * Editor Tiptap del chatter. Expone un handle imperativo (clear/focus/getHtml)
+ * y guarda onSubmit/onEmptyChange en refs para que el editor no se recree
+ * cuando el padre cambia esos callbacks.
+ */
 export const ChatterComposer = forwardRef<ChatterComposerHandle, ChatterComposerProps>(
   function ChatterComposer(
     {

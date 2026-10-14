@@ -67,6 +67,10 @@ function readOdooDueDate(
   )
 }
 
+/**
+ * Firmas pendientes del partner: items en estado pendiente → solicitudes activas.
+ * Solo se devuelven solicitudes con URL pública (token del item); sin token no se puede firmar.
+ */
 export async function fetchPendingSignaturesFromOdoo(
   partnerId: number
 ): Promise<PendingSignatureRequest[]> {
@@ -258,6 +262,7 @@ function pickSignatureAttachments(
   return { documentAttachmentId, certificateAttachmentId }
 }
 
+/** Historial: solicitudes que ESTE partner ya firmó, más recientes primero (por fecha de firma). */
 export async function fetchSignatureHistoryFromOdoo(
   partnerId: number
 ): Promise<CompletedSignatureRequest[]> {

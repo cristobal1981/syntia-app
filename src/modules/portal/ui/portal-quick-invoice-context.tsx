@@ -58,7 +58,7 @@ type PortalQuickInvoiceContextValue = {
 
 const PortalQuickInvoiceContext = createContext<PortalQuickInvoiceContextValue | null>(null)
 
-export function usePortalQuickInvoiceOptional() {
+function usePortalQuickInvoiceOptional() {
   return useContext(PortalQuickInvoiceContext)
 }
 

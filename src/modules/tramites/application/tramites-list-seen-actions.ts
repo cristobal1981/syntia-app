@@ -4,8 +4,6 @@ import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
-import { getOpenTramiteListItemKeys } from '@/src/modules/tramites/domain/tramites-list-seen-state'
-import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import {
   fetchTramitesListSeenState,
   upsertTramitesListSeenState,
@@ -60,10 +58,4 @@ export async function acknowledgeTramiteListItemSeenAction(
   } catch {
     // Sin tabla aún o error transitorio: no bloquear navegación.
   }
-}
-
-export async function acknowledgeTramitesListSeenFromItemsAction(
-  items: TramiteListItem[]
-): Promise<void> {
-  await acknowledgeTramitesListSeenAction(getOpenTramiteListItemKeys(items))
 }

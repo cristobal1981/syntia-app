@@ -7,10 +7,11 @@ import {
 } from '@/src/modules/directory/infrastructure/odoo-gestor-catalog'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
-export type ListOdooGestoresForImportResult =
+type ListOdooGestoresForImportResult =
   | { ok: true; users: OdooUserImportOption[] }
   | { ok: false; error: 'odoo_unavailable' | 'odoo_request_failed' }
 
+/** Fuerza refresco del catálogo cacheado antes de leerlo: el staff abre el importador para ver altas recientes en Odoo. */
 export async function listOdooGestoresForImport(): Promise<ListOdooGestoresForImportResult> {
   if (!isOdooApiConfigured()) {
     return { ok: false, error: 'odoo_unavailable' }

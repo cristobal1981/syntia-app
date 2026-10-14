@@ -20,6 +20,7 @@ function showsPreviewFormatBadge(category: DocumentPreviewCategory | null): bool
   return category === 'xlsx' || category === 'docx'
 }
 
+/** Traduce el tipo de Drive a la categoría del visor (las Google nativas se exportan a pdf/docx/xlsx). */
 function previewCategoryForDriveItem(item: DriveItem): DocumentPreviewCategory {
   switch (item.kind) {
     case 'image':
@@ -67,10 +68,7 @@ type PreviewPayload = {
   fallbackMessage: string
 }
 
-export function canDriveItemPreview(item: DriveItem): boolean {
-  return canPreviewDriveItem(item)
-}
-
+/** Diálogo de vista previa: carga el archivo al abrir y degrada a aviso si no es previsualizable. */
 export function DriveDocumentPreviewDialog({
   item,
   open,

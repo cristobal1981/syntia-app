@@ -15,10 +15,6 @@ import type {
 } from '@/src/modules/profile/domain/types'
 
 export {
-  isValidEmail as isLikelyValidEmail,
-  isValidPhone as isLikelyValidPhone,
-  isValidVat as isLikelyValidVat,
-  isValidSpanishIban as isLikelyValidIban,
   normalizeIban,
   maskIban,
 } from '@/lib/validation'

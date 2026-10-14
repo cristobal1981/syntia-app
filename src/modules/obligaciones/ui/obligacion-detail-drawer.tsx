@@ -37,6 +37,8 @@ export function ObligacionDetailDrawer({
   const [zipPending, startZipTransition] = useTransition()
   const documentsAckRef = useRef<number | null>(null)
 
+  // Marca los documentos como vistos una sola vez por tarea al abrir el
+  // drawer; el ref se reinicia al cambiar de tarea (efecto siguiente).
   useEffect(() => {
     if (!open || !task) return
     if (documentsAckRef.current === task.id) return

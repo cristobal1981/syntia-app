@@ -8,6 +8,7 @@ import { PendingSolicitudesTable } from '@/src/modules/onboarding/ui/pending-sol
 
 export type SolicitudListFilter = 'pending' | 'closed'
 
+/** Activas = pendientes; cualquier otro estado (usada/revocada/expirada) = cerradas. */
 export function OnboardingSolicitudTable({
   rows,
   filter,

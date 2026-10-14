@@ -57,6 +57,11 @@ type TramiteCreateConsultaDrawerProps = {
   initialProcedure?: ProcedureTicketType | null
 }
 
+/**
+ * Drawer de alta con pasos: selector, consulta general y trámites (baja,
+ * carta de vacaciones). Pide confirmación al cerrar con contenido sin enviar
+ * y se resetea al cerrarse.
+ */
 export function TramiteCreateConsultaDrawer({
   open,
   onOpenChange,

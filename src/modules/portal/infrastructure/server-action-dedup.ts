@@ -1,5 +1,6 @@
 const inFlight = new Map<string, Promise<unknown>>()
 
+/** Comparte la promesa en vuelo de una misma clave para no repetir la llamada (p. ej. a Odoo). */
 export function dedupedServerAction<T>(
   key: string,
   fn: () => Promise<T>

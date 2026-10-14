@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useState } from 'react'
 
-export function shouldUseMobilePdfFallback(): boolean {
+function shouldUseMobilePdfFallback(): boolean {
   if (typeof window === 'undefined') return false
 
   const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent)

@@ -11,6 +11,10 @@ type SendEmailOptions = {
   required?: boolean
 }
 
+/**
+ * Envía por Resend. Sin config devuelve id null salvo `required`, que lanza
+ * RESEND_NOT_CONFIGURED; el error de sandbox se traduce a una pista accionable.
+ */
 export async function sendEmail(
   input: SendEmailInput,
   options: SendEmailOptions = {}

@@ -18,7 +18,6 @@ import {
   type OdooServiceErrorCode,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { fetchClientProjectIds } from '@/src/modules/portal/infrastructure/odoo-client-projects'
-import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
 import { fetchTramitesFromOdoo } from '@/src/modules/tramites/infrastructure/odoo-tramites-repository'
 import {
@@ -37,7 +36,6 @@ const OBLIGACION_NOTIFICATION_SNAPSHOT_REVALIDATE_SECONDS = 90
 const PENDING_SIGNATURES_SNAPSHOT_REVALIDATE_SECONDS = 90
 const SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS = 90
 const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
-const TRAMITES_TAG_ID_REVALIDATE_SECONDS = 300
 
 const EMPTY_TRAMITES_SNAPSHOT: TramitesSnapshot = {
   tasks: [],
@@ -53,7 +51,7 @@ const EMPTY_PENDING_SIGNATURES_SNAPSHOT: PendingSignaturesSnapshot = {
   requests: [],
 }
 
-export function clientOdooPartnerCacheTag(actorId: string): string {
+function clientOdooPartnerCacheTag(actorId: string): string {
   return `client-odoo-partner:${actorId}`
 }
 
@@ -61,27 +59,23 @@ export function tramitesSnapshotCacheTag(partnerId: number): string {
   return `tramites-snapshot:${partnerId}`
 }
 
-export function clientProjectIdsCacheTag(partnerId: number): string {
+function clientProjectIdsCacheTag(partnerId: number): string {
   return `client-project-ids:${partnerId}`
 }
 
-export function obligacionTaskIndexCacheTag(partnerId: number): string {
+function obligacionTaskIndexCacheTag(partnerId: number): string {
   return `obligacion-task-index:${partnerId}`
 }
 
-export function tramitesTagIdCacheTag(tagName: string): string {
-  return `tramites-tag-id:${tagName}`
-}
-
-export function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
+function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
   return `obligacion-notification-snapshot:${partnerId}`
 }
 
-export function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
+function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
   return `pending-signatures-snapshot:${partnerId}`
 }
 
-export function signatureHistorySnapshotCacheTag(partnerId: number): string {
+function signatureHistorySnapshotCacheTag(partnerId: number): string {
   return `signature-history-snapshot:${partnerId}`
 }
 
@@ -170,31 +164,6 @@ export async function getCachedObligacionTaskIndex(
     {
       revalidate: OBLIGACION_TASK_INDEX_REVALIDATE_SECONDS,
       tags: [obligacionTaskIndexCacheTag(partnerId)],
-    }
-  )
-
-  return cached()
-}
-
-async function loadTramitesTagId(tagName: string): Promise<number | null> {
-  const rows = await odooSearchRead<{ id: number }>('project.tags', {
-    domain: [['name', '=', tagName]],
-    fields: ['id'],
-    limit: 1,
-  })
-
-  return rows[0]?.id ?? null
-}
-
-export async function getCachedTramitesTagId(
-  tagName: string
-): Promise<number | null> {
-  const cached = unstable_cache(
-    () => loadTramitesTagId(tagName),
-    ['tramites-tag-id', tagName],
-    {
-      revalidate: TRAMITES_TAG_ID_REVALIDATE_SECONDS,
-      tags: [tramitesTagIdCacheTag(tagName)],
     }
   )
 

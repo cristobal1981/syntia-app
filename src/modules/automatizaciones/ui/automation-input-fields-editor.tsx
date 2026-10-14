@@ -48,7 +48,7 @@ function nextLocalId(): string {
   return `draft-${Date.now().toString(36)}-${localIdCounter}`
 }
 
-export function emptyDraftInputField(
+function emptyDraftInputField(
   type: AutomationInputFieldType = 'select'
 ): DraftInputField {
   return {
@@ -66,6 +66,7 @@ function emptyDraftInputOption(): DraftInputOption {
   return { localId: nextLocalId(), value: '', label: '' }
 }
 
+/** Convierte los campos persistidos en borradores editables (con localId para las keys de React). */
 export function inputFieldsToDrafts(
   fields: AutomationInputField[]
 ): DraftInputField[] {
@@ -124,7 +125,7 @@ export function AutomationInputFieldsEditor({
         if (field.localId !== localId) return field
         const next = { ...field, ...patch }
         if (patch.type === 'text') {
-          return { ...next, options: [], defaultValue: next.defaultValue }
+          return { ...next, options: [] }
         }
         if (patch.type === 'odoo_companies_multi') {
           return { ...next, options: [], defaultValue: '' }

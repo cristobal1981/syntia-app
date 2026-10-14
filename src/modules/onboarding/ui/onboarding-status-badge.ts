@@ -18,6 +18,7 @@ export function statusClassName(status: OnboardingTokenStatus): string {
   }
 }
 
+/** Clases de la cinta diagonal del detalle; vacía en 'active' (no se pinta cinta). */
 export function statusRibbonClassName(status: OnboardingTokenStatus): string {
   switch (status) {
     case 'active':

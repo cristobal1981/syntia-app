@@ -67,6 +67,11 @@ type TramiteDetailDrawerProps = {
   canWriteTramites: boolean
 }
 
+/**
+ * Drawer de detalle de un trámite/consulta con pestañas conversación y
+ * documentos. Marca como visto chatter, cambios de estado y documentos al
+ * abrir; ver los comentarios inline para el porqué del orden de los acks.
+ */
 export function TramiteDetailDrawer({
   item,
   open,

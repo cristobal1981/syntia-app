@@ -12,11 +12,11 @@ import {
 const PARTNER_AVATAR_REVALIDATE_SECONDS = 86_400
 const ADVISOR_PARTNER_IDS_REVALIDATE_SECONDS = 86_400
 
-export function partnerAvatarCacheTag(partnerId: number): string {
+function partnerAvatarCacheTag(partnerId: number): string {
   return `partner-avatar:${partnerId}`
 }
 
-export function advisorPartnerIdsCacheTag(): string {
+function advisorPartnerIdsCacheTag(): string {
   return 'advisor-partner-ids'
 }
 
@@ -35,7 +35,7 @@ export async function getCachedPartnerAvatar(
   return cached()
 }
 
-export async function getCachedAdvisorPartnerIds(): Promise<number[]> {
+async function getCachedAdvisorPartnerIds(): Promise<number[]> {
   const cached = unstable_cache(
     () => fetchAdvisorPartnerIdsFromOdoo(),
     ['advisor-partner-ids'],
@@ -54,7 +54,7 @@ export async function isCachedAdvisorPartner(partnerId: number): Promise<boolean
   return isCachedOdooInternalUserPartner(partnerId)
 }
 
-export async function isCachedOdooInternalUserPartner(
+async function isCachedOdooInternalUserPartner(
   partnerId: number
 ): Promise<boolean> {
   const cached = unstable_cache(

@@ -22,7 +22,7 @@ export type EmailTablaBlock = {
   filas?: string[][]
 }
 
-export type EmailBadgeItem = {
+type EmailBadgeItem = {
   tema?: EmailTemaId
   icono?: string
   etiqueta: string
@@ -34,7 +34,7 @@ export type EmailBadgesBlock = {
   items?: EmailBadgeItem[]
 }
 
-export type EmailTarjetaItem = {
+type EmailTarjetaItem = {
   tema?: EmailTemaId
   icono?: string
   etiquetaSuperior?: string
@@ -54,7 +54,7 @@ export type EmailBarraBlock = {
   valor: number
 }
 
-export type EmailLogroItem = {
+type EmailLogroItem = {
   icono: string
   titulo: string
   descripcion: string
@@ -101,7 +101,7 @@ export type EmailBlock =
   | EmailHtmlBlock
   | EmailCtaBlock
 
-export type EmailTemplateTipo = 'cliente' | 'informe'
+type EmailTemplateTipo = 'cliente' | 'informe'
 
 export type RenderEmailTemplateInput = {
   tipo: EmailTemplateTipo

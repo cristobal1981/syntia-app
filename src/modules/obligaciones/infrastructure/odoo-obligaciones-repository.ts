@@ -7,7 +7,6 @@ import type {
 import { extractYearFromRootName } from '@/src/modules/obligaciones/domain/extract-year-from-root-name'
 import { sortObligacionPeriodRows } from '@/src/modules/obligaciones/domain/sort-obligacion-periods'
 import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
-import { getCachedObligacionTaskIndex } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
@@ -160,17 +159,6 @@ async function buildObligacionTree(
     leafIds: [...rootIds, ...periodIds, ...leafIds],
     years,
   }
-}
-
-export async function collectObligacionTaskIds(
-  partnerId: number
-): Promise<Set<number>> {
-  if (!isOdooApiConfigured()) {
-    return new Set()
-  }
-
-  const index = await getCachedObligacionTaskIndex(partnerId)
-  return new Set(index.excludedTaskIds)
 }
 
 export async function fetchObligacionesFromOdoo(

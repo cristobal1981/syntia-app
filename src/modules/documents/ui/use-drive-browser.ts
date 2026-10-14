@@ -29,6 +29,11 @@ import { formatPortalShortcutLabel, isPortalShortcutBlockedTarget } from '@/src/
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
+/**
+ * Orquesta el explorador de Documentos: carpeta (fuente de verdad en la URL),
+ * búsqueda, selección, vista previa, subida y atajos. `canWrite` desactiva
+ * subida y arrastre; la UI solo consume lo que devuelve.
+ */
 export function useDriveBrowser(canWrite: boolean, initialListing?: DriveFolderListing) {
   const router = useRouter()
   const searchParams = useSearchParams()

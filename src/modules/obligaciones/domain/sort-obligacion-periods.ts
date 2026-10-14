@@ -22,6 +22,10 @@ export function normalizePeriodName(name: string): string {
     .toLowerCase()
 }
 
+/**
+ * Clave de orden `[bucket, número, texto]`: anuales(0) < trimestres(1) <
+ * mensuales/meses(2) < periodos(3) < resto(4). Se compara con `comparePeriodSortKeys`.
+ */
 export function getPeriodSortKey(name: string): PeriodSortKey {
   const normalized = normalizePeriodName(name.trim())
 

@@ -50,6 +50,7 @@ function resolveIsoCode(label: string): string | null {
   return alias ?? null
 }
 
+/** Acepta id numerico, codigo ISO, alias o nombre; cachea en memoria por proceso. */
 export async function resolveOdooCountryId(countryLabel: string): Promise<number> {
   const trimmed = countryLabel.trim()
   const asId = Number.parseInt(trimmed, 10)

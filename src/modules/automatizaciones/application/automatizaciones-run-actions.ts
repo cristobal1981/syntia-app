@@ -73,7 +73,7 @@ export async function triggerAutomationAction(
       automationId: automation.id,
       triggeredBy: actorId,
       status,
-      httpStatus: result.ok ? result.httpStatus : result.httpStatus,
+      httpStatus: result.httpStatus,
       errorMessage: friendlyError,
     })
 

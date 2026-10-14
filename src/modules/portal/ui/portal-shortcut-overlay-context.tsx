@@ -25,6 +25,11 @@ type PortalShortcutOverlayProviderProps = {
   children: ReactNode
 }
 
+/**
+ * Activa la capa de atajos mientras se mantiene el modificador (Alt) y la
+ * desactiva al soltarlo, perder foco o ocultar la pestaña (evita quedarse «pegada»).
+ * Listeners en captura para anticiparse a otros handlers.
+ */
 export function PortalShortcutOverlayProvider({
   children,
 }: PortalShortcutOverlayProviderProps) {

@@ -4,7 +4,7 @@ import {
   type OnboardingFormKind,
 } from '@/src/modules/onboarding/onboarding-token-repository.supabase'
 
-export type OnboardingTokenValidationError =
+type OnboardingTokenValidationError =
   | 'not_found'
   | 'expired'
   | 'used'
@@ -14,6 +14,10 @@ export type OnboardingTokenValidationResult =
   | { ok: true; token: OnboardingFormAccessToken }
   | { ok: false; error: OnboardingTokenValidationError }
 
+/**
+ * Un form_kind distinto al esperado se responde como not_found para no
+ * revelar que el token existe en otro formulario.
+ */
 export async function validateOnboardingToken(input: {
   token: string
   expectedFormKind?: OnboardingFormKind

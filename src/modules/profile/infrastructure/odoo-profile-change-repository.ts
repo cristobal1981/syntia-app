@@ -8,7 +8,7 @@ import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-js
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 
-export type ProfileChangeTicketErrorCode = 'odoo_unavailable' | 'create_failed'
+type ProfileChangeTicketErrorCode = 'odoo_unavailable' | 'create_failed'
 
 export type ProfileChangeTicketResult =
   | { ok: true; ticketId: number }

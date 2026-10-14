@@ -27,17 +27,6 @@ function mapAttachment(row: OdooAttachmentRow): PortalAttachment {
   }
 }
 
-export async function resolveAttachmentNamesByIds(
-  attachmentIds: number[]
-): Promise<Map<number, string>> {
-  const meta = await resolveAttachmentMetaByIds(attachmentIds)
-  const names = new Map<number, string>()
-  for (const [id, attachment] of meta) {
-    names.set(id, attachment.name)
-  }
-  return names
-}
-
 export async function resolveAttachmentMetaByIds(
   attachmentIds: number[]
 ): Promise<Map<number, PortalAttachment>> {

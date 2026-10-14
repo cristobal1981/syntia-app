@@ -3,12 +3,12 @@
  * para el puesto y que dispone el trabajador" del wizard de alta de trabajador.
  * Fuente: desplegable oficial SEPE "nivel formativo" (NIVEL DE ESTUDIOS.docx).
  */
-export type SepeNivelEstudio = {
+type SepeNivelEstudio = {
   code: string
   label: string
 }
 
-export const SEPE_NIVELES_ESTUDIO: SepeNivelEstudio[] = [
+const SEPE_NIVELES_ESTUDIO: SepeNivelEstudio[] = [
   { code: '11', label: 'Estudios primarios incompletos' },
   { code: '12', label: 'Estudios primarios completos' },
   {

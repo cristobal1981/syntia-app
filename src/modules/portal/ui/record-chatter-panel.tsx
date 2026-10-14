@@ -84,6 +84,10 @@ function formatMessageDate(value: string): string {
   }).format(date)
 }
 
+/**
+ * Conversación de un registro (trámite/consulta) con composer. Mantiene el scroll
+ * pegado al final salvo que el usuario haya subido; el estado de carga/lectura vive en `useChatterMessages`.
+ */
 export function RecordChatterPanel({
   kind,
   recordId,

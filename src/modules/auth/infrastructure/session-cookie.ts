@@ -31,6 +31,10 @@ async function importKey(secret: string): Promise<CryptoKey> {
   )
 }
 
+/**
+ * Cookie de sesión = `payload.firma` (base64url + HMAC-SHA256). Usa solo Web
+ * Crypto para poder correr también en el runtime edge (proxy).
+ */
 export async function createSessionToken(
   session: PortalSession,
   secret: string

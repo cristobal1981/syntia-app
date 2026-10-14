@@ -27,6 +27,7 @@ type ClientHomeDashboardProps = {
   initialNotifications: PortalNotificationsCheckResult | null
 }
 
+/** Cliente del dashboard: siembra las novedades del SSR en el contexto y pinta stats + feed. */
 export function ClientHomeDashboard({
   role,
   allowedSections,

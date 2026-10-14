@@ -70,6 +70,7 @@ type RecordAttachmentsPanelProps = {
   highlightAttachmentId?: number | null
 }
 
+/** Caché en memoria por registro: evita refetch al reabrir el drawer; se invalida al subir adjuntos. */
 const ATTACHMENTS_CLIENT_CACHE_MS = 30_000
 const attachmentsClientCache = new Map<
   string,

@@ -41,6 +41,7 @@ type ResetPasswordFormProps = {
 
 const passwordFieldClassName = authFieldClassName
 
+/** Lee los tokens del fragmento (#) del enlace: el fragmento no llega al servidor, solo el cliente lo ve. */
 function parseAuthHashParams(): {
   access_token?: string
   refresh_token?: string
@@ -57,6 +58,10 @@ function parseAuthHashParams(): {
   }
 }
 
+/**
+ * Formulario de nueva contraseña: primero establece la sesión de recuperación desde
+ * la URL (code, token_hash o hash) y limpia la URL; si el enlace no vale, muestra "no disponible".
+ */
 export function ResetPasswordForm({ onStatusChange }: ResetPasswordFormProps) {
   const searchParams = useSearchParams()
   const router = useRouter()

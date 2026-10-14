@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
+/** Campos de formulario compartidos de los drawers de trámites (y del alta de trabajador). */
 export function TramiteFieldError({
   message,
   id,
@@ -35,7 +36,7 @@ export function TramiteRequiredMark() {
   )
 }
 
-export function TramiteFieldLabel({
+function TramiteFieldLabel({
   htmlFor,
   required,
   children,

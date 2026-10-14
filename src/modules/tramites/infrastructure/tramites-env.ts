@@ -1,4 +1,3 @@
-export const TRAMITES_PAGE_SIZE = 15
 export const TRAMITES_FETCH_LIMIT = 200
 
 /** Campo Studio en project.task: visible en trámites del portal (+ subtareas). */

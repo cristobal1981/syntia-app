@@ -16,6 +16,7 @@ type OdooCompaniesMultiPickerProps = {
   required?: boolean
 }
 
+/** Selector múltiple con buscador; «seleccionar visibles» suma a la selección existente, no la reemplaza. */
 export function OdooCompaniesMultiPicker({
   companies,
   selectedIds,

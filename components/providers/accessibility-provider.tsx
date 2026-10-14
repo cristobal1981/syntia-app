@@ -16,7 +16,7 @@ export type AccessibilitySettings = {
   underlineLinks: boolean
 }
 
-export const A11Y_STORAGE_KEY = 'syntia-a11y'
+const A11Y_STORAGE_KEY = 'syntia-a11y'
 
 export const FONT_SCALES: readonly FontScale[] = ['sm', 'md', 'lg', 'xl']
 

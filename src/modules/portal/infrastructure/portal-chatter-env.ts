@@ -31,7 +31,7 @@ export const CHATTER_MESSAGE_MAX_LENGTH = 2000
 
 const DEFAULT_COMMENT_SUBTYPE_ID = 1
 
-export function getChatterCommentSubtypeIdFromEnv(): number | undefined {
+function getChatterCommentSubtypeIdFromEnv(): number | undefined {
   const raw = process.env.ODOO_CHATTER_COMMENT_SUBTYPE_ID?.trim()
   if (!raw) return undefined
 

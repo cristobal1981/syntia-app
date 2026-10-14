@@ -4,7 +4,7 @@ export type GuideCategoryId =
   | 'autonomos-y-empresa'
   | 'referencia'
 
-export type GuideSection = {
+type GuideSection = {
   heading?: string
   paragraphs?: readonly string[]
   bullets?: readonly string[]

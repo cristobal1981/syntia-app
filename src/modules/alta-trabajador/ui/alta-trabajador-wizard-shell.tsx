@@ -19,6 +19,7 @@ import { ProcedureWizardShell } from '@/src/modules/tramites/ui/procedure-wizard
 import {
   normalizeProcedureTicketPayload,
   validateProcedureTicketPayload,
+  type ProcedureFieldErrorKey,
 } from '@/src/modules/tramites/domain/validate-procedure-ticket'
 
 type AltaTrabajadorWizardShellProps = {
@@ -41,6 +42,10 @@ function mapProcedureActionError(
   return errors.odoo_unavailable
 }
 
+/**
+ * Marco común de los pasos: navegación, y envío final desde «resumen». Valida
+ * el payload en cliente antes de llamar a la acción de servidor.
+ */
 export function AltaTrabajadorWizardShell({
   stepId,
   title,
@@ -129,7 +134,7 @@ export function AltaTrabajadorWizardShell({
 }
 
 export function mapAltaTrabajadorStepErrors(
-  rawErrors: Record<string, import('@/src/modules/tramites/domain/validate-procedure-ticket').ProcedureFieldErrorKey>
+  rawErrors: Record<string, ProcedureFieldErrorKey>
 ): Record<string, string> {
   const mapped: Record<string, string> = {}
   for (const [field, key] of Object.entries(rawErrors)) {

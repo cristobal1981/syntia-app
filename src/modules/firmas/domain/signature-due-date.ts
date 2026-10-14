@@ -22,6 +22,7 @@ export function formatSignatureDateCompact(value?: string): string | null {
   })
 }
 
+/** Días naturales hasta el vencimiento (negativo si ya venció); null si no hay fecha válida. */
 export function getDaysUntilSignatureDue(dueDate?: string): number | null {
   if (!dueDate) return null
   const due = new Date(dueDate)
@@ -34,6 +35,7 @@ export function getDaysUntilSignatureDue(dueDate?: string): number | null {
   return Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
+/** «Vence pronto»: dentro de la ventana de SIGNATURE_DUE_SOON_DAYS y aún no vencida. */
 export function isSignatureDueSoon(dueDate?: string): boolean {
   const days = getDaysUntilSignatureDue(dueDate)
   if (days === null) return false

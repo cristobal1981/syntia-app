@@ -143,6 +143,11 @@ async function resolveAttachmentMetaForRows(
   return resolveAttachmentMetaByIds([...ids])
 }
 
+/**
+ * Página de mensajes hacia atrás desde `beforeId`. Odoo no filtra por
+ * autor excluido, así que se sigue pidiendo hasta reunir pageSize+1 visibles
+ * (el +1 indica si hay más) o agotar el historial.
+ */
 export async function listPortalMessagesPage(input: {
   resModel: string
   recordId: number
@@ -272,6 +277,10 @@ function parseMessagePostResult(result: unknown): number | null {
   return null
 }
 
+/**
+ * Evita responder a un mensaje de otro registro: el parent debe pertenecer
+ * al mismo modelo/registro y ser visible para el cliente.
+ */
 export async function verifyParentMessageBelongsToRecord(input: {
   parentId: number
   resModel: string

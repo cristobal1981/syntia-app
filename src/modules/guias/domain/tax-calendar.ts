@@ -1,6 +1,6 @@
 import { taxCalendar, type TaxCalendarWindow } from '@/content/tax-calendar'
 
-export type TaxWindowStatus = 'active' | 'upcoming'
+type TaxWindowStatus = 'active' | 'upcoming'
 
 export type RelevantTaxWindow = {
   window: TaxCalendarWindow
