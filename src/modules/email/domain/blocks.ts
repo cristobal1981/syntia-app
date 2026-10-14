@@ -1,81 +1,17 @@
 import type { EmailTemaId } from '@/src/modules/email/domain/brand'
 
+/** Párrafo: `html` es HTML por contrato, el llamador escapa los datos de personas. */
 export type EmailParrafoBlock = {
   tipo: 'parrafo'
   html: string
 }
 
+/** Aviso con borde de color: `textoLibre` es HTML por contrato; `icono` se escapa. */
 export type EmailCajaBlock = {
   tipo: 'caja'
   tema?: EmailTemaId
-  /** Modo texto libre (avisos). */
-  textoLibre?: string
   icono?: string
-  titulo?: string
-  valorGrande?: string
-  subtitulo?: string
-}
-
-export type EmailTablaBlock = {
-  tipo: 'tabla'
-  columnas?: string[]
-  filas?: string[][]
-}
-
-type EmailBadgeItem = {
-  tema?: EmailTemaId
-  icono?: string
-  etiqueta: string
-  valor: string
-}
-
-export type EmailBadgesBlock = {
-  tipo: 'badges'
-  items?: EmailBadgeItem[]
-}
-
-type EmailTarjetaItem = {
-  tema?: EmailTemaId
-  icono?: string
-  etiquetaSuperior?: string
-  valor: string
-  etiqueta: string
-}
-
-export type EmailTarjetasBlock = {
-  tipo: 'tarjetas'
-  items?: EmailTarjetaItem[]
-}
-
-export type EmailBarraBlock = {
-  tipo: 'barra'
-  tema?: EmailTemaId
-  etiqueta: string
-  valor: number
-}
-
-type EmailLogroItem = {
-  icono: string
-  titulo: string
-  descripcion: string
-  desbloqueado: boolean
-}
-
-export type EmailLogrosBlock = {
-  tipo: 'logros'
-  titulo?: string
-  items?: EmailLogroItem[]
-}
-
-export type EmailBloqueColorBlock = {
-  tipo: 'bloqueColor'
-  tema?: EmailTemaId
-  icono?: string
-  titulo: string
-  cantidad?: number
-  descripcion?: string
-  tabla?: EmailTablaBlock
-  contenidoHtml?: string
+  textoLibre: string
 }
 
 export type EmailHtmlBlock = {
@@ -83,6 +19,7 @@ export type EmailHtmlBlock = {
   html?: string
 }
 
+/** Botón: `href` solo http, https o mailto; `label` se escapa. */
 export type EmailCtaBlock = {
   tipo: 'cta'
   href: string
@@ -92,12 +29,6 @@ export type EmailCtaBlock = {
 export type EmailBlock =
   | EmailParrafoBlock
   | EmailCajaBlock
-  | EmailTablaBlock
-  | EmailBadgesBlock
-  | EmailTarjetasBlock
-  | EmailBarraBlock
-  | EmailLogrosBlock
-  | EmailBloqueColorBlock
   | EmailHtmlBlock
   | EmailCtaBlock
 

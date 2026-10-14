@@ -4,7 +4,6 @@ import type { PortalSession } from '@/src/modules/auth/domain/types'
 import type { ClientRecord, DirectoryListScope } from '@/src/modules/directory/domain/types'
 import {
   bulkAssignAdvisorAction,
-  canEditClient,
   createClientAction,
   createClientCore,
   createGestorAction,
@@ -692,87 +691,6 @@ describe('listOdooGestoresForImportAction (admin-only)', () => {
     const result = await listOdooGestoresForImportAction()
 
     expect(result).toEqual({ ok: true, users: [] })
-  })
-})
-
-// ---------------------------------------------------------------------------
-// canEditClient
-// ---------------------------------------------------------------------------
-
-describe('canEditClient', () => {
-  it('returns false with no session', async () => {
-    getSession.mockResolvedValue(null)
-
-    await expect(canEditClient('client-1')).resolves.toBe(false)
-  })
-
-  it('returns false for role=client', async () => {
-    getSession.mockResolvedValue(sessionFor('client'))
-
-    await expect(canEditClient('client-1')).resolves.toBe(false)
-    expect(getClient).not.toHaveBeenCalled()
-  })
-
-  it('returns true for an admin WITHOUT checking ownership', async () => {
-    getSession.mockResolvedValue(sessionFor('admin'))
-
-    await expect(canEditClient('client-1')).resolves.toBe(true)
-    expect(getClient).not.toHaveBeenCalled()
-  })
-
-  it('returns true for an advisor who owns the client', async () => {
-    getSession.mockResolvedValue(sessionFor('advisor'))
-    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
-    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
-
-    await expect(canEditClient('client-1')).resolves.toBe(true)
-  })
-
-  it('returns false for an advisor who does NOT own the client', async () => {
-    getSession.mockResolvedValue(sessionFor('advisor'))
-    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
-    getClient.mockResolvedValue(client({ advisorId: 'advisor-B' }))
-
-    await expect(canEditClient('client-1')).resolves.toBe(false)
-  })
-
-  it('REGRESIÓN: un colaborador (worker) nunca puede editar, ni aunque su id coincida con el del asesor del cliente', async () => {
-    getSession.mockResolvedValue(sessionFor('worker'))
-    buildDirectoryScope.mockResolvedValue(scopeFor('worker', 'advisor-A'))
-    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
-
-    await expect(canEditClient('client-1')).resolves.toBe(false)
-    expect(getClient).not.toHaveBeenCalled()
-    expect(buildDirectoryScope).not.toHaveBeenCalled()
-  })
-
-  it('returns false when the client does not exist', async () => {
-    getSession.mockResolvedValue(sessionFor('advisor'))
-    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
-    getClient.mockResolvedValue(null)
-
-    await expect(canEditClient('missing')).resolves.toBe(false)
-  })
-
-  it('returns false for a client without advisor, even if the actor id is empty', async () => {
-    getSession.mockResolvedValue(sessionFor('advisor'))
-    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', ''))
-
-    for (const advisorId of [undefined, '']) {
-      getClient.mockResolvedValue(client({ advisorId }))
-
-      await expect(canEditClient('client-1')).resolves.toBe(false)
-    }
-  })
-
-  it('looks the client up by the exact id it was given', async () => {
-    getSession.mockResolvedValue(sessionFor('advisor'))
-    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
-    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
-
-    await canEditClient('client-42')
-
-    expect(getClient).toHaveBeenCalledWith('client-42')
   })
 })
 
