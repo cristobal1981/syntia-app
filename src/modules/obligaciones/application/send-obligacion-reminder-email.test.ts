@@ -88,4 +88,25 @@ describe('sendObligacionReminderDigestEmail', () => {
 
     await expect(sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })).resolves.toBe(false)
   })
+
+  it('passes the digest subject/html/text and required:false to sendEmail', async () => {
+    delete process.env.RESEND_INVITE_OVERRIDE_TO
+
+    await sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })
+
+    const [emailArg, options] = sendEmail.mock.calls[0]
+    expect(typeof emailArg.subject).toBe('string')
+    expect(emailArg.subject.length).toBeGreaterThan(0)
+    expect(emailArg.html.length).toBeGreaterThan(0)
+    expect(emailArg.text.length).toBeGreaterThan(0)
+    expect(options).toEqual({ required: false })
+  })
+
+  it('propagates a sendEmail error instead of returning false', async () => {
+    sendEmail.mockRejectedValue(new Error('resend down'))
+
+    await expect(
+      sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })
+    ).rejects.toThrow('resend down')
+  })
 })

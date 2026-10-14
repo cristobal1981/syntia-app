@@ -125,3 +125,42 @@ describe('sortObligacionListRows — defensive copy', () => {
     expect(rows).toEqual(original)
   })
 })
+
+describe('sortObligacionListRows — desc, state variants and tie-break direction', () => {
+  it.each(['1_done', 'done'])('%s ranks as done (before open)', (state) => {
+    const rows = [row({ id: 1, state: '01_in_progress' }), row({ id: 2, state })]
+    expect(sortObligacionListRows(rows, 'state', 'asc').map((r) => r.id)).toEqual([2, 1])
+  })
+
+  it.each(['1_canceled', 'canceled', 'cancelled'])('%s ranks last', (state) => {
+    const rows = [row({ id: 1, state }), row({ id: 2, state: '01_in_progress' })]
+    expect(sortObligacionListRows(rows, 'state', 'asc').map((r) => r.id)).toEqual([2, 1])
+  })
+
+  it('state desc puts canceled first', () => {
+    const rows = [
+      row({ id: 1, state: 'done' }),
+      row({ id: 2, state: 'canceled' }),
+      row({ id: 3, state: '01_in_progress' }),
+    ]
+    expect(sortObligacionListRows(rows, 'state', 'desc').map((r) => r.id)).toEqual([2, 3, 1])
+  })
+
+  it('documents and model desc reverse the order', () => {
+    const docs = [row({ id: 1, attachmentCount: 1 }), row({ id: 2, attachmentCount: 5 })]
+    expect(sortObligacionListRows(docs, 'documents', 'desc').map((r) => r.id)).toEqual([2, 1])
+    const models = [
+      row({ id: 1, name: 'Modelo 100 - A' }),
+      row({ id: 2, name: 'Modelo 303 - A' }),
+    ]
+    expect(sortObligacionListRows(models, 'model', 'desc').map((r) => r.id)).toEqual([2, 1])
+  })
+
+  it('tie-break by period stays ascending even when direction is desc', () => {
+    const rows = [
+      row({ id: 1, attachmentCount: 0, periodSortKey: [2, 3, 'marzo'] }),
+      row({ id: 2, attachmentCount: 0, periodSortKey: [0, 0, 'anual'] }),
+    ]
+    expect(sortObligacionListRows(rows, 'documents', 'desc').map((r) => r.id)).toEqual([2, 1])
+  })
+})

@@ -38,12 +38,13 @@ describe('getLeadById', () => {
     const maybeSingle = vi.fn().mockResolvedValue({ data: row(), error: null })
     const eq = vi.fn().mockReturnValue({ maybeSingle })
     const select = vi.fn().mockReturnValue({ eq })
-    createSupabaseAdminClient.mockReturnValue({
-      from: vi.fn().mockReturnValue({ select }),
-    })
+    const from = vi.fn().mockReturnValue({ select })
+    createSupabaseAdminClient.mockReturnValue({ from })
 
     const result = await getLeadById('lead-1')
 
+    expect(from).toHaveBeenCalledWith('landing_autonomo_leads')
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('estado'))
     expect(eq).toHaveBeenCalledWith('id', 'lead-1')
     expect(result?.id).toBe('lead-1')
   })
@@ -103,5 +104,25 @@ describe('mapLeadRow', () => {
     const mapped = mapLeadRow(row({ estado: 'algo_raro' }))
 
     expect(mapped.estado).toBe('pendiente')
+  })
+
+  it.each(['pendiente', 'aceptado', 'rechazado', 'no_interesa'])(
+    'conserva el estado válido %s',
+    (estado) => {
+      expect(mapLeadRow(row({ estado })).estado).toBe(estado)
+    }
+  )
+
+  it('conserva Canarias y valores válidos de tipo/cuota; residencia desconocida pasa a null', () => {
+    const m = mapLeadRow(row({ residencia: 'Canarias', tipo: 'CAMBIO', codigo_cuota: 'TRAMO_90' }))
+    expect(m.residencia).toBe('Canarias')
+    expect(m.tipo).toBe('CAMBIO')
+    expect(m.codigoCuota).toBe('TRAMO_90')
+    expect(mapLeadRow(row({ residencia: 'Mars' })).residencia).toBeNull()
+  })
+
+  it('tipo/residencia/cuota null siguen siendo null', () => {
+    const m = mapLeadRow(row({ tipo: null, residencia: null, codigo_cuota: null }))
+    expect([m.tipo, m.residencia, m.codigoCuota]).toEqual([null, null, null])
   })
 })

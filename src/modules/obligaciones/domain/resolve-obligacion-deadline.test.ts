@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   getDaysUntilObligacionDeadline,
+  getObligacionDeadlineStatus,
   isObligacionDueWithin,
+  OBLIGACION_REMINDER_DAYS_AHEAD,
+  OBLIGACION_URGENT_REMINDER_DAYS_AHEAD,
   resolveObligacionDeadline,
+  resolveObligacionReminderStage,
 } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
 
 describe('resolveObligacionDeadline', () => {
@@ -121,5 +125,85 @@ describe('getDaysUntilObligacionDeadline / isObligacionDueWithin', () => {
 
   it('is not due within the window once the deadline has passed', () => {
     expect(isObligacionDueWithin(daysFromToday(-1), 5)).toBe(false)
+  })
+})
+
+describe('time-of-day and boundaries (fixed clock)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Tarde del 15 de abril: la hora no debe alterar el conteo de días.
+    vi.setSystemTime(new Date(2026, 3, 15, 18, 45, 0))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('counts calendar days ignoring time of day on both sides', () => {
+    expect(getDaysUntilObligacionDeadline(new Date(2026, 3, 15, 0, 0, 0))).toBe(0)
+    expect(getDaysUntilObligacionDeadline(new Date(2026, 3, 15, 23, 59, 59))).toBe(0)
+    expect(getDaysUntilObligacionDeadline(new Date(2026, 3, 16, 0, 0, 1))).toBe(1)
+    expect(getDaysUntilObligacionDeadline(new Date(2026, 3, 14, 23, 59, 59))).toBe(-1)
+    expect(getDaysUntilObligacionDeadline(new Date(2026, 3, 20, 23, 59, 59))).toBe(5)
+  })
+
+  it('does not mutate the deadline passed in', () => {
+    const deadline = new Date(2026, 3, 20, 23, 59, 59)
+    const before = deadline.getTime()
+    getDaysUntilObligacionDeadline(deadline)
+    expect(deadline.getTime()).toBe(before)
+  })
+
+  it('isObligacionDueWithin: boundaries 0, maxDays and maxDays+1', () => {
+    expect(isObligacionDueWithin(new Date(2026, 3, 14, 23, 59, 59), 5)).toBe(false)
+    expect(isObligacionDueWithin(new Date(2026, 3, 15, 23, 59, 59), 5)).toBe(true)
+    expect(isObligacionDueWithin(new Date(2026, 3, 20, 23, 59, 59), 5)).toBe(true)
+    expect(isObligacionDueWithin(new Date(2026, 3, 21, 0, 0, 0), 5)).toBe(false)
+    expect(isObligacionDueWithin(new Date(2026, 3, 15), 0)).toBe(true)
+    expect(isObligacionDueWithin(new Date(2026, 3, 16), 0)).toBe(false)
+  })
+
+  describe('getObligacionDeadlineStatus', () => {
+    it('returns none without deadline', () => {
+      expect(getObligacionDeadlineStatus(null, false)).toBe('none')
+    })
+
+    it('returns none when closed, even if overdue or due soon', () => {
+      expect(getObligacionDeadlineStatus(new Date(2026, 3, 1), true)).toBe('none')
+      expect(getObligacionDeadlineStatus(new Date(2026, 3, 16), true)).toBe('none')
+    })
+
+    it('overdue only when strictly before today; today is dueSoon', () => {
+      expect(getObligacionDeadlineStatus(new Date(2026, 3, 14, 23, 59, 59), false)).toBe('overdue')
+      expect(getObligacionDeadlineStatus(new Date(2026, 3, 15, 0, 0, 0), false)).toBe('dueSoon')
+    })
+
+    it('dueSoon up to REMINDER_DAYS_AHEAD inclusive, onTrack the day after', () => {
+      expect(getObligacionDeadlineStatus(new Date(2026, 3, 20, 23, 59, 59), false)).toBe('dueSoon')
+      expect(getObligacionDeadlineStatus(new Date(2026, 3, 21, 0, 0, 0), false)).toBe('onTrack')
+      expect(getObligacionDeadlineStatus(new Date(2026, 5, 1), false)).toBe('onTrack')
+    })
+  })
+})
+
+describe('resolveObligacionReminderStage', () => {
+  it('keeps the agreed thresholds (portal window = 5, urgent = 2)', () => {
+    expect(OBLIGACION_REMINDER_DAYS_AHEAD).toBe(5)
+    expect(OBLIGACION_URGENT_REMINDER_DAYS_AHEAD).toBe(2)
+  })
+
+  it.each([
+    [0, 'urgent'],
+    [1, 'urgent'],
+    [2, 'urgent'],
+    [3, 'early'],
+    [4, 'early'],
+    [5, 'early'],
+  ])('daysLeft %i -> %s', (daysLeft, stage) => {
+    expect(resolveObligacionReminderStage(daysLeft)).toBe(stage)
+  })
+
+  it('an already overdue task is still urgent', () => {
+    expect(resolveObligacionReminderStage(-1)).toBe('urgent')
   })
 })

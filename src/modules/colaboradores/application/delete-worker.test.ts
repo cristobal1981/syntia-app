@@ -65,3 +65,25 @@ describe('deleteWorkerForOwner (IDOR guard)', () => {
     expect(deleteWorkerAccount).toHaveBeenCalledWith('worker-of-a')
   })
 })
+
+describe('deleteWorkerForOwner (extra guards)', () => {
+  it('returns not_found when the worker has no grant at all, without deleting', async () => {
+    resolveDirectoryActorId.mockResolvedValue('portal-client-a')
+    getWorkerGrant.mockResolvedValue(null)
+
+    const result = await deleteWorkerForOwner(clientA, 'ghost')
+
+    expect(result).toEqual({ ok: false, error: 'not_found' })
+    expect(getWorkerGrant).toHaveBeenCalledWith('ghost')
+    expect(deleteWorkerAccount).not.toHaveBeenCalled()
+  })
+
+  it('a non-client never resolves the actor id', async () => {
+    const advisor: PortalUser = { id: 'ad', email: 'ad@example.com', name: 'Ad', role: 'advisor' }
+
+    const result = await deleteWorkerForOwner(advisor, 'worker-of-a')
+
+    expect(result).toEqual({ ok: false, error: 'forbidden' })
+    expect(resolveDirectoryActorId).not.toHaveBeenCalled()
+  })
+})

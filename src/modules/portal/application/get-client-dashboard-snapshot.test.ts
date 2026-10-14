@@ -143,4 +143,73 @@ describe('getClientDashboardSnapshot', () => {
 
     expect(result).toEqual({ ok: false, error: 'odoo_rate_limited' })
   })
+
+  it('worker with no allowed sections sees every figure zeroed', async () => {
+    countActiveTramitesAndConsultasForPartner.mockResolvedValue(5)
+    countObligacionesInProgressForPartner.mockResolvedValue(7)
+    countPendingSignaturesForPartner.mockResolvedValue(9)
+    nextObligacionForPartner.mockResolvedValue({ name: 'IVA', deadline: '2026-11-20' })
+    getAllowedSectionsForWorker.mockResolvedValue(new Set())
+
+    const result = await getClientDashboardSnapshot(userFor('worker'))
+
+    expect(getAllowedSectionsForWorker).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u-worker', role: 'worker' })
+    )
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        activeTramitesAndConsultas: 0,
+        obligacionesInProgress: 0,
+        pendingSignatures: 0,
+        nextObligacion: null,
+      },
+    })
+  })
+
+  it('worker with only /firmas or only /obligaciones sees only that section', async () => {
+    countActiveTramitesAndConsultasForPartner.mockResolvedValue(5)
+    countObligacionesInProgressForPartner.mockResolvedValue(7)
+    countPendingSignaturesForPartner.mockResolvedValue(9)
+    nextObligacionForPartner.mockResolvedValue({ name: 'IVA', deadline: '2026-11-20' })
+
+    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/firmas']))
+    expect(await getClientDashboardSnapshot(userFor('worker'))).toEqual({
+      ok: true,
+      data: {
+        activeTramitesAndConsultas: 0,
+        obligacionesInProgress: 0,
+        pendingSignatures: 9,
+        nextObligacion: null,
+      },
+    })
+
+    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/obligaciones']))
+    expect(await getClientDashboardSnapshot(userFor('worker'))).toEqual({
+      ok: true,
+      data: {
+        activeTramitesAndConsultas: 0,
+        obligacionesInProgress: 7,
+        pendingSignatures: 0,
+        nextObligacion: { name: 'IVA', deadline: '2026-11-20' },
+      },
+    })
+  })
+
+  it('counters are queried with the resolved partner id', async () => {
+    await getClientDashboardSnapshot(userFor('client'))
+
+    expect(countActiveTramitesAndConsultasForPartner).toHaveBeenCalledWith(123)
+    expect(countObligacionesInProgressForPartner).toHaveBeenCalledWith(123)
+    expect(countPendingSignaturesForPartner).toHaveBeenCalledWith(123)
+    expect(nextObligacionForPartner).toHaveBeenCalledWith(123)
+  })
+
+  it('worker: failure resolving allowed sections fails closed (error, no figures)', async () => {
+    getAllowedSectionsForWorker.mockRejectedValue(new Error('RATE_LIMITED'))
+
+    const result = await getClientDashboardSnapshot(userFor('worker'))
+
+    expect(result).toEqual({ ok: false, error: 'odoo_rate_limited' })
+  })
 })

@@ -200,3 +200,130 @@ describe('upsertTramitesListSeenState — grupo titular + colaboradores', () => 
     )
   })
 })
+
+describe('upsertTramitesListSeenState — detalles del merge', () => {
+  it('consulta el estado de TODO el grupo con .in(user_id, group)', async () => {
+    resolvePortalAccountGroup.mockResolvedValue(['owner-1', 'worker-1'])
+    const chain = chainFor({ data: [], error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertTramitesListSeenState('worker-1', ['task:1'])
+
+    expect(resolvePortalAccountGroup).toHaveBeenCalledWith('worker-1')
+    expect(chain.in).toHaveBeenCalledWith('user_id', ['owner-1', 'worker-1'])
+  })
+
+  it('escribe una fila por miembro, incluso los que no tenían estado, con initialized true y un updated_at común', async () => {
+    resolvePortalAccountGroup.mockResolvedValue(['owner-1', 'worker-1', 'worker-2'])
+    const chain = chainFor({
+      data: [{ user_id: 'owner-1', open_item_keys: ['task:9'] }],
+      error: null,
+    })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertTramitesListSeenState('worker-1', ['task:1'])
+
+    const [rows] = (chain.upsert as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      Array<{ user_id: string; open_item_keys: string[]; initialized: boolean; updated_at: string }>,
+    ]
+    expect(rows.map((r) => r.user_id)).toEqual(['owner-1', 'worker-1', 'worker-2'])
+    expect(rows.every((r) => r.initialized === true)).toBe(true)
+    expect(new Set(rows.map((r) => r.updated_at)).size).toBe(1)
+    expect(Number.isNaN(Date.parse(rows[0].updated_at))).toBe(false)
+    expect(rows[0].open_item_keys).toEqual(['task:9', 'task:1'])
+    expect(rows[2].open_item_keys).toEqual(['task:1'])
+  })
+
+  it('deduplica claves repetidas entre lo existente y lo nuevo', async () => {
+    resolvePortalAccountGroup.mockResolvedValue(['u1'])
+    const chain = chainFor({
+      data: [{ user_id: 'u1', open_item_keys: ['task:1', 'task:2'] }],
+      error: null,
+    })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertTramitesListSeenState('u1', ['task:2', 'task:3', 'task:3'])
+
+    const [rows] = (chain.upsert as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      Array<{ open_item_keys: string[] }>,
+    ]
+    expect(rows[0].open_item_keys).toEqual(['task:1', 'task:2', 'task:3'])
+  })
+
+  it('DEFENSIVE: un open_item_keys malformado existente se trata como vacío', async () => {
+    resolvePortalAccountGroup.mockResolvedValue(['u1'])
+    const chain = chainFor({
+      data: [{ user_id: 'u1', open_item_keys: 'nope' }],
+      error: null,
+    })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertTramitesListSeenState('u1', ['task:1'])
+
+    const [rows] = (chain.upsert as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      Array<{ open_item_keys: string[] }>,
+    ]
+    expect(rows[0].open_item_keys).toEqual(['task:1'])
+  })
+
+  it('data null en la lectura no rompe: solo se escriben las claves nuevas', async () => {
+    const chain = chainFor({ data: null, error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertTramitesListSeenState('u1', ['task:1'])
+
+    const [rows] = (chain.upsert as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      Array<{ open_item_keys: string[] }>,
+    ]
+    expect(rows[0].open_item_keys).toEqual(['task:1'])
+  })
+
+  it('lanza si falla el upsert', async () => {
+    const chain = chainFor({ data: [], error: null }, { error: { message: 'upsert-boom' } })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await expect(upsertTramitesListSeenState('u1', ['x'])).rejects.toThrow('upsert-boom')
+  })
+})
+
+describe('cloneTramitesListSeenStateForUser — errores y marca de tiempo', () => {
+  it('lanza si falla el upsert del destino', async () => {
+    const fetchChain = chainFor({
+      data: { open_item_keys: ['a'], initialized: true },
+      error: null,
+    })
+    const upsertChain = chainFor({ error: null }, { error: { message: 'clone-boom' } })
+    createSupabaseAdminClient
+      .mockReturnValueOnce({ from: () => fetchChain })
+      .mockReturnValueOnce({ from: () => upsertChain })
+
+    await expect(cloneTramitesListSeenStateForUser('o', 'w')).rejects.toThrow('clone-boom')
+  })
+
+  it('propaga el error de lectura del titular y no escribe', async () => {
+    const fetchChain = chainFor({ data: null, error: { message: 'read-boom' } })
+    createSupabaseAdminClient.mockReturnValue({ from: () => fetchChain })
+
+    await expect(cloneTramitesListSeenStateForUser('o', 'w')).rejects.toThrow('read-boom')
+    expect(createSupabaseAdminClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('incluye un updated_at ISO válido', async () => {
+    const fetchChain = chainFor({
+      data: { open_item_keys: [], initialized: true },
+      error: null,
+    })
+    const upsertChain = chainFor({ error: null })
+    createSupabaseAdminClient
+      .mockReturnValueOnce({ from: () => fetchChain })
+      .mockReturnValueOnce({ from: () => upsertChain })
+
+    await cloneTramitesListSeenStateForUser('o', 'w')
+
+    const [row] = (upsertChain.upsert as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      { updated_at: string; open_item_keys: string[] },
+    ]
+    expect(Number.isNaN(Date.parse(row.updated_at))).toBe(false)
+    expect(row.open_item_keys).toEqual([])
+  })
+})

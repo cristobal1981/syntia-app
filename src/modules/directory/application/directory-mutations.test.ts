@@ -736,3 +736,325 @@ describe('canEditClient', () => {
     await expect(canEditClient('client-1')).resolves.toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Errores propagados y scoping adicional
+// ---------------------------------------------------------------------------
+
+describe('error propagation across actions', () => {
+  it('bulkAssignAdvisorAction maps "unauthorized" and surfaces other repository errors as unknown with message', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(bulkAssignAdvisorAction(['c1'], 'a')).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    bulkAssignAdvisor.mockRejectedValue(new Error('db down'))
+    await expect(bulkAssignAdvisorAction(['c1'], 'a')).resolves.toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'db down',
+    })
+  })
+
+  it('updateClientAction maps "unauthorized" and surfaces repository errors', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(updateClientAction(null, updateClientFormData())).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(client())
+    updateClient.mockRejectedValue(new Error('write failed'))
+    await expect(updateClientAction(null, updateClientFormData())).resolves.toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'write failed',
+    })
+  })
+
+  it('updateClientAction returns validation fieldErrors without writing for an admin with bad input', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(client())
+
+    const result = await updateClientAction(
+      null,
+      updateClientFormData({ email: 'not-an-email' })
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('validation')
+    expect(updateClient).not.toHaveBeenCalled()
+  })
+
+  it('updateGestorAction returns validation errors without writing, and maps unauthorized/unknown', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    const bad = await updateGestorAction(
+      null,
+      gestorFormData({ id: 'g-1', email: 'nope' })
+    )
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.error).toBe('validation')
+    expect(updateGestor).not.toHaveBeenCalled()
+
+    updateGestor.mockRejectedValue(new Error('boom'))
+    await expect(
+      updateGestorAction(null, gestorFormData({ id: 'g-1' }))
+    ).resolves.toEqual({ ok: false, error: 'unknown', message: 'boom' })
+
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(
+      updateGestorAction(null, gestorFormData({ id: 'g-1' }))
+    ).resolves.toEqual({ ok: false, error: 'unauthorized' })
+  })
+
+  it('createClientAction maps "unauthorized" and surfaces a DUPLICATE_EMAIL as a field error', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(createClientAction(null, clientFormData())).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    createClient.mockRejectedValue(new Error('DUPLICATE_EMAIL'))
+    await expect(createClientAction(null, clientFormData())).resolves.toEqual({
+      ok: false,
+      error: 'validation',
+      fieldErrors: { email: 'Ya existe un usuario con ese correo.' },
+    })
+  })
+
+  it('createClientCore maps a not_found-style email error to unknown and a generic error to its message', async () => {
+    createClient.mockRejectedValue(new Error('NOT_FOUND'))
+    const input = {
+      clientKind: 'person' as const,
+      firstName: 'Cliente',
+      firstSurname: 'Uno',
+      email: 'x@example.com',
+    }
+    await expect(createClientCore(input)).resolves.toMatchObject({
+      ok: false,
+      error: 'unknown',
+    })
+
+    createClient.mockRejectedValue(new Error('EMAIL_RATE_LIMIT'))
+    const limited = await createClientCore(input)
+    expect(limited.ok).toBe(false)
+    if (!limited.ok) expect(limited.message).toMatch(/limitado el envío/)
+  })
+
+  it('createGestorAction maps "unauthorized" thrown by the repository', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    createGestor.mockRejectedValue(new Error('unauthorized'))
+    await expect(createGestorAction(null, gestorFormData())).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+  })
+
+  it('deleteClientAction maps unauthorized, NOT_FOUND from the repository and generic errors', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(deleteClientAction('c1')).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(client())
+    deleteClient.mockRejectedValue(new Error('NOT_FOUND'))
+    await expect(deleteClientAction('c1')).resolves.toEqual({
+      ok: false,
+      error: 'not_found',
+    })
+
+    deleteClient.mockRejectedValue(new Error('fk violation'))
+    await expect(deleteClientAction('c1')).resolves.toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'fk violation',
+    })
+  })
+
+  it('deleteGestorAction maps unauthorized, NOT_FOUND and generic errors', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(deleteGestorAction('g1')).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'self'))
+    getGestor.mockResolvedValue({ id: 'g1' })
+    deleteGestor.mockRejectedValue(new Error('NOT_FOUND'))
+    await expect(deleteGestorAction('g1')).resolves.toEqual({
+      ok: false,
+      error: 'not_found',
+    })
+
+    deleteGestor.mockRejectedValue(new Error('fk violation'))
+    await expect(deleteGestorAction('g1')).resolves.toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'fk violation',
+    })
+  })
+
+  it('resendClientAccessEmailAction: not_found for a missing client, unauthorized, and mapped email errors', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(resendClientAccessEmailAction('c1')).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(null)
+    await expect(resendClientAccessEmailAction('c1')).resolves.toEqual({
+      ok: false,
+      error: 'not_found',
+    })
+    expect(resendClientAccessEmail).not.toHaveBeenCalled()
+
+    getClient.mockResolvedValue(client())
+    resendClientAccessEmail.mockRejectedValue(new Error('ACCOUNT_ARCHIVED'))
+    const archived = await resendClientAccessEmailAction('c1')
+    expect(archived.ok).toBe(false)
+    if (!archived.ok) {
+      expect(archived.error).toBe('unknown')
+      expect(archived.message).toMatch(/archivada/)
+    }
+  })
+
+  it('resendGestorAccessEmailAction: not_found for a missing gestor, unauthorized, and mapped email errors', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(resendGestorAccessEmailAction('g1')).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'self'))
+    getGestor.mockResolvedValue(null)
+    await expect(resendGestorAccessEmailAction('g1')).resolves.toEqual({
+      ok: false,
+      error: 'not_found',
+    })
+    expect(resendGestorAccessEmail).not.toHaveBeenCalled()
+
+    getGestor.mockResolvedValue({ id: 'g1' })
+    resendGestorAccessEmail.mockRejectedValue(new Error('PASSWORD_RESET_FAILED'))
+    const failed = await resendGestorAccessEmailAction('g1')
+    expect(failed.ok).toBe(false)
+    if (!failed.ok) expect(failed.message).toMatch(/invalidar la contraseña/)
+  })
+
+  it('resendGestorAccessEmailAction self-block carries the specific message', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'self-id'))
+
+    const result = await resendGestorAccessEmailAction('self-id')
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: 'forbidden',
+      message: expect.stringContaining('No puedes restablecer tu propia contraseña'),
+    })
+    expect(getGestor).not.toHaveBeenCalled()
+  })
+})
+
+describe('admin is not ownership-scoped on client actions', () => {
+  it('admin can delete a client owned by any advisor', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-X' }))
+
+    await expect(deleteClientAction('client-1')).resolves.toEqual({ ok: true })
+    expect(deleteClient).toHaveBeenCalledWith('client-1')
+  })
+
+  it('admin can resend access for a client owned by any advisor', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-X' }))
+
+    await expect(resendClientAccessEmailAction('client-1')).resolves.toEqual({ ok: true })
+    expect(resendClientAccessEmail).toHaveBeenCalledWith('client-1')
+  })
+
+  it('an advisor cannot delete an unassigned client (advisorId undefined)', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: undefined }))
+
+    await expect(deleteClientAction('client-1')).resolves.toEqual({
+      ok: false,
+      error: 'forbidden',
+    })
+    expect(deleteClient).not.toHaveBeenCalled()
+  })
+
+  it('deleteClientAction checks existence with the requested id', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+    getClient.mockResolvedValue(client())
+
+    await deleteClientAction('target-77')
+
+    expect(getClient).toHaveBeenCalledWith('target-77')
+    expect(deleteClient).toHaveBeenCalledWith('target-77')
+  })
+})
+
+describe('listOdoo*ForImportAction error handling', () => {
+  it('listOdooPartnersForImportAction maps unauthorized, forwards the error result, and rethrows others', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(listOdooPartnersForImportAction()).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    listOdooPartnersForImport.mockResolvedValue({ ok: false, error: 'odoo_unavailable' })
+    await expect(listOdooPartnersForImportAction()).resolves.toEqual({
+      ok: false,
+      error: 'odoo_unavailable',
+    })
+
+    listOdooPartnersForImport.mockRejectedValue(new Error('kaboom'))
+    await expect(listOdooPartnersForImportAction()).rejects.toThrow('kaboom')
+  })
+
+  it('listOdooPartnersForImportAction forwards options to the importer', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+    listOdooPartnersForImport.mockResolvedValue({ ok: true, partners: [] })
+
+    await listOdooPartnersForImportAction({ includeLinked: true })
+
+    expect(listOdooPartnersForImport).toHaveBeenCalledWith({ includeLinked: true })
+  })
+
+  it('listOdooGestoresForImportAction maps unauthorized, forwards the error result, and rethrows others', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    await expect(listOdooGestoresForImportAction()).resolves.toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    listOdooGestoresForImport.mockResolvedValue({ ok: false, error: 'odoo_request_failed' })
+    await expect(listOdooGestoresForImportAction()).resolves.toEqual({
+      ok: false,
+      error: 'odoo_request_failed',
+    })
+
+    listOdooGestoresForImport.mockRejectedValue(new Error('kaboom'))
+    await expect(listOdooGestoresForImportAction()).rejects.toThrow('kaboom')
+  })
+})

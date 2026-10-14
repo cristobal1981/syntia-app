@@ -192,3 +192,107 @@ describe('renderBloqueColor', () => {
     expect(withoutCount).not.toMatch(/Pendientes \(/)
   })
 })
+
+describe('renderEmailBlock — escape (comportamiento actual: NO se escapa nada)', () => {
+  const evil = '<script>alert(1)</script>'
+
+  it('parrafo.html se inserta crudo (es HTML por contrato)', () => {
+    expect(renderEmailBlock({ tipo: 'parrafo', html: evil })).toContain(evil)
+  })
+
+  it('caja.titulo / valorGrande / subtitulo / textoLibre se insertan sin escapar', () => {
+    const c = renderEmailBlock({ tipo: 'caja', titulo: evil, valorGrande: evil, subtitulo: evil })
+    expect(c.split(evil)).toHaveLength(4)
+    expect(renderEmailBlock({ tipo: 'caja', textoLibre: evil })).toContain(evil)
+  })
+
+  it('tabla.columnas y celdas se insertan sin escapar', () => {
+    const html = renderEmailBlock({ tipo: 'tabla', columnas: [evil], filas: [[evil]] })
+    expect(html.split(evil)).toHaveLength(3)
+  })
+
+  it('badges, tarjetas, barra, logros y bloqueColor insertan texto sin escapar', () => {
+    expect(
+      renderEmailBlock({ tipo: 'badges', items: [{ etiqueta: evil, valor: evil }] })
+    ).toContain(`${evil}: ${evil}`)
+    expect(
+      renderEmailBlock({ tipo: 'tarjetas', items: [{ valor: evil, etiqueta: evil }] })
+    ).toContain(evil)
+    expect(renderEmailBlock({ tipo: 'barra', etiqueta: evil, valor: 1 })).toContain(evil)
+    expect(
+      renderEmailBlock({
+        tipo: 'logros',
+        titulo: evil,
+        items: [{ icono: 'i', titulo: evil, descripcion: evil, desbloqueado: true }],
+      })
+    ).toContain(evil)
+    expect(
+      renderEmailBlock({ tipo: 'bloqueColor', titulo: evil, descripcion: evil })
+    ).toContain(evil)
+  })
+
+  it('cta.href y label se insertan sin escapar: una comilla cierra el atributo href', () => {
+    const html = renderEmailBlock({
+      tipo: 'cta',
+      href: 'https://x.test" onclick="boom()',
+      label: evil,
+    })
+    expect(html).toContain('href="https://x.test" onclick="boom()"')
+    expect(html).toContain(evil)
+  })
+
+  it('un tipo desconocido se omite como cadena vacía', () => {
+    expect(renderEmailBlock({ tipo: 'inexistente' } as never)).toBe('')
+  })
+})
+
+describe('renderEmailBlock — temas y ramas', () => {
+  it('caja usa el tema info por defecto y respeta un tema explícito', () => {
+    expect(renderEmailBlock({ tipo: 'caja', titulo: 'T' })).toContain('#01DEA2')
+    const urg = renderEmailBlock({ tipo: 'caja', titulo: 'T', tema: 'urgente' })
+    expect(urg).toContain('#F5A623')
+    expect(urg).not.toContain('#01DEA2')
+  })
+
+  it('un tema inexistente cae a info en vez de romper', () => {
+    const html = renderEmailBlock({ tipo: 'caja', titulo: 'T', tema: 'zzz' as never })
+    expect(html).toContain('#01DEA2')
+  })
+
+  it('badges usa tema neutro por defecto', () => {
+    expect(renderEmailBlock({ tipo: 'badges', items: [{ etiqueta: 'E', valor: 'V' }] })).toContain(
+      '#F4F5F5'
+    )
+  })
+
+  it('caja con titulo vacío no imprime "undefined"', () => {
+    expect(renderEmailBlock({ tipo: 'caja' })).not.toContain('undefined')
+  })
+
+  it('tarjetas reparte el ancho: 84% / n y espaciador entre celdas', () => {
+    const html = renderEmailBlock({
+      tipo: 'tarjetas',
+      items: [
+        { valor: '1', etiqueta: 'a' },
+        { valor: '2', etiqueta: 'b' },
+        { valor: '3', etiqueta: 'c' },
+      ],
+    })
+    expect(html.match(/width="28%"/g)).toHaveLength(3)
+    expect(html.match(/<td width="2%">/g)).toHaveLength(2)
+  })
+
+  it('badges e iconos opcionales: el icono solo aparece si se da', () => {
+    const con = renderEmailBlock({ tipo: 'badges', items: [{ etiqueta: 'E', valor: 'V', icono: '★' }] })
+    expect(con).toContain('★ E: V')
+    const sin = renderEmailBlock({ tipo: 'badges', items: [{ etiqueta: 'E', valor: 'V' }] })
+    expect(sin).not.toContain('undefined')
+  })
+
+  it('bloqueColor: descripcion solo si se da; cantidad 0 sí se muestra', () => {
+    expect(renderEmailBlock({ tipo: 'bloqueColor', titulo: 'T', descripcion: 'desc' })).toContain(
+      'desc'
+    )
+    expect(renderEmailBlock({ tipo: 'bloqueColor', titulo: 'T', cantidad: 0 })).toContain('T (0)')
+  })
+})

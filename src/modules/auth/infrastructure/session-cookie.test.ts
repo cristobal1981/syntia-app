@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createSessionToken,
@@ -112,6 +112,116 @@ describe('createSessionToken / parseSessionToken', () => {
     const secret = getSessionSecret()
     const parsed = await parseSessionToken('sin-punto-alguno', secret)
     expect(parsed).toBeNull()
+  })
+
+  it('rechaza un token con la firma alterada (un carácter cambiado)', async () => {
+    const secret = getSessionSecret()
+    const token = await createSessionToken(sessionExpiringIn(60_000), secret)
+    const [payload, signature] = token.split('.')
+    const flipped = (signature[0] === 'A' ? 'B' : 'A') + signature.slice(1)
+
+    expect(await parseSessionToken(`${payload}.${flipped}`, secret)).toBeNull()
+  })
+
+  it('rechaza un token sin firma o sin payload', async () => {
+    const secret = getSessionSecret()
+    const token = await createSessionToken(sessionExpiringIn(60_000), secret)
+    const [payload, signature] = token.split('.')
+
+    expect(await parseSessionToken(`${payload}.`, secret)).toBeNull()
+    expect(await parseSessionToken(`.${signature}`, secret)).toBeNull()
+    expect(await parseSessionToken('', secret)).toBeNull()
+  })
+
+  it('rechaza una firma que no es base64 válido sin lanzar', async () => {
+    const secret = getSessionSecret()
+    const token = await createSessionToken(sessionExpiringIn(60_000), secret)
+    const [payload] = token.split('.')
+
+    await expect(parseSessionToken(`${payload}.!!!***`, secret)).resolves.toBeNull()
+  })
+
+  it('rechaza un payload firmado correctamente que no es JSON', async () => {
+    const secret = getSessionSecret()
+    const payload = Buffer.from('esto no es json', 'utf8').toString('base64url')
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload))
+    const token = `${payload}.${Buffer.from(sig).toString('base64url')}`
+
+    await expect(parseSessionToken(token, secret)).resolves.toBeNull()
+  })
+
+  it('rechaza un payload firmado que es JSON literal null / sin user', async () => {
+    const secret = getSessionSecret()
+    const nullToken = await createSessionToken(null as unknown as PortalSession, secret)
+    const noUser = await createSessionToken(
+      { expiresAt: Date.now() + 60_000 } as unknown as PortalSession,
+      secret
+    )
+
+    expect(await parseSessionToken(nullToken, secret)).toBeNull()
+    expect(await parseSessionToken(noUser, secret)).toBeNull()
+  })
+
+  it('rechaza un user.id vacío', async () => {
+    const secret = getSessionSecret()
+    const session = sessionExpiringIn(60_000)
+    session.user.id = ''
+    const token = await createSessionToken(session, secret)
+
+    expect(await parseSessionToken(token, secret)).toBeNull()
+  })
+
+  describe('límite de expiración', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('acepta la sesión en el instante exacto de expiresAt y la rechaza 1 ms después', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+      const secret = getSessionSecret()
+      const expiresAt = Date.now() + 1000
+      const token = await createSessionToken(
+        { ...sessionExpiringIn(0), expiresAt },
+        secret
+      )
+
+      vi.setSystemTime(expiresAt)
+      expect((await parseSessionToken(token, secret))?.user.id).toBe('user-1')
+
+      vi.setSystemTime(expiresAt + 1)
+      expect(await parseSessionToken(token, secret)).toBeNull()
+    })
+  })
+
+  it('devuelve la sesión completa (user y expiresAt) intacta', async () => {
+    const secret = getSessionSecret()
+    const session = sessionExpiringIn(60_000)
+    const token = await createSessionToken(session, secret)
+
+    expect(await parseSessionToken(token, secret)).toEqual(session)
+  })
+
+  it('getSessionFromToken rechaza un token firmado con otro secreto que el de entorno', async () => {
+    const token = await createSessionToken(sessionExpiringIn(60_000), 'otro-secreto')
+    expect(await getSessionFromToken(token)).toBeNull()
+  })
+
+  it('getSessionFromToken lanza si falta PORTAL_SESSION_SECRET y hay token', async () => {
+    delete process.env.PORTAL_SESSION_SECRET
+    await expect(getSessionFromToken('a.b')).rejects.toThrow(/PORTAL_SESSION_SECRET/)
+  })
+
+  it('getSessionFromToken devuelve null con token vacío sin leer el secreto', async () => {
+    delete process.env.PORTAL_SESSION_SECRET
+    expect(await getSessionFromToken('')).toBeNull()
   })
 
   it('getSessionFromToken devuelve null si no hay token', async () => {

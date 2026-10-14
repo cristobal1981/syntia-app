@@ -209,4 +209,90 @@ describe('getClientHomeData', () => {
       notifications: { ok: false, error: 'odoo_rate_limited' },
     })
   })
+
+  it('worker with NO allowed sections gets zeroed stats and no unread notifications', async () => {
+    loadClientPortalNotifications.mockResolvedValue(
+      okNotifications({
+        stats: {
+          activeTramitesAndConsultas: 2,
+          obligacionesInProgress: 3,
+          pendingSignatures: 4,
+          nextObligacion: { name: 'IVA', deadline: '2026-11-20' },
+        },
+        unread: [
+          { scope: 'obligacion', recordId: 1, name: 'O', reason: 'new_obligacion', latestDate: '2026-01-01' },
+          { scope: 'firma', recordId: 2, name: 'F', reason: 'new_firma', latestDate: '2026-01-02' },
+          { scope: 'consulta', recordId: 3, name: 'C', reason: 'new_tramite', latestDate: '2026-01-03' },
+        ],
+      } as never)
+    )
+    getAllowedSectionsForWorker.mockResolvedValue(new Set())
+
+    const result = await getClientHomeData(userFor('worker'))
+
+    expect(getAllowedSectionsForWorker).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u-worker', role: 'worker' })
+    )
+    expect(result.snapshot).toEqual({
+      activeTramitesAndConsultas: 0,
+      obligacionesInProgress: 0,
+      pendingSignatures: 0,
+      nextObligacion: null,
+    })
+    expect(result.notifications?.ok && result.notifications.unread).toEqual([])
+  })
+
+  it('worker with only /firmas keeps firmas figures and firma notices, drops obligación ones', async () => {
+    loadClientPortalNotifications.mockResolvedValue(
+      okNotifications({
+        stats: {
+          activeTramitesAndConsultas: 2,
+          obligacionesInProgress: 3,
+          pendingSignatures: 4,
+          nextObligacion: { name: 'IVA', deadline: '2026-11-20' },
+        },
+        unread: [
+          { scope: 'obligacion', recordId: 1, name: 'O', reason: 'new_obligacion', latestDate: '2026-01-01' },
+          { scope: 'firma', recordId: 2, name: 'F', reason: 'new_firma', latestDate: '2026-01-02' },
+        ],
+      } as never)
+    )
+    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/firmas']))
+
+    const result = await getClientHomeData(userFor('worker'))
+
+    expect(result.snapshot).toEqual({
+      activeTramitesAndConsultas: 0,
+      obligacionesInProgress: 0,
+      pendingSignatures: 4,
+      nextObligacion: null,
+    })
+    expect(
+      result.notifications?.ok && result.notifications.unread.map((n) => n.scope)
+    ).toEqual(['firma'])
+  })
+
+  it('snapshot and notifications.stats are the same masked object for a worker', async () => {
+    loadClientPortalNotifications.mockResolvedValue(okNotifications())
+    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/obligaciones']))
+
+    const result = await getClientHomeData(userFor('worker'))
+
+    expect(result.notifications?.ok && result.notifications.stats).toEqual(result.snapshot)
+    expect(result.snapshot?.activeTramitesAndConsultas).toBe(0)
+    expect(result.snapshot?.obligacionesInProgress).toBe(3)
+  })
+
+  it('worker: failure resolving allowed sections fails closed (no unmasked data)', async () => {
+    loadClientPortalNotifications.mockResolvedValue(okNotifications())
+    getAllowedSectionsForWorker.mockRejectedValue(new Error('RATE_LIMITED'))
+
+    const result = await getClientHomeData(userFor('worker'))
+
+    expect(result).toEqual({
+      snapshot: null,
+      snapshotError: 'odoo_rate_limited',
+      notifications: { ok: false, error: 'odoo_rate_limited' },
+    })
+  })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import type { PortalSession, PortalUser } from '@/src/modules/auth/domain/types'
+import { SESSION_COOKIE_NAME } from '@/src/modules/auth/domain/types'
 import { getSession } from '@/src/modules/auth/application/get-session'
 
 const {
@@ -48,7 +49,7 @@ function baseSession(overrides: Partial<PortalUser> = {}): PortalSession {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   cookies.mockResolvedValue({ get: () => ({ value: 'fake-token' }) })
   isSupabaseConfigured.mockReturnValue(true)
   isSupabaseServiceRoleConfigured.mockReturnValue(true)
@@ -144,5 +145,88 @@ describe('getSession', () => {
     // Never even gets to asking whether this is a worker — refreshPortalUser
     // already said "no" for everyone, workers included.
     expect(getWorkerAccessStatus).not.toHaveBeenCalled()
+  })
+
+  it('lee la cookie por su nombre y pasa su valor a getSessionFromToken', async () => {
+    const get = vi.fn().mockReturnValue({ value: 'tok-123' })
+    cookies.mockResolvedValue({ get })
+    getSessionFromToken.mockResolvedValue(null)
+
+    await getSession()
+
+    expect(get).toHaveBeenCalledWith(SESSION_COOKIE_NAME)
+    expect(getSessionFromToken).toHaveBeenCalledWith('tok-123')
+  })
+
+  it('sin cookie pasa undefined al validador y devuelve null', async () => {
+    cookies.mockResolvedValue({ get: () => undefined })
+    getSessionFromToken.mockResolvedValue(null)
+
+    expect(await getSession()).toBeNull()
+    expect(getSessionFromToken).toHaveBeenCalledWith(undefined)
+  })
+
+  it('devuelve la sesión sin revalidar si falta solo la service role (Supabase sí configurado)', async () => {
+    const session = baseSession()
+    getSessionFromToken.mockResolvedValue(session)
+    isSupabaseServiceRoleConfigured.mockReturnValue(false)
+
+    expect(await getSession()).toBe(session)
+    expect(refreshPortalUser).not.toHaveBeenCalled()
+  })
+
+  it('revalida el usuario de la cookie contra BD (refreshPortalUser recibe session.user)', async () => {
+    const session = baseSession()
+    getSessionFromToken.mockResolvedValue(session)
+    refreshPortalUser.mockResolvedValue(session.user)
+
+    await getSession()
+
+    expect(refreshPortalUser).toHaveBeenCalledWith(session.user)
+  })
+
+  it('devuelve el mismo objeto de sesión cuando nada cambió', async () => {
+    const session = baseSession({ companyName: 'ACME' })
+    getSessionFromToken.mockResolvedValue(session)
+    refreshPortalUser.mockResolvedValue({ ...session.user })
+
+    expect(await getSession()).toBe(session)
+  })
+
+  it.each([
+    ['role', { role: 'admin' as const }],
+    ['name', { name: 'Otro Nombre' }],
+    ['email', { email: 'nuevo@example.com' }],
+    ['companyName', { companyName: 'Nueva SL' }],
+  ])('devuelve el usuario refrescado y conserva expiresAt si cambia %s', async (_f, change) => {
+    const session = baseSession({ companyName: 'ACME' })
+    getSessionFromToken.mockResolvedValue(session)
+    const refreshed = { ...session.user, ...change }
+    refreshPortalUser.mockResolvedValue(refreshed)
+
+    const result = await getSession()
+
+    expect(result).not.toBe(session)
+    expect(result?.user).toEqual(refreshed)
+    expect(result?.expiresAt).toBe(session.expiresAt)
+  })
+
+  it('pasa el usuario refrescado (no el de la cookie) a getWorkerAccessStatus', async () => {
+    const session = baseSession({ role: 'worker' })
+    getSessionFromToken.mockResolvedValue(session)
+    const refreshed = baseUser({ role: 'worker', name: 'Refrescado' })
+    refreshPortalUser.mockResolvedValue(refreshed)
+    getWorkerAccessStatus.mockResolvedValue({ active: true, allowedSections: new Set() })
+
+    await getSession()
+
+    expect(getWorkerAccessStatus).toHaveBeenCalledWith(refreshed)
+  })
+
+  it('propaga el error de refreshPortalUser (no lo traga como sesión válida)', async () => {
+    getSessionFromToken.mockResolvedValue(baseSession())
+    refreshPortalUser.mockRejectedValue(new Error('db down'))
+
+    await expect(getSession()).rejects.toThrow('db down')
   })
 })

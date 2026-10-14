@@ -109,3 +109,43 @@ describe('getMonthFromTaskName', () => {
     expect(getMonthFromTaskName('Diciembre')?.monthIndex).toBe(12)
   })
 })
+
+describe('extra period edge cases', () => {
+  it('trims surrounding whitespace before classifying', () => {
+    expect(getPeriodSortKey('  Trimestre 3  ')).toEqual([1, 3, 'trimestre 3'])
+  })
+
+  it('"trimestre" without digits falls to the unknown bucket', () => {
+    expect(getPeriodSortKey('Trimestre')[0]).toBe(4)
+  })
+
+  it('accepts "Trimestre3" without space', () => {
+    expect(getPeriodSortKey('Trimestre3')).toEqual([1, 3, 'trimestre3'])
+  })
+
+  it('compares numeric index before text when bucket ties (trimestre 2 < trimestre 10)', () => {
+    expect(
+      comparePeriodSortKeys(getPeriodSortKey('Trimestre 2'), getPeriodSortKey('Trimestre 10'))
+    ).toBeLessThan(0)
+  })
+
+  it('bucket decides before the number (mensuales 0 after trimestre 4)', () => {
+    expect(
+      comparePeriodSortKeys(getPeriodSortKey('Trimestre 4'), getPeriodSortKey('Mensuales'))
+    ).toBeLessThan(0)
+  })
+
+  it('months sort in calendar order', () => {
+    const rows = [
+      { id: 1, name: 'Diciembre' },
+      { id: 2, name: 'Enero' },
+      { id: 3, name: 'Junio' },
+    ]
+    expect(sortObligacionPeriodRows(rows).map((r) => r.id)).toEqual([2, 3, 1])
+  })
+
+  it('getMonthFromTaskName only strips the final " - client" suffix', () => {
+    expect(getMonthFromTaskName('Septiembre - Cliente')?.monthIndex).toBe(9)
+    expect(getMonthFromTaskName('Marzo')?.label).toBe('Marzo')
+  })
+})

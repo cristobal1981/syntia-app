@@ -275,6 +275,101 @@ describe('updatePortalAutomationAccess', () => {
   })
 })
 
+describe('updatePortalAutomationAccess call order', () => {
+  it('runs update(portal_automations) -> delete(grants) -> insert(grants), and stops before delete when the update fails', async () => {
+    const log: string[] = []
+    const tracked = (label: string, result: QueryResult) => {
+      const chain = chainFor(result)
+      for (const op of ['update', 'delete', 'insert'] as const) {
+        const original = chain[op] as (...args: unknown[]) => unknown
+        chain[op] = vi.fn((...args: unknown[]) => {
+          log.push(`${label}.${op}`)
+          return original(...args)
+        })
+      }
+      return chain
+    }
+    const grantsChains = [
+      tracked('grants', { error: null }),
+      tracked('grants', { error: null }),
+    ]
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations'
+        ? tracked('automations', { error: null })
+        : (grantsChains.shift() as ReturnType<typeof chainFor>)
+    )
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    await updatePortalAutomationAccess({
+      automationId: 'auto-1',
+      isActive: true,
+      visibility: 'selected',
+      grantedAdvisorIds: ['adv-1'],
+    })
+
+    expect(log).toEqual(['automations.update', 'grants.delete', 'grants.insert'])
+  })
+
+  it('throws the delete error and never inserts', async () => {
+    const deleteChain = chainFor({ error: { message: 'delete failed' } })
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations' ? chainFor({ error: null }) : deleteChain
+    )
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    await expect(
+      updatePortalAutomationAccess({
+        automationId: 'auto-1',
+        isActive: true,
+        visibility: 'selected',
+        grantedAdvisorIds: ['adv-1'],
+      })
+    ).rejects.toThrow('delete failed')
+    expect(deleteChain.insert).not.toHaveBeenCalled()
+  })
+
+  it('throws the insert error', async () => {
+    const chains = [chainFor({ error: null }), chainFor({ error: { message: 'insert failed' } })]
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations'
+        ? chainFor({ error: null })
+        : (chains.shift() as ReturnType<typeof chainFor>)
+    )
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    await expect(
+      updatePortalAutomationAccess({
+        automationId: 'auto-1',
+        isActive: true,
+        visibility: 'selected',
+        grantedAdvisorIds: ['adv-1'],
+      })
+    ).rejects.toThrow('insert failed')
+  })
+
+  it('scopes update and delete to the automation id and writes is_active/visibility', async () => {
+    const updateChain = chainFor({ error: null })
+    const deleteChain = chainFor({ error: null })
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations' ? updateChain : deleteChain
+    )
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    await updatePortalAutomationAccess({
+      automationId: 'auto-9',
+      isActive: false,
+      visibility: 'none',
+      grantedAdvisorIds: [],
+    })
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ is_active: false, visibility: 'none' })
+    )
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'auto-9')
+    expect(deleteChain.eq).toHaveBeenCalledWith('automation_id', 'auto-9')
+  })
+})
+
 describe('updatePortalAutomationDefinition (DIFFERENT semantics from updatePortalAutomationAccess)', () => {
   it('does NOT touch grants when visibility stays/becomes "selected"', async () => {
     const grantsFrom = vi.fn()
