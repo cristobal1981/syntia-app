@@ -209,7 +209,11 @@ export async function ackPortalNotificationAction(input: {
           recordId,
           lastIsClosed: false,
           lastAttachmentCount: 0,
-          firmaDueSoonNotified: input.reason === 'firma_due_soon',
+          // Confirmar "nueva firma" no puede desarmar un aviso de "vence pronto"
+          // ya confirmado: reaparecería en la campana.
+          firmaDueSoonNotified:
+            input.reason === 'firma_due_soon' ||
+            (previous?.firmaDueSoonNotified ?? false),
           initialized: true,
         },
       ])
