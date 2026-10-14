@@ -94,8 +94,8 @@ describe('sendEmail — errores de Resend', () => {
 
   it.each([
     'You can only send testing emails to your own email address',
+    'You can only send testing emails to your own email address (a@b.es). Please verify a domain at resend.com/domains',
     'Please VERIFY A DOMAIN to send',
-    'You can Only Send to yourself',
   ])('traduce el error de sandbox "%s" añadiendo la pista accionable', async (message) => {
     send.mockResolvedValue({ data: null, error: { message } })
 
@@ -103,6 +103,20 @@ describe('sendEmail — errores de Resend', () => {
 
     expect(err.message.startsWith(message)).toBe(true)
     expect(err.message).toContain('RESEND_INVITE_OVERRIDE_TO')
+  })
+
+  it.each([
+    'Rate limit exceeded: only send 2 requests per second',
+    'Invalid recipient for testing purposes',
+    'The from address does not match a verified sender',
+    'You can Only Send to yourself',
+  ])('REGRESIÓN: %j no se confunde con el error de sandbox (sin pista falsa)', async (message) => {
+    send.mockResolvedValue({ data: null, error: { message } })
+
+    const err = (await sendEmail(input).catch((e: Error) => e)) as Error
+
+    expect(err.message).toBe(message)
+    expect(err.message).not.toContain('RESEND_INVITE_OVERRIDE_TO')
   })
 
   it('no loguea [email sent] cuando falla', async () => {

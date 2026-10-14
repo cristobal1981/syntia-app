@@ -101,9 +101,30 @@ describe('mapLeadRow', () => {
   })
 
   it('un estado desconocido cae a "pendiente" en vez de romper el tipado', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
     const mapped = mapLeadRow(row({ estado: 'algo_raro' }))
 
     expect(mapped.estado).toBe('pendiente')
+  })
+
+  it('REGRESIÓN: un estado desconocido deja rastro en el log con el id del lead', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    mapLeadRow(row({ id: 'lead-9', estado: 'algo_raro' }))
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('estado desconocido'),
+      expect.objectContaining({ leadId: 'lead-9', estado: 'algo_raro' })
+    )
+  })
+
+  it('un estado válido no escribe nada en el log', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    mapLeadRow(row({ estado: 'aceptado' }))
+
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it.each(['pendiente', 'aceptado', 'rechazado', 'no_interesa'])(

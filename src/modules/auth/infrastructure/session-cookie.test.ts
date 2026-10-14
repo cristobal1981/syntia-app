@@ -178,6 +178,57 @@ describe('createSessionToken / parseSessionToken', () => {
     expect(await parseSessionToken(token, secret)).toBeNull()
   })
 
+  it('REGRESIÓN: un token con segmentos de más ("payload.firma.basura") se rechaza', async () => {
+    const secret = getSessionSecret()
+    const token = await createSessionToken(sessionExpiringIn(60_000), secret)
+
+    expect(await parseSessionToken(token, secret)).not.toBeNull()
+    expect(await parseSessionToken(`${token}.basura`, secret)).toBeNull()
+    expect(await parseSessionToken(`${token}.`, secret)).toBeNull()
+  })
+
+  it.each(['advisor', 'admin', 'client', 'worker'] as const)(
+    'acepta el rol válido %s',
+    async (role) => {
+      const secret = getSessionSecret()
+      const session = sessionExpiringIn(60_000)
+      session.user.role = role
+      const token = await createSessionToken(session, secret)
+
+      expect((await parseSessionToken(token, secret))?.user.role).toBe(role)
+    }
+  )
+
+  it.each([['superadmin'], [''], ['ADMIN'], [undefined], [null], [7]])(
+    'REGRESIÓN: rechaza una sesión firmada con rol %j (fuera de la lista)',
+    async (role) => {
+      const secret = getSessionSecret()
+      const session = sessionExpiringIn(60_000)
+      ;(session.user as { role: unknown }).role = role
+      const token = await createSessionToken(session, secret)
+
+      expect(await parseSessionToken(token, secret)).toBeNull()
+    }
+  )
+
+  it('rechaza un expiresAt que no es número (p. ej. texto)', async () => {
+    const secret = getSessionSecret()
+    const session = sessionExpiringIn(60_000)
+    ;(session as { expiresAt: unknown }).expiresAt = String(Date.now() + 60_000)
+    const token = await createSessionToken(session, secret)
+
+    expect(await parseSessionToken(token, secret)).toBeNull()
+  })
+
+  it('rechaza un user.id que no es texto', async () => {
+    const secret = getSessionSecret()
+    const session = sessionExpiringIn(60_000)
+    ;(session.user as { id: unknown }).id = 123
+    const token = await createSessionToken(session, secret)
+
+    expect(await parseSessionToken(token, secret)).toBeNull()
+  })
+
   describe('límite de expiración', () => {
     afterEach(() => {
       vi.useRealTimers()

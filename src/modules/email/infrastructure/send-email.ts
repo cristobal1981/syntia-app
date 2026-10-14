@@ -12,6 +12,22 @@ type SendEmailOptions = {
 }
 
 /**
+ * Frases exactas con las que Resend rechaza un envío desde el dominio de
+ * pruebas: «You can only send testing emails to your own email address» y
+ * «...please verify a domain at resend.com/domains». Subcadenas más cortas
+ * («testing», «only send») darían una pista falsa con errores no relacionados.
+ */
+const RESEND_SANDBOX_PHRASES = [
+  'only send testing emails to your own email address',
+  'verify a domain',
+]
+
+function isResendSandboxError(message: string): boolean {
+  const lower = message.toLowerCase()
+  return RESEND_SANDBOX_PHRASES.some((phrase) => lower.includes(phrase))
+}
+
+/**
  * Envía por Resend. Sin config devuelve id null salvo `required`, que lanza
  * RESEND_NOT_CONFIGURED; el error de sandbox se traduce a una pista accionable.
  */
@@ -40,11 +56,7 @@ export async function sendEmail(
 
   if (error) {
     const message = error.message
-    if (
-      message.toLowerCase().includes('testing') ||
-      message.toLowerCase().includes('verify a domain') ||
-      message.toLowerCase().includes('only send')
-    ) {
+    if (isResendSandboxError(message)) {
       throw new Error(
         `${message} Con onboarding@resend.dev solo puedes enviar a tu cuenta Resend: configura RESEND_INVITE_OVERRIDE_TO en .env.local.`
       )

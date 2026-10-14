@@ -35,6 +35,17 @@ function parseEnum<T extends string>(value: string | null, allowed: readonly str
   return value != null && allowed.includes(value) ? (value as T) : null
 }
 
+/** Un estado fuera de la lista cae a `pendiente`, pero deja rastro: un lead corrupto no debe parecer uno normal. */
+function resolveLeadEstado(row: LeadRow): LeadEstado {
+  const estado = parseEnum<LeadEstado>(row.estado, LEAD_ESTADOS_DB)
+  if (estado) return estado
+  console.warn('[leads] estado desconocido, se trata como pendiente', {
+    leadId: row.id,
+    estado: row.estado,
+  })
+  return 'pendiente'
+}
+
 export function mapLeadRow(row: LeadRow): LeadRecord {
   return {
     id: row.id,
@@ -47,7 +58,7 @@ export function mapLeadRow(row: LeadRow): LeadRecord {
     facturacionEstimada: row.facturacion_estimada,
     codigoCuota: parseEnum<LeadCodigoCuota>(row.codigo_cuota, LEAD_CODIGOS_CUOTA),
     totalMensual: row.total_mensual,
-    estado: (parseEnum<LeadEstado>(row.estado, LEAD_ESTADOS_DB) ?? 'pendiente') as LeadEstado,
+    estado: resolveLeadEstado(row),
     motivo: row.motivo,
     createdAt: row.created_at,
   }
