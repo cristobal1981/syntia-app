@@ -579,12 +579,18 @@ export async function listOdooGestoresForImportAction(): Promise<ListOdooGestore
   }
 }
 
+/**
+ * ¿Puede la sesión actual editar este cliente? Admin siempre; un asesor solo si
+ * es su asesor asignado. Cualquier otro rol (cliente, colaborador...) nunca,
+ * aunque el id coincida por casualidad con el del asesor del cliente.
+ */
 export async function canEditClient(clientId: string): Promise<boolean> {
   const session = await getSession()
-  if (!session || session.user.role === 'client') return false
+  if (!session) return false
   if (session.user.role === 'admin') return true
+  if (session.user.role !== 'advisor') return false
 
   const scope = await buildDirectoryScope()
   const client = await getDirectoryRepository().getClient(clientId)
-  return client?.advisorId === scope.userId
+  return Boolean(client?.advisorId) && client?.advisorId === scope.userId
 }

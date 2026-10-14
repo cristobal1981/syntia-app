@@ -735,6 +735,45 @@ describe('canEditClient', () => {
 
     await expect(canEditClient('client-1')).resolves.toBe(false)
   })
+
+  it('REGRESIÓN: un colaborador (worker) nunca puede editar, ni aunque su id coincida con el del asesor del cliente', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('worker', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
+
+    await expect(canEditClient('client-1')).resolves.toBe(false)
+    expect(getClient).not.toHaveBeenCalled()
+    expect(buildDirectoryScope).not.toHaveBeenCalled()
+  })
+
+  it('returns false when the client does not exist', async () => {
+    getSession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(null)
+
+    await expect(canEditClient('missing')).resolves.toBe(false)
+  })
+
+  it('returns false for a client without advisor, even if the actor id is empty', async () => {
+    getSession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', ''))
+
+    for (const advisorId of [undefined, '']) {
+      getClient.mockResolvedValue(client({ advisorId }))
+
+      await expect(canEditClient('client-1')).resolves.toBe(false)
+    }
+  })
+
+  it('looks the client up by the exact id it was given', async () => {
+    getSession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
+
+    await canEditClient('client-42')
+
+    expect(getClient).toHaveBeenCalledWith('client-42')
+  })
 })
 
 // ---------------------------------------------------------------------------
