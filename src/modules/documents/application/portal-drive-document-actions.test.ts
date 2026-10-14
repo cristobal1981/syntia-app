@@ -12,19 +12,19 @@ const {
   getAllowedSectionsForWorker,
   getWorkerWriteSections,
   resolveClientDriveRootId,
-  shouldUseMockDrive,
   uploadDriveFile,
   isGoogleDriveApiConfigured,
   findDuplicateInSubtree,
+  listDriveFolder,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
   getWorkerWriteSections: vi.fn(),
   resolveClientDriveRootId: vi.fn(),
-  shouldUseMockDrive: vi.fn(),
   uploadDriveFile: vi.fn(),
   isGoogleDriveApiConfigured: vi.fn(),
   findDuplicateInSubtree: vi.fn(),
+  listDriveFolder: vi.fn(),
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
@@ -37,18 +37,17 @@ vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () 
 vi.mock('@/src/modules/documents/application/resolve-client-drive-root', () => ({
   resolveClientDriveRootId,
 }))
-vi.mock('@/src/modules/documents/infrastructure/drive-runtime', () => ({ shouldUseMockDrive }))
 vi.mock('@/src/modules/documents/infrastructure/google-drive-auth', () => ({
   isGoogleDriveApiConfigured,
 }))
 vi.mock('@/src/modules/documents/infrastructure/google-drive-repository', () => ({
   downloadDriveFile: vi.fn(),
   findDuplicateInSubtree,
-  listDriveFolder: vi.fn(),
+  listDriveFolder,
   uploadDriveFile,
 }))
 
-// El estado del modo demo vive en el módulo: cada subida usa un nombre distinto.
+// Cada subida usa un nombre distinto.
 let uploadSeq = 0
 
 function sessionFor(role: 'client' | 'worker'): PortalSession {
@@ -60,7 +59,11 @@ function sessionFor(role: 'client' | 'worker'): PortalSession {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  shouldUseMockDrive.mockReturnValue(true)
+  resolveClientDriveRootId.mockResolvedValue('root-1')
+  isGoogleDriveApiConfigured.mockReturnValue(true)
+  findDuplicateInSubtree.mockResolvedValue(null)
+  listDriveFolder.mockResolvedValue({ folderId: 'root-1', breadcrumbs: [], items: [] })
+  uploadDriveFile.mockResolvedValue({ id: 'item-1', name: 'factura.pdf' })
 })
 
 describe('portal-drive-document-actions ("Documentos" section gate)', () => {
@@ -143,7 +146,6 @@ describe('portal-drive-document-actions (solo leer, descargar y subir)', () => {
     expect(Object.keys(driveActions).sort()).toEqual(
       [
         'downloadDriveFileAction',
-        'getDriveDocumentsModeAction',
         'getDriveFilePreviewAction',
         // Subida rápida de facturas: solo lee (¿existe el destino?) y sube.
         'getInvoiceUploadAvailabilityAction',
@@ -191,15 +193,7 @@ describe('uploadDriveFilesAction (dangerous file type gate)', () => {
     expect(result).toMatchObject({ ok: false, error: 'invalid_type' })
   })
 
-  describe('real Drive path (shouldUseMockDrive: false)', () => {
-    beforeEach(() => {
-      shouldUseMockDrive.mockReturnValue(false)
-      resolveClientDriveRootId.mockResolvedValue('root-1')
-      isGoogleDriveApiConfigured.mockReturnValue(true)
-      findDuplicateInSubtree.mockResolvedValue(null)
-      uploadDriveFile.mockResolvedValue({ id: 'item-1', name: 'factura.pdf' })
-    })
-
+  describe('real Drive path', () => {
     it('uploads a normal document through the real Drive API', async () => {
       const file = new File(['%PDF-1.4'], `prueba-${++uploadSeq}.pdf`, { type: 'application/pdf' })
 
@@ -220,32 +214,9 @@ describe('uploadDriveFilesAction (dangerous file type gate)', () => {
   })
 })
 
-describe('uploadDriveFilesAction (duplicados en modo demo)', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue(sessionFor('client'))
-  })
-
-  it('rechaza un nombre que ya existe en una subcarpeta del árbol demo y devuelve la ruta', async () => {
-    const first = new File(['x'], 'unico-demo.pdf', { type: 'application/pdf' })
-    expect(await uploadDriveFilesAction(formDataWithFile(first))).toMatchObject({ ok: true })
-
-    const again = new File(['x'], 'UNICO-DEMO.pdf', { type: 'application/pdf' })
-    const result = await uploadDriveFilesAction(formDataWithFile(again))
-
-    expect(result).toMatchObject({
-      ok: false,
-      error: 'duplicate',
-      duplicate: { name: 'unico-demo.pdf', folders: [] },
-    })
-  })
-})
-
 describe('real Drive path: duplicado detectado por el repositorio', () => {
   beforeEach(() => {
     getSession.mockResolvedValue(sessionFor('client'))
-    shouldUseMockDrive.mockReturnValue(false)
-    resolveClientDriveRootId.mockResolvedValue('root-1')
-    isGoogleDriveApiConfigured.mockReturnValue(true)
   })
 
   it('si hay duplicado devuelve la ruta y NO llama a subir', async () => {

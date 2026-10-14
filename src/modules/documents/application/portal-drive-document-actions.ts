@@ -7,18 +7,10 @@ import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/
 import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveClientDriveRootId } from '@/src/modules/documents/application/resolve-client-drive-root'
 import {
-  getMockDriveFileBinary,
-  findMockDriveDuplicate,
-  getMockDriveRootId,
-  listMockDriveFolder,
-  uploadMockDriveFiles,
-} from '@/src/modules/documents/domain/mock-drive-items'
-import {
   guardDriveAction,
   logDriveFailure,
   mapDriveErrorToCode,
 } from '@/src/modules/documents/application/drive-error-mapping'
-import { shouldUseMockDrive } from '@/src/modules/documents/infrastructure/drive-runtime'
 import type {
   DriveDocumentErrorCode,
   DriveFileDownloadResult,
@@ -71,11 +63,7 @@ async function resolveClientDriveAccess(
     }
   }
 
-  if (shouldUseMockDrive()) {
-    return { ok: true, rootId: getMockDriveRootId() }
-  }
-
-  // Sin credenciales de Google no hay Documentos (y en producción nunca hay demo).
+  // Sin credenciales de Google no hay Documentos.
   if (!isGoogleDriveApiConfigured()) {
     return { ok: false, error: 'not_configured' }
   }
@@ -107,10 +95,6 @@ async function listDriveFolderActionImpl(input?: {
   const folderId = input?.folderId?.trim() || access.rootId
 
   try {
-    if (shouldUseMockDrive()) {
-      return { ok: true, listing: listMockDriveFolder(folderId) }
-    }
-
     const listing = await listDriveFolder(folderId, access.rootId)
     return { ok: true, listing }
   } catch (error) {
@@ -138,23 +122,6 @@ async function getDriveFilePreviewActionImpl(input: {
   const fileId = input.fileId?.trim()
   if (!fileId) {
     return { ok: false, error: 'not_found' }
-  }
-
-  if (shouldUseMockDrive()) {
-    const mock = getMockDriveFileBinary(fileId)
-    if (!mock) {
-      return { ok: false, error: 'not_found' }
-    }
-    const size = Buffer.from(mock.dataBase64, 'base64').length
-    if (size > getDrivePreviewMaxBytes()) {
-      return { ok: false, error: 'too_large' }
-    }
-    return {
-      ok: true,
-      filename: mock.filename,
-      mimetype: mock.mimetype,
-      dataBase64: mock.dataBase64,
-    }
   }
 
   try {
@@ -198,19 +165,6 @@ async function downloadDriveFileActionImpl(input: {
     return { ok: false, error: 'not_found' }
   }
 
-  if (shouldUseMockDrive()) {
-    const mock = getMockDriveFileBinary(fileId)
-    if (!mock) {
-      return { ok: false, error: 'not_found' }
-    }
-    return {
-      ok: true,
-      filename: mock.filename,
-      mimetype: mock.mimetype,
-      dataBase64: mock.dataBase64,
-    }
-  }
-
   try {
     const binary = await downloadDriveFile(fileId, access.rootId, {
       maxBytes: getDriveMaxDownloadBytes(),
@@ -225,10 +179,6 @@ async function downloadDriveFileActionImpl(input: {
     logDriveFailure('download', error)
     return { ok: false, error: mapDriveErrorToCode(error) }
   }
-}
-
-export async function getDriveDocumentsModeAction(): Promise<{ demo: boolean }> {
-  return { demo: shouldUseMockDrive() }
 }
 
 const DRIVE_CODE_BY_VIOLATION: Record<UploadPolicyViolation, DriveDocumentErrorCode> = {
@@ -290,21 +240,6 @@ async function uploadFilesIntoFolder(
   const names = files.map((file) => file.name.trim())
 
   try {
-    if (shouldUseMockDrive()) {
-      const duplicate = findMockDriveDuplicate(parentFolderId, names)
-      if (duplicate) return { ok: false, error: 'duplicate', duplicate }
-
-      const uploaded = uploadMockDriveFiles(
-        parentFolderId,
-        files.map((file, index) => ({
-          name: names[index],
-          mimeType: file.type || 'application/octet-stream',
-          size: file.size,
-        }))
-      )
-      return { ok: true, uploaded }
-    }
-
     // Mismo nombre en la carpeta de destino o en cualquiera de sus subcarpetas.
     const duplicate = await findDuplicateInSubtree(parentFolderId, names, rootId)
     if (duplicate) return { ok: false, error: 'duplicate', duplicate }
@@ -373,7 +308,7 @@ export type InvoiceUploadAvailability = { available: boolean; folderName?: strin
 export async function getInvoiceUploadAvailabilityAction(): Promise<InvoiceUploadAvailability> {
   try {
     const access = await resolveClientDriveAccess('write')
-    if (!access.ok || shouldUseMockDrive()) return { available: false }
+    if (!access.ok) return { available: false }
 
     const target = await resolveInvoiceTarget(access.rootId)
     return target ? { available: true, folderName: target.folderName } : { available: false }
@@ -395,9 +330,6 @@ async function uploadInvoiceFilesActionImpl(formData: FormData): Promise<DriveUp
   const access = await resolveClientDriveAccess('write')
   if (!access.ok) {
     return { ok: false, error: access.error }
-  }
-  if (shouldUseMockDrive()) {
-    return { ok: false, error: 'not_found' }
   }
 
   const target = await resolveInvoiceTarget(access.rootId)

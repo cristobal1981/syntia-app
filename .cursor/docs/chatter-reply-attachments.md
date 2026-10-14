@@ -25,7 +25,6 @@ Validaciones en `portal-chatter-actions.ts`: ownership, parent del mismo registr
 
 - Adjuntos en chat: nombre + enlace → pestaña Documentos del drawer (`highlightAttachmentId`).
 - Subida: solo al enviar mensaje en Conversación (no en Documentos).
-- Mock: `NEXT_PUBLIC_PORTAL_CHATTER_MOCK=true` → datos estáticos en `chatter-mock-data.ts`.
 
 ## Archivos
 
