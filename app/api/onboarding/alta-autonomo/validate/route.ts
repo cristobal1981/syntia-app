@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { getOnboardingAddressCatalog } from '@/src/modules/onboarding/onboarding-address-catalog'
 import { validateOnboardingToken } from '@/src/modules/onboarding/validate-onboarding-token'
 
@@ -16,7 +17,8 @@ function isAuthorizedRequest(request: Request): boolean {
     )
     return false
   }
-  return request.headers.get('x-landing-onboarding-secret') === secret
+  const header = request.headers.get('x-landing-onboarding-secret')
+  return header !== null && timingSafeEqualStrings(header, secret)
 }
 
 function mapTokenErrorStatus(error: 'expired' | 'used' | 'revoked' | 'not_found'): number {
