@@ -5,6 +5,7 @@ import {
   EMAIL_TEMAS,
   type EmailTemaId,
 } from '@/src/modules/email/domain/brand'
+import { escapeHtml as esc } from '@/src/modules/email/domain/escape-html'
 import type {
   EmailBarraBlock,
   EmailBlock,
@@ -18,6 +19,21 @@ import type {
   EmailTablaBlock,
   EmailTarjetasBlock,
 } from '@/src/modules/email/domain/blocks'
+
+/**
+ * Contrato de escape: los campos de TEXTO (títulos, etiquetas, valores, celdas,
+ * iconos, `label` del botón) se escapan aquí; los campos que son HTML por
+ * diseño (`parrafo.html`, `caja.textoLibre`, `html.html`,
+ * `bloqueColor.contenidoHtml`) se emiten tal cual y el llamador es quien debe
+ * escapar los datos de personas que meta en ellos.
+ */
+
+/** Solo http(s) y mailto; cualquier otra cosa (javascript:, data:...) no genera enlace. */
+function safeHref(href: string): string | null {
+  const value = href.trim()
+  if (!/^(?:https?:\/\/|mailto:)[^\s<>`\u0000-\u001F\u007F]+$/i.test(value)) return null
+  return esc(value)
+}
 
 function resolveTema(tema?: EmailTemaId) {
   return EMAIL_TEMAS[tema ?? 'info'] ?? EMAIL_TEMAS.info
@@ -33,18 +49,18 @@ function renderCaja(b: EmailCajaBlock): string {
     return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 20px 0;">
       <tr><td style="background-color: ${t.fondo}; border-left: 4px solid ${t.borde}; border-radius: 4px; padding: 14px 20px; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 14px; color: ${t.texto};">
-        ${b.icono ? `${b.icono} ` : ''}${b.textoLibre}
+        ${b.icono ? `${esc(b.icono)} ` : ''}${b.textoLibre}
       </td></tr>
     </table>`
   }
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
       <tr><td style="background-color: ${t.fondo}; border-left: 4px solid ${t.borde}; border-radius: 4px; padding: 18px 20px;">
-        <p style="margin: 0 0 6px 0; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; color: ${t.texto};">${b.titulo || ''}</p>
-        <p style="margin: 0; font-family: ${EMAIL_FUENTE_TITULAR}; font-size: 26px; font-weight: 700; color: ${t.texto};">${b.valorGrande || ''}</p>
+        <p style="margin: 0 0 6px 0; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; color: ${t.texto};">${esc(b.titulo || '')}</p>
+        <p style="margin: 0; font-family: ${EMAIL_FUENTE_TITULAR}; font-size: 26px; font-weight: 700; color: ${t.texto};">${esc(b.valorGrande || '')}</p>
         ${
           b.subtitulo
-            ? `<p style="margin: 6px 0 0 0; font-family: ${EMAIL_FUENTE_TEXTO}; color: ${EMAIL_COLORES.textoSecundario};">${b.subtitulo}</p>`
+            ? `<p style="margin: 6px 0 0 0; font-family: ${EMAIL_FUENTE_TEXTO}; color: ${EMAIL_COLORES.textoSecundario};">${esc(b.subtitulo)}</p>`
             : ''
         }
       </td></tr>
@@ -55,7 +71,7 @@ function renderTabla(b: EmailTablaBlock): string {
   const cabecera = (b.columnas || [])
     .map(
       (c) =>
-        `<th style="padding: 8px 10px; border-bottom: 2px solid ${EMAIL_COLORES.bordeClaro}; text-align:left;">${c}</th>`
+        `<th style="padding: 8px 10px; border-bottom: 2px solid ${EMAIL_COLORES.bordeClaro}; text-align:left;">${esc(c)}</th>`
     )
     .join('')
   const filas = (b.filas || [])
@@ -64,7 +80,7 @@ function renderTabla(b: EmailTablaBlock): string {
         `<tr style="border-bottom: 1px solid ${EMAIL_COLORES.bordeClaro};">${fila
           .map(
             (celda) =>
-              `<td style="padding: 8px 10px; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal};">${celda}</td>`
+              `<td style="padding: 8px 10px; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal};">${esc(celda)}</td>`
           )
           .join('')}</tr>`
     )
@@ -80,7 +96,7 @@ function renderBadges(b: EmailBadgesBlock): string {
   const chips = (b.items || [])
     .map((it) => {
       const t = resolveTema(it.tema ?? 'neutro')
-      return `<span style="margin-right: 10px; display: inline-block; background: ${t.fondo}; color: ${t.texto}; padding: 3px 10px; border-radius: 12px; font-family: ${EMAIL_FUENTE_TEXTO}; font-weight: 600; font-size: 12px;">${it.icono ? `${it.icono} ` : ''}${it.etiqueta}: ${it.valor}</span>`
+      return `<span style="margin-right: 10px; display: inline-block; background: ${t.fondo}; color: ${t.texto}; padding: 3px 10px; border-radius: 12px; font-family: ${EMAIL_FUENTE_TEXTO}; font-weight: 600; font-size: 12px;">${it.icono ? `${esc(it.icono)} ` : ''}${esc(it.etiqueta)}: ${esc(it.valor)}</span>`
     })
     .join('')
   return `<div style="margin: 0 0 16px 0;">${chips}</div>`
@@ -95,14 +111,14 @@ function renderTarjetas(b: EmailTarjetasBlock): string {
       const t = resolveTema(it.tema)
       const card = `
       <td width="${anchoCelda}%" style="background-color:${t.fondo}; border:1px solid ${t.borde}; border-radius:12px; padding:20px 12px; text-align:center;">
-        ${it.icono ? `<div style="font-size:16px; margin-bottom:4px;">${it.icono}</div>` : ''}
+        ${it.icono ? `<div style="font-size:16px; margin-bottom:4px;">${esc(it.icono)}</div>` : ''}
         ${
           it.etiquetaSuperior
-            ? `<div style="font-size:11px; font-weight:700; color:${t.texto}; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">${it.etiquetaSuperior}</div>`
+            ? `<div style="font-size:11px; font-weight:700; color:${t.texto}; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">${esc(it.etiquetaSuperior)}</div>`
             : ''
         }
-        <div style="font-family:${EMAIL_FUENTE_TITULAR}; font-size:32px; font-weight:800; color:${t.texto};">${it.valor}</div>
-        <div style="font-size:13px; font-weight:600; color:${t.texto};">${it.etiqueta}</div>
+        <div style="font-family:${EMAIL_FUENTE_TITULAR}; font-size:32px; font-weight:800; color:${t.texto};">${esc(it.valor)}</div>
+        <div style="font-size:13px; font-weight:600; color:${t.texto};">${esc(it.etiqueta)}</div>
       </td>`
       const espaciador = i > 0 ? `<td width="2%"></td>` : ''
       return espaciador + card
@@ -113,10 +129,10 @@ function renderTarjetas(b: EmailTarjetasBlock): string {
 
 function renderBarra(b: EmailBarraBlock): string {
   const t = resolveTema(b.tema)
-  const clamped = Math.max(0, Math.min(100, b.valor))
+  const clamped = Number.isFinite(b.valor) ? Math.max(0, Math.min(100, b.valor)) : 0
   return `<div style="margin:20px 0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;"><tr>
-      <td style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:13px; font-weight:600; color:${EMAIL_COLORES.textoPrincipal};">${b.etiqueta}</td>
+      <td style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:13px; font-weight:600; color:${EMAIL_COLORES.textoPrincipal};">${esc(b.etiqueta)}</td>
       <td align="right" style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:13px; font-weight:600; color:${EMAIL_COLORES.textoPrincipal};">${clamped}%</td>
     </tr></table>
     <div style="background-color:${EMAIL_COLORES.neutroFondo}; border-radius:10px; width:100%; height:12px; overflow:hidden;">
@@ -144,9 +160,9 @@ function renderLogros(b: EmailLogrosBlock): string {
             ? EMAIL_COLORES.verdeAgua
             : EMAIL_COLORES.textoSecundario
           return `<td width="33%" valign="top" style="background-color:${bg}; border:${borde}; padding:12px 8px; border-radius:6px; text-align:center; opacity:${opacity}; filter:${filtro};">
-        <div style="font-size:24px; margin-bottom:5px;">${tr.icono}</div>
-        <div style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:11px; font-weight:700; color:${tituloColor}; text-transform:uppercase; letter-spacing:0.3px;">${tr.titulo}</div>
-        <div style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:10px; color:${EMAIL_COLORES.textoSecundario}; margin-top:6px; line-height:1.3;">${tr.descripcion}</div>
+        <div style="font-size:24px; margin-bottom:5px;">${esc(tr.icono)}</div>
+        <div style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:11px; font-weight:700; color:${tituloColor}; text-transform:uppercase; letter-spacing:0.3px;">${esc(tr.titulo)}</div>
+        <div style="font-family:${EMAIL_FUENTE_TEXTO}; font-size:10px; color:${EMAIL_COLORES.textoSecundario}; margin-top:6px; line-height:1.3;">${esc(tr.descripcion)}</div>
       </td>`
         })
         .join('') +
@@ -155,7 +171,7 @@ function renderLogros(b: EmailLogrosBlock): string {
   return `<div style="margin-top:24px; background-color:${EMAIL_COLORES.blancoNeblina}; border:1px dashed ${EMAIL_COLORES.verdeTurquesa}; padding:20px; border-radius:10px;">
     ${
       b.titulo
-        ? `<h3 style="margin:0 0 15px 0; font-family:${EMAIL_FUENTE_TITULAR}; color:${EMAIL_COLORES.textoPrincipal}; font-size:15px; text-align:center; border-bottom:1px solid ${EMAIL_COLORES.bordeClaro}; padding-bottom:8px;">${b.titulo}</h3>`
+        ? `<h3 style="margin:0 0 15px 0; font-family:${EMAIL_FUENTE_TITULAR}; color:${EMAIL_COLORES.textoPrincipal}; font-size:15px; text-align:center; border-bottom:1px solid ${EMAIL_COLORES.bordeClaro}; padding-bottom:8px;">${esc(b.titulo)}</h3>`
         : ''
     }
     <table width="100%" cellpadding="0" cellspacing="6" border="0">${filas}</table>
@@ -168,11 +184,11 @@ function renderBloqueColor(b: EmailBloqueColorBlock): string {
   return `
     <div style="margin-top: 24px; border: 1px solid ${t.borde}; border-radius: 8px; padding: 16px 18px; background-color: #FFFFFF;">
       <h3 style="margin: 0 0 4px 0; font-family: ${EMAIL_FUENTE_TITULAR}; color: ${t.texto}; font-size: 15px; padding-bottom: 8px; border-bottom: 2px solid ${t.borde};">
-        ${b.icono ? `${b.icono} ` : ''}${b.titulo}${b.cantidad !== undefined ? ` (${b.cantidad})` : ''}
+        ${b.icono ? `${esc(b.icono)} ` : ''}${esc(b.titulo)}${b.cantidad !== undefined ? ` (${esc(String(b.cantidad))})` : ''}
       </h3>
       ${
         b.descripcion
-          ? `<p style="font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 12px; color: ${EMAIL_COLORES.textoSecundario}; margin: 8px 0 0 0;">${b.descripcion}</p>`
+          ? `<p style="font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 12px; color: ${EMAIL_COLORES.textoSecundario}; margin: 8px 0 0 0;">${esc(b.descripcion)}</p>`
           : ''
       }
       ${tablaHtml}
@@ -180,11 +196,14 @@ function renderBloqueColor(b: EmailBloqueColorBlock): string {
 }
 
 function renderCta(b: EmailCtaBlock): string {
+  const href = safeHref(b.href)
+  // Sin destino seguro no hay botón: mejor omitirlo que enviar un enlace roto o peligroso.
+  if (!href) return ''
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 8px 0 24px 0;">
       <tr>
         <td style="border-radius: 8px; background-color: ${EMAIL_COLORES.verdeSyntia};">
-          <a href="${b.href}" style="display: inline-block; padding: 12px 22px; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 15px; font-weight: 600; color: ${EMAIL_COLORES.verdeNoche}; text-decoration: none;">${b.label}</a>
+          <a href="${href}" style="display: inline-block; padding: 12px 22px; font-family: ${EMAIL_FUENTE_TEXTO}; font-size: 15px; font-weight: 600; color: ${EMAIL_COLORES.verdeNoche}; text-decoration: none;">${esc(b.label)}</a>
         </td>
       </tr>
     </table>`

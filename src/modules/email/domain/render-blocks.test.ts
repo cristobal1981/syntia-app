@@ -193,52 +193,113 @@ describe('renderBloqueColor', () => {
   })
 })
 
-describe('renderEmailBlock — escape (comportamiento actual: NO se escapa nada)', () => {
+describe('renderEmailBlock — escape', () => {
   const evil = '<script>alert(1)</script>'
+  const escaped = '&lt;script&gt;alert(1)&lt;/script&gt;'
 
-  it('parrafo.html se inserta crudo (es HTML por contrato)', () => {
+  it('parrafo.html, caja.textoLibre y html.html son HTML por contrato: se insertan tal cual', () => {
     expect(renderEmailBlock({ tipo: 'parrafo', html: evil })).toContain(evil)
-  })
-
-  it('caja.titulo / valorGrande / subtitulo / textoLibre se insertan sin escapar', () => {
-    const c = renderEmailBlock({ tipo: 'caja', titulo: evil, valorGrande: evil, subtitulo: evil })
-    expect(c.split(evil)).toHaveLength(4)
     expect(renderEmailBlock({ tipo: 'caja', textoLibre: evil })).toContain(evil)
+    expect(renderEmailBlock({ tipo: 'html', html: evil })).toBe(evil)
+    expect(renderEmailBlock({ tipo: 'bloqueColor', titulo: 't', contenidoHtml: evil })).toContain(evil)
   })
 
-  it('tabla.columnas y celdas se insertan sin escapar', () => {
+  it('caja: titulo, valorGrande, subtitulo e icono se escapan', () => {
+    const c = renderEmailBlock({
+      tipo: 'caja',
+      titulo: evil,
+      valorGrande: evil,
+      subtitulo: evil,
+    })
+    expect(c).not.toContain('<script>')
+    expect(c.split(escaped)).toHaveLength(4)
+    expect(renderEmailBlock({ tipo: 'caja', icono: '<i>', textoLibre: 'x' })).toContain('&lt;i&gt; x')
+  })
+
+  it('tabla: columnas y celdas se escapan', () => {
     const html = renderEmailBlock({ tipo: 'tabla', columnas: [evil], filas: [[evil]] })
-    expect(html.split(evil)).toHaveLength(3)
+
+    expect(html).not.toContain('<script>')
+    expect(html.split(escaped)).toHaveLength(3)
   })
 
-  it('badges, tarjetas, barra, logros y bloqueColor insertan texto sin escapar', () => {
-    expect(
-      renderEmailBlock({ tipo: 'badges', items: [{ etiqueta: evil, valor: evil }] })
-    ).toContain(`${evil}: ${evil}`)
-    expect(
-      renderEmailBlock({ tipo: 'tarjetas', items: [{ valor: evil, etiqueta: evil }] })
-    ).toContain(evil)
-    expect(renderEmailBlock({ tipo: 'barra', etiqueta: evil, valor: 1 })).toContain(evil)
-    expect(
+  it('badges, tarjetas, barra, logros y bloqueColor escapan el texto', () => {
+    const outputs = [
+      renderEmailBlock({ tipo: 'badges', items: [{ icono: evil, etiqueta: evil, valor: evil }] }),
+      renderEmailBlock({
+        tipo: 'tarjetas',
+        items: [{ icono: evil, etiquetaSuperior: evil, valor: evil, etiqueta: evil }],
+      }),
+      renderEmailBlock({ tipo: 'barra', etiqueta: evil, valor: 1 }),
       renderEmailBlock({
         tipo: 'logros',
         titulo: evil,
-        items: [{ icono: 'i', titulo: evil, descripcion: evil, desbloqueado: true }],
-      })
-    ).toContain(evil)
-    expect(
-      renderEmailBlock({ tipo: 'bloqueColor', titulo: evil, descripcion: evil })
-    ).toContain(evil)
+        items: [{ icono: evil, titulo: evil, descripcion: evil, desbloqueado: true }],
+      }),
+      renderEmailBlock({ tipo: 'bloqueColor', icono: evil, titulo: evil, descripcion: evil }),
+    ]
+
+    for (const html of outputs) {
+      expect(html).not.toContain('<script>')
+      expect(html).toContain(escaped)
+    }
   })
 
-  it('cta.href y label se insertan sin escapar: una comilla cierra el atributo href', () => {
+  it('escapa también comillas simples y dobles y el ampersand', () => {
+    const html = renderEmailBlock({ tipo: 'tabla', columnas: [`a"b'c&d`] })
+
+    expect(html).toContain('a&quot;b&#39;c&amp;d')
+  })
+
+  it('barra con un valor no numérico no imprime NaN', () => {
+    const html = renderEmailBlock({ tipo: 'barra', etiqueta: 'x', valor: Number.NaN })
+
+    expect(html).not.toContain('NaN')
+    expect(html).toContain('width:0%')
+  })
+
+  it('cta: una comilla en el href no puede cerrar el atributo (se escapa)', () => {
     const html = renderEmailBlock({
       tipo: 'cta',
-      href: 'https://x.test" onclick="boom()',
-      label: evil,
+      href: 'https://x.test/p"onclick="boom()',
+      label: 'Ir',
     })
-    expect(html).toContain('href="https://x.test" onclick="boom()"')
-    expect(html).toContain(evil)
+
+    expect(html).toContain('href="https://x.test/p&quot;onclick=&quot;boom()"')
+    expect(html).not.toContain('onclick="boom()"')
+  })
+
+  it('cta: label escapado', () => {
+    const html = renderEmailBlock({ tipo: 'cta', href: 'https://x.test', label: evil })
+
+    expect(html).not.toContain('<script>')
+    expect(html).toContain(escaped)
+  })
+
+  it('cta: mantiene un enlace https con query y &', () => {
+    const html = renderEmailBlock({ tipo: 'cta', href: 'https://x.test/a?b=1&c=2', label: 'Ir' })
+
+    expect(html).toContain('href="https://x.test/a?b=1&amp;c=2"')
+  })
+
+  it('cta: acepta mailto:', () => {
+    expect(renderEmailBlock({ tipo: 'cta', href: 'mailto:a@b.es', label: 'Ir' })).toContain(
+      'href="mailto:a@b.es"'
+    )
+  })
+
+  it.each([
+    'javascript:alert(1)',
+    'JAVASCRIPT:alert(1)',
+    'data:text/html,x',
+    'vbscript:x',
+    '//evil.com',
+    '/ruta',
+    'https://a.com/ b',
+    ' javascript:alert(1)',
+    '',
+  ])('cta: href no seguro %j → no se genera el botón', (href) => {
+    expect(renderEmailBlock({ tipo: 'cta', href, label: 'Ir' })).toBe('')
   })
 
   it('un tipo desconocido se omite como cadena vacía', () => {

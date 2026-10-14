@@ -2,6 +2,7 @@ import { OBLIGACION_URGENT_REMINDER_DAYS_AHEAD } from '@/src/modules/obligacione
 import { EMAIL_COLORES } from '@/src/modules/email/domain/brand'
 import type { EmailBlock } from '@/src/modules/email/domain/blocks'
 import { renderBrandedEmail } from '@/src/modules/email/application/render-branded-email'
+import { escapeHtml } from '@/src/modules/email/domain/escape-html'
 
 export type ObligacionReminderDigestItem = {
   clientName: string
@@ -15,14 +16,6 @@ type ObligacionReminderDigestEmailParams = {
   items: ObligacionReminderDigestItem[]
   realRecipientEmail: string
   isOverrideRecipient: boolean
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 /** Fecha corta ("20 abr"): la ventana del digest es de días, el año nunca aporta aquí. */
