@@ -56,21 +56,21 @@ describe('sanitizeChatterHtml — XSS-sensitive, security behavior', () => {
     })
 
     it('strips a javascript: href entirely (the whole opening tag is removed)', () => {
-      expect(sanitizeChatterHtml('<a href="javascript:alert(1)">evil</a>')).toBe('evil</a>')
+      expect(sanitizeChatterHtml('<a href="javascript:alert(1)">evil</a>')).toBe('evil')
     })
 
     it('strips a data: href entirely', () => {
-      expect(sanitizeChatterHtml('<a href="data:text/html,evil">evil</a>')).toBe('evil</a>')
+      expect(sanitizeChatterHtml('<a href="data:text/html,evil">evil</a>')).toBe('evil')
     })
 
     it('strips an anchor with no href at all', () => {
-      expect(sanitizeChatterHtml('<a>no href</a>')).toBe('no href</a>')
+      expect(sanitizeChatterHtml('<a>no href</a>')).toBe('no href')
     })
 
-    it('preserves caller-provided rel/target instead of the defaults', () => {
+    it('ignora el rel/target del original: siempre los fijos', () => {
       expect(
         sanitizeChatterHtml('<a href="https://example.com" rel="nofollow" target="_self">link</a>')
-      ).toBe('<a href="https://example.com" rel="nofollow" target="_self">link</a>')
+      ).toBe('<a href="https://example.com" rel="noopener noreferrer" target="_blank">link</a>')
     })
   })
 })
@@ -98,14 +98,14 @@ describe('prepareChatterHtmlForDisplay', () => {
 
 describe('sanitizeChatterHtml — adversarial inputs', () => {
   it('rejects javascript: hrefs regardless of case, leading whitespace or embedded tabs', () => {
-    expect(sanitizeChatterHtml('<a href="JAVASCRIPT:alert(1)">x</a>')).toBe('x</a>')
-    expect(sanitizeChatterHtml('<a href="  javascript:alert(1)">x</a>')).toBe('x</a>')
-    expect(sanitizeChatterHtml('<a href="java\tscript:alert(1)">x</a>')).toBe('x</a>')
+    expect(sanitizeChatterHtml('<a href="JAVASCRIPT:alert(1)">x</a>')).toBe('x')
+    expect(sanitizeChatterHtml('<a href="  javascript:alert(1)">x</a>')).toBe('x')
+    expect(sanitizeChatterHtml('<a href="java\tscript:alert(1)">x</a>')).toBe('x')
   })
 
   it('rejects vbscript: and file: hrefs', () => {
-    expect(sanitizeChatterHtml('<a href="vbscript:msgbox(1)">x</a>')).toBe('x</a>')
-    expect(sanitizeChatterHtml('<a href="file:///etc/passwd">x</a>')).toBe('x</a>')
+    expect(sanitizeChatterHtml('<a href="vbscript:msgbox(1)">x</a>')).toBe('x')
+    expect(sanitizeChatterHtml('<a href="file:///etc/passwd">x</a>')).toBe('x')
   })
 
   it('matches the href attribute name case-insensitively', () => {
@@ -114,13 +114,15 @@ describe('sanitizeChatterHtml — adversarial inputs', () => {
     )
   })
 
-  it('drops an anchor whose href is unquoted', () => {
-    expect(sanitizeChatterHtml('<a href=https://example.com>x</a>')).toBe('x</a>')
+  it('acepta un href sin comillas y lo reescribe con comillas dobles', () => {
+    expect(sanitizeChatterHtml('<a href=https://example.com>x</a>')).toBe(
+      '<a href="https://example.com" rel="noopener noreferrer" target="_blank">x</a>'
+    )
   })
 
-  it('accepts single-quoted hrefs and keeps the single quote', () => {
+  it('acepta href con comillas simples y lo reescribe con comillas dobles', () => {
     expect(sanitizeChatterHtml("<a href='https://example.com'>x</a>")).toBe(
-      "<a href='https://example.com' rel=\"noopener noreferrer\" target=\"_blank\">x</a>"
+      '<a href="https://example.com" rel="noopener noreferrer" target="_blank">x</a>'
     )
   })
 
@@ -159,41 +161,91 @@ describe('sanitizeChatterHtml — adversarial inputs', () => {
   })
 })
 
-describe('sanitizeChatterHtml — KNOWN GAPS documented as current behavior (see BUGS)', () => {
-  it('BUG: caller-supplied rel is copied verbatim, so a single-quoted rel can inject extra attributes', () => {
-    expect(
-      sanitizeChatterHtml('<a href="https://a.com" rel=\'x" onmouseover="alert(1)\'>x</a>')
-    ).toBe('<a href="https://a.com" rel="x" onmouseover="alert(1)" target="_blank">x</a>')
+describe('sanitizeChatterHtml — endurecimiento (antes eran huecos conocidos)', () => {
+  it('REGRESIÓN: un rel con comillas no puede inyectar atributos (rel/target son siempre fijos)', () => {
+    const out = sanitizeChatterHtml('<a href="https://a.com" rel=\'x" onmouseover="alert(1)\'>x</a>')
+
+    expect(out).toBe('<a href="https://a.com" rel="noopener noreferrer" target="_blank">x</a>')
+    expect(out).not.toContain('onmouseover')
   })
 
-  it('BUG: target is copied verbatim (any value, e.g. _top)', () => {
-    expect(sanitizeChatterHtml('<a href="https://a.com" target="_top">x</a>')).toBe(
-      '<a href="https://a.com" rel="noopener noreferrer" target="_top">x</a>'
-    )
+  it('REGRESIÓN: target no admite valores arbitrarios (_top, _self, _parent)', () => {
+    for (const target of ['_top', '_self', '_parent', 'evil']) {
+      expect(sanitizeChatterHtml(`<a href="https://a.com" target="${target}">x</a>`)).toBe(
+        '<a href="https://a.com" rel="noopener noreferrer" target="_blank">x</a>'
+      )
+    }
   })
 
-  it('BUG: an entity-encoded javascript: scheme passes the protocol check (browser decodes it)', () => {
-    expect(sanitizeChatterHtml('<a href="&#106;avascript:alert(1)">x</a>')).toBe(
-      '<a href="&#106;avascript:alert(1)" rel="noopener noreferrer" target="_blank">x</a>'
-    )
-    expect(sanitizeChatterHtml('<a href="javascript&colon;alert(1)">x</a>')).toBe(
-      '<a href="javascript&colon;alert(1)" rel="noopener noreferrer" target="_blank">x</a>'
-    )
+  it.each([
+    ['numérica decimal', '&#106;avascript:alert(1)'],
+    ['numérica hexadecimal', '&#x6a;avascript:alert(1)'],
+    ['con &colon;', 'javascript&colon;alert(1)'],
+    ['con &Tab;', 'java&Tab;script:alert(1)'],
+    ['con &NewLine;', 'java&NewLine;script:alert(1)'],
+    ['esquema en mayúsculas con entidad', '&#74;AVASCRIPT:alert(1)'],
+  ])('REGRESIÓN: esquema javascript: codificado como entidad %s no pasa', (_label, href) => {
+    const out = sanitizeChatterHtml(`<a href="${href}">x</a>`)
+
+    expect(out).toBe('x')
+    expect(out).not.toMatch(/javascript|&#|&colon;/i)
   })
 
-  it('BUG: relative hrefs are accepted (resolved against a placeholder origin)', () => {
-    expect(sanitizeChatterHtml('<a href="/rel">x</a>')).toBe(
-      '<a href="/rel" rel="noopener noreferrer" target="_blank">x</a>'
-    )
+  it('los href relativos o sin esquema se descartan (solo http, https y mailto en claro)', () => {
+    for (const href of ['/rel', 'rel/path', '//evil.com', '#ancla', '?q=1', 'ftp://x.com']) {
+      expect(sanitizeChatterHtml(`<a href="${href}">x</a>`)).toBe('x')
+    }
   })
 
-  it('BUG: href= text inside another attribute value is picked up as the href', () => {
+  it('REGRESIÓN: href= dentro del valor de otro atributo no se toma como el enlace', () => {
     expect(
       sanitizeChatterHtml('<a title="href=\'https://ok\'" href="javascript:alert(1)">x</a>')
-    ).toBe('<a href=\'https://ok\' rel="noopener noreferrer" target="_blank">x</a>')
+    ).toBe('x')
+    expect(
+      sanitizeChatterHtml('<a title="href=\'https://ok\'" href="https://real.com">x</a>')
+    ).toBe('<a href="https://real.com" rel="noopener noreferrer" target="_blank">x</a>')
   })
 
-  it('closing </a> of a rejected anchor is left orphaned in the output', () => {
-    expect(sanitizeChatterHtml('<a href="javascript:1">x</a>')).toBe('x</a>')
+  it('el cierre </a> de un enlace descartado no queda huérfano', () => {
+    expect(sanitizeChatterHtml('<a href="javascript:1">x</a>')).toBe('x')
+    expect(sanitizeChatterHtml('hola</a>')).toBe('hola')
+  })
+
+  it('el cierre </a> de un enlace conservado sí se emite, y solo una vez por apertura', () => {
+    expect(sanitizeChatterHtml('<a href="https://a.com">x</a></a>')).toBe(
+      '<a href="https://a.com" rel="noopener noreferrer" target="_blank">x</a>'
+    )
+  })
+
+  it('un href con espacios, <, > o caracteres de control se descarta', () => {
+    for (const href of ['https://a.com/ b', 'https://a.com/<x', 'https://a.com/\u0001']) {
+      expect(sanitizeChatterHtml(`<a href="${href}">x</a>`)).toBe('x')
+    }
+  })
+
+  it('una comilla doble dentro de un href con comillas simples se escapa (%22) y no cierra el atributo', () => {
+    const out = sanitizeChatterHtml(`<a href='https://a.com/?q="x"'>x</a>`)
+
+    expect(out).toBe(
+      '<a href="https://a.com/?q=%22x%22" rel="noopener noreferrer" target="_blank">x</a>'
+    )
+  })
+
+  it('con comillas simples y espacios para colar un atributo, el enlace se descarta entero', () => {
+    const out = sanitizeChatterHtml(`<a href='https://a.com/?q="x" onclick="alert(1)'>x</a>`)
+
+    expect(out).toBe('x')
+  })
+
+  it('el esquema debe ir al principio del href: espacios o texto delante descartan el enlace', () => {
+    for (const href of [' https://a.com', '\thttps://a.com', 'x https://a.com', 'xhttps://a.com']) {
+      expect(sanitizeChatterHtml(`<a href="${href}">x</a>`)).toBe('x')
+    }
+  })
+
+  it('una URL con & y query se conserva intacta', () => {
+    expect(sanitizeChatterHtml('<a href="https://a.com/p?x=1&y=2">x</a>')).toBe(
+      '<a href="https://a.com/p?x=1&y=2" rel="noopener noreferrer" target="_blank">x</a>'
+    )
   })
 })
