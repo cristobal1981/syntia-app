@@ -105,6 +105,8 @@ export const leads = {
       cancel: 'Cancelar',
     },
     sendSuccess: 'Correo enviado',
+    sendNotRecorded:
+      'Correo enviado, pero no se pudo guardar en el historial de contactos. No lo reenvíes.',
     sendError: 'No se pudo enviar el correo',
   },
 }

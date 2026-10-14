@@ -230,15 +230,59 @@ describe('sendLeadContactEmailAction — envío', () => {
     })
   })
 
-  it('si recordLeadContact falla devuelve unknown con su mensaje (el email ya salió)', async () => {
-    getSession.mockResolvedValue(session('admin'))
-    getLeadById.mockResolvedValue(leadRecord())
-    sendEmail.mockResolvedValue({ id: 'r1' })
-    recordLeadContact.mockRejectedValue(new Error('db caída'))
+  describe('el correo salió pero el registro falla (evita el reenvío duplicado)', () => {
+    beforeEach(() => {
+      getSession.mockResolvedValue(session('admin'))
+      getLeadById.mockResolvedValue(leadRecord())
+      sendEmail.mockResolvedValue({ id: 'r1' })
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    })
 
-    const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+    it('REGRESIÓN: NO devuelve error (ok: true con recorded: false) y no vuelve a enviar', async () => {
+      recordLeadContact.mockRejectedValue(new Error('db caída'))
 
-    expect(result).toEqual({ ok: false, error: 'unknown', message: 'db caída' })
+      const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(result).toEqual({ ok: true, recorded: false })
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+    })
+
+    it('reintenta el registro una vez y, si la segunda vale, devuelve ok sin aviso', async () => {
+      recordLeadContact.mockRejectedValueOnce(new Error('blip')).mockResolvedValueOnce(undefined)
+
+      const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(result).toEqual({ ok: true })
+      expect(recordLeadContact).toHaveBeenCalledTimes(2)
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+    })
+
+    it('reintenta exactamente una vez (2 intentos en total)', async () => {
+      recordLeadContact.mockRejectedValue(new Error('db caída'))
+
+      await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(recordLeadContact).toHaveBeenCalledTimes(2)
+    })
+
+    it('deja constancia en el log con el lead y el id de Resend', async () => {
+      recordLeadContact.mockRejectedValue(new Error('db caída'))
+
+      await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('no se pudo registrar'),
+        expect.objectContaining({ leadId: 'lead-1', resendEmailId: 'r1' })
+      )
+    })
+
+    it('un registro que va bien no deja rastro de error en el log', async () => {
+      recordLeadContact.mockResolvedValue(undefined)
+
+      await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(console.error).not.toHaveBeenCalled()
+    })
   })
 
   it('un rechazo que no es Error devuelve unknown sin message', async () => {
