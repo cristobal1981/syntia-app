@@ -26,10 +26,22 @@ describe('resolveOdooCountryId', () => {
     expect(odooSearchRead).not.toHaveBeenCalled()
   })
 
-  it('BUG documentado: parseInt permisivo, "68abc" y "1 Spain" se leen como id', async () => {
-    expect(await resolveOdooCountryId('68abc')).toBe(68)
-    expect(await resolveOdooCountryId('1 Spain')).toBe(1)
-    expect(odooSearchRead).not.toHaveBeenCalled()
+  it.each(['1e3', '0x10', '1_000', '+5', '5.0'])(
+    'REGRESIÓN: %j no es un id decimal: se busca en Odoo',
+    async (value) => {
+      odooSearchRead.mockResolvedValue([{ id: 9 }])
+
+      await expect(resolveOdooCountryId(value)).resolves.toBe(9)
+      expect(odooSearchRead).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it('REGRESIÓN: "68abc" y "1 Spain" no son id: se buscan en Odoo', async () => {
+    odooSearchRead.mockResolvedValue([{ id: 9 }])
+
+    await expect(resolveOdooCountryId('68abc')).resolves.toBe(9)
+    await expect(resolveOdooCountryId('1 Spain')).resolves.toBe(9)
+    expect(odooSearchRead).toHaveBeenCalledTimes(2)
   })
 
   it('cero o negativo no son id: va a Odoo', async () => {
@@ -105,9 +117,21 @@ describe('resolveOdooStateId', () => {
     expect(odooSearchRead).toHaveBeenCalledTimes(2)
   })
 
-  it('BUG documentado: parseInt permisivo, "28001 Madrid" se lee como 28001', async () => {
-    expect(await resolveOdooStateId('28001 Madrid', 68)).toBe(28001)
-    expect(odooSearchRead).not.toHaveBeenCalled()
+  it.each(['1e3', '0x10', '1_000', '+5', '5.0'])(
+    'REGRESIÓN: %j no es un id decimal (Number() lo aceptaría): se busca por nombre',
+    async (value) => {
+      odooSearchRead.mockResolvedValue([{ id: 3 }])
+
+      await expect(resolveOdooStateId(value, 68)).resolves.toBe(3)
+      expect(odooSearchRead).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it('REGRESIÓN: "28001 Madrid" no es un id: se busca por nombre', async () => {
+    odooSearchRead.mockResolvedValue([{ id: 3 }])
+
+    await expect(resolveOdooStateId('28001 Madrid', 68)).resolves.toBe(3)
+    expect(odooSearchRead).toHaveBeenCalledTimes(1)
   })
 
   it('nombre: filtra por país y name ilike', async () => {

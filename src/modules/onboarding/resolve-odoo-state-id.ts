@@ -5,8 +5,11 @@ type ResStateRow = { id: number; name?: string }
 const stateIdCache = new Map<string, number>()
 
 function parsePositiveInt(value: string): number | null {
-  const parsed = Number.parseInt(value.trim(), 10)
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+  // Solo dígitos: parseInt aceptaría "28001 Madrid" como 28001.
+  const trimmed = value.trim()
+  if (!/^\d+$/.test(trimmed)) return null
+  const parsed = Number(trimmed)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 }
 
 export async function resolveOdooStateId(

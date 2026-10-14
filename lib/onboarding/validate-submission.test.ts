@@ -317,9 +317,18 @@ describe('fechas condicionales', () => {
   })
 })
 
-describe('parsePositiveInt (comportamiento actual, permisivo)', () => {
-  it('provincia "28abc" se lee como 28 (parseInt permisivo)', () => {
+describe('parsePositiveInt (solo dígitos)', () => {
+  it('REGRESIÓN: provincia "28abc" ya no se lee como 28', () => {
     const r = run({ provincia: '28abc' })
+    expect(r.ok).toBe(false)
+  })
+
+  it.each(['28 Madrid', '1.5', '-3', '0', '3e2', ' '])('provincia %j no es un id', (provincia) => {
+    expect(run({ provincia }).ok).toBe(false)
+  })
+
+  it('un id numérico con espacios alrededor sí vale', () => {
+    const r = run({ provincia: ' 28 ' })
     expect(r.ok && r.data.provinceId).toBe(28)
   })
 })

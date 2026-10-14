@@ -71,7 +71,7 @@ function sessionFor(role: 'client' | 'worker'): PortalSession {
 const payload: TrabajadorBajaPayload = {
   type: 'baja-trabajador',
   fullName: 'Ana García',
-  dni: '12345678A',
+  dni: '12345678Z',
   endDate: '2026-09-01',
   reason: 'Fin de contrato',
   observations: '',

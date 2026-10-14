@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isValidDni, normalizeDni } from '@/lib/validation/dni'
+import { dniControlLetter, isValidDni, normalizeDni } from '@/lib/validation/dni'
 
 describe('normalizeDni', () => {
   it('recorta, pasa a mayúsculas y elimina espacios internos', () => {
@@ -43,8 +43,28 @@ describe('isValidDni', () => {
     expect(isValidDni('12345678Z\n12345678Z')).toBe(false)
   })
 
-  it('NO comprueba la letra de control (solo formato): 12345678A pasa', () => {
-    // Documenta comportamiento actual: la letra correcta de 12345678 es Z.
-    expect(isValidDni('12345678A')).toBe(true)
+  it('REGRESIÓN: comprueba la letra de control (la correcta de 12345678 es Z)', () => {
+    expect(isValidDni('12345678Z')).toBe(true)
+    expect(isValidDni('12345678A')).toBe(false)
+    expect(isValidDni('12345678z')).toBe(true)
+  })
+
+  it('letra de control del NIE: X/Y/Z cuentan como 0/1/2', () => {
+    expect(isValidDni('X1234567L')).toBe(true)
+    expect(isValidDni('Y1234567X')).toBe(true)
+    expect(isValidDni('Z1234567R')).toBe(true)
+    expect(isValidDni('X1234567A')).toBe(false)
+    expect(isValidDni('Y1234567L')).toBe(false)
+  })
+
+  it('el resto cero es T y el máximo (resto 22) es E', () => {
+    expect(isValidDni('00000000T')).toBe(true)
+    expect(isValidDni('00000000A')).toBe(false)
+    expect(isValidDni('00000022E')).toBe(true)
+  })
+
+  it('dniControlLetter devuelve null si no hay formato', () => {
+    expect(dniControlLetter('ABC')).toBeNull()
+    expect(dniControlLetter('1234567Z')).toBeNull()
   })
 })

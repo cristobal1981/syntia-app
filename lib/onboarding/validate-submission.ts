@@ -52,8 +52,12 @@ function normalizeText(value: unknown): string {
 function parsePositiveInt(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value
   if (typeof value === 'string') {
-    const parsed = Number.parseInt(value.trim(), 10)
-    if (Number.isInteger(parsed) && parsed > 0) return parsed
+    // Solo dígitos: parseInt aceptaría "28abc" como 28.
+    const trimmed = value.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed)
+      if (Number.isSafeInteger(parsed) && parsed > 0) return parsed
+    }
   }
   return null
 }

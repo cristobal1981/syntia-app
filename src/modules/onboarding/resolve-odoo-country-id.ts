@@ -53,8 +53,9 @@ function resolveIsoCode(label: string): string | null {
 /** Acepta id numerico, codigo ISO, alias o nombre; cachea en memoria por proceso. */
 export async function resolveOdooCountryId(countryLabel: string): Promise<number> {
   const trimmed = countryLabel.trim()
-  const asId = Number.parseInt(trimmed, 10)
-  if (Number.isInteger(asId) && asId > 0) {
+  // Solo dígitos: parseInt aceptaría "68abc" o "1 Spain" como id.
+  const asId = /^\d+$/.test(trimmed) ? Number(trimmed) : NaN
+  if (Number.isSafeInteger(asId) && asId > 0) {
     countryIdCache.set(trimmed, asId)
     return asId
   }

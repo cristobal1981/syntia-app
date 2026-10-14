@@ -42,7 +42,18 @@ describe('isValidPhone', () => {
     expect(isValidPhone('x612345678')).toBe(false)
   })
 
-  it('BUG documentado: \\s admite saltos de línea internos', () => {
-    expect(isValidPhone('612345678\n612345678')).toBe(true)
+  it('REGRESIÓN: saltos de línea y tabuladores internos no son separadores válidos', () => {
+    expect(isValidPhone('612345678\n612345678')).toBe(false)
+    expect(isValidPhone('612\t345\t678')).toBe(false)
+    expect(isValidPhone('+34\n612345678')).toBe(false)
+  })
+
+  it('un salto de línea al final se recorta como cualquier espacio sobrante', () => {
+    expect(isValidPhone('612345678\r\n')).toBe(true)
+  })
+
+  it('los espacios normales siguen siendo separadores válidos', () => {
+    expect(isValidPhone('612 345 678')).toBe(true)
+    expect(isValidPhone('+34 612 345 678')).toBe(true)
   })
 })
