@@ -114,7 +114,7 @@ export function PortalRecordTable<T>({
   return (
     <div
       className={cn(
-        embedded ? undefined : 'portal-home-card rounded-xl'
+        embedded ? undefined : 'portal-home-card overflow-hidden rounded-xl'
       )}
     >
       <div className={cn('overflow-x-auto', !embedded && 'hidden sm:block')}>

@@ -120,16 +120,16 @@
   /* Content canvas; cards/popovers one step above sidebar/canvas */
   --surface-raised: #003737;
   --background: #001f20;
-  --foreground: #eff7f7;
-  --card: #003737;
-  --card-foreground: #eff7f7;
+  --foreground: var(--on-dark);
+  --card: var(--surface-raised);
+  --card-foreground: var(--on-dark);
   /* Form-control fill; dialogs/drawers override this to --background for contrast against their bg-card panel. */
   --field-bg: var(--card);
   /* One step lighter than --card: Radix portals (Select/Popover/DropdownMenu) render outside the
      dialog DOM subtree, so they can't inherit a context override — stay distinct from --card via a
      static step instead (dark-mode elevation relies on lightness, shadows barely read here). */
   --popover: #134545;
-  --popover-foreground: #eff7f7;
+  --popover-foreground: var(--on-dark);
   /* Bg-vs-bg contrast against --card tops out around 1.5:1 without breaking the tonal dark
      palette (measured); the border carries the real edge definition here instead, at 3:1+
      against --popover so the panel reads as a distinct surface even without strong fill contrast. */
@@ -139,7 +139,7 @@
   --secondary: #01635c;
   --secondary-foreground: var(--on-dark);
   --muted: #0d4141;
-  --muted-foreground: #c1d2d1;
+  --muted-foreground: var(--muted-on-dark);
   --accent: #0d4141;
   --accent-foreground: var(--on-dark);
   --destructive: #ff9a9a;
@@ -175,7 +175,7 @@
   --info-icon: #7bb6ff;
   --chart-ordinal-received: #039272;
   --chart-ordinal-clicked: #01dea2;
-  --sidebar: #001415;
+  --sidebar: var(--surface-dark);
   --sidebar-foreground: var(--on-dark);
   --sidebar-muted-foreground: var(--muted-on-dark);
   --sidebar-primary: #01dea2;
@@ -221,11 +221,17 @@ html.dark.hc {
   --muted-on-dark: #e2eef1;
   --subtle-foreground: #d5e6ea;
   --icon-muted: #dcebee;
-  --border: #1d5563;
-  --border-subtle: #1d5563;
-  --input: #12454f;
+  --border: #5b9493;
+  --border-subtle: #5b9493;
+  --input: #134545;
   --sidebar-muted-foreground: #e2eef1;
-  --sidebar-border: #1a4a55;
+  --sidebar-border: #3f7474;
+}
+
+/* En oscuro las tarjetas no llevan borde; en alto contraste sí (si no, se funden con el fondo). */
+html.dark.hc .portal-home-card,
+html.dark.hc .portal-surface {
+  border-color: var(--border);
 }
 
 /* Accesibilidad: subrayar enlaces */
