@@ -30,7 +30,7 @@ const worker: PortalUser = {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   resolveDirectoryActorId.mockResolvedValue('portal-worker-1')
   isOwnerAccountActive.mockResolvedValue(true)
 })
@@ -166,5 +166,48 @@ describe('getWorkerAccessStatus', () => {
     await getWorkerAccessStatus(worker)
 
     expect(isOwnerAccountActive).toHaveBeenCalledWith('owner-xyz')
+  })
+})
+
+describe('getWorkerAccessStatus (extra)', () => {
+  it('resolves the grant by the directory actor id, not the auth id', async () => {
+    getWorkerGrant.mockResolvedValue(null)
+
+    await getWorkerAccessStatus(worker)
+
+    expect(resolveDirectoryActorId).toHaveBeenCalledWith(worker)
+    expect(getWorkerGrant).toHaveBeenCalledWith('portal-worker-1')
+  })
+
+  it('is inactive when the owner toggle is off even if the owner account is active, and vice versa', async () => {
+    const grant = {
+      worker_user_id: 'portal-worker-1',
+      owner_user_id: 'owner-1',
+      allowed_sections: { '/tramites': 'write' },
+      is_enabled: true,
+    }
+    getWorkerGrant.mockResolvedValue(grant)
+    getWorkerSettings.mockResolvedValue({ workers_enabled: false, max_workers: 5 })
+    isOwnerAccountActive.mockResolvedValue(true)
+    expect((await getWorkerAccessStatus({ ...worker, id: 'a' })).active).toBe(false)
+
+    getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })
+    isOwnerAccountActive.mockResolvedValue(false)
+    expect((await getWorkerAccessStatus({ ...worker, id: 'b' })).active).toBe(false)
+  })
+
+  it('a read-only grant yields empty writeSections', async () => {
+    getWorkerGrant.mockResolvedValue({
+      worker_user_id: 'portal-worker-1',
+      owner_user_id: 'owner-1',
+      allowed_sections: { '/documentos': 'read' },
+      is_enabled: true,
+    })
+    getWorkerSettings.mockResolvedValue({ workers_enabled: true, max_workers: 5 })
+
+    const status = await getWorkerAccessStatus({ ...worker, id: 'c' })
+
+    expect(status.writeSections.size).toBe(0)
+    expect([...status.allowedSections]).toEqual(['/documentos'])
   })
 })

@@ -16,7 +16,7 @@ export function isNavItemActive(pathname: string, href?: string) {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-export function isNavGroupActive(pathname: string, item: NavItem) {
+function isNavGroupActive(pathname: string, item: NavItem) {
   return (
     item.children?.some((child) => isNavItemActive(pathname, child.href)) ?? false
   )

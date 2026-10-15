@@ -25,14 +25,14 @@ export type AutomationInputField = {
   options: AutomationInputOption[]
 }
 
-export type AutomationWebhookPayload = Record<string, string | number[] | boolean>
+type AutomationWebhookPayload = Record<string, string | number[] | boolean>
 
-export const AUTOMATION_INPUT_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/
-export const MAX_AUTOMATION_INPUT_FIELDS = 6
-export const MAX_AUTOMATION_INPUT_OPTIONS = 24
+const AUTOMATION_INPUT_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/
+const MAX_AUTOMATION_INPUT_FIELDS = 6
+const MAX_AUTOMATION_INPUT_OPTIONS = 24
 export const MAX_AUTOMATION_INPUT_TEXT_LENGTH = 500
-export const YEAR_INPUT_YEARS_BACK = 3
-export const YEAR_INPUT_YEARS_FORWARD = 1
+const YEAR_INPUT_YEARS_BACK = 3
+const YEAR_INPUT_YEARS_FORWARD = 1
 
 /**
  * Rango de ejercicios para campos tipo "año": actual + 1 hasta actual - 3,

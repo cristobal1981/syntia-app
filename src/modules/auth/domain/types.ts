@@ -26,11 +26,6 @@ export type PortalSession = {
   expiresAt: number
 }
 
-export type AuthCredentials = {
-  email: string
-  password: string
-}
-
 export const SESSION_COOKIE_NAME = 'syntia-portal-session' as const
 
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7

@@ -87,7 +87,7 @@ export function ChatterMessageItem({
           <span
             className={cn(
               'text-xs font-semibold',
-              message.isFromClient && 'text-agua dark:text-surface-dark'
+              message.isFromClient && 'text-agua dark:text-foreground'
             )}
           >
             {message.isFromClient ? portalChatter.youLabel : message.authorName}
@@ -96,7 +96,7 @@ export function ChatterMessageItem({
             className={cn(
               'text-[11px]',
               message.isFromClient
-                ? 'text-agua/80 dark:text-black/55'
+                ? 'text-agua/80 dark:text-foreground/70'
                 : 'text-subtle-foreground'
             )}
             dateTime={message.date}

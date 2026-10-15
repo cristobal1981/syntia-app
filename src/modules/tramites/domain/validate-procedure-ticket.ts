@@ -58,8 +58,6 @@ export type ProcedureFieldErrorKey =
   | 'attachmentRequired'
   | 'daysOverlap'
 
-export { normalizeDni, todayIsoDateLocal } from '@/lib/validation'
-
 function validateRequiredDateField(
   value: string,
   field: string,

@@ -13,7 +13,11 @@ import {
 } from '@/components/ui/dialog'
 import { createProcedureTicketAction } from '@/src/modules/tramites/application/create-procedure-ticket-action'
 import { createTicketAction } from '@/src/modules/tramites/application/create-ticket-action'
-import type { ProcedureTicketType, SolicitudPickerId } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  hasAvailableProcedureTypes,
+  type ProcedureTicketType,
+  type SolicitudPickerId,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
   normalizeProcedureTicketPayload,
   validateProcedureTicketPayload,
@@ -57,6 +61,11 @@ type TramiteCreateConsultaDrawerProps = {
   initialProcedure?: ProcedureTicketType | null
 }
 
+/**
+ * Drawer de alta con pasos: selector, consulta general y trámites (baja,
+ * carta de vacaciones). Pide confirmación al cerrar con contenido sin enviar
+ * y se resetea al cerrarse.
+ */
 export function TramiteCreateConsultaDrawer({
   open,
   onOpenChange,
@@ -296,7 +305,7 @@ export function TramiteCreateConsultaDrawer({
       >
         <div className="flex h-full min-h-0 flex-col">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4 pr-12 text-left">
-            {step !== 'picker' ? (
+            {step !== 'picker' && hasAvailableProcedureTypes() ? (
               <Button
                 type="button"
                 variant="ghost"

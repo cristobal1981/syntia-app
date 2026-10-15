@@ -183,6 +183,7 @@ export const portal = {
         intro: 'Elige tus facturas y se guardarán directamente en esta carpeta de Documentos:',
         pathRoot: 'Documentos',
         limits: 'PDF, imágenes u Office. Hasta 10 archivos y 10 MB en total.',
+        dontShowAgain: 'No volver a mostrar este aviso',
         confirm: 'Elegir archivos',
         cancel: 'Cancelar',
       },
@@ -251,6 +252,16 @@ export const portal = {
         title: 'Firmas',
         description: 'Si te llega una solicitud de firma, la encontrarás aquí.',
       },
+      documentos: {
+        title: 'Documentos',
+        description:
+          'Tu carpeta compartida con la asesoría: consulta, descarga y sube tus documentos desde aquí.',
+      },
+      facturaCompra: {
+        title: 'Factura de compra',
+        description:
+          'Sube una factura de compra en un clic desde este botón: se guarda sola en la carpeta del año en curso.',
+      },
       guias: {
         title: 'Guías',
         description:
@@ -296,6 +307,8 @@ export const portal = {
     openConversation: 'Ver conversación',
     openDocuments: 'Ver documentos',
     openFirmas: 'Ver firmas',
+    dismiss: 'Descartar notificación',
+    dismissAll: 'Descartar todas',
     unreadBadge: 'Mensajes sin leer',
     tooltipUnread: '{count} novedades',
     typeTramite: 'Trámite',
@@ -371,7 +384,7 @@ export const portal = {
             label: 'Asesores',
             href: '/equipo/gestores',
             implemented: true,
-            icon: 'team',
+            icon: 'advisors',
           },
           {
             label: 'Clientes',
@@ -383,7 +396,7 @@ export const portal = {
             label: 'Colaboradores',
             href: '/equipo/colaboradores',
             implemented: true,
-            icon: 'clients',
+            icon: 'collaborators',
           },
         ],
       },
@@ -403,7 +416,7 @@ export const portal = {
         label: 'Colaboradores',
         href: '/colaboradores',
         implemented: true,
-        icon: 'clients',
+        icon: 'collaborators',
       },
       {
         label: 'Automatizaciones',
@@ -436,7 +449,6 @@ export const portal = {
       unreadLoading: 'Comprobando novedades…',
       unreadTitle: 'Novedades',
       unreadEmpty: 'No hay novedades de tu asesoría por ahora. Todo está al día — cualquier cosa, aquí estamos para ayudarte.',
- 
       unreadViewAll: 'Ver trámites',
       unreadMore: 'Ver {count} novedades más',
       unreadMorePending:

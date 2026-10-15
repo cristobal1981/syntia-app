@@ -3,6 +3,10 @@ import { cookies } from 'next/headers'
 
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 
+/**
+ * Cliente Supabase para servidor con la sesión en cookies de Next.
+ * `cookies()` es asíncrono en esta versión de Next, de ahí el await.
+ */
 export async function createSupabaseServerClient() {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase no configurado')

@@ -37,6 +37,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       className={cn(
         'fixed inset-0 z-50 bg-surface-dark/50 backdrop-blur-sm dark:bg-background/80',
+        'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none',
         className
       )}
       {...props}
@@ -61,6 +62,10 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-card p-6 shadow-lg outline-none sm:max-w-md [--field-bg:var(--background)]',
+          // Fundido y leve zoom; sin movimiento si el sistema lo pide.
+          'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
+          'motion-reduce:animate-none',
           className
         )}
         {...props}

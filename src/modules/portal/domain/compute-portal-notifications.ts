@@ -160,11 +160,11 @@ export function computeRecordWatchDeltas(input: {
         })
       } else if (!record.isClosed && stateChanged) {
         notifyStatus = true
+        // Una consulta solo tiene abierta/cerrada y aquí previous.lastIsClosed
+        // es false, así que su estado anterior siempre es "en curso".
         const previousLabel =
           record.scope === 'consulta'
-            ? previous.lastState === 'closed'
-              ? tramites.taskStates.done
-              : tramites.taskStates.inProgress
+            ? tramites.taskStates.inProgress
             : record.scope === 'obligacion'
               ? getObligacionStateBadge(previous.lastState).label
               : mapTaskStateLabel(previous.lastState) ?? '—'
@@ -237,10 +237,10 @@ export function computeFirmaWatchDeltas(input: {
     const dueSoon = isSignatureDueSoon(request.dueDate)
     const latestDate = request.dueDate ?? request.createDate ?? new Date().toISOString()
 
+    // Sale de la ventana "vence pronto" (plazo ampliado o fecha corregida) →
+    // se rearma, para volver a avisar si entra otra vez.
     const dueSoonNotified =
       dueSoon && (previous?.firmaDueSoonNotified || !previous?.initialized)
-        ? true
-        : previous?.firmaDueSoonNotified ?? false
 
     const currentUpsert: PortalRecordWatchStateUpsert = {
       scope: 'firma',

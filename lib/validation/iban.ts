@@ -26,7 +26,8 @@ export function isValidSpanishIban(value: string): boolean {
 
 export function maskIban(iban: string): string {
   const normalized = normalizeIban(iban)
-  if (normalized.length < 8) return iban
+  // Demasiado corto para enseñar nada sin revelarlo entero.
+  if (normalized.length < 8) return '****'
   const visible = normalized.slice(-4)
   return `${normalized.slice(0, 2)}** **** **** **** ${visible}`
 }

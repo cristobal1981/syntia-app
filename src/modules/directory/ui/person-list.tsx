@@ -35,8 +35,7 @@ type PersonListProps = {
    * Búsqueda controlada por el padre (server-side, ya aplicada a `items`
    * antes de pasarlos aquí) — cuando se pasa, `PersonList` deja de filtrar
    * en memoria y el checkbox "seleccionar todo" selecciona exactamente lo
-   * recibido en `items` (la página actual). Sin esto, mantiene el filtrado
-   * 100% client-side de siempre (usado hoy por la lista de gestores).
+   * recibido en `items` (la página actual). Sin esto, filtra en memoria.
    */
   searchValue?: string
   onSearchChange?: (value: string) => void

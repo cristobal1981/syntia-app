@@ -35,8 +35,7 @@ import {
 import { ChatterTypingIndicator } from '@/src/modules/portal/ui/chatter-typing-indicator'
 import { ChatterPendingAttachments } from '@/src/modules/portal/ui/chatter-pending-attachments'
 import { ChatterReplyBanner } from '@/src/modules/portal/ui/chatter-reply-banner'
-import { chatterMockEnabled, useChatterMessages } from '@/src/modules/portal/ui/use-chatter-messages'
-import { createMockMessageId } from '@/src/modules/portal/ui/chatter-mock-data'
+import { useChatterMessages } from '@/src/modules/portal/ui/use-chatter-messages'
 import { invalidateAttachmentsClientCache } from '@/src/modules/portal/ui/record-attachments-panel'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
@@ -85,6 +84,10 @@ function formatMessageDate(value: string): string {
   }).format(date)
 }
 
+/**
+ * Conversación de un registro (trámite/consulta) con composer. Mantiene el scroll
+ * pegado al final salvo que el usuario haya subido; el estado de carga/lectura vive en `useChatterMessages`.
+ */
 export function RecordChatterPanel({
   kind,
   recordId,
@@ -288,36 +291,6 @@ export function RecordChatterPanel({
     void (async () => {
       setSending(true)
       try {
-        if (chatterMockEnabled) {
-          await new Promise((resolve) => setTimeout(resolve, 400))
-          const newMessage: PortalChatterMessage = {
-            id: createMockMessageId(),
-            bodyHtml: bodyEmpty ? '' : htmlBody,
-            date: new Date().toISOString(),
-            authorName: portalChatter.youLabel,
-            isFromClient: true,
-            ...(effectiveReplyParentId && replyParentMessage
-              ? {
-                  parentId: effectiveReplyParentId,
-                  parentPreview: buildParentPreview(replyParentMessage),
-                }
-              : {}),
-            ...(filesSnapshot.length
-              ? {
-                  attachments: filesSnapshot.map((file, index) => ({
-                    id: -(createMockMessageId() + index),
-                    name: file.name,
-                  })),
-                }
-              : {}),
-          }
-          resetComposerState()
-          shouldStickToBottomRef.current = true
-          setDividerDismissed(true)
-          setMessages((current) => [...current, newMessage])
-          return
-        }
-
         const files = filesSnapshot.length
           ? await readFilesAsUploadPayload(filesSnapshot)
           : undefined
@@ -397,12 +370,6 @@ export function RecordChatterPanel({
       <h3 id="record-chatter-heading" className="sr-only">
         {portalChatter.title}
       </h3>
-
-      {chatterMockEnabled ? (
-        <p className="border-b border-border bg-muted/30 px-6 py-2 text-xs text-muted-foreground dark:border-border/50">
-          {portalChatter.mockBadge}
-        </p>
-      ) : null}
 
       <div
         ref={scrollRef}

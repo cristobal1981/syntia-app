@@ -1,4 +1,11 @@
-import type { PortalSession } from '@/src/modules/auth/domain/types'
+import type { PortalRole, PortalSession } from '@/src/modules/auth/domain/types'
+
+const VALID_ROLES: ReadonlySet<string> = new Set<PortalRole>([
+  'advisor',
+  'admin',
+  'client',
+  'worker',
+])
 
 const encoder = new TextEncoder()
 
@@ -31,6 +38,10 @@ async function importKey(secret: string): Promise<CryptoKey> {
   )
 }
 
+/**
+ * Cookie de sesión = `payload.firma` (base64url + HMAC-SHA256). Usa solo Web
+ * Crypto para poder correr también en el runtime edge (proxy).
+ */
 export async function createSessionToken(
   session: PortalSession,
   secret: string
@@ -45,7 +56,10 @@ export async function parseSessionToken(
   token: string,
   secret: string
 ): Promise<PortalSession | null> {
-  const [payload, signature] = token.split('.')
+  // Exactamente `payload.firma`: segmentos de más no se toleran.
+  const parts = token.split('.')
+  if (parts.length !== 2) return null
+  const [payload, signature] = parts
   if (!payload || !signature) return null
 
   try {
@@ -59,7 +73,11 @@ export async function parseSessionToken(
     if (!valid) return null
 
     const session = JSON.parse(new TextDecoder().decode(fromBase64Url(payload))) as PortalSession
-    if (!session?.user?.id || !session.expiresAt) return null
+    if (!session?.user?.id || typeof session.user.id !== 'string') return null
+    if (typeof session.expiresAt !== 'number' || !session.expiresAt) return null
+    // La firma garantiza que lo escribimos nosotros, pero un rol fuera de la lista
+    // (sesión antigua o versión distinta) no debe llegar a los guards como válido.
+    if (typeof session.user.role !== 'string' || !VALID_ROLES.has(session.user.role)) return null
     if (Date.now() > session.expiresAt) return null
 
     return session

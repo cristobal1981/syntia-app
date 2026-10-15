@@ -35,6 +35,7 @@ import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-toolt
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import { useRetainedValue } from '@/src/modules/portal/ui/use-retained-value'
 import {
   TRAMITE_DRAWER_NEXT_SHORTCUT,
   TRAMITE_DRAWER_PREV_SHORTCUT,
@@ -67,8 +68,13 @@ type TramiteDetailDrawerProps = {
   canWriteTramites: boolean
 }
 
+/**
+ * Drawer de detalle de un trámite/consulta con pestañas conversación y
+ * documentos. Marca como visto chatter, cambios de estado y documentos al
+ * abrir; ver los comentarios inline para el porqué del orden de los acks.
+ */
 export function TramiteDetailDrawer({
-  item,
+  item: itemProp,
   open,
   onOpenChange,
   initialTab = 'conversation',
@@ -78,6 +84,10 @@ export function TramiteDetailDrawer({
   onNavigateItem,
   canWriteTramites,
 }: TramiteDetailDrawerProps) {
+  // Al cerrar, `item` llega a null: se conserva para que el contenido siga
+  // pintado durante la animación de salida. El reinicio de estado de abajo
+  // sigue la prop real, así que reabrir reinicia como antes.
+  const item = useRetainedValue(itemProp)
   const notifications = usePortalNotificationsOptional()
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
@@ -124,14 +134,14 @@ export function TramiteDetailDrawer({
 
   // Ajuste durante el render (no en un efecto): reinicia el estado local del
   // drawer al cambiar de item.
-  const [prevResetKey, setPrevResetKey] = useState([item?.id, item?.kind, initialTab])
+  const [prevResetKey, setPrevResetKey] = useState([itemProp?.id, itemProp?.kind, initialTab])
   if (
-    item?.id !== prevResetKey[0] ||
-    item?.kind !== prevResetKey[1] ||
+    itemProp?.id !== prevResetKey[0] ||
+    itemProp?.kind !== prevResetKey[1] ||
     initialTab !== prevResetKey[2]
   ) {
-    setPrevResetKey([item?.id, item?.kind, initialTab])
-    if (item?.id !== undefined) {
+    setPrevResetKey([itemProp?.id, itemProp?.kind, initialTab])
+    if (itemProp?.id !== undefined) {
       setActiveTab(initialTab)
       setScrollPin(0)
       setZipError(null)
@@ -144,9 +154,9 @@ export function TramiteDetailDrawer({
   // El ref (a diferencia del estado de arriba) solo puede escribirse fuera
   // del render — un efecto aparte, mismo disparador.
   useEffect(() => {
-    if (item?.id === undefined) return
+    if (itemProp?.id === undefined) return
     documentsAckRef.current = null
-  }, [item?.id, item?.kind, initialTab])
+  }, [itemProp?.id, itemProp?.kind, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0

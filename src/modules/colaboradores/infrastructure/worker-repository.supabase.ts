@@ -108,11 +108,22 @@ export async function createWorkerAccount(
 
     return { workerUserId: newWorkerUserId, inviteSent }
   } catch (error) {
+    // Cada paso del rollback se intenta aunque falle el anterior: si el borrado
+    // del permiso lanzara, el usuario de auth quedaría huérfano. Se relanza el
+    // error original, no el del rollback.
+    const steps: Array<() => Promise<unknown>> = []
     if (workerUserId) {
-      await deleteWorkerGrant(workerUserId)
-      await deleteClientIntegration(workerUserId)
+      const id = workerUserId
+      steps.push(() => deleteWorkerGrant(id), () => deleteClientIntegration(id))
     }
-    await rollbackCreatedPortalUser(authUserId, workerUserId)
+    steps.push(() => rollbackCreatedPortalUser(authUserId, workerUserId))
+    for (const step of steps) {
+      try {
+        await step()
+      } catch (rollbackError) {
+        console.error('[colaboradores] fallo en un paso del rollback de la cuenta', rollbackError)
+      }
+    }
     throw error
   }
 }

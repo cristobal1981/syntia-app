@@ -1261,3 +1261,213 @@ describe('updateGestor / updateClient', () => {
     })
   })
 })
+
+describe('deleteGestor / deleteClient — orden, filtros y errores propagados', () => {
+  type Row = { id: string; auth_user_id: string | null; role: string }
+
+  function setup(opts: {
+    row: Row | null
+    fetchError?: { message: string }
+    deleteError?: { message: string }
+    authError?: { message: string }
+  }) {
+    const calls: string[] = []
+    const eq = vi.fn()
+    const deleteUser = vi.fn(async () => {
+      calls.push('auth.deleteUser')
+      return { error: opts.authError ?? null }
+    })
+    const chain: Record<string, unknown> = {}
+    let mode: 'select' | 'delete' = 'select'
+    chain.select = () => {
+      mode = 'select'
+      return chain
+    }
+    chain.delete = () => {
+      mode = 'delete'
+      return chain
+    }
+    chain.eq = (...args: unknown[]) => {
+      eq(...args)
+      if (mode === 'delete') {
+        calls.push('users.delete')
+        return Promise.resolve({ error: opts.deleteError ?? null })
+      }
+      return chain
+    }
+    chain.maybeSingle = () =>
+      Promise.resolve({ data: opts.row, error: opts.fetchError ?? null })
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chain,
+      auth: { admin: { deleteUser } },
+    })
+    return { calls, eq, deleteUser }
+  }
+
+  const clientRow = { id: 'c1', auth_user_id: 'auth-c1', role: 'client' }
+  const gestorRow = { id: 'g1', auth_user_id: 'auth-g1', role: 'advisor' }
+
+  it.each([
+    ['deleteClient', clientRow],
+    ['deleteGestor', gestorRow],
+  ] as const)(
+    '%s deletes by id, removes the portal row BEFORE the auth user and then deletes that auth user',
+    async (method, row) => {
+      const { calls, eq, deleteUser } = setup({ row })
+
+      await supabaseDirectoryRepository[method](row.id)
+
+      expect(eq).toHaveBeenCalledWith('id', row.id)
+      expect(eq).toHaveBeenCalledTimes(2)
+      expect(calls).toEqual(['users.delete', 'auth.deleteUser'])
+      expect(deleteUser).toHaveBeenCalledWith(row.auth_user_id)
+    }
+  )
+
+  it.each([
+    ['deleteClient', { ...clientRow, auth_user_id: null }],
+    ['deleteGestor', { ...gestorRow, auth_user_id: null }],
+  ] as const)('%s does not call the auth admin when no auth account is linked', async (method, row) => {
+    const { calls, deleteUser } = setup({ row })
+
+    await supabaseDirectoryRepository[method](row.id)
+
+    expect(calls).toEqual(['users.delete'])
+    expect(deleteUser).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['deleteClient', clientRow],
+    ['deleteGestor', gestorRow],
+  ] as const)('%s propagates a lookup error and never deletes anything', async (method, row) => {
+    const { calls, deleteUser } = setup({ row, fetchError: { message: 'lookup failed' } })
+
+    await expect(supabaseDirectoryRepository[method](row.id)).rejects.toThrow('lookup failed')
+    expect(calls).toEqual([])
+    expect(deleteUser).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['deleteClient', null],
+    ['deleteGestor', null],
+  ] as const)('%s throws NOT_FOUND when the row does not exist', async (method, row) => {
+    const { calls } = setup({ row })
+
+    await expect(supabaseDirectoryRepository[method]('missing')).rejects.toThrow('NOT_FOUND')
+    expect(calls).toEqual([])
+  })
+
+  it.each([
+    ['deleteClient', clientRow],
+    ['deleteGestor', gestorRow],
+  ] as const)('%s propagates a row-delete error and does NOT delete the auth user', async (method, row) => {
+    const { deleteUser } = setup({ row, deleteError: { message: 'fk violation' } })
+
+    await expect(supabaseDirectoryRepository[method](row.id)).rejects.toThrow('fk violation')
+    expect(deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('deleteGestor accepts both advisor and admin roles', async () => {
+    for (const role of ['advisor', 'admin']) {
+      const { deleteUser } = setup({ row: { ...gestorRow, role } })
+      await supabaseDirectoryRepository.deleteGestor('g1')
+      expect(deleteUser).toHaveBeenCalledWith('auth-g1')
+    }
+  })
+
+  it('deleteGestor DELETE_AUTH_FAILED surfaces when only the auth delete fails', async () => {
+    setup({ row: gestorRow, authError: { message: 'boom' } })
+
+    await expect(supabaseDirectoryRepository.deleteGestor('g1')).rejects.toThrow(
+      'DELETE_AUTH_FAILED'
+    )
+  })
+})
+
+describe('resendGestorAccessEmail / lookup — flujo feliz y errores', () => {
+  function makeClient(
+    result: { data: unknown; error: { message: string } | null },
+    updateUserById = vi.fn().mockResolvedValue({ error: null })
+  ) {
+    const eq = vi.fn()
+    const chain: Record<string, unknown> = {}
+    chain.select = () => chain
+    chain.eq = (...args: unknown[]) => {
+      eq(...args)
+      return chain
+    }
+    chain.maybeSingle = () => Promise.resolve(result)
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chain,
+      auth: { admin: { updateUserById } },
+    })
+    return { eq, updateUserById }
+  }
+
+  it('resendGestorAccessEmail: an ACTIVE gestor gets a password reset then the email, looked up by id', async () => {
+    const { eq, updateUserById } = makeClient({
+      data: { id: 'g1', email: 'g@x.com', auth_user_id: 'a1', role: 'advisor', status: 'active' },
+      error: null,
+    })
+
+    await supabaseDirectoryRepository.resendGestorAccessEmail('g1')
+
+    expect(eq).toHaveBeenCalledWith('id', 'g1')
+    expect(updateUserById).toHaveBeenCalledWith('a1', { password: expect.any(String) })
+    expect(sendClientAccessEmailForClient).toHaveBeenCalledWith('g@x.com')
+  })
+
+  it('resendGestorAccessEmail: INVITED gestor skips the reset but sends the email', async () => {
+    const { updateUserById } = makeClient({
+      data: { id: 'g1', email: 'g@x.com', auth_user_id: 'a1', role: 'admin', status: 'invited' },
+      error: null,
+    })
+
+    await supabaseDirectoryRepository.resendGestorAccessEmail('g1')
+
+    expect(updateUserById).not.toHaveBeenCalled()
+    expect(sendClientAccessEmailForClient).toHaveBeenCalledWith('g@x.com')
+  })
+
+  it('resendGestorAccessEmail: NO_AUTH_ACCOUNT, PASSWORD_RESET_FAILED and lookup errors propagate without sending', async () => {
+    makeClient({
+      data: { id: 'g1', email: 'g@x.com', auth_user_id: null, role: 'advisor', status: 'invited' },
+      error: null,
+    })
+    await expect(supabaseDirectoryRepository.resendGestorAccessEmail('g1')).rejects.toThrow(
+      'NO_AUTH_ACCOUNT'
+    )
+
+    makeClient(
+      {
+        data: { id: 'g1', email: 'g@x.com', auth_user_id: 'a1', role: 'advisor', status: 'active' },
+        error: null,
+      },
+      vi.fn().mockResolvedValue({ error: { message: 'x' } })
+    )
+    await expect(supabaseDirectoryRepository.resendGestorAccessEmail('g1')).rejects.toThrow(
+      'PASSWORD_RESET_FAILED'
+    )
+
+    makeClient({ data: null, error: { message: 'lookup failed' } })
+    await expect(supabaseDirectoryRepository.resendGestorAccessEmail('g1')).rejects.toThrow(
+      'lookup failed'
+    )
+    await expect(supabaseDirectoryRepository.resendClientAccessEmail('c1')).rejects.toThrow(
+      'lookup failed'
+    )
+
+    expect(sendClientAccessEmailForClient).not.toHaveBeenCalled()
+  })
+
+  it('resendClientAccessEmail looks the user up by the given id', async () => {
+    const { eq } = makeClient({
+      data: { id: 'c1', email: 'c@x.com', auth_user_id: 'a1', role: 'client', status: 'invited' },
+      error: null,
+    })
+
+    await supabaseDirectoryRepository.resendClientAccessEmail('c1')
+
+    expect(eq).toHaveBeenCalledWith('id', 'c1')
+  })
+})

@@ -4,7 +4,7 @@ export type GuideCategoryId =
   | 'autonomos-y-empresa'
   | 'referencia'
 
-export type GuideSection = {
+type GuideSection = {
   heading?: string
   paragraphs?: readonly string[]
   bullets?: readonly string[]
@@ -96,14 +96,15 @@ export const guias = {
         '111',
         '115',
       ],
-      relatedModelCodes: ['303', '111', '115', '130', '131'],
+      relatedModelCodes: ['303', '111', '115', '130', '131', '349', '420'],
       calendarWindowIds: ['t1', 't2', 't3', 't4', 't4-retenciones'],
       sections: [
         {
           heading: 'Qué se presenta cada trimestre',
           paragraphs: [
             'Al cerrar cada trimestre natural se presentan las autoliquidaciones periódicas: el IVA (modelo 303) y, si procede, las retenciones practicadas a trabajadores y profesionales (modelo 111), las retenciones por alquileres (modelo 115) y los pagos fraccionados de IRPF para autónomos (modelos 130 o 131).',
-            'El plazo general es del 1 al 20 del mes siguiente al cierre del trimestre (abril, julio y octubre). El cuarto trimestre se presenta en enero: el IVA tiene plazo ampliado hasta el día 30 (coincide con el resumen anual, modelo 390), mientras que las retenciones y pagos fraccionados mantienen el plazo general hasta el día 20.',
+            'El plazo general es del 1 al 20 del mes siguiente al cierre del trimestre (abril, julio y octubre). El cuarto trimestre se presenta en enero con plazos distintos: las retenciones (modelos 111, 115 y 123) hasta el día 20; el IVA (303), los pagos fraccionados del IRPF (130 y 131) y las operaciones intracomunitarias (349) hasta el día 30; y el IGIC canario (420 y 421) hasta el 31.',
+            'Si domicilias el pago, el plazo termina antes: hasta el 15 de abril, julio y octubre, y en torno al 25 de enero. Cuando el último día cae en fin de semana o festivo, pasa al siguiente día hábil.',
           ],
         },
         {
@@ -130,7 +131,7 @@ export const guias = {
       kind: 'article',
       title: 'Resúmenes anuales de enero',
       description:
-        'Además del cuarto trimestre, en enero se presentan los resúmenes informativos del año: IVA, retenciones y alquileres.',
+        'Además del cuarto trimestre, en enero se presentan los resúmenes informativos del año: IVA, retenciones, alquileres, capital mobiliario, no residentes e IGIC.',
       category: 'impuestos-periodicos',
       tags: ['anual', 'enero', 'resumen'],
       keywords: [
@@ -139,16 +140,20 @@ export const guias = {
         '390',
         '190',
         '180',
+        '193',
+        '296',
+        '425',
         'informativa',
         'cierre del año',
       ],
-      relatedModelCodes: ['390', '190', '180'],
+      relatedModelCodes: ['390', '190', '180', '193', '296', '425'],
       calendarWindowIds: ['resumenes-anuales', 't4'],
       sections: [
         {
           heading: 'Qué son los resúmenes anuales',
           paragraphs: [
-            'Son declaraciones informativas: no se paga nada con ellas, pero recapitulan todo lo declarado durante el año. El modelo 390 resume el IVA, el 190 las retenciones a trabajadores y profesionales, y el 180 las retenciones por alquileres.',
+            'Son declaraciones informativas: no se paga nada con ellas, pero recapitulan todo lo declarado durante el año. El modelo 390 resume el IVA, el 190 las retenciones a trabajadores y profesionales, el 180 las retenciones por alquileres, el 193 las del capital mobiliario y el 296 las practicadas a no residentes. En Canarias, el resumen anual del IGIC es el modelo 425.',
+            'El 390 se presenta hasta el 30 de enero y el resto hasta el 31. Si el último día cae en fin de semana, pasa al siguiente día hábil. Según tu caso, en esas fechas también se presentan otras informativas, como el 182 (donativos), el 184 (entidades en atribución de rentas) o el 233 (guarderías).',
             'Deben cuadrar con la suma de los cuatro trimestres, por eso se preparan junto al cierre del cuarto trimestre en enero.',
           ],
         },
@@ -167,17 +172,28 @@ export const guias = {
       kind: 'article',
       title: 'Declaración de operaciones con terceros (347)',
       description:
-        'En febrero se declaran las operaciones con clientes o proveedores que superaron los 3.005,06 € durante el año anterior.',
+        'En febrero se declaran las operaciones con clientes o proveedores que superaron los 3.005,06 € durante el año anterior. En Canarias, las del IGIC van en el modelo 415.',
       category: 'impuestos-periodicos',
       tags: ['anual', 'febrero', 'informativa'],
-      keywords: ['347', 'terceros', 'operaciones', 'febrero', 'proveedores', 'clientes'],
-      relatedModelCodes: ['347'],
+      keywords: [
+        '347',
+        '415',
+        'igic',
+        'canarias',
+        'terceros',
+        'operaciones',
+        'febrero',
+        'proveedores',
+        'clientes',
+      ],
+      relatedModelCodes: ['347', '415'],
       calendarWindowIds: ['feb-347'],
       sections: [
         {
           heading: 'Quién debe presentarlo',
           paragraphs: [
             'Empresas y autónomos que durante el año anterior hayan facturado o comprado a un mismo cliente o proveedor más de 3.005,06 € (IVA incluido). Se declara el importe total por cada tercero, desglosado por trimestres.',
+            'El plazo es todo el mes de febrero (si el último día cae en fin de semana, pasa al siguiente día hábil). En Canarias, las operaciones sujetas a IGIC se declaran en el modelo 415 ante la Agencia Tributaria Canaria, con el mismo umbral y el mismo plazo.',
           ],
         },
         {
@@ -214,7 +230,7 @@ export const guias = {
         {
           heading: 'Fechas clave',
           paragraphs: [
-            'La campaña arranca a principios de abril con la presentación por internet y termina el 30 de junio. Si el resultado sale a pagar y quieres domiciliar el pago, el plazo se adelanta unos días (en torno al 25 de junio).',
+            'La campaña arranca el 8 de abril con la presentación por internet y termina el 30 de junio. Si el resultado sale a pagar y quieres domiciliar el pago, el plazo se adelanta hasta el 25 de junio.',
           ],
         },
         {
@@ -252,14 +268,15 @@ export const guias = {
         'cuentas anuales',
         'sl',
       ],
-      relatedModelCodes: ['200'],
-      calendarWindowIds: ['sociedades'],
+      relatedModelCodes: ['200', '202'],
+      calendarWindowIds: ['sociedades', 'pago-fraccionado-sociedades-3p'],
       sections: [
         {
           heading: 'Qué es y cuándo se presenta',
           paragraphs: [
             'El modelo 200 declara el resultado fiscal de la sociedad en el ejercicio anterior. Para ejercicios que coinciden con el año natural, el plazo va del 1 al 25 de julio.',
             'Antes deben estar cerradas y aprobadas las cuentas anuales: cierre contable, legalización de libros y depósito en el Registro Mercantil siguen su propio calendario en los meses previos.',
+            'A lo largo del ejercicio se adelantan pagos fraccionados (modelo 202): del 1 al 20 de abril, octubre y diciembre (hasta el 15 si se domicilia el pago).',
           ],
         },
         {

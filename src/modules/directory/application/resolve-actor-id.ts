@@ -1,6 +1,7 @@
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
+/** `users.id` del actor: por auth_user_id, luego por email (cuentas migradas) y, si no hay fila, el id de sesión. */
 export async function resolveDirectoryActorId(
   user: PortalUser
 ): Promise<string> {

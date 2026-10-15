@@ -8,17 +8,33 @@ export type ProcedureTicketType =
 export type SolicitudPickerId = ProcedureTicketType | 'general'
 
 /**
- * Solicitudes retiradas de «Nueva solicitud» hasta su lanzamiento. El código
- * (formularios, validación y payloads) se conserva; para volver a ofrecerlas
- * basta con quitarlas de aquí.
+ * Solicitudes DESACTIVADAS A PROPÓSITO en «Nueva solicitud»: baja de trabajador
+ * y carta de vacaciones hasta su lanzamiento, y el alta de trabajador (wizard
+ * de `/alta-trabajador`) por decisión de producto mientras solo se ofrece la
+ * consulta general. NO es código muerto: formularios, validación, payloads,
+ * acciones y tests se conservan para reactivarlos; para volver a ofrecer una
+ * basta con quitarla de aquí (la ruta `/alta-trabajador` y los accesos lo
+ * siguen). No borrar en limpiezas de código sin uso; ver CLAUDE.md.
  */
 const UNAVAILABLE_PROCEDURE_TYPES: ReadonlySet<ProcedureTicketType> = new Set([
+  'alta-trabajador',
   'baja-trabajador',
   'carta-vacaciones',
 ])
 
 export function isProcedureTypeAvailable(type: ProcedureTicketType): boolean {
   return !UNAVAILABLE_PROCEDURE_TYPES.has(type)
+}
+
+const ALL_PROCEDURE_TYPES: readonly ProcedureTicketType[] = [
+  'alta-trabajador',
+  'baja-trabajador',
+  'carta-vacaciones',
+]
+
+/** Hay alguna solicitud estructurada que ofrecer además de la consulta general. */
+export function hasAvailableProcedureTypes(): boolean {
+  return ALL_PROCEDURE_TYPES.some(isProcedureTypeAvailable)
 }
 
 export type TrabajadorAltaPayload = {
@@ -95,7 +111,7 @@ export type TrabajadorBajaPayload = {
   observations: string
 }
 
-export type CartaVacacionesPayload = {
+type CartaVacacionesPayload = {
   type: 'carta-vacaciones'
   fullName: string
   dni: string

@@ -14,7 +14,7 @@ export function isWorkerSectionHref(value: string): value is WorkerSectionHref {
   return (WORKER_SECTION_HREFS as readonly string[]).includes(value)
 }
 
-export const WORKER_ACCESS_LEVELS = ['read', 'write'] as const
+const WORKER_ACCESS_LEVELS = ['read', 'write'] as const
 
 export type WorkerAccessLevel = (typeof WORKER_ACCESS_LEVELS)[number]
 
@@ -36,18 +36,7 @@ export const WORKER_SECTIONS_WITH_WRITE: readonly WorkerSectionHref[] = [
   '/documentos',
 ]
 
-export function hasSectionAccess(
-  grants: WorkerSectionGrants,
-  href: WorkerSectionHref,
-  required: WorkerAccessLevel
-): boolean {
-  const level = grants[href]
-  if (!level) return false
-  if (required === 'read') return true
-  return level === 'write'
-}
-
-export type WorkerStatus = 'active' | 'invited'
+type WorkerStatus = 'active' | 'invited'
 
 export type WorkerRecord = PersonNameParts & {
   id: string

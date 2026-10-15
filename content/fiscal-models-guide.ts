@@ -15,6 +15,12 @@ export type FiscalModelGuideEntry = {
   description: string
   authority: FiscalModelAuthority
   /**
+   * El modelo tiene pago y admite domiciliación bancaria: solo esos entran en
+   * el aviso «a domiciliar» del cron de recordatorios (ver
+   * `resolve-obligacion-notice.ts`). Resúmenes e informativos no.
+   */
+  domiciliable?: boolean
+  /**
    * Quién debe presentarlo y plazo de presentación — piloto en curso,
    * verificado a mano contra la sede de la AEAT/ATC (no todos los modelos
    * lo tienen todavía). Los plazos son del ejercicio 2026 y pueden variar
@@ -59,6 +65,7 @@ export const fiscalModelsGuide = {
       code: '100',
       label: 'Modelo 100',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Declaración anual del IRPF',
       description:
         'Declaración del Impuesto sobre la Renta de las Personas Físicas: resume ingresos, deducciones y resultado de la campaña de la renta.',
@@ -81,6 +88,7 @@ export const fiscalModelsGuide = {
       code: '111',
       label: 'Modelo 111',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones e ingresos a cuenta del IRPF',
       description:
         'Declaración trimestral de retenciones practicadas a trabajadores, profesionales y otras rentas del trabajo o actividades económicas.',
@@ -103,6 +111,7 @@ export const fiscalModelsGuide = {
       code: '115',
       label: 'Modelo 115',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones por alquiler de inmuebles urbanos',
       description:
         'Declaración de retenciones e ingresos a cuenta del IRPF sobre rentas de arrendamiento de inmuebles en urbano.',
@@ -125,6 +134,7 @@ export const fiscalModelsGuide = {
       code: '123',
       label: 'Modelo 123',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones sobre determinados rendimientos del capital mobiliario',
       description:
         'Declaración trimestral de retenciones e ingresos a cuenta sobre determinados rendimientos del capital mobiliario: dividendos, intereses entre socio y empresa, y cánones de propiedad intelectual, entre otros.',
@@ -149,6 +159,7 @@ export const fiscalModelsGuide = {
       code: '130',
       label: 'Modelo 130',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Pago fraccionado del IRPF (estimación directa)',
       description:
         'Pago a cuenta trimestral del IRPF para autónomos y profesionales en estimación directa.',
@@ -171,6 +182,7 @@ export const fiscalModelsGuide = {
       code: '131',
       label: 'Modelo 131',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Pago fraccionado del IRPF (módulos)',
       description:
         'Pago a cuenta trimestral del IRPF para autónomos en estimación objetiva por módulos.',
@@ -241,7 +253,7 @@ export const fiscalModelsGuide = {
       whoFiles:
         'Entidades en régimen de atribución de rentas (comunidades de bienes, sociedades civiles, herencias yacentes) que ejerzan una actividad económica, o cuyas rentas superen los 3.000 €/año.',
       deadline:
-        'Generalmente durante el mes de febrero (para el ejercicio 2025, del 1 de enero al 2 de febrero de 2026) — no sigue el mismo plazo de enero que otros resúmenes anuales, da tiempo a los socios a declarar antes de su propio IRPF.',
+        'Del 1 al 31 de enero de cada año (para el ejercicio 2025, hasta el 2 de febrero de 2026 por caer el 31 en sábado), con el resto de resúmenes e informativas anuales.',
       tags: ['atribución', 'comunidades', 'anual', 'informativa', 'ute'],
       keywords: [
         'atribución de rentas',
@@ -298,6 +310,7 @@ export const fiscalModelsGuide = {
       code: '200',
       label: 'Modelo 200',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Impuesto sobre Sociedades',
       description:
         'Declaración anual del Impuesto sobre Sociedades de las entidades que tributan por este impuesto.',
@@ -320,6 +333,7 @@ export const fiscalModelsGuide = {
       code: '202',
       label: 'Modelo 202',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Pago fraccionado del Impuesto sobre Sociedades',
       description:
         'Pagos a cuenta trimestrales del Impuesto sobre Sociedades.',
@@ -341,6 +355,7 @@ export const fiscalModelsGuide = {
       code: '216',
       label: 'Modelo 216',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones del IRNR (sin establecimiento permanente)',
       description:
         'Declaración-documento de ingreso de retenciones e ingresos a cuenta del IRNR sobre rentas obtenidas sin establecimiento permanente.',
@@ -403,6 +418,7 @@ export const fiscalModelsGuide = {
       code: '303',
       label: 'Modelo 303',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Autoliquidación trimestral del IVA',
       description:
         'Declaración trimestral del IVA: IVA devengado, IVA deducible y resultado a ingresar o compensar.',
@@ -424,6 +440,7 @@ export const fiscalModelsGuide = {
       code: '309',
       label: 'Modelo 309',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Autoliquidación no periódica del IVA',
       description:
         'Liquidación puntual del IVA en supuestos especiales: adquisiciones intracomunitarias, inversión del sujeto pasivo u operaciones concretas sin declaración periódica del 303.',
@@ -495,7 +512,7 @@ export const fiscalModelsGuide = {
       whoFiles:
         'Autónomos y empresas que realizan entregas o adquisiciones intracomunitarias de bienes o determinadas prestaciones de servicios con otros países de la UE.',
       deadline:
-        'Trimestral por defecto (1-20 del mes siguiente al trimestre) mientras no se superen 50.000 € en entregas intracomunitarias en el trimestre actual ni en los 4 anteriores; mensual si se supera ese umbral. Ya no existe la opción de presentarlo con periodicidad anual.',
+        'Trimestral por defecto: del 1 al 20 de abril, julio y octubre (1T, 2T y 3T) y del 1 al 30 de enero para el cuarto trimestre, mientras no se superen 50.000 € en entregas intracomunitarias en el trimestre actual ni en los 4 anteriores; mensual si se supera ese umbral. Ya no existe la opción de presentarlo con periodicidad anual.',
       tags: ['intracomunitarias', 'iva', 'europa', 'exportación', 'importación'],
       keywords: [
         'intracomunitarias',
@@ -591,13 +608,14 @@ export const fiscalModelsGuide = {
       code: '420',
       label: 'Modelo 420',
       authority: 'atc',
+      domiciliable: true,
       title: 'Autoliquidación trimestral del IGIC (Canarias)',
       description:
         'Declaración-liquidación trimestral del IGIC en régimen general para sujetos pasivos en Canarias.',
       whoFiles:
         'Empresarios y profesionales que realizan actividades económicas sujetas al IGIC en Canarias y tributan en el régimen general (no acogidos al simplificado).',
       deadline:
-        'Del 1 al 20 de abril, julio y octubre (1T, 2T y 3T); del 1 al 30 de enero para el cuarto trimestre.',
+        'Del 1 al 20 de abril, julio y octubre (1T, 2T y 3T); durante todo el mes de enero (hasta el 31) para el cuarto trimestre. El plazo con domiciliación bancaria termina unos días antes.',
       tags: ['igic', 'canarias', 'trimestral', 'régimen general'],
       keywords: [
         'igic',
@@ -612,6 +630,7 @@ export const fiscalModelsGuide = {
       code: '421',
       label: 'Modelo 421',
       authority: 'atc',
+      domiciliable: true,
       title: 'IGIC en régimen simplificado (Canarias)',
       description:
         'Autoliquidación trimestral del IGIC para sujetos pasivos acogidos al régimen especial simplificado en Canarias.',
@@ -653,5 +672,3 @@ export const fiscalModelsGuide = {
     },
   ] satisfies FiscalModelGuideEntry[],
 } as const
-
-export type FiscalModelsGuide = typeof fiscalModelsGuide

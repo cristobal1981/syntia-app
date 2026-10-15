@@ -28,6 +28,7 @@ type ImpuestoSociedadesConfigPageViewProps = {
   initialConfigs: ImpuestoSociedadesConfig[]
 }
 
+/** Abre filtrando por el año en curso si hay configs de ese año; si no, muestra todas. */
 function resolveDefaultYearFilter(
   configs: ImpuestoSociedadesConfig[]
 ): number | 'all' {
@@ -75,6 +76,7 @@ export function ImpuestoSociedadesConfigPageView({
     return counts
   }, [configs])
 
+  /** Relee la lista del servidor tras guardar o borrar (el estado local no se parchea). */
   function refreshConfigs() {
     startRefresh(async () => {
       const result = await listImpuestoSociedadesConfigsAction()

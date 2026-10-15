@@ -14,7 +14,7 @@ export type OdooPartnerImportOption = {
 
 export type OdooNameSplitMode = 'given-first' | 'surname-first' | 'comma'
 
-export type OdooNameFields = {
+type OdooNameFields = {
   firstName: string
   firstSurname: string
   secondSurname?: string
@@ -41,11 +41,6 @@ export function parseGoogleDriveParentFolderId(url: string): string | undefined 
   if (idParamMatch?.[1]) return idParamMatch[1]
 
   return undefined
-}
-
-/** @deprecated Usa parseGoogleDriveParentFolderId */
-export function parseGoogleDriveFolderId(url: string): string | undefined {
-  return parseGoogleDriveParentFolderId(url)
 }
 
 function sanitizeOdooString(value: string | false | null | undefined): string | undefined {

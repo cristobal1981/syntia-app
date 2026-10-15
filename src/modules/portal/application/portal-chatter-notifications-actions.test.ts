@@ -501,6 +501,33 @@ describe('ackPortalNotificationAction', () => {
     }
   )
 
+  it('confirming "new_firma" keeps an already-confirmed firmaDueSoonNotified (does not disarm it)', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    fetchWatchStateForUser.mockResolvedValue(
+      new Map([
+        [
+          'firma:7',
+          {
+            lastIsClosed: false,
+            lastAttachmentCount: 0,
+            firmaDueSoonNotified: true,
+            initialized: true,
+          },
+        ],
+      ])
+    )
+
+    await ackPortalNotificationAction({
+      scope: 'firma',
+      recordId: 7,
+      reason: 'new_firma',
+    })
+
+    expect(upsertWatchStateBatch).toHaveBeenCalledWith('actor-1', [
+      expect.objectContaining({ scope: 'firma', recordId: 7, firmaDueSoonNotified: true }),
+    ])
+  })
+
   it('blocks reason "status_change" when there is no matching snapshot to resolve the new state', async () => {
     getSession.mockResolvedValue(sessionFor('client'))
     verifyClientRecordAccess.mockResolvedValue(true)

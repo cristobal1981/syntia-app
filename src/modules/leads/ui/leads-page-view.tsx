@@ -14,7 +14,8 @@ type LeadsPageViewProps = {
 
 export function LeadsPageView({ report }: LeadsPageViewProps) {
   const copy = leadsCopy
-  const overallConvertedCount = report.convertedAnywayByEstado.reduce(
+  // Conversión global: convertidos (en cualquier estado) sobre el total de leads.
+  const overallConvertedCount =report.convertedAnywayByEstado.reduce(
     (sum, entry) => sum + entry.convertedCount,
     0
   )

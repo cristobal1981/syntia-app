@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { portal } from '@/content/portal'
@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
+
+const PANEL_EXIT_MS = 150
 
 type NotificationBellProps = {
   className?: string
@@ -28,8 +30,17 @@ function formatNotificationDate(value: string): string {
 export function NotificationBell({ className }: NotificationBellProps) {
   const notifications = usePortalNotificationsOptional()
   const [open, setOpen] = useState(false)
+  // El panel sigue montado el tiempo de la animación de salida.
+  const [mounted, setMounted] = useState(false)
+  if (open && !mounted) setMounted(true)
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (open) return
+    const timeout = setTimeout(() => setMounted(false), PANEL_EXIT_MS)
+    return () => clearTimeout(timeout)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -59,7 +70,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   if (!notifications) return null
 
-  const { unread, unreadCount, openNotification } = notifications
+  const { unread, unreadCount, openNotification, dismissNotification, dismissAllNotifications } =
+    notifications
   const copy = portal.notifications
   const tooltipContent =
     unreadCount > 0
@@ -87,15 +99,31 @@ export function NotificationBell({ className }: NotificationBellProps) {
         </button>
       </PortalActionTooltip>
 
-      {open ? (
+      {mounted ? (
         <div
           ref={panelRef}
-          className="absolute top-full right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto"
+          data-state={open ? 'open' : 'closed'}
+          className={cn(
+            'absolute top-full right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] origin-top-right rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto',
+            // Entrada y salida sutiles (mismo gesto que el panel del perfil).
+            'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1',
+            'data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-top-1',
+            'motion-reduce:animate-none'
+          )}
           role="dialog"
           aria-label={copy.label}
         >
-          <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">{copy.label}</p>
+            {unread.length > 0 ? (
+              <button
+                type="button"
+                onClick={dismissAllNotifications}
+                className="cursor-pointer rounded text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                {copy.dismissAll}
+              </button>
+            ) : null}
           </div>
 
           {unread.length === 0 ? (
@@ -108,10 +136,13 @@ export function NotificationBell({ className }: NotificationBellProps) {
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {unread.map((item) => (
-                <li key={`${item.reason}-${item.scope}-${item.recordId}`}>
+                <li
+                  key={`${item.reason}-${item.scope}-${item.recordId}`}
+                  className="flex items-start transition-colors hover:bg-accent focus-within:bg-accent"
+                >
                   <button
                     type="button"
-                    className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                    className="flex min-w-0 flex-1 flex-col gap-1.5 py-3 pr-2 pl-4 text-left focus-visible:outline-none"
                     onClick={() => {
                       setOpen(false)
                       openNotification(item)
@@ -128,6 +159,15 @@ export function NotificationBell({ className }: NotificationBellProps) {
                         </time>
                       ) : null}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismissNotification(item)}
+                    aria-label={copy.dismiss}
+                    title={copy.dismiss}
+                    className="mt-2.5 mr-3 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <X className="size-3.5" aria-hidden />
                   </button>
                 </li>
               ))}

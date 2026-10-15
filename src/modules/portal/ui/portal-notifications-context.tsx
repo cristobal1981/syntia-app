@@ -81,6 +81,9 @@ type PortalNotificationsContextValue = {
     message?: PortalChatterMessage
   ) => void
   openNotification: (notification: PortalNotification) => void
+  /** Descarta una notificación sin abrirla (queda como vista en el servidor). */
+  dismissNotification: (notification: PortalNotification) => void
+  dismissAllNotifications: () => void
   refreshNotifications: () => Promise<void>
   initializeNotifications: (payload: {
     unread: PortalNotification[]
@@ -154,6 +157,8 @@ export function PortalNotificationsProvider({
     ackDocumentsSeen,
     ackStatusChangeSeen,
     openNotification,
+    dismissNotification,
+    dismissAllNotifications,
   } = usePortalNotificationActions({
     enabled,
     router,
@@ -223,6 +228,8 @@ export function PortalNotificationsProvider({
       ackStatusChangeSeen,
       notifyRecordMutated,
       openNotification,
+      dismissNotification,
+      dismissAllNotifications,
       refreshNotifications,
       initializeNotifications,
     }),
@@ -240,6 +247,8 @@ export function PortalNotificationsProvider({
       ackStatusChangeSeen,
       notifyRecordMutated,
       openNotification,
+      dismissNotification,
+      dismissAllNotifications,
       refreshNotifications,
       initializeNotifications,
     ]
@@ -250,16 +259,6 @@ export function PortalNotificationsProvider({
       {children}
     </PortalNotificationsContext.Provider>
   )
-}
-
-export function usePortalNotifications() {
-  const context = useContext(PortalNotificationsContext)
-  if (!context) {
-    throw new Error(
-      'usePortalNotifications must be used within PortalNotificationsProvider'
-    )
-  }
-  return context
 }
 
 export function usePortalNotificationsOptional() {

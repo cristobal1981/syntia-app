@@ -21,7 +21,8 @@ type OdooTicketAccessRow = {
   partner_id?: [number, string] | false | null
 }
 
-export async function verifyTaskBelongsToPartner(
+/** Tarea -> proyecto -> partner: en Odoo la tarea no lleva el partner directamente. */
+async function verifyTaskBelongsToPartner(
   taskId: number,
   partnerId: number
 ): Promise<boolean> {
@@ -48,7 +49,7 @@ export async function verifyTaskBelongsToPartner(
   return projectPartnerId === partnerId
 }
 
-export async function verifyTicketBelongsToPartner(
+async function verifyTicketBelongsToPartner(
   ticketId: number,
   partnerId: number
 ): Promise<boolean> {
@@ -66,7 +67,7 @@ export async function verifyTicketBelongsToPartner(
   return ticketPartnerId === partnerId
 }
 
-export async function verifyRecordBelongsToPartner(
+async function verifyRecordBelongsToPartner(
   kind: 'task' | 'ticket',
   recordId: number,
   partnerId: number

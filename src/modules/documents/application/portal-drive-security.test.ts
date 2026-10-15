@@ -20,7 +20,6 @@ const {
   getAllowedSectionsForWorker,
   getWorkerWriteSections,
   resolveClientDriveRootId,
-  shouldUseMockDrive,
   isGoogleDriveApiConfigured,
   getGoogleDriveAccessToken,
   invalidateGoogleDriveAccessToken,
@@ -29,7 +28,6 @@ const {
   getAllowedSectionsForWorker: vi.fn(),
   getWorkerWriteSections: vi.fn(),
   resolveClientDriveRootId: vi.fn(),
-  shouldUseMockDrive: vi.fn(),
   isGoogleDriveApiConfigured: vi.fn(),
   getGoogleDriveAccessToken: vi.fn(),
   invalidateGoogleDriveAccessToken: vi.fn(),
@@ -45,7 +43,6 @@ vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () 
 vi.mock('@/src/modules/documents/application/resolve-client-drive-root', () => ({
   resolveClientDriveRootId,
 }))
-vi.mock('@/src/modules/documents/infrastructure/drive-runtime', () => ({ shouldUseMockDrive }))
 vi.mock('@/src/modules/documents/infrastructure/google-drive-auth', () => ({
   isGoogleDriveApiConfigured,
   getGoogleDriveAccessToken,
@@ -363,7 +360,6 @@ let fake: FakeDrive
 beforeEach(() => {
   vi.resetAllMocks()
   for (const key of ENV_KEYS) delete process.env[key]
-  shouldUseMockDrive.mockReturnValue(false)
   isGoogleDriveApiConfigured.mockReturnValue(true)
   getGoogleDriveAccessToken.mockResolvedValue('SECRET-ACCESS-TOKEN')
   resolveClientDriveRootId.mockResolvedValue(PUB)
@@ -879,19 +875,6 @@ describe.each([
       // Ninguna de las tres llegó a listar contenido de Drive fuera de la Pública.
       expect(fake.leaks()).toEqual([])
       expect(fake.requests.slice(before).filter((r) => r.kind === 'list')).toHaveLength(0)
-    })
-
-    it('en modo demo no hay subida rápida (y no se toca Drive)', async () => {
-      addInvoiceFolders()
-      shouldUseMockDrive.mockReturnValue(true)
-      const before = fake.requests.length
-
-      expect(await actions.getInvoiceUploadAvailabilityAction()).toEqual({ available: false })
-      expect(await actions.uploadInvoiceFilesAction(uploadForm([pdf()], PUB))).toEqual({
-        ok: false,
-        error: 'not_found',
-      })
-      expect(fake.requests).toHaveLength(before)
     })
 
     it('el nombre buscado nunca se concatena con datos del navegador (la consulta es la esperada)', async () => {
@@ -1887,7 +1870,7 @@ describe('puerta de acceso (sesión, rol, sección, vínculo)', () => {
   })
 
   it.each(['listar', 'descargar', 'previsualizar', 'subir'])(
-    '%s con Drive sin configurar (sin modo demo) → not_configured y NINGUNA llamada',
+    '%s con Drive sin configurar → not_configured y NINGUNA llamada',
     async (name) => {
       isGoogleDriveApiConfigured.mockReturnValue(false)
       const call = run(actions).find(([n]) => n === name)![1]

@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-export type RecordDetailTab<T extends string = string> = {
+type RecordDetailTab<T extends string = string> = {
   id: T
   label: string
   icon?: LucideIcon

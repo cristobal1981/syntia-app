@@ -1,6 +1,7 @@
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { tramites } from '@/content/tramites'
 import {
+  hasAvailableProcedureTypes,
   isProcedureTypeAvailable,
   type ProcedureTicketType,
   type SolicitudPickerId,
@@ -15,9 +16,9 @@ export const GENERAL_FORM_ID = 'tramite-general-consulta-form'
 export const PROCEDURE_FORM_ID = 'tramite-procedure-form'
 
 export const generalCopy = tramites.createConsulta
-export const generalErrorCopy = generalCopy.errors
+const generalErrorCopy = generalCopy.errors
 export const solicitudCopy = tramiteSolicitudes
-export const solicitudErrorCopy = solicitudCopy.errors
+const solicitudErrorCopy = solicitudCopy.errors
 
 export function successMessageForStep(step: DrawerStep): string {
   if (step === 'general') return generalCopy.drawer.successToast
@@ -61,6 +62,9 @@ export function mapProcedureActionError(
 export function procedureStepFromInitial(
   initialProcedure?: ProcedureTicketType | null
 ): DrawerStep {
+  // Sin solicitudes estructurales disponibles el selector no tiene nada que
+  // elegir: se abre directamente la consulta general.
+  if (!hasAvailableProcedureTypes()) return 'general'
   if (initialProcedure === 'alta-trabajador') return 'picker'
   if (initialProcedure && !isProcedureTypeAvailable(initialProcedure)) return 'picker'
   return initialProcedure ?? 'picker'

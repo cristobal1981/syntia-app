@@ -11,7 +11,7 @@ export type DriveUiErrorCode = DriveDocumentErrorCode | 'offline'
 /** Qué estaba haciendo la persona cuando falló (cambia el texto y las salidas). */
 export type DriveErrorContext = 'load' | 'folder' | 'file' | 'upload' | 'home'
 
-export type DriveErrorAction = 'retry' | 'home' | 'login' | 'reload' | 'dismiss'
+type DriveErrorAction = 'retry' | 'home' | 'login' | 'reload' | 'dismiss'
 
 export type DriveErrorPresentation = {
   title: string

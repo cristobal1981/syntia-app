@@ -21,6 +21,10 @@ export function buildPortalAccessUrlFromToken(
   return url.toString()
 }
 
+/**
+ * Genera el enlace de invitación/recuperación con la admin API de Supabase.
+ * Prefiere el token hasheado (flujo directo) y solo cae a `action_link` si falta.
+ */
 export async function generatePortalAccessLink(
   email: string,
   type: 'invite' | 'recovery'

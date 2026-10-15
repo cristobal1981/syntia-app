@@ -23,7 +23,7 @@ export type LeadRow = {
   created_at: string
 }
 
-export const LEAD_SELECT =
+const LEAD_SELECT =
   'id, odoo_partner_id, nombre, email, telefono, tipo, residencia, facturacion_estimada, codigo_cuota, total_mensual, estado, motivo, created_at'
 
 const LEAD_TIPOS: readonly string[] = ['ALTA', 'CAMBIO']
@@ -33,6 +33,17 @@ const LEAD_ESTADOS_DB: readonly string[] = ['pendiente', 'aceptado', 'rechazado'
 
 function parseEnum<T extends string>(value: string | null, allowed: readonly string[]): T | null {
   return value != null && allowed.includes(value) ? (value as T) : null
+}
+
+/** Un estado fuera de la lista cae a `pendiente`, pero deja rastro: un lead corrupto no debe parecer uno normal. */
+function resolveLeadEstado(row: LeadRow): LeadEstado {
+  const estado = parseEnum<LeadEstado>(row.estado, LEAD_ESTADOS_DB)
+  if (estado) return estado
+  console.warn('[leads] estado desconocido, se trata como pendiente', {
+    leadId: row.id,
+    estado: row.estado,
+  })
+  return 'pendiente'
 }
 
 export function mapLeadRow(row: LeadRow): LeadRecord {
@@ -47,7 +58,7 @@ export function mapLeadRow(row: LeadRow): LeadRecord {
     facturacionEstimada: row.facturacion_estimada,
     codigoCuota: parseEnum<LeadCodigoCuota>(row.codigo_cuota, LEAD_CODIGOS_CUOTA),
     totalMensual: row.total_mensual,
-    estado: (parseEnum<LeadEstado>(row.estado, LEAD_ESTADOS_DB) ?? 'pendiente') as LeadEstado,
+    estado: resolveLeadEstado(row),
     motivo: row.motivo,
     createdAt: row.created_at,
   }

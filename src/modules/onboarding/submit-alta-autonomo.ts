@@ -52,6 +52,35 @@ function ensureRecipientEmailMatches(
   }
 }
 
+/**
+ * Consume el token tras crear el alta, con un reintento. Nunca lanza: si no se
+ * puede marcar, se deja constancia en el log (con el id del alta para poder
+ * revocar el enlace a mano) y el envío se da por bueno.
+ */
+async function consumeTokenAfterCreate(token: string, odooRecordId: number): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      if (await markOnboardingFormAccessTokenUsed(token)) return
+      break
+    } catch (error) {
+      if (attempt === 2) {
+        console.error('[onboarding] alta creada pero no se pudo consumir el token', {
+          odooRecordId,
+          error,
+        })
+        return
+      }
+    }
+  }
+  console.error('[onboarding] alta creada pero el token ya no estaba disponible para consumirse', {
+    odooRecordId,
+  })
+}
+
+/**
+ * Valida token y payload, crea el alta en Odoo y solo entonces consume el token:
+ * si Odoo falla el enlace sigue siendo reutilizable.
+ */
 export async function submitAltaAutonomo(
   input: SubmitPayloadInput
 ): Promise<SubmitAltaAutonomoResult> {
@@ -84,15 +113,12 @@ export async function submitAltaAutonomo(
       submission: submissionValidation.data,
     })
 
-    const markedUsed = await markOnboardingFormAccessTokenUsed(
-      tokenValidation.token.token
-    )
-    if (!markedUsed) {
-      return { ok: false, error: 'unknown' }
-    }
+    // El alta YA existe en Odoo: si consumir el token falla no se puede
+    // contestar con error, o la persona reintenta y se crea un duplicado.
+    await consumeTokenAfterCreate(tokenValidation.token.token, odooRecordId)
 
     return { ok: true, odooRecordId }
-    } catch (error) {
+  } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'ODOO_ALTA_AUTONOMO_CREATE_FAILED') {
         return { ok: false, error: 'odoo_unavailable' }

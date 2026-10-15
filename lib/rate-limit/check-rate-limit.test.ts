@@ -79,3 +79,48 @@ describe('checkRateLimit', () => {
     expect(result).toBe(false)
   })
 })
+
+describe('checkRateLimit: logging del fail-open', () => {
+  it('loguea key y mensaje cuando el RPC devuelve error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
+
+    await checkRateLimit('k:1', { limit: 1, windowSeconds: 1 })
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0][1]).toEqual({ key: 'k:1', message: 'boom' })
+    spy.mockRestore()
+  })
+
+  it('loguea key y error cuando hay excepción', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const err = new Error('net')
+    rpc.mockRejectedValue(err)
+
+    await checkRateLimit('k:2', { limit: 1, windowSeconds: 1 })
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0][1]).toEqual({ key: 'k:2', error: err })
+    spy.mockRestore()
+  })
+
+  it('no loguea nada en el camino normal (true y false)', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rpc.mockResolvedValueOnce({ data: true, error: null })
+    rpc.mockResolvedValueOnce({ data: false, error: null })
+
+    await checkRateLimit('k:3', { limit: 1, windowSeconds: 1 })
+    await checkRateLimit('k:3', { limit: 1, windowSeconds: 1 })
+
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('data "true" (string) o 1 no cuentan como permitido', async () => {
+    rpc.mockResolvedValueOnce({ data: 'true', error: null })
+    rpc.mockResolvedValueOnce({ data: 1, error: null })
+
+    expect(await checkRateLimit('k:4', { limit: 1, windowSeconds: 1 })).toBe(false)
+    expect(await checkRateLimit('k:4', { limit: 1, windowSeconds: 1 })).toBe(false)
+  })
+})

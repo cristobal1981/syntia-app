@@ -1,5 +1,6 @@
 import type { EmailBlock } from '@/src/modules/email/domain/blocks'
 import { renderBrandedEmail } from '@/src/modules/email/application/render-branded-email'
+import { escapeHtml } from '@/src/modules/email/domain/escape-html'
 
 type AltaAutonomoAccessEmailParams = {
   accessLink: string
@@ -8,15 +9,7 @@ type AltaAutonomoAccessEmailParams = {
   isOverrideRecipient: boolean
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-export function formatAltaAutonomoExpiryLabel(expiresAt: string): string {
+function formatAltaAutonomoExpiryLabel(expiresAt: string): string {
   const date = new Date(expiresAt)
   if (!Number.isFinite(date.getTime())) return expiresAt
 

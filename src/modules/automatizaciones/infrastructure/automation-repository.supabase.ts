@@ -17,6 +17,7 @@ import {
   advisorCanSeeAutomation,
   parseAutomationInputFields,
 } from '@/src/modules/automatizaciones/domain/types'
+import { isMissingRpcError } from '@/src/modules/directory/infrastructure/is-missing-rpc-error'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
 type AutomationRow = {
@@ -187,6 +188,20 @@ export async function updatePortalAutomationAccess(input: {
   grantedAdvisorIds: string[]
 }): Promise<void> {
   const supabase = createSupabaseAdminClient()
+
+  // Una sola transacción si la función SQL está aplicada; si no, el camino
+  // anterior (varios pasos) para que el despliegue no dependa del orden.
+  const { error: rpcError } = await supabase.rpc('update_portal_automation_access', {
+    p_automation_id: input.automationId,
+    p_is_active: input.isActive,
+    p_visibility: input.visibility,
+    p_granted_advisor_ids: input.grantedAdvisorIds,
+  })
+  if (!rpcError) return
+  if (!isMissingRpcError(rpcError)) {
+    throw new Error(rpcError.message)
+  }
+
   const now = new Date().toISOString()
 
   const { error: updateError } = await supabase
@@ -447,6 +462,15 @@ export async function updateAutomationGlobalOrder(
   orderedIds: string[]
 ): Promise<void> {
   const supabase = createSupabaseAdminClient()
+
+  const { error: rpcError } = await supabase.rpc('update_automation_global_order', {
+    p_ordered_ids: orderedIds,
+  })
+  if (!rpcError) return
+  if (!isMissingRpcError(rpcError)) {
+    throw new Error(rpcError.message)
+  }
+
   const now = new Date().toISOString()
 
   for (let index = 0; index < orderedIds.length; index += 1) {

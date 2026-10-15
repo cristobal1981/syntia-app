@@ -215,6 +215,10 @@ type TramitesPageViewProps = {
   canWriteTramites: boolean
 }
 
+/**
+ * Lista de trámites y consultas con filtros, «nuevo» y drawer. El orden se
+ * congela con el drawer abierto y `?open=`/`?q=` se consumen y se limpian de la URL.
+ */
 export function TramitesPageView({
   data,
   seenState,

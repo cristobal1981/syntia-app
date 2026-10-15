@@ -5,6 +5,10 @@ import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-cl
 
 let cachedCommentSubtypeId: number | null = null
 
+/**
+ * Subtipo de mensaje público para comentarios del chatter: el de entorno
+ * manda; si no, el 'default' no interno de Odoo. Se cachea por proceso.
+ */
 export async function resolveChatterCommentSubtypeId(): Promise<number> {
   if (cachedCommentSubtypeId !== null) {
     return cachedCommentSubtypeId

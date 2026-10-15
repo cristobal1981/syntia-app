@@ -60,3 +60,11 @@ export function isTaskClosed(state?: string): boolean {
   if (!state) return false
   return DONE_STATES.has(state) || CANCELED_STATES.has(state)
 }
+
+export function isTaskDone(state?: string): boolean {
+  return state !== undefined && DONE_STATES.has(state)
+}
+
+export function isTaskCanceled(state?: string): boolean {
+  return state !== undefined && CANCELED_STATES.has(state)
+}

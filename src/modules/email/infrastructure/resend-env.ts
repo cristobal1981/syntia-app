@@ -9,6 +9,7 @@ function stripEnvQuotes(value: string | undefined): string {
   return trimmed
 }
 
+/** Resend solo se considera configurado con API key y remitente no vacíos. */
 export function isResendConfigured(): boolean {
   return Boolean(
     process.env.RESEND_API_KEY?.trim() &&

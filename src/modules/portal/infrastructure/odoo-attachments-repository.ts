@@ -27,17 +27,6 @@ function mapAttachment(row: OdooAttachmentRow): PortalAttachment {
   }
 }
 
-export async function resolveAttachmentNamesByIds(
-  attachmentIds: number[]
-): Promise<Map<number, string>> {
-  const meta = await resolveAttachmentMetaByIds(attachmentIds)
-  const names = new Map<number, string>()
-  for (const [id, attachment] of meta) {
-    names.set(id, attachment.name)
-  }
-  return names
-}
-
 export async function resolveAttachmentMetaByIds(
   attachmentIds: number[]
 ): Promise<Map<number, PortalAttachment>> {
@@ -106,7 +95,8 @@ export async function listAttachmentsForRecord(
 
 export async function countAttachmentsByRecordIds(
   resModel: string,
-  resIds: number[]
+  resIds: number[],
+  limit = 500
 ): Promise<Map<number, number>> {
   const counts = new Map<number, number>()
   if (!resIds.length) return counts
@@ -119,7 +109,7 @@ export async function countAttachmentsByRecordIds(
         ['res_id', 'in', resIds],
       ],
       fields: ['res_id'],
-      limit: 500,
+      limit,
     }
   )
 

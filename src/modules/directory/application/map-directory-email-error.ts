@@ -1,4 +1,4 @@
-export type DirectoryEmailActionResult =
+type DirectoryEmailActionResult =
   | { ok: true }
   | {
       ok: false
@@ -6,7 +6,26 @@ export type DirectoryEmailActionResult =
       message?: string
     }
 
+const KNOWN_ERROR_MESSAGES = new Set([
+  'unauthorized',
+  'NOT_FOUND',
+  'NO_AUTH_ACCOUNT',
+  'ACCOUNT_ARCHIVED',
+  'PASSWORD_RESET_FAILED',
+  'EMAIL_RATE_LIMIT',
+  'RESEND_NOT_CONFIGURED',
+  'INVITE_EMAIL_DISABLED',
+])
+
+/** Traduce errores de envío/reseteo de acceso a mensajes legibles para el staff; lo no reconocido se devuelve genérico y el detalle va al log. */
 export function mapDirectoryEmailError(error: unknown): DirectoryEmailActionResult {
+  // El detalle técnico (Resend, base de datos...) se queda en el log del servidor.
+  if (
+    error instanceof Error &&
+    !KNOWN_ERROR_MESSAGES.has(error.message)
+  ) {
+    console.error('[directory] error de envío/acceso no reconocido', error)
+  }
   if (error instanceof Error && error.message === 'unauthorized') {
     return { ok: false, error: 'unauthorized' }
   }
@@ -71,12 +90,13 @@ export function mapDirectoryEmailError(error: unknown): DirectoryEmailActionResu
     return {
       ok: false,
       error: 'unknown',
-      message: `No se pudo enviar el correo: ${error.message}`,
+      message:
+        'No se pudo enviar el correo. Revisa la configuración de Resend e inténtalo de nuevo.',
     }
   }
   return {
     ok: false,
     error: 'unknown',
-    message: error instanceof Error ? error.message : undefined,
+    message: 'No se pudo completar la operación. Inténtalo de nuevo.',
   }
 }

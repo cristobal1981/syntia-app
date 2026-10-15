@@ -1,3 +1,4 @@
+import { isMissingRpcError } from '@/src/modules/directory/infrastructure/is-missing-rpc-error'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import type { TramitesListSeenState } from '@/src/modules/tramites/domain/tramites-list-seen-state'
 import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
@@ -72,6 +73,18 @@ export async function upsertTramitesListSeenState(
 ): Promise<void> {
   const group = await resolvePortalAccountGroup(userId)
   const supabase = createSupabaseAdminClient()
+
+  // La unión de claves se hace en la base de datos (atómica: dos acks
+  // simultáneos no se pisan). Mientras la función SQL no esté aplicada, cae al
+  // leer-fusionar-escribir de abajo.
+  const { error: rpcError } = await supabase.rpc('merge_tramites_list_seen_state', {
+    p_user_ids: group,
+    p_open_item_keys: openItemKeys,
+  })
+  if (!rpcError) return
+  if (!isMissingRpcError(rpcError)) {
+    throw new Error(rpcError.message)
+  }
 
   const { data, error: fetchError } = await supabase
     .from('tramites_list_seen_state')

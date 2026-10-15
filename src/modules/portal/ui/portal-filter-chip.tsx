@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 
-export function portalFilterChipClasses(active: boolean) {
+function portalFilterChipClasses(active: boolean) {
   return cn(
     active
       ? 'dark:border dark:border-primary/55 dark:bg-primary/28 dark:text-primary dark:hover:bg-primary/35 dark:shadow-none'

@@ -1,19 +1,12 @@
 import type { EmailBlock } from '@/src/modules/email/domain/blocks'
 import { renderBrandedEmail } from '@/src/modules/email/application/render-branded-email'
+import { escapeHtml } from '@/src/modules/email/domain/escape-html'
 
 type ClientAccessEmailParams = {
   accessLink: string
   clientEmail: string
   purpose: 'invite' | 'recovery'
   isOverrideRecipient: boolean
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 export function buildClientAccessEmail({

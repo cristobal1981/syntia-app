@@ -1,19 +1,20 @@
-import type { ObligacionReminderStage } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
+import type { ObligacionNoticeKind } from '@/src/modules/obligaciones/domain/resolve-obligacion-notice'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 
-/** Clave compuesta tarea+aviso — una tarea puede tener un `early` Y un `urgent` ya enviados. */
-function reminderKey(taskId: number, stage: ObligacionReminderStage): string {
-  return `${taskId}:${stage}`
+/** Clave compuesta tarea+aviso+día: `domiciliar` sale dos veces (días 10 y 14), cada uno cuenta aparte. */
+export function obligacionReminderKey(taskId: number, kind: ObligacionNoticeKind, noticeDate: string): string {
+  return `${taskId}:${kind}:${noticeDate}`
 }
 
 /**
- * Devuelve el subconjunto de (taskId, stage) de `candidates` que YA tiene
- * ESE aviso concreto enviado — `early` y `urgent` se registran por
- * separado, así que una tarea con `early` ya enviado sigue siendo
- * candidata a `urgent` más adelante.
+ * Devuelve el subconjunto de (taskId, kind) de `candidates` que YA tiene
+ * enviado ESE aviso concreto en `noticeDate` (día local del cron, formato
+ * `YYYY-MM-DD`). Así un reintento del mismo día no duplica el correo, pero
+ * el aviso del día siguiente sí sale.
  */
-export async function filterAlreadyRemindedStages(
-  candidates: Array<{ taskId: number; stage: ObligacionReminderStage }>
+export async function filterAlreadyRemindedNotices(
+  candidates: Array<{ taskId: number; kind: ObligacionNoticeKind }>,
+  noticeDate: string
 ): Promise<Set<string>> {
   if (!candidates.length) return new Set()
 
@@ -24,14 +25,15 @@ export async function filterAlreadyRemindedStages(
     .from('obligacion_email_reminders')
     .select('task_id, reminder_type')
     .in('task_id', taskIds)
+    .eq('notice_date', noticeDate)
 
   if (error) {
     throw new Error(error.message)
   }
 
   return new Set(
-    ((data ?? []) as Array<{ task_id: number; reminder_type: ObligacionReminderStage }>).map(
-      (row) => reminderKey(row.task_id, row.reminder_type)
+    ((data ?? []) as Array<{ task_id: number; reminder_type: ObligacionNoticeKind }>).map(
+      (row) => obligacionReminderKey(row.task_id, row.reminder_type, noticeDate)
     )
   )
 }
@@ -50,14 +52,16 @@ export async function recordObligacionReminderSent(
   taskId: number,
   partnerId: number,
   deadline: Date,
-  stage: ObligacionReminderStage
+  kind: ObligacionNoticeKind,
+  noticeDate: string
 ): Promise<void> {
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase.from('obligacion_email_reminders').insert({
     task_id: taskId,
     partner_id: partnerId,
     deadline: formatDateOnly(deadline),
-    reminder_type: stage,
+    reminder_type: kind,
+    notice_date: noticeDate,
   })
 
   if (error) {

@@ -121,6 +121,11 @@ type AutomationSortableGridProps = {
   onDelete?: (automation: PortalAutomationListItem) => void
 }
 
+/**
+ * Rejilla de automatizaciones; con `reorderEnabled` (admin) permite reordenar
+ * por arrastre. Antes de hidratar renderiza la lista estática para evitar el
+ * mismatch SSR de dnd-kit.
+ */
 export function AutomationSortableGrid({
   automations,
   configured,

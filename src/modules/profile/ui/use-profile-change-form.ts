@@ -15,6 +15,10 @@ import {
   mapProfileChangeError,
 } from '@/src/modules/profile/ui/profile-change-helpers'
 
+/**
+ * Estado y acciones del drawer de cambio de perfil: detecta cambios sin
+ * guardar (pide confirmar al cerrar) y mapea el resultado de la action.
+ */
 export function useProfileChangeForm(
   initialProfile: ClientProfile,
   open: boolean,

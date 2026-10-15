@@ -51,10 +51,6 @@ export const clientDocuments = {
   retry: 'Reintentar',
   modified: 'Modificado',
   folderLabel: 'Carpeta',
-  demoBannerTitle: 'Vista de demostración',
-  demoBannerDescription:
-    'Estás explorando datos de ejemplo. Puedes navegar, subir y descargar archivos para probar la experiencia.',
-  demoActionDisabled: 'No disponible en la vista de demostración.',
   shortcuts: {
     refresh: {
       buttonHintIdle: '{action}. Mantén {modifier} para ver atajos.',

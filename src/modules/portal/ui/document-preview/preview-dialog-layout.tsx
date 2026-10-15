@@ -52,7 +52,7 @@ function columnClass(category: DocumentPreviewCategory | null, ready: boolean): 
   )
 }
 
-export type PreviewViewerFile = {
+type PreviewViewerFile = {
   filename: string
   mimetype: string
   dataBase64: string

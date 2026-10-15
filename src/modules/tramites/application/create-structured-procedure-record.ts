@@ -29,7 +29,7 @@ import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/ca
 import { createPartnerTask } from '@/src/modules/tramites/infrastructure/odoo-create-task-repository'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 
-export type ProcedureRecordKind = 'task' | 'ticket'
+type ProcedureRecordKind = 'task' | 'ticket'
 
 export type CreateStructuredProcedureResult =
   | {

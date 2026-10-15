@@ -4,7 +4,11 @@ export function isValidPositiveDecimal(
   value: string,
   options?: { maxIntegerDigits?: number; maxFractionDigits?: number }
 ): boolean {
-  const normalized = trim(value).replace(/\./g, '').replace(',', '.')
+  const trimmed = trim(value)
+  // Formato español: "." solo como separador de miles (grupos de 3) y "," como
+  // decimal. "1.5" o "1500.50" son ambiguos y se rechazan en vez de leerse como 15.
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d+)?$/.test(trimmed)) return false
+  const normalized = trimmed.replace(/\./g, '').replace(',', '.')
   const maxInt = options?.maxIntegerDigits ?? 12
   const maxFrac = options?.maxFractionDigits ?? 2
   const pattern = new RegExp(`^\\d{1,${maxInt}}(\\.\\d{1,${maxFrac}})?$`)

@@ -62,6 +62,10 @@ export function mapOdooMany2OneId(value: OdooMany2One): number | undefined {
   return typeof value[0] === 'number' ? value[0] : undefined
 }
 
+/**
+ * Semáforo en proceso: limita las llamadas simultáneas a Odoo para no
+ * disparar su rate limit (429) cuando varias vistas piden datos a la vez.
+ */
 let activeOdooRequests = 0
 const odooRequestQueue: Array<() => void> = []
 
@@ -161,6 +165,10 @@ async function odooJsonRequestOnce<T>(
   }
 }
 
+/**
+ * Una petición con slot de concurrencia y reintentos solo ante 429
+ * (respeta Retry-After si viene). Otros fallos HTTP no se reintentan.
+ */
 async function odooJsonRequest<T>(
   model: string,
   method: string,

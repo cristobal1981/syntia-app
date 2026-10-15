@@ -12,7 +12,7 @@ export const UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024
 /** Suma de todos los archivos de una misma subida. */
 export const UPLOAD_MAX_TOTAL_BYTES = 10 * 1024 * 1024
 export const UPLOAD_MAX_FILES = 10
-export const UPLOAD_MAX_NAME_LENGTH = 255
+const UPLOAD_MAX_NAME_LENGTH = 255
 
 const MIME_BY_EXTENSION: Readonly<Record<string, readonly string[]>> = {
   pdf: ['application/pdf'],

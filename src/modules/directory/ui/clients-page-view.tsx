@@ -88,7 +88,6 @@ export function ClientsPageView({
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearch(q)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1)
     fetchPage(1, q)
     router.replace(canAssignAdvisor ? '/equipo/clientes' : '/clientes', { scroll: false })

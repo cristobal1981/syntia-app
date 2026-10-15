@@ -2,13 +2,13 @@ import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-cl
 
 import { resolveOdooCountryId } from '@/src/modules/onboarding/resolve-odoo-country-id'
 
-export type OnboardingCountryOption = {
+type OnboardingCountryOption = {
   id: number
   code: string
   name: string
 }
 
-export type OnboardingProvinceOption = {
+type OnboardingProvinceOption = {
   id: number
   name: string
   countryId: number

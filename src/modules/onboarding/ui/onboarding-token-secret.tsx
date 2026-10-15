@@ -16,6 +16,7 @@ type OnboardingTokenSecretProps = {
   size?: 'sm' | 'lg'
 }
 
+/** Oculta el centro del token; los cortos se enmascaran enteros para no filtrarlos. */
 function maskToken(token: string): string {
   const trimmed = token.trim()
   if (trimmed.length <= 8) return '••••••••'

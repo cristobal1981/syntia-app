@@ -190,4 +190,131 @@ describe('sendLeadContactEmailAction — envío', () => {
     })
     expect(recordLeadContact).not.toHaveBeenCalled()
   })
+
+  it('recorta asunto y cuerpo antes de construir el email', async () => {
+    getSession.mockResolvedValue(session('admin'))
+    getLeadById.mockResolvedValue(leadRecord())
+    sendEmail.mockResolvedValue({ id: 'r1' })
+
+    await sendLeadContactEmailAction('lead-1', '  Asunto  ', '\n Cuerpo \n')
+
+    expect(buildLeadContactEmail).toHaveBeenCalledWith({
+      subject: 'Asunto',
+      body: 'Cuerpo',
+      recipientName: 'Ana García',
+      recipientEmail: 'ana@example.com',
+      isOverrideRecipient: false,
+    })
+    expect(getLeadById).toHaveBeenCalledWith('lead-1')
+  })
+
+  it('registra el email enviado con html/text construidos y asunto final', async () => {
+    getSession.mockResolvedValue(session('admin'))
+    getLeadById.mockResolvedValue(leadRecord())
+    sendEmail.mockResolvedValue({ id: 'r1' })
+
+    await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      { to: 'ana@example.com', subject: 'Asunto final', html: '<p>html</p>', text: 'texto', replyTo: 'admin@example.com' },
+      { required: true }
+    )
+    expect(recordLeadContact).toHaveBeenCalledWith({
+      leadId: 'lead-1',
+      sentBy: 'auth-admin',
+      sentTo: 'ana@example.com',
+      subject: 'Asunto final',
+      bodyHtml: '<p>html</p>',
+      bodyText: 'texto',
+      resendEmailId: 'r1',
+    })
+  })
+
+  describe('el correo salió pero el registro falla (evita el reenvío duplicado)', () => {
+    beforeEach(() => {
+      getSession.mockResolvedValue(session('admin'))
+      getLeadById.mockResolvedValue(leadRecord())
+      sendEmail.mockResolvedValue({ id: 'r1' })
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    })
+
+    it('REGRESIÓN: NO devuelve error (ok: true con recorded: false) y no vuelve a enviar', async () => {
+      recordLeadContact.mockRejectedValue(new Error('db caída'))
+
+      const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(result).toEqual({ ok: true, recorded: false })
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+    })
+
+    it('reintenta el registro una vez y, si la segunda vale, devuelve ok sin aviso', async () => {
+      recordLeadContact.mockRejectedValueOnce(new Error('blip')).mockResolvedValueOnce(undefined)
+
+      const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(result).toEqual({ ok: true })
+      expect(recordLeadContact).toHaveBeenCalledTimes(2)
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+    })
+
+    it('reintenta exactamente una vez (2 intentos en total)', async () => {
+      recordLeadContact.mockRejectedValue(new Error('db caída'))
+
+      await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(recordLeadContact).toHaveBeenCalledTimes(2)
+    })
+
+    it('deja constancia en el log con el lead y el id de Resend', async () => {
+      recordLeadContact.mockRejectedValue(new Error('db caída'))
+
+      await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('no se pudo registrar'),
+        expect.objectContaining({ leadId: 'lead-1', resendEmailId: 'r1' })
+      )
+    })
+
+    it('un registro que va bien no deja rastro de error en el log', async () => {
+      recordLeadContact.mockResolvedValue(undefined)
+
+      await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+      expect(console.error).not.toHaveBeenCalled()
+    })
+  })
+
+  it('un rechazo que no es Error devuelve unknown sin message', async () => {
+    getSession.mockResolvedValue(session('admin'))
+    getLeadById.mockResolvedValue(leadRecord())
+    sendEmail.mockRejectedValue('texto plano')
+
+    const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+    expect(result).toEqual({ ok: false, error: 'unknown', message: undefined })
+    expect(recordLeadContact).not.toHaveBeenCalled()
+  })
+
+  it('un email del lead vacío cuenta como no_email', async () => {
+    getSession.mockResolvedValue(session('admin'))
+    getLeadById.mockResolvedValue(leadRecord({ email: '' }))
+
+    const result = await sendLeadContactEmailAction('lead-1', 'Asunto', 'Cuerpo')
+
+    expect(result).toEqual({ ok: false, error: 'no_email' })
+  })
+
+  it('rechaza cuerpo vacío sin buscar el lead', async () => {
+    getSession.mockResolvedValue(session('admin'))
+
+    const result = await sendLeadContactEmailAction('lead-1', 'Asunto', '  ')
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'Asunto y mensaje son obligatorios.',
+    })
+    expect(getLeadById).not.toHaveBeenCalled()
+  })
 })

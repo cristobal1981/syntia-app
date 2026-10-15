@@ -210,39 +210,7 @@ async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
   return rows.map((row) => mapTicket(row, attachmentCounts, closedField, partnerByUserId))
 }
 
-export type TramiteRecordRef = {
-  kind: 'task' | 'ticket'
-  recordId: number
-  name: string
-}
-
-export async function listTramiteRecordRefsForPartner(
-  partnerId: number
-): Promise<TramiteRecordRef[]> {
-  if (!isOdooApiConfigured()) {
-    throw new Error('ODOO_NOT_CONFIGURED')
-  }
-
-  const excludedTaskIds = await collectExcludedObligacionTaskIds(partnerId)
-  const projectIds = await listClientProjectIds(partnerId)
-
-  const refs: TramiteRecordRef[] = []
-
-  if (projectIds.length) {
-    const taskRows = await listProjectTaskRows(projectIds, excludedTaskIds)
-    for (const row of taskRows) {
-      refs.push({ kind: 'task', recordId: row.id, name: row.name })
-    }
-  }
-
-  const ticketRows = await listPartnerTicketRows(partnerId)
-  for (const row of ticketRows) {
-    refs.push({ kind: 'ticket', recordId: row.id, name: row.name })
-  }
-
-  return refs
-}
-
+/** Foto de trámites (tareas + tickets) del cliente en Odoo; la cachea el portal. */
 export async function fetchTramitesFromOdoo(
   partnerId: number
 ): Promise<TramitesSnapshot> {

@@ -3,7 +3,7 @@ import { portalWatchStateKey } from '@/src/modules/portal/domain/portal-notifica
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
 
-export type PortalRecordWatchStateRow = {
+type PortalRecordWatchStateRow = {
   user_id: string
   record_scope: PortalRecordScope
   record_id: number

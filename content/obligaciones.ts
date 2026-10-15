@@ -55,6 +55,19 @@ export const obligaciones = {
     canceled: 'Cancelado',
   },
   viewDetail: 'Ver detalle',
+  detail: {
+    deadlineOn: 'Vence el {date}',
+    deadlinePastOn: 'Venció el {date}',
+    daysToday: 'Hoy',
+    daysOne: 'Mañana',
+    daysMany: 'En {count} días',
+    daysOverdueOne: 'Atrasado 1 día',
+    daysOverdueMany: 'Atrasado {count} días',
+    aboutTitle: 'Sobre este modelo',
+    whoFiles: 'Quién lo presenta',
+    guideDeadline: 'Plazo habitual',
+    openGuide: 'Ver en la guía de modelos',
+  },
   states: {
     notLinked: {
       title: 'Cuenta sin vincular',

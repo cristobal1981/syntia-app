@@ -20,6 +20,10 @@ const CHATTER_ALLOWED_TAGS = [
 ]
 const CHATTER_ALLOWED_ATTR = ['href', 'target', 'rel']
 
+/**
+ * Normaliza y sanea el HTML del chatter de Odoo en el navegador (DOMPurify):
+ * lista blanca mínima de etiquetas para que el contenido ajeno no inyecte nada.
+ */
 export function prepareChatterHtmlForDisplay(body: string): string {
   const normalized = normalizeChatterDisplayBody(body)
     .replace(/<br\s*\/?>/gi, '<br>')

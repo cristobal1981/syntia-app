@@ -46,6 +46,10 @@ type AltaTrabajadorWizardContextValue = {
 const AltaTrabajadorWizardContext =
   createContext<AltaTrabajadorWizardContextValue | null>(null)
 
+/**
+ * Estado del formulario del wizard en memoria. Solo persiste el borrador en
+ * sessionStorage cuando la sesión está activa (el usuario eligió en la intro).
+ */
 export function AltaTrabajadorWizardProvider({ children }: { children: ReactNode }) {
   const [values, setValuesState] = useState<AltaTrabajadorFormValues>(
     EMPTY_ALTA_TRABAJADOR_FORM

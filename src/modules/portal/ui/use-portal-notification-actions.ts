@@ -21,6 +21,9 @@ import {
   dedupedServerAction,
   serverActionDedupKey,
 } from '@/src/modules/portal/infrastructure/server-action-dedup'
+import { acknowledgeTramiteListItemSeenAction } from '@/src/modules/tramites/application/tramites-list-seen-actions'
+import { formatTramiteListItemKey } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { dispatchTramitesListItemSeen } from '@/src/modules/tramites/domain/tramites-list-seen-events'
 
 type UsePortalNotificationActionsArgs = {
   enabled: boolean
@@ -219,7 +222,8 @@ export function usePortalNotificationActions({
     [commitUnread, enabled, publishStateToOtherTabs, resetPollInterval, unreadRef]
   )
 
-  const openNotification = useCallback(
+  /** Quita la notificación de la lista y, si su motivo se acumula hasta ack, lo confirma en el servidor. */
+  const removeAndAckNotification = useCallback(
     (notification: PortalNotification) => {
       const nextUnread = removeNotificationFromList(unreadRef.current, notification)
       commitUnread(nextUnread)
@@ -237,6 +241,46 @@ export function usePortalNotificationActions({
           reason: notification.reason,
         })
       }
+    },
+    [commitUnread, publishStateToOtherTabs, unreadRef]
+  )
+
+  /**
+   * Descarta sin navegar. Los mensajes sin leer y los trámites nuevos se
+   * recalculan en cada poll, así que hay que dejar constancia de «visto»
+   * (si no, reaparecerían en el siguiente poll).
+   */
+  const dismissNotification = useCallback(
+    (notification: PortalNotification) => {
+      if (notification.reason === 'unread_chatter' && notification.recordKind) {
+        void markConversationSeen(
+          notification.recordKind,
+          notification.recordId,
+          notification.latestMessageId ?? 0
+        )
+        return
+      }
+
+      if (notification.reason === 'new_tramite' && notification.listKind) {
+        const key = formatTramiteListItemKey(notification.listKind, notification.recordId)
+        void acknowledgeTramiteListItemSeenAction(key)
+        dispatchTramitesListItemSeen(key)
+      }
+
+      removeAndAckNotification(notification)
+    },
+    [markConversationSeen, removeAndAckNotification]
+  )
+
+  const dismissAllNotifications = useCallback(() => {
+    for (const notification of [...unreadRef.current]) {
+      dismissNotification(notification)
+    }
+  }, [dismissNotification, unreadRef])
+
+  const openNotification = useCallback(
+    (notification: PortalNotification) => {
+      removeAndAckNotification(notification)
 
       if (notification.scope === 'firma') {
         router.push('/firmas')
@@ -244,9 +288,8 @@ export function usePortalNotificationActions({
       }
 
       if (notification.scope === 'obligacion') {
-        const tab = notification.reason === 'new_document' ? 'documents' : 'documents'
         router.push(
-          `/obligaciones?open=${encodeURIComponent(`task-${notification.recordId}`)}&tab=${tab}`
+          `/obligaciones?open=${encodeURIComponent(`task-${notification.recordId}`)}&tab=documents`
         )
         return
       }
@@ -257,15 +300,11 @@ export function usePortalNotificationActions({
           notification.recordId
         )
         const tab =
-          notification.reason === 'new_document'
-            ? 'documents'
-            : notification.reason === 'status_change'
-              ? 'conversation'
-              : 'conversation'
+          notification.reason === 'new_document' ? 'documents' : 'conversation'
         router.push(`/tramites?open=${encodeURIComponent(openParam)}&tab=${tab}`)
       }
     },
-    [commitUnread, publishStateToOtherTabs, router, unreadRef]
+    [removeAndAckNotification, router]
   )
 
   return {
@@ -274,5 +313,7 @@ export function usePortalNotificationActions({
     ackDocumentsSeen,
     ackStatusChangeSeen,
     openNotification,
+    dismissNotification,
+    dismissAllNotifications,
   }
 }

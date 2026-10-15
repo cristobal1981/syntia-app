@@ -57,7 +57,7 @@ function parseClientFormData(formData: FormData) {
   }
 }
 
-export type ClientImportDraft = {
+type ClientImportDraft = {
   clientKind?: ClientKind
   firstName?: string
   firstSurname?: string

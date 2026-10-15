@@ -8,7 +8,7 @@ function normalizeFolderName(value: string): string {
   return value.trim().toLocaleLowerCase('es')
 }
 
-export async function findPublicDriveFolderId(
+async function findPublicDriveFolderId(
   parentFolderId: string
 ): Promise<string | undefined> {
   if (!isGoogleDriveServiceAccountConfigured()) {

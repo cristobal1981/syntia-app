@@ -33,7 +33,6 @@ export const portalChatter = {
   attachFile: 'Adjuntar archivo',
   removeAttachment: 'Quitar {name}',
   uploading: 'Subiendo…',
-  mockBadge: 'Vista de prueba (sin Odoo)',
   errors: {
     forbidden: 'No tienes permiso para ver esta conversación.',
     not_linked: 'Tu cuenta no está vinculada. Contacta con tu asesor para activarla.',

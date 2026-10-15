@@ -9,7 +9,7 @@ import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-toolt
 import { PortalShortcutHint } from '@/src/modules/portal/ui/portal-shortcut-hint'
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 
-export type PortalActionButtonIconBehavior =
+type PortalActionButtonIconBehavior =
   | 'none'
   | 'static'
   | 'spinWhenPending'
@@ -68,10 +68,6 @@ function resolveIconClassName(
         'group-hover:scale-110 motion-reduce:group-hover:scale-100',
       extra
     )
-  }
-
-  if (behavior === 'static') {
-    return cn(base, extra)
   }
 
   return cn(base, extra)

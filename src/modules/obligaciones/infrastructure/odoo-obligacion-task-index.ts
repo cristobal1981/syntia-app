@@ -41,6 +41,10 @@ type OdooLeafRow = {
   date_deadline?: string | false | null
 }
 
+/**
+ * Índice ligero raíz > periodo > hoja del árbol de obligaciones (3 llamadas a
+ * Odoo). Sirve para contadores/avisos y para excluir estas tareas de trámites.
+ */
 export async function buildObligacionTaskIndex(
   projectIds: number[]
 ): Promise<ObligacionTaskIndex> {

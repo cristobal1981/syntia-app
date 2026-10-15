@@ -18,7 +18,10 @@ import {
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { dispatchTramitesListItemSeen } from '@/src/modules/tramites/domain/tramites-list-seen-events'
-import type { ProcedureTicketType } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  isProcedureTypeAvailable,
+  type ProcedureTicketType,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 import { TramiteCreateConsultaDrawer } from '@/src/modules/tramites/ui/tramite-create-consulta-drawer'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
@@ -39,21 +42,15 @@ export function usePortalCreateConsultaOptional() {
   return useContext(PortalCreateConsultaContext)
 }
 
-export function usePortalCreateConsulta() {
-  const context = useContext(PortalCreateConsultaContext)
-  if (!context) {
-    throw new Error(
-      'usePortalCreateConsulta must be used within PortalCreateConsultaProvider'
-    )
-  }
-  return context
-}
-
 type PortalCreateConsultaProviderProps = {
   children: ReactNode
   enabled: boolean
 }
 
+/**
+ * Provee la apertura del drawer «nueva consulta» y su atajo; no disponible en
+ * /perfil. «alta-trabajador» redirige a su ruta en vez de abrir el drawer.
+ */
 export function PortalCreateConsultaProvider({
   children,
   enabled,
@@ -74,7 +71,13 @@ export function PortalCreateConsultaProvider({
       if (!isAvailable) return
       onboardingChecklist?.markStepComplete('nuevaConsulta')
       if (options?.procedure === 'alta-trabajador') {
-        router.push('/alta-trabajador')
+        // Desactivado a propósito: sin wizard, se cae al selector general.
+        if (isProcedureTypeAvailable('alta-trabajador')) {
+          router.push('/alta-trabajador')
+          return
+        }
+        setInitialProcedure(null)
+        setOpen(true)
         return
       }
       setInitialProcedure(options?.procedure ?? null)

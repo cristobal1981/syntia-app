@@ -8,12 +8,15 @@ export type ChecklistStepId = keyof typeof copy
 export const CHECKLIST_ROUTE_STEPS: Partial<Record<ChecklistStepId, string>> = {
   tramites: '/tramites',
   firmas: '/firmas',
+  documentos: '/documentos',
   guias: '/guias',
 }
 
 export const CHECKLIST_STEP_ORDER: ChecklistStepId[] = [
   'tramites',
   'firmas',
+  'documentos',
+  'facturaCompra',
   'guias',
   'buscador',
   'nuevaConsulta',

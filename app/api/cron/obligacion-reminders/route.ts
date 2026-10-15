@@ -20,6 +20,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
-  const summary = await runObligacionReminders()
+  // `?slot=` fuerza la franja en una prueba manual; el cron nunca lo manda y
+  // decide por la hora local de Canarias.
+  const slotParam = new URL(request.url).searchParams.get('slot')
+  const slot =
+    slotParam === 'morning' || slotParam === 'presentation' ? slotParam : undefined
+
+  const summary = await runObligacionReminders({ slot })
   return NextResponse.json({ ok: true, ...summary })
 }

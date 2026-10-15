@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { Archive, Loader2 } from 'lucide-react'
+import { Archive, Loader2, Paperclip } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -16,27 +16,37 @@ import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-d
 import { RecordAttachmentsPanel } from '@/src/modules/portal/ui/record-attachments-panel'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
-import type { ObligacionTask } from '@/src/modules/obligaciones/domain/types'
+import type { ObligacionListRowWithDeadline } from '@/src/modules/obligaciones/domain/categorize-obligaciones'
+import {
+  ObligacionDrawerFacts,
+  ObligacionDrawerModelInfo,
+} from '@/src/modules/obligaciones/ui/obligacion-drawer-summary'
 import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
 import { getObligacionStateBadge } from '@/src/modules/obligaciones/domain/map-obligacion-state'
+import { useRetainedValue } from '@/src/modules/portal/ui/use-retained-value'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 
 type ObligacionDetailDrawerProps = {
-  task: ObligacionTask | null
+  task: ObligacionListRowWithDeadline | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function ObligacionDetailDrawer({
-  task,
+  task: taskProp,
   open,
   onOpenChange,
 }: ObligacionDetailDrawerProps) {
   const notifications = usePortalNotificationsOptional()
+  // Al cerrar, `task` llega a null: se conserva para que el contenido siga
+  // pintado durante la animación de salida.
+  const task = useRetainedValue(taskProp)
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
   const documentsAckRef = useRef<number | null>(null)
 
+  // Marca los documentos como vistos una sola vez por tarea al abrir el
+  // drawer; el ref se reinicia al cambiar de tarea (efecto siguiente).
   useEffect(() => {
     if (!open || !task) return
     if (documentsAckRef.current === task.id) return
@@ -50,7 +60,7 @@ export function ObligacionDetailDrawer({
 
   useEffect(() => {
     documentsAckRef.current = null
-  }, [task?.id])
+  }, [taskProp?.id])
 
   if (!task) {
     return null
@@ -103,51 +113,61 @@ export function ObligacionDetailDrawer({
           </DialogDescription>
         </DialogHeader>
 
-        <section
-          aria-labelledby="obligacion-documents-heading"
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
-        >
-          <div className="flex items-center justify-between gap-3 px-6 py-4">
-            <h3
-              id="obligacion-documents-heading"
-              className="font-sans text-sm font-semibold text-foreground"
-            >
-              {portalDocuments.attachmentsTitle}
-            </h3>
-            {showZipButton ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={zipPending}
-                onClick={handleDownloadZip}
+        {/* Un solo scroll para datos, documentos y ficha del modelo: la
+            cabecera se queda fija y los documentos nunca quedan en una
+            ventanita bajo un resumen alto. */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          <ObligacionDrawerFacts row={task} />
+
+          <section aria-labelledby="obligacion-documents-heading">
+            <div className="flex items-center justify-between gap-3 px-6 py-4">
+              <h3
+                id="obligacion-documents-heading"
+                className="flex items-center gap-2 font-sans text-sm font-semibold text-foreground"
               >
-                {zipPending ? (
-                  <Loader2
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                ) : (
-                  <Archive className="size-4" aria-hidden />
-                )}
-                <span className="ml-2">{obligaciones.list.downloadZip}</span>
-              </Button>
+                <Paperclip
+                  className="size-4 text-muted-foreground"
+                  aria-hidden
+                />
+                {portalDocuments.attachmentsTitle}
+              </h3>
+              {showZipButton ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={zipPending}
+                  onClick={handleDownloadZip}
+                >
+                  {zipPending ? (
+                    <Loader2
+                      className="size-4 animate-spin motion-reduce:animate-none"
+                      aria-hidden
+                    />
+                  ) : (
+                    <Archive className="size-4" aria-hidden />
+                  )}
+                  <span className="ml-2">{obligaciones.list.downloadZip}</span>
+                </Button>
+              ) : null}
+            </div>
+
+            {zipError ? (
+              <p className="px-6 py-2 text-sm text-destructive" role="alert">
+                {zipError}
+              </p>
             ) : null}
-          </div>
 
-          {zipError ? (
-            <p className="px-6 py-2 text-sm text-destructive" role="alert">
-              {zipError}
-            </p>
-          ) : null}
+            <RecordAttachmentsPanel
+              kind="task"
+              recordId={task.id}
+              active={open}
+              knownAttachmentCount={task.attachmentCount}
+            />
+          </section>
 
-          <RecordAttachmentsPanel
-            kind="task"
-            recordId={task.id}
-            active={open}
-            knownAttachmentCount={task.attachmentCount}
-          />
-        </section>
+          <ObligacionDrawerModelInfo row={task} />
+        </div>
     </PortalSideDrawer>
   )
 }

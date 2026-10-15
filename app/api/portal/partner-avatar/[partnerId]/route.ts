@@ -14,6 +14,10 @@ function parsePartnerId(value: string): number | null {
   return parsed
 }
 
+/**
+ * Sirve el avatar de un asesor desde caché. Solo partners asesores (404 si no):
+ * evita usar la ruta para leer fotos de cualquier partner de Odoo.
+ */
 export async function GET(
   _request: Request,
   context: { params: Promise<{ partnerId: string }> }

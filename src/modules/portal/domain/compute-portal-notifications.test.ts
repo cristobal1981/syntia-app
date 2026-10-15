@@ -167,21 +167,18 @@ describe('computeRecordWatchDeltas', () => {
     expect(result.notifications[0].isCloseEvent).toBeUndefined()
   })
 
-  it('for a consulta, the plain status_change previousStateLabel comes from a fixed open/closed vocabulary keyed off lastState==="closed", not from mapTaskStateLabel', () => {
-    // getWatchableStateKey for 'consulta' only ever derives from isClosed
-    // ('open'/'closed'), so the non-close status_change branch is normally
-    // unreachable for a consulta watched consistently by this same
-    // function. Force it via a mismatched previous.lastState to exercise
-    // the vocabulary-selection branch itself.
+  it('for a consulta, the plain status_change previousStateLabel is always "en curso" (only reachable with a legacy watch row whose lastState is not open/closed)', () => {
+    // El estado de una consulta se deriva solo de isClosed ('open'/'closed'),
+    // así que esta rama solo se alcanza con filas antiguas de seguimiento.
     const watchState = new Map([
-      ['consulta:1', entry({ lastIsClosed: false, lastState: 'closed' })],
+      ['consulta:1', entry({ lastIsClosed: false, lastState: '' })],
     ])
     const result = computeRecordWatchDeltas({
       records: [record({ scope: 'consulta', isClosed: false, state: 'in_progress' })],
       watchState,
       portalBaselineComplete: true,
     })
-    expect(result.notifications[0].previousStateLabel).toBe(tramites.taskStates.done)
+    expect(result.notifications[0].previousStateLabel).toBe(tramites.taskStates.inProgress)
   })
 
   it('for an obligacion, status_change labels use the obligacion-specific vocabulary', () => {
@@ -317,7 +314,7 @@ describe('computeFirmaWatchDeltas', () => {
     expect(result.notifications).toHaveLength(0)
   })
 
-  it('KNOWN QUIRK (locked, not asserted as correct): firmaDueSoonNotified stays sticky at true even after the firma falls outside the due-soon window again — it is never reset, so if the due date later moves back into the window it will NOT re-notify', () => {
+  it('rearms firmaDueSoonNotified when the firma falls outside the due-soon window (plazo ampliado)', () => {
     const watchState = new Map([
       ['firma:1', entry({ firmaDueSoonNotified: true })],
     ])
@@ -326,7 +323,33 @@ describe('computeFirmaWatchDeltas', () => {
       watchState,
       portalBaselineComplete: true,
     })
-    expect(result.watchUpdates[0].firmaDueSoonNotified).toBe(true)
+    expect(result.notifications).toHaveLength(0)
+    expect(result.watchUpdates[0].firmaDueSoonNotified).toBe(false)
+  })
+
+  it('notifies firma_due_soon again when a rearmed firma re-enters the due-soon window', () => {
+    const outside = computeFirmaWatchDeltas({
+      requests: [firma({ dueDate: futureDate(30) })],
+      watchState: new Map([['firma:1', entry({ firmaDueSoonNotified: true })]]),
+      portalBaselineComplete: true,
+    })
+    const rearmed = outside.watchUpdates[0]
+    const again = computeFirmaWatchDeltas({
+      requests: [firma({ dueDate: futureDate(3) })],
+      watchState: new Map([['firma:1', entry({ ...rearmed })]]),
+      portalBaselineComplete: true,
+    })
+    expect(again.notifications.map((n) => n.reason)).toEqual(['firma_due_soon'])
+    expect(again.watchUpdates[0].firmaDueSoonNotified).toBe(true)
+  })
+
+  it('rearms firmaDueSoonNotified when the firma has no due date (no date means not due soon)', () => {
+    const result = computeFirmaWatchDeltas({
+      requests: [firma({ dueDate: undefined })],
+      watchState: new Map([['firma:1', entry({ firmaDueSoonNotified: true })]]),
+      portalBaselineComplete: true,
+    })
+    expect(result.watchUpdates[0].firmaDueSoonNotified).toBe(false)
   })
 })
 

@@ -84,10 +84,15 @@ export function AutomationAccessAdmin({
     }))
   }
 
-  function handleSave(automationId: string) {
-    const row = rows[automationId]
-    if (!row) return
-
+  /**
+   * Guarda el estado de la fila y, si va bien, recarga el catálogo admin para
+   * que filas y avisos reflejen lo que realmente quedó en servidor.
+   */
+  function persistRow(
+    automationId: string,
+    row: AutomationAccessRowState,
+    successMessage: string
+  ) {
     setSavingId(automationId)
     startTransition(async () => {
       const result = await updateAutomationAccessAction({
@@ -103,7 +108,7 @@ export function AutomationAccessAdmin({
         return
       }
 
-      toast.success(automatizaciones.toast.accessSaved)
+      toast.success(successMessage)
       const refresh = await listAutomationsForAccessAdminAction()
       if (refresh.ok) {
         setAutomations(refresh.data)
@@ -120,40 +125,16 @@ export function AutomationAccessAdmin({
     })
   }
 
+  function handleSave(automationId: string) {
+    const row = rows[automationId]
+    if (!row) return
+    persistRow(automationId, row, automatizaciones.toast.accessSaved)
+  }
+
   function handleArchive(automationId: string) {
     const row = rows[automationId]
     if (!row || !row.isActive) return
-
-    setSavingId(automationId)
-    startTransition(async () => {
-      const result = await updateAutomationAccessAction({
-        automationId,
-        isActive: false,
-        visibility: row.visibility,
-        grantedAdvisorIds: row.grantedAdvisorIds,
-      })
-      setSavingId(null)
-
-      if (!result.ok) {
-        toast.error(automatizaciones.toast.accessSaveFailed)
-        return
-      }
-
-      toast.success(copy.archived)
-      const refresh = await listAutomationsForAccessAdminAction()
-      if (refresh.ok) {
-        setAutomations(refresh.data)
-        setRows(
-          Object.fromEntries(
-            refresh.data.map((automation) => [
-              automation.id,
-              toRowState(automation),
-            ])
-          )
-        )
-        onUpdated?.()
-      }
-    })
+    persistRow(automationId, { ...row, isActive: false }, copy.archived)
   }
 
   return (

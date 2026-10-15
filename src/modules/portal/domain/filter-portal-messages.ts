@@ -38,7 +38,7 @@ export function formatChatterBodyFromOdoo(body: string): string {
   return prepareChatterHtmlForDisplay(normalizeChatterDisplayBody(body))
 }
 
-export { sanitizeChatterHtml, prepareChatterHtmlForDisplay }
+export { sanitizeChatterHtml }
 
 export function isChatterHtmlEmpty(html: string): boolean {
   return stripHtmlToText(html).trim().length === 0

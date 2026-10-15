@@ -2,17 +2,16 @@
 
 import { updateTag } from 'next/cache'
 
-import { getSession } from '@/src/modules/auth/application/get-session'
 import {
   buildDirectoryScope,
   requireDirectorySession,
 } from '@/src/modules/directory/application/directory-queries'
 import {
+  normalizeDriveFolderInput,
   validateClientForm,
   validatePersonEmail,
   validatePersonNameParts,
 } from '@/src/modules/directory/application/validate-directory'
-import { normalizeDriveFolderInput } from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
 import type {
   CreateClientInput,
@@ -38,7 +37,7 @@ export type DirectoryUpdateResult =
       message?: string
     }
 
-export type DirectoryDeleteResult =
+type DirectoryDeleteResult =
   | { ok: true }
   | {
       ok: false
@@ -46,7 +45,7 @@ export type DirectoryDeleteResult =
       message?: string
     }
 
-export type ResendAccessResult =
+type ResendAccessResult =
   | { ok: true }
   | {
       ok: false
@@ -54,14 +53,14 @@ export type ResendAccessResult =
       message?: string
     }
 
-export type ListOdooPartnersForImportActionResult =
+type ListOdooPartnersForImportActionResult =
   | { ok: true; partners: OdooPartnerImportOption[] }
   | {
       ok: false
       error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
     }
 
-export type ListOdooGestoresForImportActionResult =
+type ListOdooGestoresForImportActionResult =
   | { ok: true; users: OdooUserImportOption[] }
   | {
       ok: false
@@ -138,6 +137,7 @@ function parseClientForm(formData: FormData): UpdateClientInput {
   }
 }
 
+/** Alta de gestor (solo admin): valida, crea y refresca el catálogo de gestores de Odoo. */
 export async function createGestorAction(
   _prev: DirectoryUpdateResult | null,
   formData: FormData
@@ -576,14 +576,4 @@ export async function listOdooGestoresForImportAction(): Promise<ListOdooGestore
     }
     throw error
   }
-}
-
-export async function canEditClient(clientId: string): Promise<boolean> {
-  const session = await getSession()
-  if (!session || session.user.role === 'client') return false
-  if (session.user.role === 'admin') return true
-
-  const scope = await buildDirectoryScope()
-  const client = await getDirectoryRepository().getClient(clientId)
-  return client?.advisorId === scope.userId
 }

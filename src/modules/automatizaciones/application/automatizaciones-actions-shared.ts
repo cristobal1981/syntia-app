@@ -16,6 +16,10 @@ export type AutomatizacionesResult<T> =
       message?: string
     }
 
+/**
+ * Guarda común de las actions: exige sesión y rol de staff (no cliente).
+ * Lanza 'unauthorized'/'forbidden', que cada action traduce a su resultado.
+ */
 export async function requireStaffSession() {
   const session = await getSession()
   if (!session) {

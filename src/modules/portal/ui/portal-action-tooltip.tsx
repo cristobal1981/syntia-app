@@ -18,6 +18,10 @@ type PortalActionTooltipProps = {
   open?: boolean
 }
 
+/**
+ * Tooltip para acciones. Si está deshabilitada envuelve el hijo en un span
+ * enfocable: un botón disabled no emite eventos y el tooltip no se abriría.
+ */
 export function PortalActionTooltip({
   content,
   children,

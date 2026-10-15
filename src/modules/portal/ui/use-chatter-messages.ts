@@ -8,11 +8,7 @@ import {
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
-import { isPortalChatterMockEnabled } from '@/src/modules/portal/lib/portal-chatter-mock'
-import { CHATTER_MOCK_MESSAGES } from '@/src/modules/portal/ui/chatter-mock-data'
 import type { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
-
-export const chatterMockEnabled = isPortalChatterMockEnabled()
 
 function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
   return kind === 'task' ? 'tramite' : 'consulta'
@@ -102,16 +98,6 @@ export function useChatterMessages({
     shouldStickToBottomRef.current = true
 
     try {
-      if (chatterMockEnabled) {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        if (generation !== loadGenerationRef.current) return
-        const mockMessages = enrichPortalChatterMessages([...CHATTER_MOCK_MESSAGES])
-        setMessages(mockMessages)
-        setHasMore(false)
-        notifyConversationViewed(mockMessages)
-        return
-      }
-
       const result = await listRecordMessagesAction({ kind, recordId })
       if (generation !== loadGenerationRef.current) return
 
@@ -144,7 +130,7 @@ export function useChatterMessages({
   }, [active, recordId, loadInitial])
 
   useEffect(() => {
-    if (chatterMockEnabled || !active || loadingInitial || recordId <= 0) return
+    if (!active || loadingInitial || recordId <= 0) return
     if (!latestKnownMessageId || loadingNewerRef.current) return
 
     const maxLoadedId = messages.length ? messages[messages.length - 1]!.id : 0
@@ -219,8 +205,6 @@ export function useChatterMessages({
     if (recordId <= 0 || loadingOlderRef.current || !hasMore || !messages.length) {
       return
     }
-
-    if (chatterMockEnabled) return
 
     loadingOlderRef.current = true
     setLoadingOlder(true)

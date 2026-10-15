@@ -22,6 +22,7 @@ type DirectoryPanelProps = {
   children: React.ReactNode
 }
 
+/** Panel lateral derecho (Dialog de Radix) para crear/editar; respeta prefers-reduced-motion. */
 export function DirectoryPanel({
   open,
   onOpenChange,

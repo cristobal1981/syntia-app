@@ -1,10 +1,10 @@
+import { isValidIsoDate } from '@/lib/validation/date'
 import { isValidEmail } from '@/lib/validation/email'
 
 const MIN_ANNUAL_INCOME_EUR = 10_000
 const PHONE_REGEX = /^\+34\d{9}$/
 const POSTAL_CODE_REGEX = /^\d{5}$/
 const IBAN_ES_REGEX = /^ES\d{22}$/
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 const NAF_MIN_DIGITS = 9
 const NAF_MAX_DIGITS = 12
 const MIN_AGE_YEARS = 18
@@ -52,8 +52,12 @@ function normalizeText(value: unknown): string {
 function parsePositiveInt(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value
   if (typeof value === 'string') {
-    const parsed = Number.parseInt(value.trim(), 10)
-    if (Number.isInteger(parsed) && parsed > 0) return parsed
+    // Solo dígitos: parseInt aceptaría "28abc" como 28.
+    const trimmed = value.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed)
+      if (Number.isSafeInteger(parsed) && parsed > 0) return parsed
+    }
   }
   return null
 }
@@ -77,12 +81,6 @@ function parseAnnualIncome(value: unknown): number | null {
     return Number.isInteger(parsed) ? parsed : null
   }
   return null
-}
-
-function isValidIsoDate(value: string): boolean {
-  if (!DATE_REGEX.test(value)) return false
-  const date = new Date(`${value}T00:00:00.000Z`)
-  return !Number.isNaN(date.getTime())
 }
 
 /** El NAF es opcional: una cadena vacía es válida, pero si se indica debe ser numérico. */

@@ -66,7 +66,11 @@ function LeadContactForm({ candidate, onOpenChange, onSuccess }: LeadContactForm
         toast.error(result.message ?? copy.sendError)
         return
       }
-      toast.success(copy.sendSuccess)
+      if (result.recorded === false) {
+        toast.warning(copy.sendNotRecorded)
+      } else {
+        toast.success(copy.sendSuccess)
+      }
       onOpenChange(false)
       onSuccess()
     })

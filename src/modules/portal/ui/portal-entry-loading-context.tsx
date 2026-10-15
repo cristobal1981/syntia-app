@@ -14,7 +14,7 @@ import {
 import { AuthSessionOverlay } from '@/src/modules/auth/ui/auth-session-overlay'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 
-export const PORTAL_ENTRY_SESSION_KEY = 'syntia-portal-entry'
+const PORTAL_ENTRY_SESSION_KEY = 'syntia-portal-entry'
 
 export function markPortalEntryPending() {
   try {

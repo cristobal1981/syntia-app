@@ -11,8 +11,19 @@ const ORIGINAL_ENV = {
   RESEND_INVITE_OVERRIDE_TO: process.env.RESEND_INVITE_OVERRIDE_TO,
 }
 
+const baseItem = {
+  kind: 'normal' as const,
+  completion: { level: 'missing' as const },
+}
+
 const items = [
-  { clientName: 'Cliente SL', modelLabel: 'Modelo 303', deadline: new Date(2026, 3, 20), daysLeft: 5 },
+  {
+    clientName: 'Cliente SL',
+    modelLabel: 'Modelo 303',
+    deadline: new Date(2026, 3, 20),
+    daysLeft: 5,
+    ...baseItem,
+  },
 ]
 
 beforeEach(() => {
@@ -44,7 +55,13 @@ describe('sendObligacionReminderDigestEmail', () => {
       to: 'admin@example.com',
       items: [
         ...items,
-        { clientName: 'Otro Cliente', modelLabel: 'Modelo 111', deadline: new Date(2026, 3, 22), daysLeft: 7 },
+        {
+          clientName: 'Otro Cliente',
+          modelLabel: 'Modelo 111',
+          deadline: new Date(2026, 3, 22),
+          daysLeft: 7,
+          ...baseItem,
+        },
       ],
     })
 
@@ -76,5 +93,37 @@ describe('sendObligacionReminderDigestEmail', () => {
 
     const [emailArg] = sendEmail.mock.calls[0]
     expect(emailArg.to).toBe('admin-real@example.com')
+  })
+  it('devuelve true solo cuando Resend confirma el envío (id recibido)', async () => {
+    sendEmail.mockResolvedValue({ id: 'email-1' })
+
+    await expect(sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })).resolves.toBe(true)
+  })
+
+  it('devuelve false (sin lanzar) cuando Resend no está configurado y no hay id', async () => {
+    sendEmail.mockResolvedValue({ id: null })
+
+    await expect(sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })).resolves.toBe(false)
+  })
+
+  it('passes the digest subject/html/text and required:false to sendEmail', async () => {
+    delete process.env.RESEND_INVITE_OVERRIDE_TO
+
+    await sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })
+
+    const [emailArg, options] = sendEmail.mock.calls[0]
+    expect(typeof emailArg.subject).toBe('string')
+    expect(emailArg.subject.length).toBeGreaterThan(0)
+    expect(emailArg.html.length).toBeGreaterThan(0)
+    expect(emailArg.text.length).toBeGreaterThan(0)
+    expect(options).toEqual({ required: false })
+  })
+
+  it('propagates a sendEmail error instead of returning false', async () => {
+    sendEmail.mockRejectedValue(new Error('resend down'))
+
+    await expect(
+      sendObligacionReminderDigestEmail({ to: 'admin@example.com', items })
+    ).rejects.toThrow('resend down')
   })
 })

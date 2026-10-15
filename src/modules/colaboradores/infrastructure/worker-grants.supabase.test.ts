@@ -5,6 +5,7 @@ import {
   getWorkerGrant,
   listAllWorkerGrants,
   listWorkerGrantsForOwner,
+  listWorkerGrantsForOwners,
   parseAllowedSections,
   propagateOwnerIntegrationToWorkers,
   sanitizeAllowedSections,
@@ -28,9 +29,10 @@ type QueryResult = { data?: unknown; error?: { message: string } | null }
 function chainFor(result: QueryResult) {
   const resolved = Promise.resolve(result)
   const chain: Record<string, unknown> = {}
-  chain.select = () => chain
   chain.eq = vi.fn(() => chain)
   chain.limit = vi.fn(() => chain)
+  chain.in = vi.fn(() => chain)
+  chain.select = vi.fn(() => chain)
   chain.maybeSingle = () => resolved
   chain.upsert = vi.fn(() => resolved)
   chain.delete = vi.fn(() => chain)
@@ -231,5 +233,102 @@ describe('propagateOwnerIntegrationToWorkers (keeps colaboradores in sync with t
     })
 
     expect(upsertClientIntegration).not.toHaveBeenCalled()
+  })
+})
+
+describe('sanitizeAllowedSections (levels per section)', () => {
+  it('keeps "write" for sections that have mutations and "read" untouched', () => {
+    expect(
+      sanitizeAllowedSections({
+        '/tramites': 'write',
+        '/obligaciones': 'write',
+        '/documentos': 'write',
+        '/firmas': 'read',
+        '/guias': 'read',
+      })
+    ).toEqual({
+      '/tramites': 'write',
+      '/obligaciones': 'write',
+      '/documentos': 'write',
+      '/firmas': 'read',
+      '/guias': 'read',
+    })
+  })
+
+  it('does not mutate its input', () => {
+    const input = { '/firmas': 'write' } as const
+    sanitizeAllowedSections({ ...input })
+    expect(input).toEqual({ '/firmas': 'write' })
+  })
+})
+
+describe('parseAllowedSections (write degradation)', () => {
+  it('degrades a "write" on /firmas and /guias in the object shape', () => {
+    expect(parseAllowedSections({ '/firmas': 'write', '/guias': 'write', '/documentos': 'write' })).toEqual({
+      '/firmas': 'read',
+      '/guias': 'read',
+      '/documentos': 'write',
+    })
+  })
+
+  it('degrades legacy array entries for /guias to read', () => {
+    expect(parseAllowedSections(['/guias', '/documentos'])).toEqual({
+      '/guias': 'read',
+      '/documentos': 'write',
+    })
+  })
+})
+
+describe('worker grant queries (filters)', () => {
+  it('getWorkerGrant filters by worker_user_id and selects the grant columns', async () => {
+    const chain = chainFor({ data: null, error: null })
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    await getWorkerGrant('w9')
+
+    expect(from).toHaveBeenCalledWith('worker_grants')
+    expect(chain.select).toHaveBeenCalledWith(
+      'worker_user_id, owner_user_id, allowed_sections, is_enabled'
+    )
+    expect(chain.eq).toHaveBeenCalledWith('worker_user_id', 'w9')
+  })
+
+  it('listWorkerGrantsForOwner throws on a DB error', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: null, error: { message: 'boom' } }),
+    })
+    await expect(listWorkerGrantsForOwner('o')).rejects.toThrow('boom')
+  })
+
+  it('listWorkerGrantsForOwners returns [] without querying when no owners are given', async () => {
+    expect(await listWorkerGrantsForOwners([])).toEqual([])
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled()
+  })
+
+  it('listWorkerGrantsForOwners scopes with .in(owner_user_id, ids)', async () => {
+    const chain = chainFor({ data: [{ worker_user_id: 'w1' }], error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    const rows = await listWorkerGrantsForOwners(['o1', 'o2'])
+
+    expect(chain.in).toHaveBeenCalledWith('owner_user_id', ['o1', 'o2'])
+    expect(rows).toHaveLength(1)
+  })
+
+  it('listWorkerGrantsForOwners throws on a DB error', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => chainFor({ data: null, error: { message: 'boom' } }),
+    })
+    await expect(listWorkerGrantsForOwners(['o1'])).rejects.toThrow('boom')
+  })
+
+  it('upsertWorkerGrant throws on a DB error', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => ({ upsert: () => Promise.resolve({ error: { message: 'nope' } }) }),
+    })
+    await expect(
+      upsertWorkerGrant({ workerUserId: 'w', ownerUserId: 'o', allowedSections: {}, isEnabled: true })
+    ).rejects.toThrow('nope')
   })
 })

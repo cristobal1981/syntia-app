@@ -27,10 +27,7 @@ export async function getClientProfileForClient(
   try {
     const profile = await fetchClientProfileFromOdoo(partnerId, user.id)
     return { ok: true, profile }
-  } catch (error) {
-    if (error instanceof Error && error.message === 'ODOO_NOT_CONFIGURED') {
-      return { ok: false, error: 'odoo_unavailable' }
-    }
+  } catch {
     return { ok: false, error: 'odoo_unavailable' }
   }
 }

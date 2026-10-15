@@ -3,7 +3,7 @@
  * capas superiores los traducen con `switch (error.message)`), y `status` /
  * `reason` viajan aparte para poder registrarlos sin exponerlos al cliente.
  */
-export type DriveFailureCode =
+type DriveFailureCode =
   | 'DRIVE_ITEM_NOT_FOUND'
   | 'DRIVE_ACCESS_FORBIDDEN'
   | 'DRIVE_NAME_CONFLICT'

@@ -21,6 +21,7 @@ type GestorCreateDialogProps = {
 
 type OdooImportLoadState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
 
+/** Alta de gestor en panel lateral; al abrir carga usuarios de Odoo para prellenar el formulario. */
 export function GestorCreateDialog({
   open,
   onOpenChange,

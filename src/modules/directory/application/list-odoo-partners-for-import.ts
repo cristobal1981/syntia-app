@@ -5,10 +5,11 @@ import { getOdooPartnerCatalog } from '@/src/modules/directory/infrastructure/od
 import { ODOO_PARTNER_CATALOG_CACHE_TAG } from '@/src/modules/directory/infrastructure/odoo-partner-env'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
-export type ListOdooPartnersForImportResult =
+type ListOdooPartnersForImportResult =
   | { ok: true; partners: OdooPartnerImportOption[] }
   | { ok: false; error: 'odoo_unavailable' | 'odoo_request_failed' }
 
+/** Fuerza refresco del catálogo cacheado antes de leerlo: el staff abre el importador para ver altas recientes en Odoo. */
 export async function listOdooPartnersForImport(options?: {
   includeLinked?: boolean
 }): Promise<ListOdooPartnersForImportResult> {

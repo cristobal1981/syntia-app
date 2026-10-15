@@ -17,6 +17,7 @@ type DriveBrowserProps = {
   initialListing?: DriveFolderListing
 }
 
+/** Navegador de Drive: compone toolbar, búsqueda, lista y vista previa; la lógica vive en `useDriveBrowser`. */
 export function DriveBrowser({ canWrite, initialListing }: DriveBrowserProps) {
   const {
     fileInputRef,
@@ -164,7 +165,6 @@ export function DriveBrowser({ canWrite, initialListing }: DriveBrowserProps) {
           if (!open) setPreviewItem(null)
         }}
       />
-
     </div>
   )
 }

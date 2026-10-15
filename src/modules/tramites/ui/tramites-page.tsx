@@ -15,16 +15,15 @@ type TramitesPageProps = {
   user: PortalUser
 }
 
+/** Carga la lista de trámites y resuelve los estados de error de Odoo; los trabajadores escriben solo con la sección `/tramites`. */
 export async function TramitesPage({ user }: TramitesPageProps) {
   const actorId = await resolveDirectoryActorId(user)
-  const [tramitesResult, seenState, writeSections] = await Promise.all([
+  const [result, seenState, writeSections] = await Promise.all([
     getTramitesForClient(user),
     getTramitesListSeenStateForUser(actorId),
     user.role === 'worker' ? getWorkerWriteSections(user) : null,
   ])
   const canWriteTramites = user.role !== 'worker' || (writeSections?.has('/tramites') ?? false)
-
-  const result = tramitesResult
 
   if (!result.ok) {
     const stateCopy = tramites.states

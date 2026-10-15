@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { taxCalendar, type TaxCalendarWindow } from '@/content/tax-calendar'
+
 import {
   extractModelCodeFromLabel,
   fiscalModelMatchesQuery,
@@ -7,6 +9,7 @@ import {
   getFiscalModelGuideByCode,
   getFiscalModelGuideByLabel,
   getSortedFiscalModelGuideEntries,
+  isFiscalModelDomiciliable,
   modelLabelMatchesGuideQuery,
   normalizeGuideSearchText,
 } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
@@ -96,5 +99,51 @@ describe('formatKeywordHashtag', () => {
 
   it('does not double-prefix a keyword that already starts with #', () => {
     expect(formatKeywordHashtag('#irpf')).toBe('#irpf')
+  })
+})
+
+describe('guía de modelos vs calendario fiscal', () => {
+  it('todo modelo con ventana en el calendario tiene ficha en la guía', () => {
+    const calendarCodes = new Set(
+      taxCalendar.windows.flatMap((window) => [...window.modelCodes])
+    )
+
+    for (const code of calendarCodes) {
+      expect(getFiscalModelGuideByCode(code), `modelo ${code} sin ficha`).toBeDefined()
+    }
+  })
+
+  it('los modelos con fecha propia (endByModel) están en las ventanas que los declaran', () => {
+    const windows: readonly TaxCalendarWindow[] = taxCalendar.windows
+
+    for (const window of windows) {
+      const overrides: Record<string, unknown> = window.endByModel ?? {}
+      for (const code of Object.keys(overrides)) {
+        expect(
+          (window.modelCodes as readonly string[]).includes(code),
+          `${window.id} da fecha propia a ${code} sin declararlo`
+        ).toBe(true)
+      }
+    }
+  })
+})
+
+describe('isFiscalModelDomiciliable', () => {
+  it.each(['100', '111', '115', '123', '130', '131', '200', '202', '216', '303', '309', '420', '421'])(
+    'el modelo %s se domicilia',
+    (code) => {
+      expect(isFiscalModelDomiciliable(code)).toBe(true)
+    }
+  )
+
+  it.each(['180', '190', '347', '349', '369', '390', '415', '425'])(
+    'el modelo %s no se domicilia (informativo, sin pago o sin domiciliación)',
+    (code) => {
+      expect(isFiscalModelDomiciliable(code)).toBe(false)
+    }
+  )
+
+  it('un modelo sin ficha no se asume domiciliable', () => {
+    expect(isFiscalModelDomiciliable('999')).toBe(false)
   })
 })

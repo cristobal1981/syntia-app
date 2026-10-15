@@ -76,6 +76,10 @@ function automationRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
+/** Cliente sin las funciones SQL aplicadas: fuerza el camino anterior (varios pasos). */
+const missingRpc = () =>
+  Promise.resolve({ error: { code: 'PGRST202', message: 'Could not find the function' } })
+
 beforeEach(() => {
   vi.resetAllMocks()
 })
@@ -97,7 +101,7 @@ describe('listPortalAutomationsFromDb', () => {
       }
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     const result = await listPortalAutomationsFromDb()
 
@@ -112,7 +116,7 @@ describe('listPortalAutomationsFromDb', () => {
       grantsFrom(table)
       return chainFor({ data: [], error: null })
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await listPortalAutomationsFromDb()
 
@@ -122,6 +126,7 @@ describe('listPortalAutomationsFromDb', () => {
   it('throws on a list error', async () => {
     createSupabaseAdminClient.mockReturnValue({
       from: () => chainFor({ data: null, error: { message: 'list failed' } }),
+      rpc: missingRpc,
     })
 
     await expect(listPortalAutomationsFromDb()).rejects.toThrow('list failed')
@@ -144,7 +149,7 @@ describe('listPortalAutomationsWithLastRun', () => {
       }
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     const result = await listPortalAutomationsWithLastRun()
 
@@ -162,7 +167,7 @@ describe('listPortalAutomationsWithLastRun', () => {
       if (table === 'portal_automation_runs') return chainFor({ data: [], error: null })
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     const result = await listPortalAutomationsWithLastRun()
 
@@ -178,7 +183,7 @@ describe('getPortalAutomationById', () => {
       grantsFrom(table)
       return chainFor({ data: [], error: null })
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     expect(await getPortalAutomationById('auto-1')).toBeNull()
     expect(grantsFrom).not.toHaveBeenCalled()
@@ -202,7 +207,7 @@ describe('updatePortalAutomationAccess', () => {
       }
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await updatePortalAutomationAccess({
       automationId: 'auto-1',
@@ -229,7 +234,7 @@ describe('updatePortalAutomationAccess', () => {
       }
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await updatePortalAutomationAccess({
       automationId: 'auto-1',
@@ -247,7 +252,7 @@ describe('updatePortalAutomationAccess', () => {
       if (table === 'portal_automations') return chainFor({ error: null })
       return deleteChain
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await updatePortalAutomationAccess({
       automationId: 'auto-1',
@@ -261,7 +266,7 @@ describe('updatePortalAutomationAccess', () => {
 
   it('throws on the update error and never touches grants', async () => {
     const from = vi.fn(() => chainFor({ error: { message: 'update failed' } }))
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await expect(
       updatePortalAutomationAccess({
@@ -275,6 +280,101 @@ describe('updatePortalAutomationAccess', () => {
   })
 })
 
+describe('updatePortalAutomationAccess call order', () => {
+  it('runs update(portal_automations) -> delete(grants) -> insert(grants), and stops before delete when the update fails', async () => {
+    const log: string[] = []
+    const tracked = (label: string, result: QueryResult) => {
+      const chain = chainFor(result)
+      for (const op of ['update', 'delete', 'insert'] as const) {
+        const original = chain[op] as (...args: unknown[]) => unknown
+        chain[op] = vi.fn((...args: unknown[]) => {
+          log.push(`${label}.${op}`)
+          return original(...args)
+        })
+      }
+      return chain
+    }
+    const grantsChains = [
+      tracked('grants', { error: null }),
+      tracked('grants', { error: null }),
+    ]
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations'
+        ? tracked('automations', { error: null })
+        : (grantsChains.shift() as ReturnType<typeof chainFor>)
+    )
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
+
+    await updatePortalAutomationAccess({
+      automationId: 'auto-1',
+      isActive: true,
+      visibility: 'selected',
+      grantedAdvisorIds: ['adv-1'],
+    })
+
+    expect(log).toEqual(['automations.update', 'grants.delete', 'grants.insert'])
+  })
+
+  it('throws the delete error and never inserts', async () => {
+    const deleteChain = chainFor({ error: { message: 'delete failed' } })
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations' ? chainFor({ error: null }) : deleteChain
+    )
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
+
+    await expect(
+      updatePortalAutomationAccess({
+        automationId: 'auto-1',
+        isActive: true,
+        visibility: 'selected',
+        grantedAdvisorIds: ['adv-1'],
+      })
+    ).rejects.toThrow('delete failed')
+    expect(deleteChain.insert).not.toHaveBeenCalled()
+  })
+
+  it('throws the insert error', async () => {
+    const chains = [chainFor({ error: null }), chainFor({ error: { message: 'insert failed' } })]
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations'
+        ? chainFor({ error: null })
+        : (chains.shift() as ReturnType<typeof chainFor>)
+    )
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
+
+    await expect(
+      updatePortalAutomationAccess({
+        automationId: 'auto-1',
+        isActive: true,
+        visibility: 'selected',
+        grantedAdvisorIds: ['adv-1'],
+      })
+    ).rejects.toThrow('insert failed')
+  })
+
+  it('scopes update and delete to the automation id and writes is_active/visibility', async () => {
+    const updateChain = chainFor({ error: null })
+    const deleteChain = chainFor({ error: null })
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations' ? updateChain : deleteChain
+    )
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
+
+    await updatePortalAutomationAccess({
+      automationId: 'auto-9',
+      isActive: false,
+      visibility: 'none',
+      grantedAdvisorIds: [],
+    })
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ is_active: false, visibility: 'none' })
+    )
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'auto-9')
+    expect(deleteChain.eq).toHaveBeenCalledWith('automation_id', 'auto-9')
+  })
+})
+
 describe('updatePortalAutomationDefinition (DIFFERENT semantics from updatePortalAutomationAccess)', () => {
   it('does NOT touch grants when visibility stays/becomes "selected"', async () => {
     const grantsFrom = vi.fn()
@@ -283,7 +383,7 @@ describe('updatePortalAutomationDefinition (DIFFERENT semantics from updatePorta
       grantsFrom(table)
       return chainFor({ error: null })
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await updatePortalAutomationDefinition({
       automationId: 'auto-1',
@@ -307,7 +407,7 @@ describe('updatePortalAutomationDefinition (DIFFERENT semantics from updatePorta
       if (table === 'portal_automation_advisor_grants') return grantsChain
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await updatePortalAutomationDefinition({
       automationId: 'auto-1',
@@ -329,7 +429,7 @@ describe('updatePortalAutomationDefinition (DIFFERENT semantics from updatePorta
 describe('insertPortalAutomationRun / listPortalAutomationRuns', () => {
   it('insertPortalAutomationRun defaults httpStatus/errorMessage to null when omitted', async () => {
     const chain = chainFor({ error: null })
-    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain, rpc: missingRpc })
 
     await insertPortalAutomationRun({
       automationId: 'auto-1',
@@ -344,7 +444,7 @@ describe('insertPortalAutomationRun / listPortalAutomationRuns', () => {
 
   it('listPortalAutomationRuns returns early and never queries automations/users/profiles when there are zero runs', async () => {
     const from = vi.fn(() => chainFor({ data: [], error: null }))
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     const result = await listPortalAutomationRuns({})
 
@@ -378,7 +478,7 @@ describe('insertPortalAutomationRun / listPortalAutomationRuns', () => {
       if (table === 'profiles') return chainFor({ data: [], error: null })
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     const [run] = await listPortalAutomationRuns({})
 
@@ -389,7 +489,7 @@ describe('insertPortalAutomationRun / listPortalAutomationRuns', () => {
 
   it('scopes to triggeredBy when given', async () => {
     const chain = chainFor({ data: [], error: null })
-    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain, rpc: missingRpc })
 
     await listPortalAutomationRuns({ triggeredBy: 'user-1' })
 
@@ -401,6 +501,7 @@ describe('insertPortalAutomation / deletePortalAutomation / getNextAutomationSor
   it('insertPortalAutomation returns the row with an empty grantedAdvisorIds (a brand new automation has no grants yet)', async () => {
     createSupabaseAdminClient.mockReturnValue({
       from: () => chainFor({ data: automationRow(), error: null }),
+      rpc: missingRpc,
     })
 
     const result = await insertPortalAutomation({
@@ -420,7 +521,7 @@ describe('insertPortalAutomation / deletePortalAutomation / getNextAutomationSor
 
   it('deletePortalAutomation scopes the delete to the id', async () => {
     const chain = chainFor({ error: null })
-    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain, rpc: missingRpc })
 
     await deletePortalAutomation('auto-1')
 
@@ -430,6 +531,7 @@ describe('insertPortalAutomation / deletePortalAutomation / getNextAutomationSor
   it('getNextAutomationSortOrder returns 0 when there are no automations yet', async () => {
     createSupabaseAdminClient.mockReturnValue({
       from: () => chainFor({ data: null, error: null }),
+      rpc: missingRpc,
     })
 
     expect(await getNextAutomationSortOrder()).toBe(0)
@@ -438,6 +540,7 @@ describe('insertPortalAutomation / deletePortalAutomation / getNextAutomationSor
   it('getNextAutomationSortOrder returns max + 1 otherwise', async () => {
     createSupabaseAdminClient.mockReturnValue({
       from: () => chainFor({ data: { sort_order: 4 }, error: null }),
+      rpc: missingRpc,
     })
 
     expect(await getNextAutomationSortOrder()).toBe(5)
@@ -462,7 +565,7 @@ describe('updateAutomationGlobalOrder', () => {
       })
       return chain
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await updateAutomationGlobalOrder(['auto-b', 'auto-a', 'auto-c'])
 
@@ -476,7 +579,7 @@ describe('updateAutomationGlobalOrder', () => {
       call += 1
       return chainFor(call === 1 ? { error: { message: 'boom' } } : { error: null })
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await expect(updateAutomationGlobalOrder(['auto-a', 'auto-b'])).rejects.toThrow('boom')
     expect(from).toHaveBeenCalledTimes(1)
@@ -487,7 +590,7 @@ describe('replaceUserAutomationOrder', () => {
   it('always deletes the prior order first, then inserts only if the new order is non-empty', async () => {
     const deleteChain = chainFor({ error: null })
     const from = vi.fn(() => deleteChain)
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await replaceUserAutomationOrder('user-1', [])
 
@@ -500,7 +603,7 @@ describe('replaceUserAutomationOrder', () => {
     const deleteChain = chainFor({ error: null })
     const insertChain = chainFor({ error: null })
     const from = vi.fn().mockReturnValueOnce(deleteChain).mockReturnValueOnce(insertChain)
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     await replaceUserAutomationOrder('user-1', ['auto-b', 'auto-a'])
 
@@ -532,7 +635,7 @@ describe('fetchUserAutomationOrderMap / countActiveAutomationsForNav / countVisi
 
   it('countActiveAutomationsForNav only counts is_active = true, returns 0 for a null count', async () => {
     const chain = chainFor({ count: null, error: null })
-    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain, rpc: missingRpc })
 
     expect(await countActiveAutomationsForNav()).toBe(0)
     expect(chain.eq).toHaveBeenCalledWith('is_active', true)
@@ -552,8 +655,111 @@ describe('fetchUserAutomationOrderMap / countActiveAutomationsForNav / countVisi
       if (table === 'portal_automation_advisor_grants') return chainFor({ data: [], error: null })
       throw new Error(`unexpected table ${table}`)
     })
-    createSupabaseAdminClient.mockReturnValue({ from })
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
 
     expect(await countVisibleAutomationsForAdvisor('adv-1')).toBe(1)
+  })
+})
+
+describe('updatePortalAutomationAccess — función SQL atómica', () => {
+  const input = {
+    automationId: 'auto-1',
+    isActive: true,
+    visibility: 'selected' as const,
+    grantedAdvisorIds: ['adv-1', 'adv-2'],
+  }
+
+  it('si la función existe, hace UNA llamada rpc con los parámetros y no toca las tablas', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null })
+    const from = vi.fn()
+    createSupabaseAdminClient.mockReturnValue({ from, rpc })
+
+    await updatePortalAutomationAccess(input)
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('update_portal_automation_access', {
+      p_automation_id: 'auto-1',
+      p_is_active: true,
+      p_visibility: 'selected',
+      p_granted_advisor_ids: ['adv-1', 'adv-2'],
+    })
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('pasa isActive false y visibilidad all tal cual (no los fija)', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(), rpc })
+
+    await updatePortalAutomationAccess({
+      automationId: 'auto-2',
+      isActive: false,
+      visibility: 'all',
+      grantedAdvisorIds: [],
+    })
+
+    expect(rpc).toHaveBeenCalledWith('update_portal_automation_access', {
+      p_automation_id: 'auto-2',
+      p_is_active: false,
+      p_visibility: 'all',
+      p_granted_advisor_ids: [],
+    })
+  })
+
+  it('un error real de la función se propaga y NO cae al camino de varios pasos', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: { code: '23503', message: 'fk violation' } })
+    const from = vi.fn()
+    createSupabaseAdminClient.mockReturnValue({ from, rpc })
+
+    await expect(updatePortalAutomationAccess(input)).rejects.toThrow('fk violation')
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('si la función no existe, usa el camino anterior (update → delete → insert)', async () => {
+    const log: string[] = []
+    const chain = (label: string) => {
+      const c = chainFor({ error: null })
+      for (const op of ['update', 'delete', 'insert'] as const) {
+        const original = c[op] as (...a: unknown[]) => unknown
+        c[op] = vi.fn((...a: unknown[]) => {
+          log.push(`${label}.${op}`)
+          return original(...a)
+        })
+      }
+      return c
+    }
+    const grants = [chain('grants'), chain('grants')]
+    const from = vi.fn((table: string) =>
+      table === 'portal_automations' ? chain('automations') : grants.shift()!
+    )
+    createSupabaseAdminClient.mockReturnValue({ from, rpc: missingRpc })
+
+    await updatePortalAutomationAccess(input)
+
+    expect(log).toEqual(['automations.update', 'grants.delete', 'grants.insert'])
+  })
+})
+
+describe('updateAutomationGlobalOrder — función SQL atómica', () => {
+  it('si la función existe, una sola llamada rpc con los ids en orden y sin updates sueltos', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null })
+    const from = vi.fn()
+    createSupabaseAdminClient.mockReturnValue({ from, rpc })
+
+    await updateAutomationGlobalOrder(['auto-b', 'auto-a', 'auto-c'])
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('update_automation_global_order', {
+      p_ordered_ids: ['auto-b', 'auto-a', 'auto-c'],
+    })
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('un error real de la función se propaga sin caer a los updates uno a uno', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: { code: '22P02', message: 'bad uuid' } })
+    const from = vi.fn()
+    createSupabaseAdminClient.mockReturnValue({ from, rpc })
+
+    await expect(updateAutomationGlobalOrder(['x'])).rejects.toThrow('bad uuid')
+    expect(from).not.toHaveBeenCalled()
   })
 })

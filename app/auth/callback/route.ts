@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
 
+import { resolveSafeRedirectPath } from '@/lib/security/safe-redirect-path'
 import { establishPortalSession } from '@/src/modules/auth/application/establish-portal-session'
 import { resolvePortalUserFromAuth } from '@/src/modules/auth/application/resolve-portal-user'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 import { getWorkerAccessStatus } from '@/src/modules/colaboradores/application/get-worker-access-status'
 
+/**
+ * Retorno del flujo OAuth/enlace: canjea el code por sesión Supabase y solo
+ * entonces abre la sesión del portal; un worker con acceso revocado se rechaza.
+ */
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL('/login?error=oauth_not_configured', request.url))
@@ -13,7 +18,8 @@ export async function GET(request: Request) {
 
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  // `next` viene de la URL: solo se admiten rutas internas (sin redirección abierta).
+  const next = resolveSafeRedirectPath(searchParams.get('next'))
 
   if (!code) {
     return NextResponse.redirect(new URL('/login?error=auth_callback', request.url))

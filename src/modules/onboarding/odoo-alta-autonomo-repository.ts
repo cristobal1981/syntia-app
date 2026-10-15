@@ -46,6 +46,10 @@ async function loadOdooFieldMeta(): Promise<OdooFieldsGetResponse> {
   }
 }
 
+/**
+ * Los campos Si/No de Odoo pueden ser boolean o selection con claves propias:
+ * se adapta el valor a las opciones reales de fields_get (fallback 'si'/'no').
+ */
 function pickSelectionKey(
   fieldName: string,
   value: boolean,

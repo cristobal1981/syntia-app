@@ -73,4 +73,29 @@ describe('GET /api/cron/obligacion-reminders', () => {
       skippedNoEmail: 0,
     })
   })
+
+  it('passes a manual ?slot= override to the run and ignores unknown values', async () => {
+    runObligacionReminders.mockResolvedValue({ slot: 'presentation' })
+    const authorization = { authorization: 'Bearer test-secret' }
+
+    await GET(
+      new Request('http://localhost/api/cron/obligacion-reminders?slot=presentation', {
+        headers: authorization,
+      })
+    )
+    await GET(
+      new Request('http://localhost/api/cron/obligacion-reminders?slot=lo-que-sea', {
+        headers: authorization,
+      })
+    )
+    await GET(
+      new Request('http://localhost/api/cron/obligacion-reminders?utc=13', {
+        headers: authorization,
+      })
+    )
+
+    expect(runObligacionReminders).toHaveBeenNthCalledWith(1, { slot: 'presentation' })
+    expect(runObligacionReminders).toHaveBeenNthCalledWith(2, { slot: undefined })
+    expect(runObligacionReminders).toHaveBeenNthCalledWith(3, { slot: undefined })
+  })
 })

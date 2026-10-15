@@ -244,3 +244,292 @@ describe('refreshPortalUser', () => {
     expect(result).toBeNull()
   })
 })
+
+type Call = { table: string; op: string; args: unknown[] }
+
+/** Cliente que además registra cada llamada encadenada, para asertar filtros y payloads reales. */
+function makeRecordingClient(calls: Call[], ...results: QueryResult[]) {
+  const queue = [...results]
+  const nextResult = () => Promise.resolve(queue.shift() ?? { data: null, error: null })
+  return {
+    from: (table: string) => {
+      calls.push({ table, op: 'from', args: [table] })
+      const chain: Record<string, unknown> = {}
+      for (const op of ['select', 'update', 'eq']) {
+        chain[op] = (...args: unknown[]) => {
+          calls.push({ table, op, args })
+          return chain
+        }
+      }
+      chain.maybeSingle = () => nextResult()
+      chain.then = (resolve: (v: QueryResult) => void, reject: (e: unknown) => void) =>
+        nextResult().then(resolve, reject)
+      return chain
+    },
+  }
+}
+
+function queueRecording(calls: Call[], ...clients: QueryResult[][]) {
+  for (const results of clients) {
+    createSupabaseAdminClient.mockReturnValueOnce(makeRecordingClient(calls, ...results))
+  }
+}
+
+describe('resolvePortalUser: filtros, payloads y rutas de denegación', () => {
+  it('busca primero por auth_user_id y, si falla, por email normalizado (trim + minúsculas)', async () => {
+    const calls: Call[] = []
+    queueRecording(
+      calls,
+      [
+        { data: null, error: null },
+        { data: accountRow(), error: null },
+      ],
+      [{ data: null, error: null }]
+    )
+
+    await resolvePortalUser('auth-1', '  USER@Example.COM ', fallbackUser())
+
+    const eqs = calls.filter((c) => c.table === 'users' && c.op === 'eq').map((c) => c.args)
+    expect(eqs[0]).toEqual(['auth_user_id', 'auth-1'])
+    expect(eqs[1]).toEqual(['email', 'user@example.com'])
+  })
+
+  it('con email vacío/espacios no hace la consulta por email y deniega (null)', async () => {
+    const calls: Call[] = []
+    queueRecording(calls, [{ data: null, error: null }])
+
+    const result = await resolvePortalUser('auth-1', '   ', fallbackUser({ role: 'admin' }))
+
+    expect(result).toBeNull()
+    expect(calls.filter((c) => c.op === 'eq')).toEqual([
+      { table: 'users', op: 'eq', args: ['auth_user_id', 'auth-1'] },
+    ])
+  })
+
+  it('propaga el error de la consulta por email', async () => {
+    queueClients([
+      { data: null, error: null },
+      { data: null, error: { message: 'email lookup boom' } },
+    ])
+
+    await expect(
+      resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+    ).rejects.toThrow('email lookup boom')
+  })
+
+  it('no escribe nada (link/activate) si la cuenta está archivada, aunque no tenga auth_user_id', async () => {
+    const calls: Call[] = []
+    queueRecording(calls, [
+      { data: accountRow({ status: 'archived', auth_user_id: null }), error: null },
+    ])
+
+    const result = await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+
+    expect(result).toBeNull()
+    expect(calls.some((c) => c.op === 'update')).toBe(false)
+    expect(createSupabaseAdminClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('no escribe nada si el rol es inválido, aunque la cuenta esté sin activar o sin enlazar', async () => {
+    const calls: Call[] = []
+    queueRecording(calls, [
+      {
+        data: accountRow({ role: 'root', status: 'invited', auth_user_id: null }),
+        error: null,
+      },
+    ])
+
+    const result = await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+
+    expect(result).toBeNull()
+    expect(calls.some((c) => c.op === 'update')).toBe(false)
+  })
+
+  it('rol null en BD deniega', async () => {
+    queueClients([{ data: accountRow({ role: null }), error: null }])
+    expect(await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())).toBeNull()
+  })
+
+  it('normaliza el rol de BD a minúsculas ("ADMIN" -> admin) y acepta los 4 roles válidos', async () => {
+    for (const [raw, expected] of [
+      ['ADMIN', 'admin'],
+      ['Advisor', 'advisor'],
+      ['client', 'client'],
+      ['WORKER', 'worker'],
+    ] as const) {
+      vi.resetAllMocks()
+      isSupabaseServiceRoleConfigured.mockReturnValue(true)
+      queueClients([{ data: accountRow({ role: raw }), error: null }], [{ data: null, error: null }])
+
+      const result = await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+
+      expect(result?.role).toBe(expected)
+    }
+  })
+
+  it('el rol sale de la BD, no del fallback (fallback admin + BD client -> client)', async () => {
+    queueClients([{ data: accountRow({ role: 'client' }), error: null }], [{ data: null, error: null }])
+
+    const result = await resolvePortalUser(
+      'auth-1',
+      'user@example.com',
+      fallbackUser({ role: 'admin' })
+    )
+
+    expect(result?.role).toBe('client')
+  })
+
+  it('enlaza con update {auth_user_id} filtrado por el id de la cuenta', async () => {
+    const calls: Call[] = []
+    queueRecording(
+      calls,
+      [{ data: accountRow({ auth_user_id: null }), error: null }],
+      [{ error: null }],
+      [{ data: null, error: null }]
+    )
+
+    await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+
+    const update = calls.find((c) => c.op === 'update')
+    expect(update?.table).toBe('users')
+    expect(update?.args[0]).toMatchObject({ auth_user_id: 'auth-1' })
+    const idx = calls.indexOf(update!)
+    expect(calls[idx + 1]).toEqual({ table: 'users', op: 'eq', args: ['id', 'portal-1'] })
+  })
+
+  it('propaga el error al enlazar y no llega a activar ni a leer el perfil', async () => {
+    queueClients(
+      [{ data: accountRow({ auth_user_id: null }), error: null }],
+      [{ error: { message: 'link failed' } }]
+    )
+
+    await expect(
+      resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+    ).rejects.toThrow('link failed')
+    expect(createSupabaseAdminClient).toHaveBeenCalledTimes(2)
+  })
+
+  it('activa con status active + is_active true filtrado por id de cuenta', async () => {
+    const calls: Call[] = []
+    queueRecording(
+      calls,
+      [{ data: accountRow({ status: 'invited' }), error: null }],
+      [{ error: null }],
+      [{ data: null, error: null }]
+    )
+
+    await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+
+    const update = calls.find((c) => c.op === 'update')
+    expect(update?.args[0]).toMatchObject({ status: 'active', is_active: true })
+    const idx = calls.indexOf(update!)
+    expect(calls[idx + 1]).toEqual({ table: 'users', op: 'eq', args: ['id', 'portal-1'] })
+  })
+
+  it('status null se activa; status "ACTIVE" (mayúsculas) no vuelve a activar', async () => {
+    queueClients(
+      [{ data: accountRow({ status: null }), error: null }],
+      [{ error: null }],
+      [{ data: null, error: null }]
+    )
+    await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+    expect(createSupabaseAdminClient).toHaveBeenCalledTimes(3)
+
+    vi.resetAllMocks()
+    isSupabaseServiceRoleConfigured.mockReturnValue(true)
+    queueClients([{ data: accountRow({ status: 'ACTIVE' }), error: null }], [{ data: null, error: null }])
+    await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+    expect(createSupabaseAdminClient).toHaveBeenCalledTimes(2)
+  })
+
+  it('propaga el error al activar', async () => {
+    queueClients(
+      [{ data: accountRow({ status: 'invited' }), error: null }],
+      [{ error: { message: 'activate failed' } }]
+    )
+
+    await expect(
+      resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+    ).rejects.toThrow('activate failed')
+  })
+
+  it('propaga el error al leer el perfil', async () => {
+    queueClients(
+      [{ data: accountRow(), error: null }],
+      [{ data: null, error: { message: 'profile failed' } }]
+    )
+
+    await expect(
+      resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+    ).rejects.toThrow('profile failed')
+  })
+
+  it('lee el perfil de la tabla profiles filtrando por user_id = id de la cuenta', async () => {
+    const calls: Call[] = []
+    queueRecording(calls, [{ data: accountRow(), error: null }], [{ data: null, error: null }])
+
+    await resolvePortalUser('auth-1', 'user@example.com', fallbackUser())
+
+    expect(calls.filter((c) => c.table === 'profiles' && c.op === 'eq')[0]?.args).toEqual([
+      'user_id',
+      'portal-1',
+    ])
+  })
+
+  it('devuelve id de auth, email de la cuenta, y companyName del perfil recortado', async () => {
+    queueClients(
+      [{ data: accountRow({ email: 'db@example.com' }), error: null }],
+      [
+        {
+          data: {
+            first_name: 'Ada',
+            first_surname: 'Lovelace',
+            second_surname: '',
+            company_name: '  ACME SL  ',
+          },
+          error: null,
+        },
+      ]
+    )
+
+    const result = await resolvePortalUser(
+      'auth-1',
+      'user@example.com',
+      fallbackUser({ companyName: 'Vieja' })
+    )
+
+    expect(result).toMatchObject({
+      id: 'auth-1',
+      email: 'db@example.com',
+      companyName: 'ACME SL',
+    })
+  })
+
+  it('sin perfil usa name y companyName del fallback; company_name en blanco también cae al fallback', async () => {
+    queueClients([{ data: accountRow(), error: null }], [{ data: null, error: null }])
+    const r1 = await resolvePortalUser(
+      'auth-1',
+      'user@example.com',
+      fallbackUser({ name: 'Fb', companyName: 'FbCo' })
+    )
+    expect(r1).toMatchObject({ name: 'Fb', companyName: 'FbCo' })
+
+    vi.resetAllMocks()
+    isSupabaseServiceRoleConfigured.mockReturnValue(true)
+    queueClients(
+      [{ data: accountRow(), error: null }],
+      [
+        {
+          data: { first_name: 'A', first_surname: 'B', second_surname: '', company_name: '   ' },
+          error: null,
+        },
+      ]
+    )
+    const r2 = await resolvePortalUser(
+      'auth-1',
+      'user@example.com',
+      fallbackUser({ companyName: 'FbCo' })
+    )
+    expect(r2?.companyName).toBe('FbCo')
+  })
+})

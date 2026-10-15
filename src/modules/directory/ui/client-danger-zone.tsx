@@ -23,6 +23,7 @@ type ClientDangerZoneProps = {
   onDeleted: () => void
 }
 
+/** Borrado de cliente: exige reescribir el email para confirmar (evita borrados accidentales). */
 export function ClientDangerZone({ client, onDeleted }: ClientDangerZoneProps) {
   const copy = equipo.form.dangerZone
   const formCopy = equipo.form

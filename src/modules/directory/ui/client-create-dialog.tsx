@@ -25,6 +25,7 @@ type ClientCreateDialogProps = {
 
 type OdooImportLoadState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
 
+/** Alta de cliente en panel lateral; al abrir carga contactos de Odoo para prellenar el formulario. */
 export function ClientCreateDialog({
   open,
   advisorOptions,

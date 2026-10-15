@@ -16,6 +16,7 @@ import {
 } from '@/src/modules/colaboradores/application/actions'
 import type { WorkerRecord } from '@/src/modules/colaboradores/domain/types'
 import { WorkerFormDrawer } from '@/src/modules/colaboradores/ui/worker-form-drawer'
+import { useRetainedValue } from '@/src/modules/portal/ui/use-retained-value'
 
 type ColaboradoresSectionProps = {
   ownerEmail: string
@@ -57,9 +58,12 @@ export function ColaboradoresSection({
   const router = useRouter()
   const [enabled, setEnabled] = useState(workersEnabled)
   const [togglePending, setTogglePending] = useState(false)
+  // `nonce` hace único cada apertura: el drawer sigue montado durante la salida
+  // y cada apertura nueva debe empezar con el formulario limpio.
   const [dialogState, setDialogState] = useState<
-    { mode: 'create' } | { mode: 'edit'; worker: WorkerRecord } | null
+    { mode: 'create'; nonce: number } | { mode: 'edit'; worker: WorkerRecord; nonce: number } | null
   >(null)
+  const shownDialog = useRetainedValue(dialogState)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [pendingWorkerId, setPendingWorkerId] = useState<string | null>(null)
 
@@ -155,7 +159,7 @@ export function ColaboradoresSection({
             variant="outline"
             className="w-fit"
             disabled={limitReached}
-            onClick={() => setDialogState({ mode: 'create' })}
+            onClick={() => setDialogState({ mode: 'create', nonce: Date.now() })}
           >
             {colaboradores.addButton}
           </Button>
@@ -218,7 +222,7 @@ export function ColaboradoresSection({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  onClick={() => setDialogState({ mode: 'edit', worker })}
+                  onClick={() => setDialogState({ mode: 'edit', worker, nonce: Date.now() })}
                   aria-label={colaboradores.form.editAriaLabel}
                   title={colaboradores.form.editAriaLabel}
                 >
@@ -262,12 +266,13 @@ export function ColaboradoresSection({
         </ul>
       )}
 
-      {dialogState ? (
+      {shownDialog ? (
         <WorkerFormDrawer
-          mode={dialogState.mode}
-          worker={dialogState.mode === 'edit' ? dialogState.worker : undefined}
+          key={shownDialog.nonce}
+          mode={shownDialog.mode}
+          worker={shownDialog.mode === 'edit' ? shownDialog.worker : undefined}
           ownerEmail={ownerEmail}
-          open
+          open={dialogState !== null}
           onOpenChange={(open) => {
             if (!open) setDialogState(null)
           }}

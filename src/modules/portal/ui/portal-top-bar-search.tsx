@@ -352,7 +352,7 @@ export function PortalTopBarSearch({
           'action:procedure:',
           ''
         ) as ProcedureTicketType
-        if (procedure === 'alta-trabajador') {
+        if (procedure === 'alta-trabajador' && isProcedureTypeAvailable(procedure)) {
           router.push('/alta-trabajador')
           close()
           return

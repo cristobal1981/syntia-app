@@ -38,12 +38,13 @@ describe('getLeadById', () => {
     const maybeSingle = vi.fn().mockResolvedValue({ data: row(), error: null })
     const eq = vi.fn().mockReturnValue({ maybeSingle })
     const select = vi.fn().mockReturnValue({ eq })
-    createSupabaseAdminClient.mockReturnValue({
-      from: vi.fn().mockReturnValue({ select }),
-    })
+    const from = vi.fn().mockReturnValue({ select })
+    createSupabaseAdminClient.mockReturnValue({ from })
 
     const result = await getLeadById('lead-1')
 
+    expect(from).toHaveBeenCalledWith('landing_autonomo_leads')
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('estado'))
     expect(eq).toHaveBeenCalledWith('id', 'lead-1')
     expect(result?.id).toBe('lead-1')
   })
@@ -100,8 +101,49 @@ describe('mapLeadRow', () => {
   })
 
   it('un estado desconocido cae a "pendiente" en vez de romper el tipado', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
     const mapped = mapLeadRow(row({ estado: 'algo_raro' }))
 
     expect(mapped.estado).toBe('pendiente')
+  })
+
+  it('REGRESIÓN: un estado desconocido deja rastro en el log con el id del lead', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    mapLeadRow(row({ id: 'lead-9', estado: 'algo_raro' }))
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('estado desconocido'),
+      expect.objectContaining({ leadId: 'lead-9', estado: 'algo_raro' })
+    )
+  })
+
+  it('un estado válido no escribe nada en el log', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    mapLeadRow(row({ estado: 'aceptado' }))
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it.each(['pendiente', 'aceptado', 'rechazado', 'no_interesa'])(
+    'conserva el estado válido %s',
+    (estado) => {
+      expect(mapLeadRow(row({ estado })).estado).toBe(estado)
+    }
+  )
+
+  it('conserva Canarias y valores válidos de tipo/cuota; residencia desconocida pasa a null', () => {
+    const m = mapLeadRow(row({ residencia: 'Canarias', tipo: 'CAMBIO', codigo_cuota: 'TRAMO_90' }))
+    expect(m.residencia).toBe('Canarias')
+    expect(m.tipo).toBe('CAMBIO')
+    expect(m.codigoCuota).toBe('TRAMO_90')
+    expect(mapLeadRow(row({ residencia: 'Mars' })).residencia).toBeNull()
+  })
+
+  it('tipo/residencia/cuota null siguen siendo null', () => {
+    const m = mapLeadRow(row({ tipo: null, residencia: null, codigo_cuota: null }))
+    expect([m.tipo, m.residencia, m.codigoCuota]).toEqual([null, null, null])
   })
 })

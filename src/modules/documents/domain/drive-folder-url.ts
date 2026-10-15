@@ -1,4 +1,4 @@
-export const DRIVE_FOLDER_PARAM = 'carpeta'
+const DRIVE_FOLDER_PARAM = 'carpeta'
 
 /** Tope defensivo: el servidor valida el formato real del id, esto solo evita basura enorme. */
 const MAX_FOLDER_PARAM_LENGTH = 128

@@ -91,6 +91,10 @@ function metricCoveredByHeadline(headlineCase: ClientHomeHeadlineCase): Secondar
   }
 }
 
+/**
+ * Titular del dashboard (el asunto más urgente) + chips con las métricas
+ * restantes; omite la que el titular ya cubre y las secciones no permitidas.
+ */
 export function ClientHomeStats({ data, role, allowedSections }: ClientHomeStatsProps) {
   const copy = portal.home.client
   const headlineCase =

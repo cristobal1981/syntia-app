@@ -53,6 +53,10 @@ function verifyPayload(body: string, headers: Headers): ResendWebhookPayload | n
   }
 }
 
+/**
+ * Webhook de Resend: verifica la firma svix sobre el cuerpo en crudo (por eso
+ * `request.text()`) y sella en la columna del evento la entrega del email de alta.
+ */
 export async function POST(request: Request) {
   const body = await request.text()
   const payload = verifyPayload(body, request.headers)

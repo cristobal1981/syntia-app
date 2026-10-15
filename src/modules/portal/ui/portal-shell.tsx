@@ -140,10 +140,11 @@ export function PortalShell({
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
     <PortalNotificationsProvider enabled={isClientOrWorker}>
+    {/* Por fuera de la guía: esta necesita saber si el botón de factura existe para listar su paso. */}
+    <PortalQuickInvoiceProvider enabled={isClientOrWorker}>
     <OnboardingChecklistProvider enabled={user.role === 'client'}>
     <PortalCreateConsultaProvider enabled={canCreateConsulta}>
     <PortalReportProblemProvider enabled={isClientOrWorker}>
-    <PortalQuickInvoiceProvider enabled={isClientOrWorker}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -253,10 +254,10 @@ export function PortalShell({
     </PortalEntryLoadingProvider>
     </Suspense>
     </PortalRouteLoadingProvider>
-    </PortalQuickInvoiceProvider>
     </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
     </OnboardingChecklistProvider>
+    </PortalQuickInvoiceProvider>
     </PortalNotificationsProvider>
     </TooltipProvider>
     </PortalShortcutOverlayProvider>

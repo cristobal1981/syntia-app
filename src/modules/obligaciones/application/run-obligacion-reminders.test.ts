@@ -1,15 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  listUpcomingObligacionReminders,
-  filterAlreadyRemindedStages,
+  listObligacionNoticeCandidates,
+  filterAlreadyRemindedNotices,
   recordObligacionReminderSent,
   listStaffEmails,
   sendObligacionReminderDigestEmail,
   buildOdooRecordUrl,
 } = vi.hoisted(() => ({
-  listUpcomingObligacionReminders: vi.fn(),
-  filterAlreadyRemindedStages: vi.fn(),
+  listObligacionNoticeCandidates: vi.fn(),
+  filterAlreadyRemindedNotices: vi.fn(),
   recordObligacionReminderSent: vi.fn(),
   listStaffEmails: vi.fn(),
   sendObligacionReminderDigestEmail: vi.fn(),
@@ -17,11 +17,13 @@ const {
 }))
 
 vi.mock('@/src/modules/obligaciones/infrastructure/odoo-obligaciones-bulk-repository', () => ({
-  listUpcomingObligacionReminders,
+  listObligacionNoticeCandidates,
 }))
 vi.mock('@/src/modules/obligaciones/infrastructure/obligacion-email-reminders.supabase', () => ({
-  filterAlreadyRemindedStages,
+  filterAlreadyRemindedNotices,
   recordObligacionReminderSent,
+  obligacionReminderKey: (taskId: number, kind: string, noticeDate: string) =>
+    `${taskId}:${kind}:${noticeDate}`,
 }))
 vi.mock('@/src/modules/obligaciones/infrastructure/resolve-staff-emails.supabase', () => ({
   listStaffEmails,
@@ -35,71 +37,275 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
 
 import { runObligacionReminders } from '@/src/modules/obligaciones/application/run-obligacion-reminders'
 
-// "Hoy" fijo en todos los tests: 15 de abril. Un candidato que vence el 20
-// (5 días) cae en stage `early`; uno que vence el 17 (2 días) cae en `urgent`.
-const TODAY = new Date(2026, 3, 15)
-const EARLY_DEADLINE = new Date(2026, 3, 20, 23, 59, 59)
-const URGENT_DEADLINE = new Date(2026, 3, 17, 23, 59, 59)
+// 14 de octubre de 2026 a las 8:00 de Canarias (horario de verano, UTC+1).
+const MORNING = new Date('2026-10-14T07:00:00Z')
+// El mismo día a las 14:00 de Canarias.
+const AFTERNOON = new Date('2026-10-14T13:00:00Z')
+const NOTICE_DATE = '2026-10-14'
+const DEADLINE = new Date(2026, 9, 20, 23, 59, 59)
 
 const candidate = (overrides: Partial<Record<string, unknown>> = {}) => ({
   taskId: 1,
   partnerId: 99,
   clientName: 'Cliente SL',
   modelLabel: 'Modelo 303',
-  deadline: EARLY_DEADLINE,
+  deadline: DEADLINE,
+  state: '01_in_progress',
+  attachmentCount: 0,
+  kind: 'domiciliar',
   ...overrides,
 })
 
+const emptySummary = {
+  slot: 'morning',
+  candidates: 0,
+  skippedComplete: 0,
+  sent: 0,
+  emailsSent: 0,
+  skippedAlreadySent: 0,
+  skippedNoEmail: 0,
+  skippedNotDelivered: 0,
+}
+
 beforeEach(() => {
-  vi.useFakeTimers()
-  vi.setSystemTime(TODAY)
   vi.resetAllMocks()
-  filterAlreadyRemindedStages.mockResolvedValue(new Set())
+  filterAlreadyRemindedNotices.mockResolvedValue(new Set())
   recordObligacionReminderSent.mockResolvedValue(undefined)
-  sendObligacionReminderDigestEmail.mockResolvedValue(undefined)
+  sendObligacionReminderDigestEmail.mockResolvedValue(true)
+  listStaffEmails.mockResolvedValue(['admin@example.com'])
   buildOdooRecordUrl.mockImplementation(
     (model: string, id: number) => `https://odoo.example.com/web#id=${id}&model=${model}&view_type=form`
   )
 })
 
-afterEach(() => {
-  vi.useRealTimers()
-})
+describe('franja', () => {
+  it('a las 8:00 de Canarias en verano ejecuta la franja de la mañana con el reloj local', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([])
 
-describe('runObligacionReminders', () => {
-  it('returns all-zero summary and skips every downstream call when there are no candidates', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([])
+    const summary = await runObligacionReminders({ now: MORNING })
 
-    const summary = await runObligacionReminders()
-
-    expect(summary).toEqual({
-      candidates: 0,
-      sent: 0,
-      emailsSent: 0,
-      skippedAlreadySent: 0,
-      skippedNoEmail: 0,
+    expect(listObligacionNoticeCandidates).toHaveBeenCalledWith({
+      clock: { year: 2026, month: 10, day: 14, hour: 8 },
+      slot: 'morning',
     })
-    expect(filterAlreadyRemindedStages).not.toHaveBeenCalled()
-    expect(listStaffEmails).not.toHaveBeenCalled()
+    expect(summary.slot).toBe('morning')
   })
 
-  it('sends one digest email per staff recipient and records every pending candidate once, tagged with its stage', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate()])
+  it('a las 8:00 de Canarias en invierno (UTC+0) también es la mañana', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([])
+
+    await runObligacionReminders({ now: new Date('2026-01-15T08:00:00Z') })
+
+    expect(listObligacionNoticeCandidates).toHaveBeenCalledWith({
+      clock: { year: 2026, month: 1, day: 15, hour: 8 },
+      slot: 'morning',
+    })
+  })
+
+  it('a las 14:00 locales ejecuta la franja del día de presentación', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([])
+
+    const summary = await runObligacionReminders({ now: AFTERNOON })
+
+    expect(listObligacionNoticeCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: 'presentation' })
+    )
+    expect(summary.slot).toBe('presentation')
+  })
+
+  it('la entrada del cron que cae a otra hora local no hace nada: ni Odoo, ni Supabase, ni correo', async () => {
+    // 7:00 UTC en invierno son las 7:00 locales: la entrada de verano sobra.
+    const summary = await runObligacionReminders({ now: new Date('2026-01-15T07:00:00Z') })
+
+    expect(summary).toEqual({ ...emptySummary, slot: null })
+    expect(listObligacionNoticeCandidates).not.toHaveBeenCalled()
+    expect(filterAlreadyRemindedNotices).not.toHaveBeenCalled()
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+  })
+
+  it('una franja forzada manda sobre la hora local', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([])
+
+    await runObligacionReminders({ now: new Date('2026-01-15T03:00:00Z'), slot: 'presentation' })
+
+    expect(listObligacionNoticeCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: 'presentation' })
+    )
+  })
+})
+
+describe('estado de la tarea', () => {
+  it('no avisa de una tarea completa (hecha y con justificante), sea cual sea el día', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([
+      candidate({ state: 'done', attachmentCount: 1 }),
+    ])
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+    expect(filterAlreadyRemindedNotices).not.toHaveBeenCalled()
+    expect(summary).toEqual({ ...emptySummary, candidates: 1, skippedComplete: 1 })
+  })
+
+  it('avisa en rojo de una tarea sin hacer y sin justificante', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+
+    await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.items[0].completion).toEqual({ level: 'missing' })
+  })
+
+  it('avisa en ámbar de una hecha sin justificante', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([
+      candidate({ state: 'done', attachmentCount: 0 }),
+    ])
+
+    await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.items[0].completion).toEqual({
+      level: 'partial',
+      reason: 'done_without_document',
+    })
+  })
+
+  it('avisa en ámbar de una con justificante sin marcar como hecha', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate({ attachmentCount: 2 })])
+
+    await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.items[0].completion).toEqual({
+      level: 'partial',
+      reason: 'document_without_done',
+    })
+  })
+
+  it('no avisa de una cancelada', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate({ state: 'canceled' })])
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+    expect(summary.skippedComplete).toBe(1)
+  })
+
+  it('una cancelada no cuenta como completa en el resumen del correo', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([
+      candidate({ taskId: 1 }),
+      candidate({ taskId: 2, state: 'canceled' }),
+      candidate({ taskId: 3, state: 'done', attachmentCount: 1 }),
+    ])
+
+    await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.completeCount).toBe(1)
+  })
+
+  it('mezcla en un solo digest las incompletas y deja fuera las completas', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([
+      candidate({ taskId: 1, modelLabel: 'Modelo 303' }),
+      candidate({ taskId: 2, modelLabel: 'Modelo 111', state: 'done', attachmentCount: 1 }),
+    ])
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.items.map((item: { modelLabel: string }) => item.modelLabel)).toEqual([
+      'Modelo 303',
+    ])
+    expect(call.completeCount).toBe(1)
+    expect(summary.skippedComplete).toBe(1)
+    expect(summary.sent).toBe(1)
+  })
+})
+
+describe('deduplicación por día', () => {
+  it('consulta lo ya enviado para el día local de hoy y registra con ese día', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+
+    await runObligacionReminders({ now: MORNING })
+
+    expect(filterAlreadyRemindedNotices).toHaveBeenCalledWith(
+      [{ taskId: 1, kind: 'domiciliar' }],
+      NOTICE_DATE
+    )
+    expect(recordObligacionReminderSent).toHaveBeenCalledWith(
+      1,
+      99,
+      DEADLINE,
+      'domiciliar',
+      NOTICE_DATE
+    )
+  })
+
+  it('no reenvía lo ya enviado hoy, pero sí el resto', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([
+      candidate({ taskId: 1 }),
+      candidate({ taskId: 2, modelLabel: 'Modelo 111', partnerId: 77 }),
+    ])
+    filterAlreadyRemindedNotices.mockResolvedValue(new Set([`1:domiciliar:${NOTICE_DATE}`]))
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.items).toHaveLength(1)
+    expect(call.items[0].modelLabel).toBe('Modelo 111')
+    expect(recordObligacionReminderSent).toHaveBeenCalledTimes(1)
+    expect(recordObligacionReminderSent).toHaveBeenCalledWith(
+      2,
+      77,
+      DEADLINE,
+      'domiciliar',
+      NOTICE_DATE
+    )
+    expect(summary.skippedAlreadySent).toBe(1)
+  })
+
+  it('un aviso enviado otro día no suprime el de hoy', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    filterAlreadyRemindedNotices.mockResolvedValue(new Set(['1:domiciliar:2026-10-10']))
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    expect(summary.skippedAlreadySent).toBe(0)
+    expect(summary.sent).toBe(1)
+  })
+
+  it('si todo estaba ya enviado no busca destinatarios ni manda nada', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    filterAlreadyRemindedNotices.mockResolvedValue(new Set([`1:domiciliar:${NOTICE_DATE}`]))
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+    expect(listStaffEmails).not.toHaveBeenCalled()
+    expect(summary).toEqual({ ...emptySummary, candidates: 1, skippedAlreadySent: 1 })
+  })
+})
+
+describe('envío', () => {
+  it('manda un digest por destinatario del staff con el aviso, el estado y el enlace a la tarea', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
     listStaffEmails.mockResolvedValue(['admin@example.com', 'gestor@example.com'])
 
-    const summary = await runObligacionReminders()
+    const summary = await runObligacionReminders({ now: MORNING })
 
-    expect(filterAlreadyRemindedStages).toHaveBeenCalledWith([{ taskId: 1, stage: 'early' }])
     expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(2)
     expect(buildOdooRecordUrl).toHaveBeenCalledWith('project.task', 1)
     expect(sendObligacionReminderDigestEmail).toHaveBeenNthCalledWith(1, {
       to: 'admin@example.com',
+      completeCount: 0,
       items: [
         {
           clientName: 'Cliente SL',
           modelLabel: 'Modelo 303',
-          deadline: EARLY_DEADLINE,
-          daysLeft: 5,
+          deadline: DEADLINE,
+          daysLeft: 6,
+          kind: 'domiciliar',
+          completion: { level: 'missing' },
           taskUrl: 'https://odoo.example.com/web#id=1&model=project.task&view_type=form',
         },
       ],
@@ -108,109 +314,88 @@ describe('runObligacionReminders', () => {
       2,
       expect.objectContaining({ to: 'gestor@example.com' })
     )
-    expect(recordObligacionReminderSent).toHaveBeenCalledTimes(1)
-    expect(recordObligacionReminderSent).toHaveBeenCalledWith(1, 99, EARLY_DEADLINE, 'early')
     expect(summary).toEqual({
+      ...emptySummary,
       candidates: 1,
       sent: 1,
       emailsSent: 2,
-      skippedAlreadySent: 0,
-      skippedNoEmail: 0,
     })
   })
 
-  it('tags a candidate within the urgent window as stage urgent', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate({ deadline: URGENT_DEADLINE })])
-    listStaffEmails.mockResolvedValue(['admin@example.com'])
-
-    await runObligacionReminders()
-
-    expect(filterAlreadyRemindedStages).toHaveBeenCalledWith([{ taskId: 1, stage: 'urgent' }])
-    expect(recordObligacionReminderSent).toHaveBeenCalledWith(1, 99, URGENT_DEADLINE, 'urgent')
-  })
-
-  it('sends the urgent reminder for a task whose early reminder was already sent', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate({ deadline: URGENT_DEADLINE })])
-    filterAlreadyRemindedStages.mockResolvedValue(new Set(['1:early']))
-    listStaffEmails.mockResolvedValue(['admin@example.com'])
-
-    const summary = await runObligacionReminders()
-
-    expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(1)
-    expect(summary.skippedAlreadySent).toBe(0)
-    expect(summary.sent).toBe(1)
-  })
-
-  it('does not re-send the urgent reminder for a task that already has it recorded', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate({ deadline: URGENT_DEADLINE })])
-    filterAlreadyRemindedStages.mockResolvedValue(new Set(['1:urgent']))
-
-    const summary = await runObligacionReminders()
-
-    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
-    expect(listStaffEmails).not.toHaveBeenCalled()
-    expect(summary.skippedAlreadySent).toBe(1)
-  })
-
-  it('bundles every pending candidate into the same digest items list', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([
-      candidate({ taskId: 1, modelLabel: 'Modelo 303' }),
-      candidate({ taskId: 2, modelLabel: 'Modelo 111' }),
-    ])
-    listStaffEmails.mockResolvedValue(['admin@example.com'])
-
-    const summary = await runObligacionReminders()
-
-    expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(1)
-    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
-    expect(call.items).toHaveLength(2)
-    expect(recordObligacionReminderSent).toHaveBeenCalledTimes(2)
-    expect(summary.sent).toBe(2)
-    expect(summary.emailsSent).toBe(1)
-  })
-
-  it('skips candidates that already have that stage recorded, without sending or re-recording', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate({ taskId: 1 })])
-    filterAlreadyRemindedStages.mockResolvedValue(new Set(['1:early']))
-
-    const summary = await runObligacionReminders()
-
-    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
-    expect(listStaffEmails).not.toHaveBeenCalled()
-    expect(summary).toEqual({
-      candidates: 1,
-      sent: 0,
-      emailsSent: 0,
-      skippedAlreadySent: 1,
-      skippedNoEmail: 0,
+  it('registra solo después de enviar a todos', async () => {
+    const order: string[] = []
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    listStaffEmails.mockResolvedValue(['a@example.com', 'b@example.com'])
+    sendObligacionReminderDigestEmail.mockImplementation(async () => {
+      order.push('send')
+      return true
     })
+    recordObligacionReminderSent.mockImplementation(async () => {
+      order.push('record')
+    })
+
+    await runObligacionReminders({ now: MORNING })
+
+    expect(order).toEqual(['send', 'send', 'record'])
   })
 
-  it('skips without recording when there are no staff recipients to notify', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate()])
+  it('sin destinatarios no registra nada', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
     listStaffEmails.mockResolvedValue([])
 
-    const summary = await runObligacionReminders()
+    const summary = await runObligacionReminders({ now: MORNING })
 
     expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
     expect(recordObligacionReminderSent).not.toHaveBeenCalled()
-    expect(summary).toEqual({
-      candidates: 1,
-      sent: 0,
-      emailsSent: 0,
-      skippedAlreadySent: 0,
-      skippedNoEmail: 1,
-    })
+    expect(summary).toEqual({ ...emptySummary, candidates: 1, skippedNoEmail: 1 })
   })
 
-  it('does not record any candidate as sent if any digest send throws (so all retry next run)', async () => {
-    listUpcomingObligacionReminders.mockResolvedValue([candidate()])
-    listStaffEmails.mockResolvedValue(['admin@example.com', 'gestor@example.com'])
+  it('si un envío no se confirma sigue con el resto pero no registra ningún aviso', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    listStaffEmails.mockResolvedValue(['a@example.com', 'b@example.com', 'c@example.com'])
     sendObligacionReminderDigestEmail
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('resend down'))
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
 
-    await expect(runObligacionReminders()).rejects.toThrow('resend down')
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    expect(sendObligacionReminderDigestEmail).toHaveBeenCalledTimes(3)
+    expect(summary.emailsSent).toBe(2)
+    expect(summary.skippedNotDelivered).toBe(1)
     expect(recordObligacionReminderSent).not.toHaveBeenCalled()
+  })
+
+  it('si el envío lanza, no registra nada y propaga el error', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    sendObligacionReminderDigestEmail.mockRejectedValue(new Error('boom'))
+
+    await expect(runObligacionReminders({ now: MORNING })).rejects.toThrow('boom')
+    expect(recordObligacionReminderSent).not.toHaveBeenCalled()
+  })
+
+  it('propaga un fallo al registrar', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    recordObligacionReminderSent.mockRejectedValue(new Error('db down'))
+
+    await expect(runObligacionReminders({ now: MORNING })).rejects.toThrow('db down')
+  })
+
+  it('propaga un fallo al leer lo ya enviado y no manda nada', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([candidate()])
+    filterAlreadyRemindedNotices.mockRejectedValue(new Error('read fail'))
+
+    await expect(runObligacionReminders({ now: MORNING })).rejects.toThrow('read fail')
+    expect(sendObligacionReminderDigestEmail).not.toHaveBeenCalled()
+  })
+
+  it('sin candidatos devuelve el resumen vacío y no toca nada más', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([])
+
+    const summary = await runObligacionReminders({ now: MORNING })
+
+    expect(summary).toEqual(emptySummary)
+    expect(filterAlreadyRemindedNotices).not.toHaveBeenCalled()
+    expect(listStaffEmails).not.toHaveBeenCalled()
   })
 })

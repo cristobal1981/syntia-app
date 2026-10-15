@@ -184,6 +184,47 @@ describe('createWorkerAccount', () => {
     expect(rollbackCreatedPortalUser).toHaveBeenCalledWith('auth-w1', undefined)
   })
 
+  it('ROLLBACK: si el borrado del permiso lanza, igualmente borra la integración y el usuario de auth (sin huérfanos) y propaga el error ORIGINAL', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => usersChainFor(null, { data: { id: 'new-worker-1' }, error: null }),
+    })
+    upsertWorkerGrant.mockRejectedValue(new Error('grant insert failed'))
+    deleteWorkerGrant.mockRejectedValue(new Error('grant delete failed'))
+
+    await expect(
+      createWorkerAccount('owner-1', 'Acme', { ...baseInput })
+    ).rejects.toThrow('grant insert failed')
+
+    expect(deleteClientIntegration).toHaveBeenCalledWith('new-worker-1')
+    expect(rollbackCreatedPortalUser).toHaveBeenCalledWith('auth-w1', 'new-worker-1')
+  })
+
+  it('ROLLBACK: si falla el borrado de la integración, igualmente se hace el rollback del usuario de auth', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => usersChainFor(null, { data: { id: 'new-worker-1' }, error: null }),
+    })
+    upsertWorkerGrant.mockRejectedValue(new Error('grant insert failed'))
+    deleteClientIntegration.mockRejectedValue(new Error('integration delete failed'))
+
+    await expect(
+      createWorkerAccount('owner-1', 'Acme', { ...baseInput })
+    ).rejects.toThrow('grant insert failed')
+
+    expect(rollbackCreatedPortalUser).toHaveBeenCalledWith('auth-w1', 'new-worker-1')
+  })
+
+  it('ROLLBACK: si el propio rollback del usuario falla, se sigue propagando el error original (no el del rollback)', async () => {
+    createSupabaseAdminClient.mockReturnValue({
+      from: () => usersChainFor(null, { data: { id: 'new-worker-1' }, error: null }),
+    })
+    upsertWorkerGrant.mockRejectedValue(new Error('grant insert failed'))
+    rollbackCreatedPortalUser.mockRejectedValue(new Error('auth delete failed'))
+
+    await expect(
+      createWorkerAccount('owner-1', 'Acme', { ...baseInput })
+    ).rejects.toThrow('grant insert failed')
+  })
+
   it('a duplicate-email error surfacing from the users insert (race with another request) is also mapped to DUPLICATE_EMAIL', async () => {
     isDuplicateEmailError.mockReturnValue(true)
     createSupabaseAdminClient.mockReturnValue({

@@ -96,3 +96,57 @@ describe('updateWorkerGrantForOwner (IDOR guard)', () => {
     })
   })
 })
+
+describe('updateWorkerGrantForOwner (sanitization + ownership scope)', () => {
+  const grant = {
+    worker_user_id: 'worker-of-a',
+    owner_user_id: 'portal-client-a',
+    allowed_sections: {},
+    is_enabled: true,
+  }
+
+  it('persists the SANITIZED sections (never the raw input) and passes the raw input to the sanitizer', async () => {
+    resolveDirectoryActorId.mockResolvedValue('portal-client-a')
+    getWorkerGrant.mockResolvedValue(grant)
+    sanitizeAllowedSections.mockReturnValueOnce({ '/firmas': 'read' })
+    const raw = { '/firmas': 'write', '/admin': 'write' }
+
+    await updateWorkerGrantForOwner(clientA, {
+      workerUserId: 'worker-of-a',
+      allowedSections: raw as never,
+      isEnabled: true,
+    })
+
+    expect(sanitizeAllowedSections).toHaveBeenCalledWith(raw)
+    expect(upsertWorkerGrant).toHaveBeenCalledWith(
+      expect.objectContaining({ allowedSections: { '/firmas': 'read' } })
+    )
+  })
+
+  it('looks the grant up by the requested workerUserId', async () => {
+    resolveDirectoryActorId.mockResolvedValue('portal-client-a')
+    getWorkerGrant.mockResolvedValue(grant)
+
+    await updateWorkerGrantForOwner(clientA, {
+      workerUserId: 'worker-of-a',
+      allowedSections: {},
+      isEnabled: true,
+    })
+
+    expect(getWorkerGrant).toHaveBeenCalledWith('worker-of-a')
+  })
+
+  it('a non-client never resolves the actor id nor touches storage', async () => {
+    const advisor: PortalUser = { id: 'ad', email: 'ad@example.com', name: 'Ad', role: 'advisor' }
+
+    const result = await updateWorkerGrantForOwner(advisor, {
+      workerUserId: 'worker-of-a',
+      allowedSections: {},
+      isEnabled: true,
+    })
+
+    expect(result).toEqual({ ok: false, error: 'forbidden' })
+    expect(resolveDirectoryActorId).not.toHaveBeenCalled()
+    expect(upsertWorkerGrant).not.toHaveBeenCalled()
+  })
+})
