@@ -9,6 +9,8 @@ import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-toolt
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
 
+const PANEL_EXIT_MS = 150
+
 type NotificationBellProps = {
   className?: string
 }
@@ -28,8 +30,17 @@ function formatNotificationDate(value: string): string {
 export function NotificationBell({ className }: NotificationBellProps) {
   const notifications = usePortalNotificationsOptional()
   const [open, setOpen] = useState(false)
+  // El panel sigue montado el tiempo de la animación de salida.
+  const [mounted, setMounted] = useState(false)
+  if (open && !mounted) setMounted(true)
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (open) return
+    const timeout = setTimeout(() => setMounted(false), PANEL_EXIT_MS)
+    return () => clearTimeout(timeout)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -88,10 +99,17 @@ export function NotificationBell({ className }: NotificationBellProps) {
         </button>
       </PortalActionTooltip>
 
-      {open ? (
+      {mounted ? (
         <div
           ref={panelRef}
-          className="absolute top-full right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto"
+          data-state={open ? 'open' : 'closed'}
+          className={cn(
+            'absolute top-full right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] origin-top-right rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto',
+            // Entrada y salida sutiles (mismo gesto que el panel del perfil).
+            'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1',
+            'data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-top-1',
+            'motion-reduce:animate-none'
+          )}
           role="dialog"
           aria-label={copy.label}
         >
