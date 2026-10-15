@@ -101,12 +101,12 @@ describe('resolveObligacionNoticeKind — plazo el día 20', () => {
     ).toBe(kind)
   })
 
-  it('un modelo no domiciliable salta los avisos de domiciliación y conserva el 18 y el 20', () => {
+  it('un modelo no domiciliable avisa los mismos días pero como normal, sin «a domiciliar»', () => {
     const kindOn = (day: number) =>
       resolveObligacionNoticeKind({ deadline, clock: clockOn(4, day), domiciliable: false })
 
-    expect(kindOn(10)).toBeNull()
-    expect(kindOn(14)).toBeNull()
+    expect(kindOn(10)).toBe('normal')
+    expect(kindOn(14)).toBe('normal')
     expect(kindOn(18)).toBe('normal')
     expect(kindOn(20)).toBe('presentacion')
   })
@@ -151,14 +151,15 @@ describe('resolveObligacionNoticeKind — resto de plazos (30/31 y anuales)', ()
     ).toBe('normal')
   })
 
-  it('los días 10, 14 y 18 no avisan a un plazo que no es el 20', () => {
+  it('el 10 es el primer aviso (normal) también en plazos que no son el 20; el 14 y el 18 no avisan', () => {
     const deadline = deadlineOn(1, 30)
+    const kindOn = (day: number, domiciliable: boolean) =>
+      resolveObligacionNoticeKind({ deadline, clock: clockOn(1, day), domiciliable })
 
-    for (const day of [10, 14, 18]) {
-      expect(
-        resolveObligacionNoticeKind({ deadline, clock: clockOn(1, day), domiciliable: true })
-      ).toBeNull()
-    }
+    expect(kindOn(10, true)).toBe('normal')
+    expect(kindOn(10, false)).toBe('normal')
+    expect(kindOn(14, true)).toBeNull()
+    expect(kindOn(18, true)).toBeNull()
   })
 
   it('los fines de semana no mueven los avisos: el 25 de julio (sábado) sigue siendo el día fijo', () => {
@@ -215,5 +216,79 @@ describe('getObligacionCompletion', () => {
 
   it('cambios solicitados no cuenta como hecha', () => {
     expect(getObligacionCompletion('02_changes_requested', 0)).toEqual({ level: 'missing' })
+  })
+})
+
+describe('resolveObligacionNoticeKind — plazos anuales de febrero (347, 415)', () => {
+  const deadline = deadlineOn(2, 28)
+  const kindOn = (day: number) =>
+    resolveObligacionNoticeKind({ deadline, clock: clockOn(2, day), domiciliable: false })
+
+  it('avisa el 10, 5 días antes (23) y el día del plazo', () => {
+    expect(kindOn(10)).toBe('normal')
+    expect(kindOn(23)).toBe('normal')
+    expect(kindOn(28)).toBe('presentacion')
+  })
+
+  it('no avisa el resto de días', () => {
+    for (const day of [1, 9, 11, 14, 18, 20, 22, 24, 27]) {
+      expect(kindOn(day), `día ${day}`).toBeNull()
+    }
+  })
+})
+
+describe('resolveObligacionNoticeKind — primer aviso del día 10', () => {
+  it('solo cuenta en el mes y el año del plazo', () => {
+    const on = (month: number, day: number, year = 2026) =>
+      resolveObligacionNoticeKind({
+        deadline: new Date(2027, 0, 30, 23, 59, 59),
+        clock: { year, month, day, hour: 8 },
+        domiciliable: true,
+      })
+
+    // El 10 de enero de 2027 sí; el 10 de diciembre de 2026 y el 10 de enero de 2026 no.
+    expect(on(1, 10, 2027)).toBe('normal')
+    expect(on(12, 10)).toBeNull()
+    expect(on(1, 10)).toBeNull()
+  })
+
+  it('el 10 de un mes anterior al del plazo no avisa, aunque sea del mismo año', () => {
+    expect(
+      resolveObligacionNoticeKind({
+        deadline: deadlineOn(10, 20),
+        clock: clockOn(9, 10),
+        domiciliable: true,
+      })
+    ).toBeNull()
+  })
+
+  it('un plazo que vence antes del 10 del mes no tiene primer aviso del día 10', () => {
+    expect(
+      resolveObligacionNoticeKind({
+        deadline: deadlineOn(3, 5),
+        clock: clockOn(3, 10),
+        domiciliable: true,
+      })
+    ).toBeNull()
+  })
+
+  it('en el día 20 domiciliable el aviso del 10 sigue siendo «a domiciliar»', () => {
+    expect(
+      resolveObligacionNoticeKind({
+        deadline: deadlineOn(10, 20),
+        clock: clockOn(10, 10),
+        domiciliable: true,
+      })
+    ).toBe('domiciliar')
+  })
+
+  it('un plazo ya pasado no avisa aunque sea día 10', () => {
+    expect(
+      resolveObligacionNoticeKind({
+        deadline: deadlineOn(4, 20),
+        clock: clockOn(5, 10),
+        domiciliable: true,
+      })
+    ).toBeNull()
   })
 })

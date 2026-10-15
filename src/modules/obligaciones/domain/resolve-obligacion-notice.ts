@@ -72,30 +72,49 @@ export function getDaysUntilObligacionDeadlineFromClock(
 /** Plazo del día 20: estos modelos llevan el calendario de domiciliación completo. */
 const DAY_20_DEADLINE = 20
 
+/** Primer aviso de todo plazo: el día 10 del mes en que vence. */
+const FIRST_NOTICE_DAY = 10
+
 /**
  * Qué aviso toca hoy para una obligación, o `null` si hoy no toca ninguno.
  * Días fijos, sin ajustar por fines de semana ni festivos.
  *
- * - Plazo el día 20: días 10 y 14 (a domiciliar, solo si el modelo se
- *   domicilia), 18 (normal) y 20 (presentación).
- * - Resto de plazos (30/31, anuales…): 5 días antes y el día del plazo.
- *   El de 5 días antes es «a domiciliar» si el modelo se domicilia.
+ * - Todos: el día 10 del mes del plazo (primer aviso) y el propio día del
+ *   plazo (presentación).
+ * - Plazo el día 20: además el 14 y el 18. El 10 y el 14 son «a domiciliar»
+ *   si el modelo se domicilia (y «normal» si no); el 18, «normal».
+ * - Resto de plazos (30/31, anuales, febrero…): además 5 días antes, «a
+ *   domiciliar» si el modelo se domicilia y «normal» si no. El del día 10
+ *   es un aviso «normal» (primer aviso).
  */
 export function resolveObligacionNoticeKind(input: {
   deadline: Date
   clock: ObligacionNoticeClock
   domiciliable: boolean
 }): ObligacionNoticeKind | null {
-  const daysLeft = getDaysUntilObligacionDeadlineFromClock(input.deadline, input.clock)
+  const { deadline, clock, domiciliable } = input
+  const daysLeft = getDaysUntilObligacionDeadlineFromClock(deadline, clock)
   if (daysLeft === 0) return 'presentacion'
+  if (daysLeft < 0) return null
 
-  if (input.deadline.getDate() === DAY_20_DEADLINE) {
-    if (daysLeft === 10 || daysLeft === 6) return input.domiciliable ? 'domiciliar' : null
+  const isDay20Deadline = deadline.getDate() === DAY_20_DEADLINE
+  const domiciliarOrNormal = domiciliable ? 'domiciliar' : 'normal'
+
+  // Un plazo que vence antes del 10 nunca llega aquí: el día 10 ya sería
+  // posterior (daysLeft < 0) o el propio día (presentación).
+  const isFirstNoticeDay =
+    clock.day === FIRST_NOTICE_DAY &&
+    clock.month === deadline.getMonth() + 1 &&
+    clock.year === deadline.getFullYear()
+  if (isFirstNoticeDay) return isDay20Deadline ? domiciliarOrNormal : 'normal'
+
+  if (isDay20Deadline) {
+    if (daysLeft === 6) return domiciliarOrNormal
     if (daysLeft === 2) return 'normal'
     return null
   }
 
-  if (daysLeft === 5) return input.domiciliable ? 'domiciliar' : 'normal'
+  if (daysLeft === 5) return domiciliarOrNormal
   return null
 }
 

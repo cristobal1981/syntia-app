@@ -94,12 +94,15 @@ describe('listObligacionNoticeCandidates', () => {
     expect(day14.map((candidate) => candidate.kind)).toEqual(['domiciliar'])
   })
 
-  it('skips a model that is not domiciliable on the domiciliation days', async () => {
-    mockTree([leaf({ name: 'Modelo 349 - Intracomunitarias' })], null)
+  it('a model that is not domiciliable still gets the day 10 and 14 notices, as normal (no «a domiciliar»)', async () => {
+    mockTree([leaf({ name: 'Modelo 349 - Intracomunitarias' })])
+    const day10 = await listObligacionNoticeCandidates({ clock: clockOn(10), slot: 'morning' })
 
-    const result = await listObligacionNoticeCandidates({ clock: clockOn(10), slot: 'morning' })
+    mockTree([leaf({ name: 'Modelo 349 - Intracomunitarias' })])
+    const day14 = await listObligacionNoticeCandidates({ clock: clockOn(14), slot: 'morning' })
 
-    expect(result).toEqual([])
+    expect(day10.map((candidate) => candidate.kind)).toEqual(['normal'])
+    expect(day14.map((candidate) => candidate.kind)).toEqual(['normal'])
   })
 
   it('only returns the presentation notice in the presentation slot, never in the morning one', async () => {
