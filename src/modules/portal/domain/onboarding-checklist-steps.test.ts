@@ -8,12 +8,14 @@ import {
 } from '@/src/modules/portal/domain/onboarding-checklist-steps'
 
 describe('getOnboardingChecklistSteps', () => {
-  it('returns steps in the exact, hardcoded product order (tramites, firmas, guias, buscador, nuevaConsulta)', () => {
+  it('returns steps in the exact, hardcoded product order (tramites, firmas, documentos, facturaCompra, guias, buscador, nuevaConsulta)', () => {
     const steps = getOnboardingChecklistSteps()
 
     expect(steps.map((s) => s.id)).toEqual([
       'tramites',
       'firmas',
+      'documentos',
+      'facturaCompra',
       'guias',
       'buscador',
       'nuevaConsulta',
@@ -45,15 +47,17 @@ describe('getOnboardingChecklistSteps', () => {
 })
 
 describe('CHECKLIST_ROUTE_STEPS', () => {
-  it('only maps the route-completable steps (tramites, firmas, guias)', () => {
+  it('only maps the route-completable steps (tramites, firmas, documentos, guias)', () => {
     expect(CHECKLIST_ROUTE_STEPS).toEqual({
       tramites: '/tramites',
       firmas: '/firmas',
+      documentos: '/documentos',
       guias: '/guias',
     })
   })
 
-  it('does NOT map buscador/nuevaConsulta — those are completed by an action, not a route visit', () => {
+  it('does NOT map facturaCompra/buscador/nuevaConsulta — those are completed by an action, not a route visit', () => {
+    expect(CHECKLIST_ROUTE_STEPS.facturaCompra).toBeUndefined()
     expect(CHECKLIST_ROUTE_STEPS.buscador).toBeUndefined()
     expect(CHECKLIST_ROUTE_STEPS.nuevaConsulta).toBeUndefined()
   })

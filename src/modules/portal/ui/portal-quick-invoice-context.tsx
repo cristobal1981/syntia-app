@@ -13,6 +13,9 @@ import {
 import { toast } from 'sonner'
 import { ChevronRight, Loader2, Upload } from 'lucide-react'
 
+import { Sappo } from '@/components/errors/sappo'
+import { Checkbox } from '@/components/ui/checkbox'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -42,23 +45,43 @@ import {
   type DriveDropOverlayUploadPhase,
 } from '@/src/modules/documents/ui/drive-drop-overlay'
 import { UPLOAD_ACCEPT_ATTRIBUTE } from '@/src/modules/portal/domain/upload-policy'
+import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 
 const copy = portal.shell.quickInvoice
+
+const NOTICE_DISMISSED_KEY = 'syntia-quick-invoice-notice-dismissed'
+
+function readNoticeDismissed(): boolean {
+  try {
+    return localStorage.getItem(NOTICE_DISMISSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeNoticeDismissed() {
+  try {
+    localStorage.setItem(NOTICE_DISMISSED_KEY, '1')
+  } catch {
+    // Sin almacenamiento (modo privado…): el aviso simplemente seguirá saliendo.
+  }
+}
 
 type PortalQuickInvoiceContextValue = {
   available: boolean
   busy: boolean
   folderName: string | null
-  /** Abre directamente el selector de archivos. */
-  openPicker: () => void
-  /** Antes del selector, un aviso con qué se sube y a dónde (pensado para móvil). */
+  /**
+   * Punto de entrada de los botones: muestra antes del selector un aviso con
+   * qué se sube y a dónde, salvo que se haya marcado «No volver a mostrar».
+   */
   requestUpload: () => void
 }
 
 const PortalQuickInvoiceContext = createContext<PortalQuickInvoiceContextValue | null>(null)
 
-function usePortalQuickInvoiceOptional() {
+export function usePortalQuickInvoiceOptional() {
   return useContext(PortalQuickInvoiceContext)
 }
 
@@ -79,6 +102,7 @@ export function PortalQuickInvoiceProvider({
   const [duplicate, setDuplicate] = useState<DriveDuplicate | null>(null)
   const [rejection, setRejection] = useState<DriveUiErrorCode | null>(null)
   const [noticeOpen, setNoticeOpen] = useState(false)
+  const [skipNoticeNextTime, setSkipNoticeNextTime] = useState(false)
 
   // El botón solo aparece si el servidor confirma que existe la carpeta de
   // facturas del año; se pregunta una vez, sin bloquear la carga de la página.
@@ -143,19 +167,20 @@ export function PortalQuickInvoiceProvider({
     toast.error(presentation.title, { description: presentation.description })
   }, [])
 
-  const openPicker = useCallback(() => {
-    if (!enabled || !available || busy) return
-    inputRef.current?.click()
-  }, [enabled, available, busy])
-
   const requestUpload = useCallback(() => {
     if (!enabled || !available || busy) return
+    if (readNoticeDismissed()) {
+      // El selector se abre desde un gesto del usuario: este mismo clic.
+      inputRef.current?.click()
+      return
+    }
+    setSkipNoticeNextTime(false)
     setNoticeOpen(true)
   }, [enabled, available, busy])
 
   const value = useMemo<PortalQuickInvoiceContextValue>(
-    () => ({ available: enabled && available, busy, folderName, openPicker, requestUpload }),
-    [enabled, available, busy, folderName, openPicker, requestUpload]
+    () => ({ available: enabled && available, busy, folderName, requestUpload }),
+    [enabled, available, busy, folderName, requestUpload]
   )
 
   return (
@@ -207,7 +232,17 @@ export function PortalQuickInvoiceProvider({
                   )
                 )}
               </ol>
-              <p className="text-sm text-muted-foreground">{copy.notice.limits}</p>
+              <div className="flex items-start gap-3">
+                <Sappo mood="carrier" className="block h-auto w-12 shrink-0" />
+                <p className="text-sm text-muted-foreground">{copy.notice.limits}</p>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                <Checkbox
+                  checked={skipNoticeNextTime}
+                  onCheckedChange={setSkipNoticeNextTime}
+                />
+                {copy.notice.dontShowAgain}
+              </label>
               <DialogFooter>
                 <Button
                   type="button"
@@ -222,6 +257,7 @@ export function PortalQuickInvoiceProvider({
                   className="cursor-pointer"
                   autoFocus
                   onClick={() => {
+                    if (skipNoticeNextTime) writeNoticeDismissed()
                     setNoticeOpen(false)
                     // El selector se abre desde un gesto del usuario: este mismo clic.
                     inputRef.current?.click()
@@ -266,6 +302,7 @@ export function PortalQuickInvoiceButton({
   onAfterClick,
 }: PortalQuickInvoiceButtonProps) {
   const quickInvoice = usePortalQuickInvoiceOptional()
+  const checklist = useOnboardingChecklistOptional()
   if (!quickInvoice?.available) return null
 
   const large = size === 'lg'
@@ -302,7 +339,8 @@ export function PortalQuickInvoiceButton({
     <button
       type="button"
       onClick={() => {
-        quickInvoice.openPicker()
+        quickInvoice.requestUpload()
+        checklist?.markStepComplete('facturaCompra')
         onAfterClick?.()
       }}
       disabled={quickInvoice.busy}
@@ -351,10 +389,12 @@ export function PortalQuickInvoiceButton({
 
 /**
  * Botón central de la barra inferior (móvil): círculo elevado con el degradado
- * de marca. Pulsarlo abre primero un aviso con qué se sube y a dónde.
+ * de marca. Pulsarlo abre primero un aviso con qué se sube y a dónde (salvo que
+ * se haya marcado «No volver a mostrar»).
  */
 export function PortalQuickInvoiceBottomBarButton() {
   const quickInvoice = usePortalQuickInvoiceOptional()
+  const checklist = useOnboardingChecklistOptional()
   if (!quickInvoice?.available) return null
 
   const Icon = quickInvoice.busy ? Loader2 : Upload
@@ -362,7 +402,10 @@ export function PortalQuickInvoiceBottomBarButton() {
   return (
     <button
       type="button"
-      onClick={quickInvoice.requestUpload}
+      onClick={() => {
+        quickInvoice.requestUpload()
+        checklist?.markStepComplete('facturaCompra')
+      }}
       disabled={quickInvoice.busy}
       aria-label={copy.label}
       className="group flex min-h-14 flex-1 cursor-pointer flex-col items-center justify-end gap-0.5 pb-1.5 text-[11px] font-medium text-sidebar-foreground focus-visible:outline-none disabled:cursor-wait"

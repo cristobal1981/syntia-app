@@ -7,6 +7,8 @@ export type NavIconId =
   | 'messages'
   | 'profile'
   | 'team'
+  | 'advisors'
+  | 'collaborators'
   | 'requests'
   | 'settings'
   | 'clients'

@@ -17,6 +17,7 @@ import {
   type ChecklistStepId,
 } from '@/src/modules/portal/domain/onboarding-checklist-steps'
 import { OnboardingChecklistWidget } from '@/src/modules/portal/ui/onboarding-checklist-widget'
+import { usePortalQuickInvoiceOptional } from '@/src/modules/portal/ui/portal-quick-invoice-context'
 
 const STORAGE_KEY = 'syntia-onboarding-checklist'
 const AUTO_EXPAND_DELAY_MS = 900
@@ -70,7 +71,16 @@ export function OnboardingChecklistProvider({
   enabled,
 }: OnboardingChecklistProviderProps) {
   const pathname = usePathname()
-  const steps = useMemo(() => getOnboardingChecklistSteps(), [])
+  // El paso de factura de compra solo existe si el botón se muestra (hay
+  // carpeta de facturas del año); si no, nunca se podría completar.
+  const quickInvoiceAvailable = usePortalQuickInvoiceOptional()?.available ?? false
+  const steps = useMemo(
+    () =>
+      getOnboardingChecklistSteps().filter(
+        (step) => step.id !== 'facturaCompra' || quickInvoiceAvailable
+      ),
+    [quickInvoiceAvailable]
+  )
   const [completed, setCompleted] = useState<Set<ChecklistStepId>>(new Set())
   const [dismissed, setDismissed] = useState(false)
   const [expanded, setExpanded] = useState(false)

@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { portal } from '@/content/portal'
@@ -59,7 +59,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   if (!notifications) return null
 
-  const { unread, unreadCount, openNotification } = notifications
+  const { unread, unreadCount, openNotification, dismissNotification, dismissAllNotifications } =
+    notifications
   const copy = portal.notifications
   const tooltipContent =
     unreadCount > 0
@@ -94,8 +95,17 @@ export function NotificationBell({ className }: NotificationBellProps) {
           role="dialog"
           aria-label={copy.label}
         >
-          <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">{copy.label}</p>
+            {unread.length > 0 ? (
+              <button
+                type="button"
+                onClick={dismissAllNotifications}
+                className="cursor-pointer rounded text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                {copy.dismissAll}
+              </button>
+            ) : null}
           </div>
 
           {unread.length === 0 ? (
@@ -108,10 +118,13 @@ export function NotificationBell({ className }: NotificationBellProps) {
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {unread.map((item) => (
-                <li key={`${item.reason}-${item.scope}-${item.recordId}`}>
+                <li
+                  key={`${item.reason}-${item.scope}-${item.recordId}`}
+                  className="flex items-start transition-colors hover:bg-accent focus-within:bg-accent"
+                >
                   <button
                     type="button"
-                    className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                    className="flex min-w-0 flex-1 flex-col gap-1.5 py-3 pr-2 pl-4 text-left focus-visible:outline-none"
                     onClick={() => {
                       setOpen(false)
                       openNotification(item)
@@ -128,6 +141,15 @@ export function NotificationBell({ className }: NotificationBellProps) {
                         </time>
                       ) : null}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismissNotification(item)}
+                    aria-label={copy.dismiss}
+                    title={copy.dismiss}
+                    className="mt-2.5 mr-3 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <X className="size-3.5" aria-hidden />
                   </button>
                 </li>
               ))}
