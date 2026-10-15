@@ -11,6 +11,8 @@ import {
 type SendObligacionReminderDigestEmailInput = {
   to: string
   items: ObligacionReminderDigestItem[]
+  /** Completas del mismo aviso, para el resumen del correo. */
+  completeCount?: number
 }
 
 /**
@@ -30,6 +32,7 @@ export async function sendObligacionReminderDigestEmail(
 
   const { subject, html, text } = buildObligacionReminderDigestEmail({
     items: input.items,
+    completeCount: input.completeCount,
     realRecipientEmail: input.to,
     isOverrideRecipient: isInviteRecipientOverridden(),
   })

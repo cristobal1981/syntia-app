@@ -12,9 +12,10 @@ const item = (overrides: Partial<Record<string, unknown>> = {}) => ({
   ...overrides,
 })
 
-const build = (items: ReturnType<typeof item>[]) =>
+const build = (items: ReturnType<typeof item>[], completeCount?: number) =>
   buildObligacionReminderDigestEmail({
     items,
+    completeCount,
     realRecipientEmail: 'admin@example.com',
     isOverrideRecipient: false,
   })
@@ -170,35 +171,20 @@ describe('buildObligacionReminderDigestEmail', () => {
     expect(tomorrow.html).toContain('Vence mañana')
   })
 
-  it('shows what is missing in each chip with its icon, and explains the colors in a legend', () => {
-    const email = build([
-      item({ modelLabel: 'Modelo Rojo', completion: { level: 'missing' } }),
-      item({
-        modelLabel: 'Modelo Hecho',
-        completion: { level: 'partial', reason: 'done_without_document' },
-      }),
-      item({
-        modelLabel: 'Modelo Subido',
-        completion: { level: 'partial', reason: 'document_without_done' },
-      }),
-    ])
+  it('paints a red chip with only the model name and no icon, since both things are missing', () => {
+    const email = build([item({ modelLabel: 'Modelo Rojo', completion: { level: 'missing' } })])
 
-    // Rojo: falta todo; los dos huecos con su icono.
     expect(email.html).toContain('border: 1px solid #C0392B')
-    expect(email.html.match(/📎 Sin justificante/g)).toHaveLength(2)
-    expect(email.html.match(/✔ Sin marcar como hecha/g)).toHaveLength(2)
-    // Ámbar: falta una cosa.
-    expect(email.html).toContain('border: 1px solid #F5A623')
-    // Leyenda visual con las muestras de color.
-    expect(email.html).toContain('Falta todo: sin marcar como hecha y sin justificante')
-    expect(email.html).toContain('Falta una de las dos cosas: revísala')
-    // Texto plano: lo que falta en palabras.
-    expect(email.text).toContain('Modelo Rojo [sin marcar como hecha y sin justificante]')
-    expect(email.text).toContain('Modelo Hecho [marcada como hecha pero sin justificante]')
-    expect(email.text).toContain('Modelo Subido [con justificante pero sin marcar como hecha]')
+    const chip = email.html.slice(
+      email.html.indexOf('Modelo Rojo'),
+      email.html.indexOf('</span>', email.html.indexOf('Modelo Rojo'))
+    )
+    expect(chip).not.toContain('📎')
+    expect(chip).not.toContain('✔')
+    expect(chip).not.toContain('Sin justificante')
   })
 
-  it('a done task without document only asks for the document, and vice versa', () => {
+  it('an amber chip shows next to the model the single thing that is missing, with its icon', () => {
     const noDoc = build([
       item({
         modelLabel: 'Modelo A',
@@ -213,13 +199,53 @@ describe('buildObligacionReminderDigestEmail', () => {
     ])
 
     const chipOf = (html: string, label: string) => {
-      const start = html.indexOf(`>${label}</span>`)
+      const start = html.indexOf(label)
       return html.slice(start, html.indexOf('</a>', start))
     }
     expect(chipOf(noDoc.html, 'Modelo A')).toContain('📎 Sin justificante')
-    expect(chipOf(noDoc.html, 'Modelo A')).not.toContain('✔ Sin marcar como hecha')
+    expect(chipOf(noDoc.html, 'Modelo A')).not.toContain('Sin marcar como hecha')
     expect(chipOf(noDone.html, 'Modelo B')).toContain('✔ Sin marcar como hecha')
-    expect(chipOf(noDone.html, 'Modelo B')).not.toContain('📎 Sin justificante')
+    expect(chipOf(noDone.html, 'Modelo B')).not.toContain('Sin justificante')
+  })
+
+  it('opens with a summary of how many are red, amber and already complete', () => {
+    const email = build(
+      [
+        item({ modelLabel: 'Rojo 1', completion: { level: 'missing' } }),
+        item({ modelLabel: 'Rojo 2', completion: { level: 'missing' } }),
+        item({
+          modelLabel: 'Ambar 1',
+          completion: { level: 'partial', reason: 'done_without_document' },
+        }),
+      ],
+      7
+    )
+
+    expect(email.html).toContain('Resumen · plazo 20 abr')
+    expect(email.html).toMatch(/>2<\/td>[\s\S]*?>Rojo</)
+    expect(email.html).toMatch(/>1<\/td>[\s\S]*?>Ámbar</)
+    expect(email.html).toMatch(/>7<\/td>[\s\S]*?>Completas</)
+    expect(email.html).toContain('Hechas y con justificante: no se avisan')
+    expect(email.text).toContain(
+      'Resumen (plazo 20 abr): 2 sin hacer y sin justificante, 1 con una de las dos cosas, 7 completas.'
+    )
+    // El resumen va antes de la lista de clientes.
+    expect(email.html.indexOf('Resumen · plazo')).toBeLessThan(email.html.indexOf('Cliente A'))
+  })
+
+  it('lists every deadline covered when the digest spans several', () => {
+    const email = build([
+      item({ deadline: new Date(2026, 3, 20) }),
+      item({ clientName: 'Cliente B', deadline: new Date(2026, 3, 30) }),
+    ])
+
+    expect(email.html).toContain('Resumen · plazo 20 abr y 30 abr')
+  })
+
+  it('shows 0 complete when none are reported', () => {
+    const email = build([item()])
+
+    expect(email.html).toMatch(/>0<\/td>[\s\S]*?>Completas</)
   })
 
   it('does not paint an amber chip red', () => {
@@ -227,8 +253,7 @@ describe('buildObligacionReminderDigestEmail', () => {
       item({ completion: { level: 'partial', reason: 'done_without_document' } }),
     ])
 
-    // La leyenda del correo muestra siempre las dos muestras; el chip del
-    // modelo es lo que no debe salir rojo: el único borde rojo es la muestra.
+    // El único borde rojo del correo es la muestra del resumen.
     expect(email.html.match(/border: 1px solid #C0392B/g)).toHaveLength(1)
   })
 })

@@ -191,6 +191,19 @@ describe('estado de la tarea', () => {
     expect(summary.skippedComplete).toBe(1)
   })
 
+  it('una cancelada no cuenta como completa en el resumen del correo', async () => {
+    listObligacionNoticeCandidates.mockResolvedValue([
+      candidate({ taskId: 1 }),
+      candidate({ taskId: 2, state: 'canceled' }),
+      candidate({ taskId: 3, state: 'done', attachmentCount: 1 }),
+    ])
+
+    await runObligacionReminders({ now: MORNING })
+
+    const [[call]] = sendObligacionReminderDigestEmail.mock.calls
+    expect(call.completeCount).toBe(1)
+  })
+
   it('mezcla en un solo digest las incompletas y deja fuera las completas', async () => {
     listObligacionNoticeCandidates.mockResolvedValue([
       candidate({ taskId: 1, modelLabel: 'Modelo 303' }),
@@ -203,6 +216,7 @@ describe('estado de la tarea', () => {
     expect(call.items.map((item: { modelLabel: string }) => item.modelLabel)).toEqual([
       'Modelo 303',
     ])
+    expect(call.completeCount).toBe(1)
     expect(summary.skippedComplete).toBe(1)
     expect(summary.sent).toBe(1)
   })
@@ -283,6 +297,7 @@ describe('envío', () => {
     expect(buildOdooRecordUrl).toHaveBeenCalledWith('project.task', 1)
     expect(sendObligacionReminderDigestEmail).toHaveBeenNthCalledWith(1, {
       to: 'admin@example.com',
+      completeCount: 0,
       items: [
         {
           clientName: 'Cliente SL',

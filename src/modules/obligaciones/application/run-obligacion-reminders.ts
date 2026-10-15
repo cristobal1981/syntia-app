@@ -88,6 +88,11 @@ export async function runObligacionReminders(
     return [{ ...candidate, completion }]
   })
   summary.skippedComplete = candidates.length - incomplete.length
+  // Para el resumen del correo: las hechas y con justificante (las canceladas no cuentan).
+  const completeCount = candidates.filter(
+    (candidate) =>
+      getObligacionCompletion(candidate.state, candidate.attachmentCount).level === 'complete'
+  ).length
   if (!incomplete.length) return summary
 
   const noticeDate = formatObligacionNoticeDate(clock)
@@ -119,7 +124,7 @@ export async function runObligacionReminders(
   }))
 
   for (const email of staffEmails) {
-    const delivered = await sendObligacionReminderDigestEmail({ to: email, items })
+    const delivered = await sendObligacionReminderDigestEmail({ to: email, items, completeCount })
     if (delivered) summary.emailsSent += 1
   }
 

@@ -76,6 +76,11 @@ async function main() {
   const candidates = await listObligacionNoticeCandidates({ clock, slot })
   console.log(`Encontradas ${candidates.length} obligación(es) que tocaría avisar.`)
 
+  const completeCount = candidates.filter(
+    (candidate) =>
+      getObligacionCompletion(candidate.state, candidate.attachmentCount).level === 'complete'
+  ).length
+
   const items = candidates.flatMap((candidate) => {
     const completion = getObligacionCompletion(candidate.state, candidate.attachmentCount)
     if (completion.level === 'complete' || completion.level === 'canceled') return []
@@ -100,6 +105,7 @@ async function main() {
 
   const email = buildObligacionReminderDigestEmail({
     items,
+    completeCount,
     realRecipientEmail: to,
     isOverrideRecipient: false,
   })

@@ -21,6 +21,8 @@ export type ObligacionReminderDigestItem = {
 
 type ObligacionReminderDigestEmailParams = {
   items: ObligacionReminderDigestItem[]
+  /** Tareas del mismo aviso que ya están hechas y con justificante (no salen en la lista). */
+  completeCount?: number
   realRecipientEmail: string
   isOverrideRecipient: boolean
 }
@@ -117,14 +119,8 @@ function renderKindBadge(kind: ObligacionNoticeKind, daysLeft: number): string {
   return `<span style="${BADGE_BASE_STYLE} background-color: ${EMAIL_COLORES.neutroFondo}; color: ${EMAIL_COLORES.neutroTexto};">${label}</span>`
 }
 
-/** Qué le falta a la tarea, con el icono de cada cosa: el clip es el justificante y el check, marcarla como hecha. */
-function getMissingParts(completion: ObligacionReminderDigestItem['completion']): string[] {
-  if (completion.level === 'missing') return [MISSING_DOCUMENT, MISSING_DONE]
-  return [completion.reason === 'done_without_document' ? MISSING_DOCUMENT : MISSING_DONE]
-}
-
-const MISSING_DOCUMENT = '📎 Sin justificante'
-const MISSING_DONE = '✔ Sin marcar como hecha'
+const MISSING_DOCUMENT = { icon: '📎', label: 'Sin justificante' }
+const MISSING_DONE = { icon: '✔', label: 'Sin marcar como hecha' }
 
 type ChipPalette = { borde: string; fondo: string; texto: string }
 
@@ -140,22 +136,34 @@ const PALETA_FALTA_UNA: ChipPalette = {
   texto: EMAIL_COLORES.ambarUrgenteTexto,
 }
 
+const PALETA_COMPLETA: ChipPalette = {
+  borde: EMAIL_COLORES.verdeTurquesa,
+  fondo: EMAIL_COLORES.verdeBrisa,
+  texto: EMAIL_COLORES.verdeAgua,
+}
+
 /**
- * Cada modelo es una pastilla con su nombre y, debajo, lo que falta con su
- * icono. El color (rojo: falta todo; ámbar: falta una cosa) se explica en la
- * leyenda del correo. Los iconos son glifos de texto porque los clientes de
- * correo no soportan SVG inline de forma fiable.
+ * Cada modelo es una pastilla. En rojo (falta todo) solo lleva el nombre: lo
+ * que falta es obvio y la leyenda lo explica. En ámbar lleva, al lado, el
+ * icono y el texto de la única cosa que falta (clip: justificante; check:
+ * marcarla como hecha). Los iconos son glifos de texto porque los clientes
+ * de correo no soportan SVG inline de forma fiable.
  */
 function renderModelChip(item: ObligacionReminderDigestItem): string {
-  const palette = item.completion.level === 'missing' ? PALETA_FALTA_TODO : PALETA_FALTA_UNA
-  const style = `display: inline-block; vertical-align: top; margin: 0 6px 6px 0; padding: 8px 13px; border-radius: 12px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; font-family: ${FUENTE}; text-decoration: none;`
-  const missing = getMissingParts(item.completion)
-    .map(
-      (part) =>
-        `<span style="display: block; margin-top: 3px; font-size: 11.5px; font-weight: 600; color: ${palette.texto}; white-space: nowrap;">${part}</span>`
-    )
-    .join('')
-  const content = `<span style="display: block; font-size: 12.5px; font-weight: 700; color: ${palette.texto}; white-space: nowrap;">${escapeHtml(item.modelLabel)}</span>${missing}`
+  const { completion } = item
+  const palette = completion.level === 'missing' ? PALETA_FALTA_TODO : PALETA_FALTA_UNA
+  const style = `display: inline-block; vertical-align: top; margin: 0 6px 6px 0; padding: 6px 13px; border-radius: 999px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; color: ${palette.texto}; font-family: ${FUENTE}; font-size: 12.5px; font-weight: 700; white-space: nowrap; text-decoration: none;`
+
+  const missing =
+    completion.level === 'partial'
+      ? completion.reason === 'done_without_document'
+        ? MISSING_DOCUMENT
+        : MISSING_DONE
+      : null
+  const detail = missing
+    ? ` <span style="font-weight: 600;">&nbsp;${missing.icon} ${missing.label}</span>`
+    : ''
+  const content = `${escapeHtml(item.modelLabel)}${detail}`
 
   if (!item.taskUrl) {
     return `<span style="${style}">${content}</span>`
@@ -164,23 +172,44 @@ function renderModelChip(item: ObligacionReminderDigestItem): string {
   return `<a href="${item.taskUrl}" style="${style}">${content}</a>`
 }
 
-/** Leyenda del correo: muestras de cada color con lo que significan y de qué es cada icono. */
-function renderLegend(): string {
-  const swatch = (palette: ChipPalette, label: string) =>
-    `<span style="display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; color: ${palette.texto}; font-family: ${FUENTE}; font-size: 11px; font-weight: 700; white-space: nowrap;">${label}</span>`
-  const row = (palette: ChipPalette, label: string, meaning: string) => `
+type DigestCounts = { missing: number; partial: number; complete: number }
+
+function countItems(items: ObligacionReminderDigestItem[], completeCount: number): DigestCounts {
+  return {
+    missing: items.filter((item) => item.completion.level === 'missing').length,
+    partial: items.filter((item) => item.completion.level === 'partial').length,
+    complete: completeCount,
+  }
+}
+
+/** Plazos que cubre este aviso, en corto y sin repetir ("20 oct" o "20 oct y 30 oct"). */
+function formatDeadlinesLabel(items: ObligacionReminderDigestItem[]): string {
+  const days = [...new Set(items.map((item) => item.deadline.getTime()))]
+    .sort((a, b) => a - b)
+    .map((time) => formatShortDeadline(new Date(time)))
+  return days.length > 1 ? `${days.slice(0, -1).join(', ')} y ${days.at(-1)}` : days[0]
+}
+
+/**
+ * Resumen y leyenda en uno: cuántas tareas hay en cada estado para el plazo
+ * que se avisa, con la muestra del color que luego llevan los modelos y qué
+ * significa. Las completas no salen en la lista, solo aquí.
+ */
+function renderSummary(counts: DigestCounts, deadlinesLabel: string): string {
+  const row = (palette: ChipPalette, count: number, label: string, meaning: string) => `
         <tr>
-          <td style="padding: 4px 12px 4px 0; white-space: nowrap;">${swatch(palette, label)}</td>
-          <td style="padding: 4px 0; font-family: ${FUENTE}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal};">${meaning}</td>
+          <td style="padding: 5px 10px 5px 0; font-family: ${FUENTE}; font-size: 18px; font-weight: 700; color: ${palette.texto}; text-align: right; width: 34px;">${count}</td>
+          <td style="padding: 5px 12px 5px 0; white-space: nowrap;"><span style="display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; color: ${palette.texto}; font-family: ${FUENTE}; font-size: 11px; font-weight: 700; white-space: nowrap;">${label}</span></td>
+          <td style="padding: 5px 0; font-family: ${FUENTE}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal};">${meaning}</td>
         </tr>`
 
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid ${EMAIL_COLORES.bordeClaro}; border-radius: 10px; background-color: ${EMAIL_COLORES.neutroFondo};">
       <tr>
-        <td style="padding: 10px 14px;">
-          <table role="presentation" cellpadding="0" cellspacing="0">${row(PALETA_FALTA_TODO, 'Rojo', 'Falta todo: sin marcar como hecha y sin justificante')}${row(PALETA_FALTA_UNA, 'Ámbar', 'Falta una de las dos cosas: revísala')}
+        <td style="padding: 12px 14px;">
+          <p style="margin: 0 0 6px 0; font-family: ${FUENTE}; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: ${EMAIL_COLORES.textoSecundario};">Resumen · plazo ${escapeHtml(deadlinesLabel)}</p>
+          <table role="presentation" cellpadding="0" cellspacing="0">${row(PALETA_FALTA_TODO, counts.missing, 'Rojo', 'Sin marcar como hecha y sin justificante')}${row(PALETA_FALTA_UNA, counts.partial, 'Ámbar', `Falta una de las dos cosas: ${MISSING_DOCUMENT.icon} justificante o ${MISSING_DONE.icon} marcar como hecha`)}${row(PALETA_COMPLETA, counts.complete, 'Completas', 'Hechas y con justificante: no se avisan')}
           </table>
-          <p style="margin: 8px 0 0 0; font-family: ${FUENTE}; font-size: 12px; color: ${EMAIL_COLORES.textoSecundario};">📎 el justificante de presentación &nbsp;·&nbsp; ✔ marcar la tarea como hecha</p>
         </td>
       </tr>
     </table>`
@@ -266,6 +295,7 @@ function buildIntro(allKind: AllKind): string {
  */
 export function buildObligacionReminderDigestEmail({
   items,
+  completeCount = 0,
   realRecipientEmail,
   isOverrideRecipient,
 }: ObligacionReminderDigestEmailParams) {
@@ -290,7 +320,8 @@ export function buildObligacionReminderDigestEmail({
     html: `${buildIntro(allKind)}${items.some((item) => item.taskUrl) ? ' Cada modelo abre su tarea en Odoo.' : ''}`,
   })
 
-  bloques.push({ tipo: 'html', html: renderLegend() })
+  const counts = countItems(items, completeCount)
+  bloques.push({ tipo: 'html', html: renderSummary(counts, formatDeadlinesLabel(items)) })
 
   bloques.push({ tipo: 'html', html: groups.map(renderDeadlineCard).join('') })
 
@@ -309,10 +340,14 @@ export function buildObligacionReminderDigestEmail({
     ),
   ])
 
+  const summaryText = `Resumen (plazo ${formatDeadlinesLabel(items)}): ${counts.missing} sin hacer y sin justificante, ${counts.partial} con una de las dos cosas, ${counts.complete} completas.`
+
   const text = [
     'Hola,',
     isOverrideRecipient ? `Correo de prueba: aviso generado para ${realRecipientEmail}.` : '',
     buildIntro(allKind),
+    summaryText,
+    '',
     ...textRows,
     '',
     'Un cordial saludo,',
