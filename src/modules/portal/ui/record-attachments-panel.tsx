@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react'
-import { Download, Eye, FileText, Loader2 } from 'lucide-react'
+import { Download, Eye, FileText, FolderOpen, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { portalDocuments } from '@/content/portal-documents'
@@ -247,9 +247,22 @@ export function RecordAttachmentsPanel({
 
   if (!attachments.length) {
     return (
-      <p className="px-6 py-4 text-sm text-muted-foreground">
-        {portalDocuments.emptyAttachments}
-      </p>
+      <div className="mx-6 my-4 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-8 text-center">
+        <span
+          className="flex size-10 items-center justify-center rounded-lg bg-muted/60 dark:bg-muted/40"
+          aria-hidden
+        >
+          <FolderOpen className="size-5 text-muted-foreground" />
+        </span>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium text-foreground">
+            {portalDocuments.emptyTitle}
+          </p>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            {portalDocuments.emptyHint}
+          </p>
+        </div>
+      </div>
     )
   }
 

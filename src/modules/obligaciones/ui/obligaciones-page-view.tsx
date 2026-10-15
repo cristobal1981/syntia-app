@@ -105,6 +105,14 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
     router.replace('/obligaciones', { scroll: false })
   }, [allRows, router, searchParams])
 
+  // El drawer necesita periodo y plazo, que la lista ya calcula: se
+  // resuelven por id desde las filas completas, no desde la tarea pulsada.
+  const selectedRow = useMemo(() => {
+    if (!selectedTask) return null
+    const row = allRows.find((entry) => entry.id === selectedTask.id)
+    return row ? attachObligacionDeadlineInfo([row])[0] ?? null : null
+  }, [allRows, selectedTask])
+
   const handleDrawerOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) setSelectedTask(null)
   }, [])
@@ -225,8 +233,8 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
       )}
 
       <ObligacionDetailDrawer
-        task={selectedTask}
-        open={selectedTask !== null}
+        task={selectedRow}
+        open={selectedRow !== null}
         onOpenChange={handleDrawerOpenChange}
       />
     </div>
