@@ -13,7 +13,11 @@ import {
 } from '@/components/ui/dialog'
 import { createProcedureTicketAction } from '@/src/modules/tramites/application/create-procedure-ticket-action'
 import { createTicketAction } from '@/src/modules/tramites/application/create-ticket-action'
-import type { ProcedureTicketType, SolicitudPickerId } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  hasAvailableProcedureTypes,
+  type ProcedureTicketType,
+  type SolicitudPickerId,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 import {
   normalizeProcedureTicketPayload,
   validateProcedureTicketPayload,
@@ -301,7 +305,7 @@ export function TramiteCreateConsultaDrawer({
       >
         <div className="flex h-full min-h-0 flex-col">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4 pr-12 text-left">
-            {step !== 'picker' ? (
+            {step !== 'picker' && hasAvailableProcedureTypes() ? (
               <Button
                 type="button"
                 variant="ghost"

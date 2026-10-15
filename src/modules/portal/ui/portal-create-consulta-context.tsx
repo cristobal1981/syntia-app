@@ -18,7 +18,10 @@ import {
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { dispatchTramitesListItemSeen } from '@/src/modules/tramites/domain/tramites-list-seen-events'
-import type { ProcedureTicketType } from '@/src/modules/tramites/domain/procedure-ticket-types'
+import {
+  isProcedureTypeAvailable,
+  type ProcedureTicketType,
+} from '@/src/modules/tramites/domain/procedure-ticket-types'
 import { TramiteCreateConsultaDrawer } from '@/src/modules/tramites/ui/tramite-create-consulta-drawer'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
 
@@ -68,7 +71,13 @@ export function PortalCreateConsultaProvider({
       if (!isAvailable) return
       onboardingChecklist?.markStepComplete('nuevaConsulta')
       if (options?.procedure === 'alta-trabajador') {
-        router.push('/alta-trabajador')
+        // Desactivado a propósito: sin wizard, se cae al selector general.
+        if (isProcedureTypeAvailable('alta-trabajador')) {
+          router.push('/alta-trabajador')
+          return
+        }
+        setInitialProcedure(null)
+        setOpen(true)
         return
       }
       setInitialProcedure(options?.procedure ?? null)

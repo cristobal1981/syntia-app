@@ -68,6 +68,11 @@ The human-facing log lives in Notion:
   security reasons, why a cache TTL, why a guard exists). Do not narrate the
   obvious, do not add comments to trivial files, match the file's existing
   density, and delete stale or wrong comments.
+- **Leave alone (desactivado a propósito):** lo listado en CLAUDE.md como
+  «Funcionalidad desactivada a propósito» (hoy el alta de trabajador y su
+  módulo `alta-trabajador`, la baja de trabajador y la carta de vacaciones).
+  Nunca es código muerto: no se borra ni se cuenta como pendiente aunque knip
+  o la falta de accesos lo hagan parecer sin uso.
 - **Leave alone and flag:** behavior changes, bugs found (report with
   file:line, don't fix inside a hygiene pass), security-sensitive branches
   (suggest `mutation-test-pass`), and anything touching Next APIs (read

@@ -13,6 +13,7 @@ const {
   postRecordComment,
   createAttachmentsForRecord,
   checkRateLimit,
+  isProcedureTypeAvailable,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -22,7 +23,20 @@ const {
   postRecordComment: vi.fn(),
   createAttachmentsForRecord: vi.fn(),
   checkRateLimit: vi.fn(),
+  isProcedureTypeAvailable: vi.fn(),
 }))
+
+/**
+ * El alta de trabajador está desactivada a propósito en producción (ver
+ * `procedure-ticket-types.ts`), pero su código se conserva y estos tests lo
+ * siguen cubriendo: por defecto se simula «activada». El bloqueo real se
+ * comprueba en el último `describe`.
+ */
+vi.mock('@/src/modules/tramites/domain/procedure-ticket-types', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/src/modules/tramites/domain/procedure-ticket-types')>()
+  return { ...actual, isProcedureTypeAvailable }
+})
 
 vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
@@ -105,6 +119,7 @@ beforeEach(() => {
   createPartnerTask.mockResolvedValue(7)
   createAttachmentsForRecord.mockResolvedValue([1])
   checkRateLimit.mockResolvedValue(true)
+  isProcedureTypeAvailable.mockReturnValue(true)
 })
 
 describe('createAltaTrabajadorTaskAction (/tramites section gate for colaboradores)', () => {
@@ -246,5 +261,20 @@ describe('createAltaTrabajadorTaskAction (Odoo error mapping)', () => {
     const result = await createAltaTrabajadorTaskAction(altaTrabajadorPayload())
 
     expect(result).toMatchObject({ ok: false, error: 'odoo_unavailable' })
+  })
+})
+
+describe('createAltaTrabajadorTaskAction (alta desactivada a propósito)', () => {
+  it('con el alta desactivada rechaza con forbidden sin tocar Odoo, aunque se llame a la acción a mano', async () => {
+    const actual = await vi.importActual<
+      typeof import('@/src/modules/tramites/domain/procedure-ticket-types')
+    >('@/src/modules/tramites/domain/procedure-ticket-types')
+    isProcedureTypeAvailable.mockImplementation(actual.isProcedureTypeAvailable)
+
+    const result = await createAltaTrabajadorTaskAction(altaTrabajadorPayload())
+
+    expect(result).toEqual({ ok: false, error: 'forbidden' })
+    expect(createPartnerTask).not.toHaveBeenCalled()
+    expect(checkRateLimit).not.toHaveBeenCalled()
   })
 })

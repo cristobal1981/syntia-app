@@ -1,11 +1,21 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { assertSectionAccess } from '@/src/modules/colaboradores/application/assert-section-access'
 import { AltaTrabajadorLayoutClient } from '@/src/modules/alta-trabajador/ui/alta-trabajador-layout-client'
+import { isProcedureTypeAvailable } from '@/src/modules/tramites/domain/procedure-ticket-types'
 
+/**
+ * Alta de trabajador desactivada a propósito (ver `isProcedureTypeAvailable`):
+ * mientras lo esté, toda la ruta y sus pasos responden 404 en vez de mostrar
+ * el wizard. El módulo `alta-trabajador` se conserva para reactivarlo.
+ */
 export default function AltaTrabajadorLayout({ children }: { children: React.ReactNode }) {
+  if (!isProcedureTypeAvailable('alta-trabajador')) {
+    notFound()
+  }
+
   return (
     <Suspense fallback={null}>
       <AltaTrabajadorAccessGate>{children}</AltaTrabajadorAccessGate>

@@ -1,6 +1,7 @@
 import { tramiteSolicitudes } from '@/content/tramite-solicitudes'
 import { tramites } from '@/content/tramites'
 import {
+  hasAvailableProcedureTypes,
   isProcedureTypeAvailable,
   type ProcedureTicketType,
   type SolicitudPickerId,
@@ -61,6 +62,9 @@ export function mapProcedureActionError(
 export function procedureStepFromInitial(
   initialProcedure?: ProcedureTicketType | null
 ): DrawerStep {
+  // Sin solicitudes estructurales disponibles el selector no tiene nada que
+  // elegir: se abre directamente la consulta general.
+  if (!hasAvailableProcedureTypes()) return 'general'
   if (initialProcedure === 'alta-trabajador') return 'picker'
   if (initialProcedure && !isProcedureTypeAvailable(initialProcedure)) return 'picker'
   return initialProcedure ?? 'picker'

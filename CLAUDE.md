@@ -6,6 +6,12 @@ Nunca añadas `Co-Authored-By: Claude ...` ni la línea `Claude-Session: ...` al
 
 Antes de cada commit, comprueba que `build`, `lint`, `tsc` y los tests pasan. Si algo falla, no preguntes: arréglalo o repórtalo, y no commitees en rojo.
 
+## Funcionalidad desactivada a propósito (NO es código muerto)
+
+Lo que sigue está apagado por decisión de producto y se conserva entero (rutas, formularios, validación, acciones y tests) para poder reactivarlo. No lo borres en limpiezas de código sin uso, barridos de knip ni tareas de higiene, aunque no tenga accesos visibles. Se apaga y se reactiva en un solo sitio.
+
+- **Alta de trabajador** (`/alta-trabajador` y el módulo `src/modules/alta-trabajador`), junto con **baja de trabajador** y **carta de vacaciones**: desactivadas en `UNAVAILABLE_PROCEDURE_TYPES` de `src/modules/tramites/domain/procedure-ticket-types.ts`. Con eso desaparecen del selector de «Nueva solicitud» y del buscador, la acción del servidor responde `forbidden` y la ruta `/alta-trabajador` da 404; en «Nueva solicitud» solo queda la consulta general. Para reactivar una, quítala de ese conjunto. Desde el 2026-10-15.
+
 ## Push y Notion
 
 Nunca hagas `git push` por tu cuenta. Al terminar una tarea:
