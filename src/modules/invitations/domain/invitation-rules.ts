@@ -5,7 +5,7 @@ import { isValidEmail } from '@/lib/validation/email'
  * colgará el descuento o los puntos máximos cuando existan; hoy solo limita
  * el envío de correos.
  */
-export const MAX_INVITATIONS_PER_CLIENT = 5
+export const MAX_INVITATIONS_PER_CLIENT = 10
 
 /** Envíos por hora y cliente: evita ráfagas aunque quede cupo. */
 export const INVITATION_RATE_LIMIT = { limit: 5, windowSeconds: 3600 }

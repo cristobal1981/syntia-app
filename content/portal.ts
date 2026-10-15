@@ -247,7 +247,7 @@ export const portal = {
       submit: 'Enviar invitación',
       sending: 'Enviando…',
       cancel: 'Cerrar',
-      successToast: 'Invitación enviada.',
+      successToast: 'Listo. Si esa persona aún no usa Syntia, recibirá tu invitación.',
       errors: {
         required: 'Escribe el correo de la persona a la que quieres invitar.',
         invalid: 'Ese correo no parece válido.',
