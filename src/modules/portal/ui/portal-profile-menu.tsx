@@ -122,7 +122,16 @@ export function PortalProfileMenu({
         side={collapsed ? 'right' : 'top'}
         align={collapsed ? 'end' : 'start'}
         sideOffset={8}
-        className="max-h-[min(36rem,calc(100dvh-2rem))] w-72 overflow-y-auto border-sidebar-border bg-sidebar p-1.5 text-sidebar-foreground"
+        className={cn(
+          'max-h-[min(36rem,calc(100dvh-2rem))] w-72 overflow-y-auto border-sidebar-border bg-sidebar p-1.5 text-sidebar-foreground',
+          // Entrada y salida sutiles: fundido, un leve zoom y un desplazamiento corto
+          // desde el lado del que cuelga el panel. Sin movimiento si el sistema lo pide.
+          'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
+          'data-[side=top]:data-[state=open]:slide-in-from-bottom-1 data-[side=right]:data-[state=open]:slide-in-from-left-1',
+          'data-[side=top]:data-[state=closed]:slide-out-to-bottom-1 data-[side=right]:data-[state=closed]:slide-out-to-left-1',
+          'motion-reduce:animate-none'
+        )}
       >
         <div className="px-3 py-2">
           <p className="truncate text-sm font-semibold text-sidebar-foreground">{user.name}</p>
