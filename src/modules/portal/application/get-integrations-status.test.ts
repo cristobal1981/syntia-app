@@ -16,7 +16,7 @@ vi.mock('@/src/modules/portal/infrastructure/check-odoo-health', () => ({ checkO
 
 beforeEach(() => {
   vi.resetAllMocks()
-  checkGoogleIntegration.mockReturnValue('connected')
+  checkGoogleIntegration.mockResolvedValue('connected')
   checkN8nHealth.mockResolvedValue('connected')
   checkOdooHealth.mockResolvedValue('connected')
 })
@@ -47,18 +47,32 @@ describe('getIntegrationsStatusForRole', () => {
     expect(checkN8nHealth).toHaveBeenCalledTimes(1)
   })
 
-  it('flags odoo/n8n as liveCheck=true, but google as liveCheck=false', async () => {
+  it('flags odoo, n8n and google as liveCheck=true (all three are pinged)', async () => {
     const result = await getIntegrationsStatusForRole('admin')
     const byId = Object.fromEntries(result.map((row) => [row.id, row]))
 
     expect(byId.odoo.liveCheck).toBe(true)
     expect(byId.n8n.liveCheck).toBe(true)
-    expect(byId.google.liveCheck).toBe(false)
+    expect(byId.google.liveCheck).toBe(true)
+  })
+
+  it('reports the ping time in ms for connected rows and null otherwise', async () => {
+    checkOdooHealth.mockResolvedValue('error')
+    checkN8nHealth.mockResolvedValue('pending')
+    checkGoogleIntegration.mockResolvedValue('connected')
+
+    const result = await getIntegrationsStatusForRole('admin')
+    const byId = Object.fromEntries(result.map((row) => [row.id, row]))
+
+    expect(typeof byId.google.latencyMs).toBe('number')
+    expect(byId.google.latencyMs).toBeGreaterThanOrEqual(0)
+    expect(byId.odoo.latencyMs).toBeNull()
+    expect(byId.n8n.latencyMs).toBeNull()
   })
 
   it('maps each row to its human-readable name and resolved status', async () => {
     checkOdooHealth.mockResolvedValue('error')
-    checkGoogleIntegration.mockReturnValue('pending')
+    checkGoogleIntegration.mockResolvedValue('pending')
 
     const result = await getIntegrationsStatusForRole('admin')
     const byId = Object.fromEntries(result.map((row) => [row.id, row]))

@@ -33,6 +33,8 @@ export type IntegrationStatus = {
   id: IntegrationId
   name: string
   status: IntegrationConnectionStatus
-  /** Si true, el estado se obtiene con ping en tiempo real (Odoo/n8n). */
+  /** Si true, el estado se obtiene con ping en tiempo real (Odoo, n8n y Drive). */
   liveCheck: boolean
+  /** Tiempo de respuesta del ping en ms; solo si respondió bien (si no, no dice nada útil). */
+  latencyMs: number | null
 }

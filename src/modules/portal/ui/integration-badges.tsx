@@ -44,6 +44,11 @@ export function IntegrationBadges({
             <span className="min-w-0 flex-1 truncate font-sans font-medium text-foreground">
               {integration.name}
             </span>
+            {integration.latencyMs !== null ? (
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                {integration.latencyMs} ms
+              </span>
+            ) : null}
             <span
               className={cn(
                 'inline-flex shrink-0 items-center gap-1.5 text-xs font-medium',

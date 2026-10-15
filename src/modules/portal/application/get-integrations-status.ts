@@ -15,7 +15,7 @@ const INTEGRATION_LABELS: Record<IntegrationId, string> = {
   n8n: 'n8n',
 }
 
-const LIVE_CHECK_IDS = new Set<IntegrationId>(['odoo', 'n8n'])
+const LIVE_CHECK_IDS = new Set<IntegrationId>(['odoo', 'n8n', 'google'])
 
 async function checkIntegrationStatus(
   id: IntegrationId
@@ -36,11 +36,19 @@ export async function getIntegrationsStatusForRole(
   const ids = getIntegrationIdsForRole(role)
 
   return Promise.all(
-    ids.map(async (id) => ({
-      id,
-      name: INTEGRATION_LABELS[id],
-      status: await checkIntegrationStatus(id),
-      liveCheck: LIVE_CHECK_IDS.has(id),
-    }))
+    ids.map(async (id) => {
+      const startedAt = performance.now()
+      const status = await checkIntegrationStatus(id)
+      const elapsed = Math.round(performance.now() - startedAt)
+
+      return {
+        id,
+        name: INTEGRATION_LABELS[id],
+        status,
+        liveCheck: LIVE_CHECK_IDS.has(id),
+        // Solo un ping que respondió bien mide algo: un error suele ser el timeout.
+        latencyMs: status === 'connected' ? elapsed : null,
+      }
+    })
   )
 }
