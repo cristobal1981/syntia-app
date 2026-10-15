@@ -1,6 +1,6 @@
 'use client'
 
-import { Bug, ChevronDown, PersonStanding } from 'lucide-react'
+import { Bug, ChevronDown, PersonStanding, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 
 import { portal } from '@/content/portal'
@@ -11,11 +11,30 @@ import type { NavItem } from '@/src/modules/portal/domain/types'
 import { AccessibilityControls } from '@/src/modules/portal/ui/accessibility-controls'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { renderNavItem } from '@/src/modules/portal/ui/portal-nav-items'
+import { usePortalInviteOptional } from '@/src/modules/invitations/ui/portal-invite-context'
 import { usePortalReportProblemOptional } from '@/src/modules/portal/ui/portal-report-problem-context'
 import { ThemeToggle } from '@/src/modules/portal/ui/theme-toggle'
 
 const accessibilityCopy = portal.shell.accessibility
 const reportProblemCopy = portal.shell.reportProblem
+const inviteCopy = portal.shell.invite
+
+function MobileInviteButton() {
+  const invite = usePortalInviteOptional()
+
+  if (!invite) return null
+
+  return (
+    <button
+      type="button"
+      onClick={invite.openInvite}
+      className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-md px-3 text-left text-base font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+    >
+      <UserPlus className="size-5 shrink-0" aria-hidden />
+      <span className="flex-1">{inviteCopy.label}</span>
+    </button>
+  )
+}
 
 function MobileReportProblemButton() {
   const reportProblem = usePortalReportProblemOptional()
@@ -103,6 +122,7 @@ export function PortalMobileMenu({
       <div className="flex flex-col gap-1">
         <ThemeToggle variant="row" />
         <MobileAccessibilitySection />
+        <MobileInviteButton />
         <MobileReportProblemButton />
       </div>
 

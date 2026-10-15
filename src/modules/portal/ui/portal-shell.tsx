@@ -19,6 +19,7 @@ import {
   PortalQuickInvoiceButton,
   PortalQuickInvoiceProvider,
 } from '@/src/modules/portal/ui/portal-quick-invoice-context'
+import { PortalInviteProvider } from '@/src/modules/invitations/ui/portal-invite-context'
 import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
 import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import {
@@ -145,6 +146,7 @@ export function PortalShell({
     <OnboardingChecklistProvider enabled={user.role === 'client'}>
     <PortalCreateConsultaProvider enabled={canCreateConsulta}>
     <PortalReportProblemProvider enabled={isClientOrWorker}>
+    <PortalInviteProvider enabled={user.role === 'client'}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -254,6 +256,7 @@ export function PortalShell({
     </PortalEntryLoadingProvider>
     </Suspense>
     </PortalRouteLoadingProvider>
+    </PortalInviteProvider>
     </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
     </OnboardingChecklistProvider>
