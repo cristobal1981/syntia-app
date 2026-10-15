@@ -449,14 +449,7 @@ export function PortalTopBarSearch({
           // sits behind the mobile keyboard once it opens, since the layout
           // viewport `top-1/2` is measured against doesn't shrink for it on
           // most mobile browsers.
-          className={cn(
-            'top-4 translate-y-0 gap-0 overflow-hidden bg-background p-0 sm:top-1/2 sm:max-w-xl sm:-translate-y-1/2',
-            // Entrada y salida sutiles: fundido y un leve zoom, sin movimiento si el sistema lo pide.
-            'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
-            'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
-            'motion-reduce:animate-none'
-          )}
-          overlayClassName="duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none"
+          className="top-4 translate-y-0 gap-0 overflow-hidden bg-background p-0 sm:top-1/2 sm:max-w-xl sm:-translate-y-1/2"
         >
           <DialogTitle className="sr-only">
             {portal.search.dialogTitle}
