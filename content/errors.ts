@@ -1,5 +1,3 @@
-export const notImplementedPath = "/proximamente" as const
-
 export type SappoMood =
   | "lost"
   | "confused"

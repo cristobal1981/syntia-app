@@ -393,7 +393,7 @@
   "src/modules/firmas/ui/firmas-requests-list.tsx": "0431a0726ef1656c933358f9bf548d7fc486b656",
   "src/modules/leads/application/get-lead-report.ts": "5ecc2f1b8f57c38854b50e08a39a2b007584e914",
   "src/modules/leads/application/send-lead-contact-email.ts": "3b4e53aea8d0293160643419ed44a2f03595fecb",
-  "src/modules/leads/domain/types.ts": "9e43f6e8f789a9e876a8cf22fadbefbc1ce65c0d",
+  "src/modules/leads/domain/types.ts": "2a0018b89a344b695afecbbc8fb457fbba68fa46",
   "src/modules/leads/infrastructure/lead-contacts.supabase.ts": "d9adcacf52be8886f45114bdd0734f5585e06432",
   "src/modules/leads/infrastructure/lead-report.supabase.ts": "02d759dd27cd9a124885799037f1daf764424cb5",
   "src/modules/leads/infrastructure/leads.supabase.ts": "4124b1544677b643dd27c62ed93267c1a9f43f4b",
@@ -542,7 +542,7 @@
   "content/client-documents.ts": "3f4a199b824e980ddd89fd21f406c6104b040199",
   "content/colaboradores.ts": "c2fadc0583880d05bed5ba1141272fe2d0972099",
   "content/equipo.ts": "33761bc0a5143bdddb58c2b48d425c40740ba813",
-  "content/errors.ts": "6f1bf38d8eb759e65fe8fadc0101feb98156ae0a",
+  "content/errors.ts": "8dd0d835927abd61a0d893608ba8e44387f34e1a",
   "content/firmas.ts": "9f7faf228fe728a6fd99a2d4c1c1baa581cbb280",
   "content/fiscal-models-guide.ts": "aae721b1a69e1c84386ebcbbde69a3483900dab0",
   "content/guias.ts": "d7eef06823b9a8d53f1f457bade16c8a59f6856e",
@@ -666,5 +666,6 @@
   "src/modules/tramites/ui/tramite-create-consulta-drawer.tsx": "27c887e6a0b6425cebf022842c51971ad59b1416",
   "src/modules/tramites/ui/tramite-detail-drawer.tsx": "88bcc596cecd77b291738c06eb3c1f7c8c60400b",
   "src/modules/tramites/ui/tramite-drawer-field.tsx": "8972c2c046283d4bdf9fa59ec468ddef351d94fb",
-  "src/modules/tramites/ui/tramite-general-consulta-form.tsx": "87f70df58df86b169d99e8eafe057175043eb0ea"
+  "src/modules/tramites/ui/tramite-general-consulta-form.tsx": "87f70df58df86b169d99e8eafe057175043eb0ea",
+  "scripts/lib/spanish-tax-id.mjs": "950b5edd68bcc6cbf0f832d99807380349c136d5"
 }

@@ -23,7 +23,7 @@ export type LeadRecord = {
  * Tramos de facturación del informe; los cortes los calcula el RPC
  * `get_lead_report` y las etiquetas viven en `content/leads.ts`.
  */
-export type FacturacionBucketId =
+type FacturacionBucketId =
   | 'lt_9600'
   | 'from_9600_to_12600'
   | 'from_12600_to_17000'

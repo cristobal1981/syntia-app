@@ -12,7 +12,7 @@ const CIF_CONTROL_LETTERS = 'JABCDEFGHI'
 const CIF_LETTER_ONLY = new Set(['K', 'P', 'Q', 'R', 'S', 'N', 'W'])
 const CIF_DIGIT_ONLY = new Set(['A', 'B', 'E', 'H'])
 
-export function normalizeTaxId(value) {
+function normalizeTaxId(value) {
   return String(value ?? '').replace(/\s+/g, '').toUpperCase()
 }
 
