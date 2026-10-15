@@ -1,13 +1,6 @@
 import { taxCalendar, type TaxCalendarWindow } from '@/content/tax-calendar'
 import { getPeriodSortKey } from '@/src/modules/obligaciones/domain/sort-obligacion-periods'
 
-/**
- * Ventanas trimestrales declaradas dentro del mismo año fiscal. El resto de
- * ventanas (anuales, 347, renta, sociedades, y T4) se declaran en el año
- * fiscal siguiente — ver `content/tax-calendar.ts` para las fechas reales.
- */
-const SAME_FISCAL_YEAR_WINDOW_IDS = new Set(['t1', 't2', 't3'])
-
 const taxCalendarWindows: readonly TaxCalendarWindow[] = taxCalendar.windows
 
 function windowCoversModel(window: TaxCalendarWindow, modelCode: string): boolean {
@@ -27,17 +20,39 @@ function findQuarterWindow(quarter: number, modelCode: string): TaxCalendarWindo
   )
 }
 
+/** Modelos por «Periodo N» (hoy el 202): la ventana que declara ese periodo. */
+function findPeriodWindow(period: number, modelCode: string): TaxCalendarWindow | null {
+  return (
+    taxCalendarWindows.find(
+      (window) => window.period === period && windowCoversModel(window, modelCode)
+    ) ?? null
+  )
+}
+
 function findAnnualWindow(modelCode: string): TaxCalendarWindow | null {
   return (
     taxCalendarWindows.find(
-      (window) => window.quarter === undefined && windowCoversModel(window, modelCode)
+      (window) =>
+        window.quarter === undefined &&
+        window.period === undefined &&
+        windowCoversModel(window, modelCode)
     ) ?? null
   )
 }
 
 /**
- * Deduce el plazo legal real (AEAT) de una obligación a partir de su modelo,
- * periodo y año fiscal, usando las ventanas de `content/tax-calendar.ts` —
+ * La ventana se declara en el mismo año fiscal cuando es de los trimestres
+ * 1–3 o de un periodo del 202 (abril, octubre y diciembre del propio año). El
+ * resto (4T, anuales, 347, renta, sociedades) cae en el año fiscal siguiente.
+ */
+function isSameFiscalYearWindow(window: TaxCalendarWindow): boolean {
+  if (window.period !== undefined) return true
+  return window.quarter !== undefined && window.quarter <= 3
+}
+
+/**
+ * Deduce el plazo legal real (AEAT o ATC) de una obligación a partir de su
+ * modelo, periodo y año fiscal, usando las ventanas de `content/tax-calendar.ts` —
  * NUNCA el `date_deadline` de la tarea en Odoo, que es una fecha interna que
  * pone el gestor a mano y no representa el plazo legal.
  *
@@ -55,17 +70,18 @@ export function resolveObligacionDeadline(
   let window: TaxCalendarWindow | null = null
   if (periodKind === 1 && periodNumber >= 1 && periodNumber <= 4) {
     window = findQuarterWindow(periodNumber, modelCode)
+  } else if (periodKind === 3 && periodNumber >= 1 && periodNumber <= 3) {
+    window = findPeriodWindow(periodNumber, modelCode)
   } else if (periodKind === 0) {
     window = findAnnualWindow(modelCode)
   }
 
   if (!window) return null
 
-  const deadlineYear = SAME_FISCAL_YEAR_WINDOW_IDS.has(window.id)
-    ? fiscalYear
-    : fiscalYear + 1
+  const deadlineYear = isSameFiscalYearWindow(window) ? fiscalYear : fiscalYear + 1
+  const end = window.endByModel?.[modelCode] ?? window.end
 
-  return new Date(deadlineYear, window.end.month - 1, window.end.day, 23, 59, 59)
+  return new Date(deadlineYear, end.month - 1, end.day, 23, 59, 59)
 }
 
 export function getDaysUntilObligacionDeadline(deadline: Date): number {
