@@ -51,11 +51,10 @@ export const taxCalendar = {
       end: { month: 1, day: 30 },
       // Plazo ampliado hasta el 30 (AEAT): IVA, pagos fraccionados del IRPF e
       // intracomunitarias. El IGIC (ATC) y la ventanilla única (369) acaban el 31.
-      modelCodes: ['303', '309', '130', '131', '349', '420', '421', '412', '369'],
+      modelCodes: ['303', '309', '130', '131', '349', '420', '421', '369'],
       endByModel: {
         '420': { month: 1, day: 31 },
         '421': { month: 1, day: 31 },
-        '412': { month: 1, day: 31 },
         '369': { month: 1, day: 31 },
       },
       guideSlugs: ['cierre-trimestral-impuestos'],
@@ -100,7 +99,7 @@ export const taxCalendar = {
       end: { month: 4, day: 20 },
       modelCodes: [
         '303', '309', '111', '115', '123', '216', '130', '131', '349',
-        '420', '421', '412', '202', '369',
+        '420', '421', '202', '369',
       ],
       endByModel: { '369': { month: 4, day: 30 } },
       guideSlugs: ['cierre-trimestral-impuestos'],
@@ -125,7 +124,7 @@ export const taxCalendar = {
       end: { month: 7, day: 20 },
       modelCodes: [
         '303', '309', '111', '115', '123', '216', '130', '131', '349',
-        '420', '421', '412', '369',
+        '420', '421', '369',
       ],
       endByModel: { '369': { month: 7, day: 31 } },
       guideSlugs: ['cierre-trimestral-impuestos'],
@@ -148,7 +147,7 @@ export const taxCalendar = {
       end: { month: 10, day: 20 },
       modelCodes: [
         '303', '309', '111', '115', '123', '216', '130', '131', '349',
-        '420', '421', '412', '202', '369',
+        '420', '421', '202', '369',
       ],
       endByModel: { '369': { month: 10, day: 31 } },
       guideSlugs: ['cierre-trimestral-impuestos'],

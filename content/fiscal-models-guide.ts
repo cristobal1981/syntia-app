@@ -561,28 +561,6 @@ export const fiscalModelsGuide = {
       keywords: ['iva', 'anual', 'resumen', 'autoliquidación', 'autoliquidacion'],
     },
     {
-      code: '412',
-      label: 'Modelo 412',
-      authority: 'atc',
-      title: 'Autoliquidación ocasional del IGIC y devolución a minoristas (Canarias)',
-      description:
-        'Autoliquidación del IGIC de operaciones ocasionales y solicitud de devolución del impuesto a comerciantes minoristas por ventas a viajeros.',
-      whoFiles:
-        'Personas y entidades que realizan operaciones ocasionales sujetas al IGIC fuera de su declaración periódica, y comerciantes minoristas que solicitan la devolución de la carga impositiva implícita en el régimen de viajeros.',
-      deadline:
-        'Con carácter general, durante el mes natural siguiente al periodo de liquidación mensual. La devolución a minoristas (régimen de viajeros) es trimestral: del 1 al 20 de abril, julio y octubre, y durante el mes de enero para el cuarto trimestre.',
-      tags: ['igic', 'canarias', 'ocasional', 'devolución', 'minoristas'],
-      keywords: [
-        'igic',
-        'canarias',
-        'ocasional',
-        'devolución',
-        'minorista',
-        'viajeros',
-        'atc',
-      ],
-    },
-    {
       code: '415',
       label: 'Modelo 415',
       authority: 'atc',

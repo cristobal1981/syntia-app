@@ -37,8 +37,8 @@ describe('resolveObligacionDeadline', () => {
     }
   })
 
-  it('resolves Trimestre 4 for the IGIC (ATC, 420/421/412) and the ventanilla única (369) to the 31st', () => {
-    for (const modelCode of ['420', '421', '412', '369']) {
+  it('resolves Trimestre 4 for the IGIC (ATC, 420/421) and the ventanilla única (369) to the 31st', () => {
+    for (const modelCode of ['420', '421', '369']) {
       expect(resolveObligacionDeadline(modelCode, 'Trimestre 4', 2026)).toEqual(
         new Date(2027, 0, 31, 23, 59, 59)
       )
@@ -73,7 +73,6 @@ describe('resolveObligacionDeadline', () => {
     ['216', 'Trimestre 3', new Date(2026, 9, 20)],
     ['421', 'Trimestre 1', new Date(2026, 3, 20)],
     ['420', 'Trimestre 2', new Date(2026, 6, 20)],
-    ['412', 'Trimestre 3', new Date(2026, 9, 20)],
   ])('el modelo %s %s acaba el día 20 del mes siguiente', (modelCode, period, day) => {
     const result = resolveObligacionDeadline(modelCode, period, 2026)
 

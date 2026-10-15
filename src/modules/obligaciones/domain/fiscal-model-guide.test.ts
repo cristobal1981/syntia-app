@@ -136,7 +136,7 @@ describe('isFiscalModelDomiciliable', () => {
     }
   )
 
-  it.each(['180', '190', '347', '349', '369', '390', '412', '415', '425'])(
+  it.each(['180', '190', '347', '349', '369', '390', '415', '425'])(
     'el modelo %s no se domicilia (informativo, sin pago o sin domiciliación)',
     (code) => {
       expect(isFiscalModelDomiciliable(code)).toBe(false)
