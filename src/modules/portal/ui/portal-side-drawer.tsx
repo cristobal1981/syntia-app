@@ -31,18 +31,22 @@ export function PortalSideDrawer({
 
   const panelMotionClass = reducedMotion
     ? ''
-    : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300'
+    : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[transform,opacity]'
 
   const overlayMotionClass = reducedMotion
     ? ''
     : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200'
+
+  // El desenfoque del fondo base obliga a re-pintar toda la página detrás en cada
+  // fotograma del fundido; en el drawer se quita para que el deslizamiento vaya fluido.
+  const overlayClass = cn('backdrop-blur-none', overlayMotionClass)
 
   const widthClass = size === 'wide' ? 'sm:max-w-lg' : 'sm:max-w-md'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
-        <DialogOverlay className={overlayMotionClass} />
+        <DialogOverlay className={overlayClass} />
         <DialogPrimitive.Content
           data-slot="dialog-content"
           data-tour={dataTour}

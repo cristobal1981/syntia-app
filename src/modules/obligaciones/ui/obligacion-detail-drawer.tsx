@@ -19,6 +19,7 @@ import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import type { ObligacionTask } from '@/src/modules/obligaciones/domain/types'
 import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
 import { getObligacionStateBadge } from '@/src/modules/obligaciones/domain/map-obligacion-state'
+import { useRetainedValue } from '@/src/modules/portal/ui/use-retained-value'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 
 type ObligacionDetailDrawerProps = {
@@ -28,11 +29,14 @@ type ObligacionDetailDrawerProps = {
 }
 
 export function ObligacionDetailDrawer({
-  task,
+  task: taskProp,
   open,
   onOpenChange,
 }: ObligacionDetailDrawerProps) {
   const notifications = usePortalNotificationsOptional()
+  // Al cerrar, `task` llega a null: se conserva para que el contenido siga
+  // pintado durante la animación de salida.
+  const task = useRetainedValue(taskProp)
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
   const documentsAckRef = useRef<number | null>(null)
@@ -52,7 +56,7 @@ export function ObligacionDetailDrawer({
 
   useEffect(() => {
     documentsAckRef.current = null
-  }, [task?.id])
+  }, [taskProp?.id])
 
   if (!task) {
     return null
