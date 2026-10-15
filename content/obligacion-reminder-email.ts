@@ -117,28 +117,73 @@ function renderKindBadge(kind: ObligacionNoticeKind, daysLeft: number): string {
   return `<span style="${BADGE_BASE_STYLE} background-color: ${EMAIL_COLORES.neutroFondo}; color: ${EMAIL_COLORES.neutroTexto};">${label}</span>`
 }
 
+/** Qué le falta a la tarea, con el icono de cada cosa: el clip es el justificante y el check, marcarla como hecha. */
+function getMissingParts(completion: ObligacionReminderDigestItem['completion']): string[] {
+  if (completion.level === 'missing') return [MISSING_DOCUMENT, MISSING_DONE]
+  return [completion.reason === 'done_without_document' ? MISSING_DOCUMENT : MISSING_DONE]
+}
+
+const MISSING_DOCUMENT = '📎 Sin justificante'
+const MISSING_DONE = '✔ Sin marcar como hecha'
+
+type ChipPalette = { borde: string; fondo: string; texto: string }
+
+const PALETA_FALTA_TODO: ChipPalette = {
+  borde: EMAIL_COLORES.rojoPendiente,
+  fondo: EMAIL_COLORES.rojoPendienteFondo,
+  texto: EMAIL_COLORES.rojoPendiente,
+}
+
+const PALETA_FALTA_UNA: ChipPalette = {
+  borde: EMAIL_COLORES.ambarUrgente,
+  fondo: EMAIL_COLORES.ambarUrgenteFondo,
+  texto: EMAIL_COLORES.ambarUrgenteTexto,
+}
+
+/**
+ * Cada modelo es una pastilla con su nombre y, debajo, lo que falta con su
+ * icono. El color (rojo: falta todo; ámbar: falta una cosa) se explica en la
+ * leyenda del correo. Los iconos son glifos de texto porque los clientes de
+ * correo no soportan SVG inline de forma fiable.
+ */
 function renderModelChip(item: ObligacionReminderDigestItem): string {
-  const label = escapeHtml(item.modelLabel)
-  const isMissing = item.completion.level === 'missing'
-  const palette = isMissing
-    ? {
-        borde: EMAIL_COLORES.rojoPendiente,
-        fondo: EMAIL_COLORES.rojoPendienteFondo,
-        texto: EMAIL_COLORES.rojoPendiente,
-      }
-    : {
-        borde: EMAIL_COLORES.ambarUrgente,
-        fondo: EMAIL_COLORES.ambarUrgenteFondo,
-        texto: EMAIL_COLORES.ambarUrgenteTexto,
-      }
-  const style = `display: inline-block; margin: 0 6px 6px 0; padding: 6px 13px; border-radius: 999px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; color: ${palette.texto}; font-family: ${FUENTE}; font-size: 12.5px; font-weight: 600; white-space: nowrap; text-decoration: none;`
-  const title = escapeHtml(describeCompletion(item.completion))
+  const palette = item.completion.level === 'missing' ? PALETA_FALTA_TODO : PALETA_FALTA_UNA
+  const style = `display: inline-block; vertical-align: top; margin: 0 6px 6px 0; padding: 8px 13px; border-radius: 12px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; font-family: ${FUENTE}; text-decoration: none;`
+  const missing = getMissingParts(item.completion)
+    .map(
+      (part) =>
+        `<span style="display: block; margin-top: 3px; font-size: 11.5px; font-weight: 600; color: ${palette.texto}; white-space: nowrap;">${part}</span>`
+    )
+    .join('')
+  const content = `<span style="display: block; font-size: 12.5px; font-weight: 700; color: ${palette.texto}; white-space: nowrap;">${escapeHtml(item.modelLabel)}</span>${missing}`
 
   if (!item.taskUrl) {
-    return `<span title="${title}" style="${style}">${label}</span>`
+    return `<span style="${style}">${content}</span>`
   }
 
-  return `<a href="${item.taskUrl}" title="${title}" style="${style}">${label}</a>`
+  return `<a href="${item.taskUrl}" style="${style}">${content}</a>`
+}
+
+/** Leyenda del correo: muestras de cada color con lo que significan y de qué es cada icono. */
+function renderLegend(): string {
+  const swatch = (palette: ChipPalette, label: string) =>
+    `<span style="display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; color: ${palette.texto}; font-family: ${FUENTE}; font-size: 11px; font-weight: 700; white-space: nowrap;">${label}</span>`
+  const row = (palette: ChipPalette, label: string, meaning: string) => `
+        <tr>
+          <td style="padding: 4px 12px 4px 0; white-space: nowrap;">${swatch(palette, label)}</td>
+          <td style="padding: 4px 0; font-family: ${FUENTE}; font-size: 13px; color: ${EMAIL_COLORES.textoPrincipal};">${meaning}</td>
+        </tr>`
+
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid ${EMAIL_COLORES.bordeClaro}; border-radius: 10px; background-color: ${EMAIL_COLORES.neutroFondo};">
+      <tr>
+        <td style="padding: 10px 14px;">
+          <table role="presentation" cellpadding="0" cellspacing="0">${row(PALETA_FALTA_TODO, 'Rojo', 'Falta todo: sin marcar como hecha y sin justificante')}${row(PALETA_FALTA_UNA, 'Ámbar', 'Falta una de las dos cosas: revísala')}
+          </table>
+          <p style="margin: 8px 0 0 0; font-family: ${FUENTE}; font-size: 12px; color: ${EMAIL_COLORES.textoSecundario};">📎 el justificante de presentación &nbsp;·&nbsp; ✔ marcar la tarea como hecha</p>
+        </td>
+      </tr>
+    </table>`
 }
 
 /**
@@ -245,10 +290,7 @@ export function buildObligacionReminderDigestEmail({
     html: `${buildIntro(allKind)}${items.some((item) => item.taskUrl) ? ' Cada modelo abre su tarea en Odoo.' : ''}`,
   })
 
-  bloques.push({
-    tipo: 'parrafo',
-    html: `<span style="color: ${EMAIL_COLORES.rojoPendiente};"><strong>Rojo</strong></span>: sin marcar como hecha y sin justificante. <span style="color: ${EMAIL_COLORES.ambarUrgenteTexto};"><strong>Ámbar</strong></span>: falta una de las dos cosas, revísala.`,
-  })
+  bloques.push({ tipo: 'html', html: renderLegend() })
 
   bloques.push({ tipo: 'html', html: groups.map(renderDeadlineCard).join('') })
 
