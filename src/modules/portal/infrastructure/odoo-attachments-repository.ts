@@ -95,7 +95,8 @@ export async function listAttachmentsForRecord(
 
 export async function countAttachmentsByRecordIds(
   resModel: string,
-  resIds: number[]
+  resIds: number[],
+  limit = 500
 ): Promise<Map<number, number>> {
   const counts = new Map<number, number>()
   if (!resIds.length) return counts
@@ -108,7 +109,7 @@ export async function countAttachmentsByRecordIds(
         ['res_id', 'in', resIds],
       ],
       fields: ['res_id'],
-      limit: 500,
+      limit,
     }
   )
 

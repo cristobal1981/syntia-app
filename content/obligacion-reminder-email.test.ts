@@ -7,8 +7,17 @@ const item = (overrides: Partial<Record<string, unknown>> = {}) => ({
   modelLabel: 'Modelo 303',
   deadline: new Date(2026, 3, 20),
   daysLeft: 5,
+  kind: 'normal' as const,
+  completion: { level: 'missing' as const },
   ...overrides,
 })
+
+const build = (items: ReturnType<typeof item>[]) =>
+  buildObligacionReminderDigestEmail({
+    items,
+    realRecipientEmail: 'admin@example.com',
+    isOverrideRecipient: false,
+  })
 
 describe('buildObligacionReminderDigestEmail', () => {
   it('orders cards by deadline, soonest first, across different clients', () => {
@@ -83,7 +92,7 @@ describe('buildObligacionReminderDigestEmail', () => {
       isOverrideRecipient: false,
     })
 
-    expect(email.subject).toBe('2 obligaciones fiscales próximas a vencer (1 clientes)')
+    expect(email.subject).toBe('2 obligaciones fiscales próximas a vencer (1 cliente)')
   })
 
   it('uses a single-item subject naming the client when there is exactly one item', () => {
@@ -118,41 +127,76 @@ describe('buildObligacionReminderDigestEmail', () => {
     expect(email.html).toContain('Modelo 303')
   })
 
-  it('shows an urgency badge for a card due today or tomorrow', () => {
-    const today = buildObligacionReminderDigestEmail({
-      items: [item({ daysLeft: 0 })],
-      realRecipientEmail: 'admin@example.com',
-      isOverrideRecipient: false,
-    })
-    const tomorrow = buildObligacionReminderDigestEmail({
-      items: [item({ daysLeft: 1 })],
-      realRecipientEmail: 'admin@example.com',
-      isOverrideRecipient: false,
-    })
+  it('titles a presentation-day digest as the last day and says so in the intro', () => {
+    const one = build([item({ kind: 'presentacion', daysLeft: 0 })])
+    const many = build([
+      item({ kind: 'presentacion', daysLeft: 0 }),
+      item({ clientName: 'Cliente B', kind: 'presentacion', daysLeft: 0 }),
+    ])
 
-    expect(today.html).toContain('Vence hoy')
+    expect(one.subject).toBe('Hoy se presenta Modelo 303 (Cliente A) y no está completa')
+    expect(many.subject).toBe('Hoy se presentan 2 obligaciones sin completar (2 clientes)')
+    expect(one.html).toContain('Hoy es el último día para presentar')
+    expect(one.html).toContain('Se presenta hoy')
+  })
+
+  it('titles a domiciliation digest and badges the card as to be domiciled', () => {
+    const one = build([item({ kind: 'domiciliar', daysLeft: 6 })])
+    const many = build([
+      item({ kind: 'domiciliar' }),
+      item({ clientName: 'Cliente B', kind: 'domiciliar' }),
+    ])
+
+    expect(one.subject).toBe('Modelo 303 (Cliente A): a domiciliar')
+    expect(many.subject).toBe('2 obligaciones a domiciliar (2 clientes)')
+    expect(one.html).toContain('A domiciliar')
+    expect(one.html).toContain('plazo de domiciliación')
+  })
+
+  it('falls back to the generic subject when kinds are mixed', () => {
+    const email = build([
+      item({ kind: 'domiciliar' }),
+      item({ clientName: 'Cliente B', kind: 'normal' }),
+    ])
+
+    expect(email.subject).toBe('2 obligaciones fiscales próximas a vencer (2 clientes)')
+  })
+
+  it('shows a days badge only for the normal notice with days left', () => {
+    const soon = build([item({ kind: 'normal', daysLeft: 2 })])
+    const tomorrow = build([item({ kind: 'normal', daysLeft: 1 })])
+
+    expect(soon.html).toContain('Vence en 2 días')
     expect(tomorrow.html).toContain('Vence mañana')
   })
 
-  it('shows an urgency badge for a card due in exactly 2 days (the urgent-stage threshold)', () => {
-    const email = buildObligacionReminderDigestEmail({
-      items: [item({ daysLeft: 2 })],
-      realRecipientEmail: 'admin@example.com',
-      isOverrideRecipient: false,
-    })
+  it('paints a model with nothing done red and a half-done one amber, and explains each in the text', () => {
+    const email = build([
+      item({ modelLabel: 'Modelo Rojo', completion: { level: 'missing' } }),
+      item({
+        modelLabel: 'Modelo Hecho',
+        completion: { level: 'partial', reason: 'done_without_document' },
+      }),
+      item({
+        modelLabel: 'Modelo Subido',
+        completion: { level: 'partial', reason: 'document_without_done' },
+      }),
+    ])
 
-    expect(email.html).toContain('Vence en 2 días')
+    expect(email.html).toContain('border: 1px solid #C0392B')
+    expect(email.html).toContain('border: 1px solid #F5A623')
+    expect(email.text).toContain('Modelo Rojo [sin marcar como hecha y sin justificante]')
+    expect(email.text).toContain('Modelo Hecho [marcada como hecha pero sin justificante]')
+    expect(email.text).toContain('Modelo Subido [con justificante pero sin marcar como hecha]')
   })
 
-  it('hides the urgency badge for a card due later than the urgent-stage threshold', () => {
-    const email = buildObligacionReminderDigestEmail({
-      items: [item({ daysLeft: 5 })],
-      realRecipientEmail: 'admin@example.com',
-      isOverrideRecipient: false,
-    })
+  it('does not paint an amber chip red', () => {
+    const email = build([
+      item({ completion: { level: 'partial', reason: 'done_without_document' } }),
+    ])
 
-    expect(email.html).not.toContain('Vence hoy')
-    expect(email.html).not.toContain('Vence mañana')
-    expect(email.html).not.toContain('Vence en')
+    // La leyenda del correo menciona el rojo; lo que no debe salir es un chip rojo.
+    expect(email.html).not.toContain('border: 1px solid #C0392B')
+    expect(email.html).toContain('border: 1px solid #F5A623')
   })
 })

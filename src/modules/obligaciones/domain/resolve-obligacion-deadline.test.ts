@@ -5,9 +5,7 @@ import {
   getObligacionDeadlineStatus,
   isObligacionDueWithin,
   OBLIGACION_REMINDER_DAYS_AHEAD,
-  OBLIGACION_URGENT_REMINDER_DAYS_AHEAD,
   resolveObligacionDeadline,
-  resolveObligacionReminderStage,
 } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
 
 describe('resolveObligacionDeadline', () => {
@@ -186,24 +184,8 @@ describe('time-of-day and boundaries (fixed clock)', () => {
   })
 })
 
-describe('resolveObligacionReminderStage', () => {
-  it('keeps the agreed thresholds (portal window = 5, urgent = 2)', () => {
+describe('OBLIGACION_REMINDER_DAYS_AHEAD', () => {
+  it('keeps the portal "vence pronto" window at 5 days', () => {
     expect(OBLIGACION_REMINDER_DAYS_AHEAD).toBe(5)
-    expect(OBLIGACION_URGENT_REMINDER_DAYS_AHEAD).toBe(2)
-  })
-
-  it.each([
-    [0, 'urgent'],
-    [1, 'urgent'],
-    [2, 'urgent'],
-    [3, 'early'],
-    [4, 'early'],
-    [5, 'early'],
-  ])('daysLeft %i -> %s', (daysLeft, stage) => {
-    expect(resolveObligacionReminderStage(daysLeft)).toBe(stage)
-  })
-
-  it('an already overdue task is still urgent', () => {
-    expect(resolveObligacionReminderStage(-1)).toBe('urgent')
   })
 })

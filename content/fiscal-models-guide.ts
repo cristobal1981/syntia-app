@@ -15,6 +15,12 @@ export type FiscalModelGuideEntry = {
   description: string
   authority: FiscalModelAuthority
   /**
+   * El modelo tiene pago y admite domiciliación bancaria: solo esos entran en
+   * el aviso «a domiciliar» del cron de recordatorios (ver
+   * `resolve-obligacion-notice.ts`). Resúmenes e informativos no.
+   */
+  domiciliable?: boolean
+  /**
    * Quién debe presentarlo y plazo de presentación — piloto en curso,
    * verificado a mano contra la sede de la AEAT/ATC (no todos los modelos
    * lo tienen todavía). Los plazos son del ejercicio 2026 y pueden variar
@@ -59,6 +65,7 @@ export const fiscalModelsGuide = {
       code: '100',
       label: 'Modelo 100',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Declaración anual del IRPF',
       description:
         'Declaración del Impuesto sobre la Renta de las Personas Físicas: resume ingresos, deducciones y resultado de la campaña de la renta.',
@@ -81,6 +88,7 @@ export const fiscalModelsGuide = {
       code: '111',
       label: 'Modelo 111',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones e ingresos a cuenta del IRPF',
       description:
         'Declaración trimestral de retenciones practicadas a trabajadores, profesionales y otras rentas del trabajo o actividades económicas.',
@@ -103,6 +111,7 @@ export const fiscalModelsGuide = {
       code: '115',
       label: 'Modelo 115',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones por alquiler de inmuebles urbanos',
       description:
         'Declaración de retenciones e ingresos a cuenta del IRPF sobre rentas de arrendamiento de inmuebles en urbano.',
@@ -125,6 +134,7 @@ export const fiscalModelsGuide = {
       code: '123',
       label: 'Modelo 123',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Retenciones sobre determinados rendimientos del capital mobiliario',
       description:
         'Declaración trimestral de retenciones e ingresos a cuenta sobre determinados rendimientos del capital mobiliario: dividendos, intereses entre socio y empresa, y cánones de propiedad intelectual, entre otros.',
@@ -149,6 +159,7 @@ export const fiscalModelsGuide = {
       code: '130',
       label: 'Modelo 130',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Pago fraccionado del IRPF (estimación directa)',
       description:
         'Pago a cuenta trimestral del IRPF para autónomos y profesionales en estimación directa.',
@@ -171,6 +182,7 @@ export const fiscalModelsGuide = {
       code: '131',
       label: 'Modelo 131',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Pago fraccionado del IRPF (módulos)',
       description:
         'Pago a cuenta trimestral del IRPF para autónomos en estimación objetiva por módulos.',
@@ -298,6 +310,7 @@ export const fiscalModelsGuide = {
       code: '200',
       label: 'Modelo 200',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Impuesto sobre Sociedades',
       description:
         'Declaración anual del Impuesto sobre Sociedades de las entidades que tributan por este impuesto.',
@@ -320,6 +333,7 @@ export const fiscalModelsGuide = {
       code: '202',
       label: 'Modelo 202',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Pago fraccionado del Impuesto sobre Sociedades',
       description:
         'Pagos a cuenta trimestrales del Impuesto sobre Sociedades.',
@@ -403,6 +417,7 @@ export const fiscalModelsGuide = {
       code: '303',
       label: 'Modelo 303',
       authority: 'aeat',
+      domiciliable: true,
       title: 'Autoliquidación trimestral del IVA',
       description:
         'Declaración trimestral del IVA: IVA devengado, IVA deducible y resultado a ingresar o compensar.',
@@ -591,6 +606,7 @@ export const fiscalModelsGuide = {
       code: '420',
       label: 'Modelo 420',
       authority: 'atc',
+      domiciliable: true,
       title: 'Autoliquidación trimestral del IGIC (Canarias)',
       description:
         'Declaración-liquidación trimestral del IGIC en régimen general para sujetos pasivos en Canarias.',

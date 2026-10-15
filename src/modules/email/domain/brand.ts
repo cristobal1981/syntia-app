@@ -15,6 +15,7 @@ export const EMAIL_COLORES = {
   advertenciaTexto: '#8A6D1D',
 
   rojoPendiente: '#C0392B',
+  rojoPendienteFondo: '#FDECEA',
 
   neutroFondo: '#F4F5F5',
   neutroBorde: '#B7C0BF',

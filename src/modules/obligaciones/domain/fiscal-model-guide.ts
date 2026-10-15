@@ -29,6 +29,11 @@ export function getFiscalModelGuideByLabel(
   return getFiscalModelGuideByCode(code)
 }
 
+/** Sin ficha en la guía no se asume domiciliable: mejor no avisar de más. */
+export function isFiscalModelDomiciliable(code: string): boolean {
+  return getFiscalModelGuideByCode(code)?.domiciliable === true
+}
+
 export function fiscalModelMatchesQuery(
   entry: FiscalModelGuideEntry,
   query: string

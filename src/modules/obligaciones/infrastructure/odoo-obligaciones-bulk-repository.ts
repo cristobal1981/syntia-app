@@ -1,25 +1,40 @@
 import { extractYearFromRootName } from '@/src/modules/obligaciones/domain/extract-year-from-root-name'
-import { extractModelCodeFromLabel } from '@/src/modules/obligaciones/domain/fiscal-model-guide'
-import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
 import {
-  isObligacionDueWithin,
-  resolveObligacionDeadline,
-} from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
+  extractModelCodeFromLabel,
+  isFiscalModelDomiciliable,
+} from '@/src/modules/obligaciones/domain/fiscal-model-guide'
+import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
+import { resolveObligacionDeadline } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
+import {
+  getObligacionNoticeSlotForKind,
+  resolveObligacionNoticeKind,
+  type ObligacionNoticeClock,
+  type ObligacionNoticeKind,
+  type ObligacionNoticeSlot,
+} from '@/src/modules/obligaciones/domain/resolve-obligacion-notice'
 import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
+import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   isOdooApiConfigured,
   mapOdooMany2OneId,
   mapOdooMany2OneLabel,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
-import { isTaskClosed } from '@/src/modules/tramites/domain/map-task-state'
+import { isTaskCanceled } from '@/src/modules/tramites/domain/map-task-state'
 
-export type UpcomingObligacionReminder = {
+/** Tope de filas de adjuntos al comprobar el justificante: de sobra para las tareas de un día. */
+const ATTACHMENT_ROWS_LIMIT = 5000
+
+export type ObligacionNoticeCandidate = {
   taskId: number
   partnerId: number
   clientName: string
   modelLabel: string
   deadline: Date
+  /** Estado de la tarea en Odoo (`state`), para saber si está hecha. */
+  state?: string
+  attachmentCount: number
+  kind: ObligacionNoticeKind
 }
 
 type OdooRootTaskRow = {
@@ -55,14 +70,20 @@ type OdooProjectRow = {
  *
  * El plazo se deduce con `resolveObligacionDeadline` (tax-calendar.ts), NO
  * con `date_deadline` de la tarea — ver ese módulo para el porqué.
+ *
+ * Devuelve solo las tareas a las que HOY (`clock`) toca avisar en esta
+ * franja, incluidas las ya hechas: que estén completas (hecha y con
+ * justificante) lo decide quien llama, con `getObligacionCompletion`.
  */
-export async function listUpcomingObligacionReminders(
-  maxDaysAhead: number
-): Promise<UpcomingObligacionReminder[]> {
+export async function listObligacionNoticeCandidates(input: {
+  clock: ObligacionNoticeClock
+  slot: ObligacionNoticeSlot
+}): Promise<ObligacionNoticeCandidate[]> {
   if (!isOdooApiConfigured()) return []
 
+  const { clock, slot } = input
   const parentPrefix = getObligacionesParentPrefix()
-  const currentYear = new Date().getFullYear()
+  const currentYear = clock.year
 
   const rootRows = await odooSearchRead<OdooRootTaskRow>('project.task', {
     domain: [
@@ -128,10 +149,12 @@ export async function listUpcomingObligacionReminders(
   )
 
   const warnedCombinations = new Set<string>()
-  const reminders: UpcomingObligacionReminder[] = []
+  const due: Array<Omit<ObligacionNoticeCandidate, 'attachmentCount'>> = []
 
   for (const leaf of leafRows) {
-    if (isTaskClosed(leaf.state || undefined)) continue
+    // Las hechas sí cuentan (una presentada sin justificante se avisa);
+    // solo las canceladas quedan fuera.
+    if (isTaskCanceled(leaf.state || undefined)) continue
 
     const periodId = mapOdooMany2OneId(leaf.parent_id)
     const period = periodId !== undefined ? periodById.get(periodId) : undefined
@@ -157,7 +180,12 @@ export async function listUpcomingObligacionReminders(
       continue
     }
 
-    if (!isObligacionDueWithin(deadline, maxDaysAhead)) continue
+    const kind = resolveObligacionNoticeKind({
+      deadline,
+      clock,
+      domiciliable: isFiscalModelDomiciliable(modelCode),
+    })
+    if (!kind || getObligacionNoticeSlotForKind(kind) !== slot) continue
 
     const projectId = mapOdooMany2OneId(root.project_id)
     const partnerId = projectId !== undefined ? partnerIdByProjectId.get(projectId) : undefined
@@ -165,14 +193,28 @@ export async function listUpcomingObligacionReminders(
     const clientName = projectId !== undefined ? partnerNameByProjectId.get(projectId) : undefined
     if (!clientName) continue
 
-    reminders.push({
+    due.push({
       taskId: leaf.id,
       partnerId,
       clientName,
       modelLabel: formatObligacionModelLabel(leaf.name),
       deadline,
+      state: leaf.state || undefined,
+      kind,
     })
   }
 
-  return reminders
+  if (!due.length) return []
+
+  // Solo se cuentan adjuntos de las tareas que hoy tocan avisar.
+  const attachmentCounts = await countAttachmentsByRecordIds(
+    'project.task',
+    due.map((candidate) => candidate.taskId),
+    ATTACHMENT_ROWS_LIMIT
+  )
+
+  return due.map((candidate) => ({
+    ...candidate,
+    attachmentCount: attachmentCounts.get(candidate.taskId) ?? 0,
+  }))
 }

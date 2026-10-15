@@ -11,8 +11,19 @@ const ORIGINAL_ENV = {
   RESEND_INVITE_OVERRIDE_TO: process.env.RESEND_INVITE_OVERRIDE_TO,
 }
 
+const baseItem = {
+  kind: 'normal' as const,
+  completion: { level: 'missing' as const },
+}
+
 const items = [
-  { clientName: 'Cliente SL', modelLabel: 'Modelo 303', deadline: new Date(2026, 3, 20), daysLeft: 5 },
+  {
+    clientName: 'Cliente SL',
+    modelLabel: 'Modelo 303',
+    deadline: new Date(2026, 3, 20),
+    daysLeft: 5,
+    ...baseItem,
+  },
 ]
 
 beforeEach(() => {
@@ -44,7 +55,13 @@ describe('sendObligacionReminderDigestEmail', () => {
       to: 'admin@example.com',
       items: [
         ...items,
-        { clientName: 'Otro Cliente', modelLabel: 'Modelo 111', deadline: new Date(2026, 3, 22), daysLeft: 7 },
+        {
+          clientName: 'Otro Cliente',
+          modelLabel: 'Modelo 111',
+          deadline: new Date(2026, 3, 22),
+          daysLeft: 7,
+          ...baseItem,
+        },
       ],
     })
 

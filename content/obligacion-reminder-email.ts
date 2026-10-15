@@ -1,4 +1,7 @@
-import { OBLIGACION_URGENT_REMINDER_DAYS_AHEAD } from '@/src/modules/obligaciones/domain/resolve-obligacion-deadline'
+import type {
+  ObligacionNoticeKind,
+  ObligacionPendingCompletion,
+} from '@/src/modules/obligaciones/domain/resolve-obligacion-notice'
 import { EMAIL_COLORES } from '@/src/modules/email/domain/brand'
 import type { EmailBlock } from '@/src/modules/email/domain/blocks'
 import { renderBrandedEmail } from '@/src/modules/email/application/render-branded-email'
@@ -9,6 +12,10 @@ export type ObligacionReminderDigestItem = {
   modelLabel: string
   deadline: Date
   daysLeft: number
+  /** Qué aviso es hoy para esta obligación (calendario de franjas). */
+  kind: ObligacionNoticeKind
+  /** Solo las que hay que avisar: sin hacer ni justificante (rojo) o una de las dos (ámbar). */
+  completion: ObligacionPendingCompletion
   taskUrl?: string
 }
 
@@ -36,6 +43,21 @@ type DeadlineGroup = {
   deadline: Date
   daysLeft: number
   items: ObligacionReminderDigestItem[]
+}
+
+/** Etiqueta corta (tooltip y texto plano) del estado de cada modelo. */
+function describeCompletion(completion: ObligacionReminderDigestItem['completion']): string {
+  if (completion.level === 'missing') return 'sin marcar como hecha y sin justificante'
+  return completion.reason === 'done_without_document'
+    ? 'marcada como hecha pero sin justificante'
+    : 'con justificante pero sin marcar como hecha'
+}
+
+/** Del aviso más urgente al menos: la tarjeta lleva el de sus modelos que más apremie. */
+const KIND_PRIORITY: ObligacionNoticeKind[] = ['presentacion', 'domiciliar', 'normal']
+
+function pickGroupKind(items: ObligacionReminderDigestItem[]): ObligacionNoticeKind {
+  return KIND_PRIORITY.find((kind) => items.some((item) => item.kind === kind)) ?? 'normal'
 }
 
 /**
@@ -80,34 +102,54 @@ function groupByClientAndDeadline(items: ObligacionReminderDigestItem[]): Deadli
 
 const FUENTE = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`
 
-/** Mismo umbral que el aviso `urgent` del cron (ver `resolveObligacionReminderStage`): si esto se mandó como escalado, se ve como escalado. */
-function renderUrgencyBadge(daysLeft: number): string {
-  if (daysLeft > OBLIGACION_URGENT_REMINDER_DAYS_AHEAD) return ''
-  const label =
-    daysLeft === 0 ? 'Vence hoy' : daysLeft === 1 ? 'Vence mañana' : `Vence en ${daysLeft} días`
-  return `<span style="display: inline-block; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background-color: ${EMAIL_COLORES.ambarUrgenteFondo}; color: ${EMAIL_COLORES.ambarUrgenteTexto}; font-family: ${FUENTE}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;">${label}</span>`
+const BADGE_BASE_STYLE = `display: inline-block; white-space: nowrap; padding: 3px 10px; border-radius: 999px; font-family: ${FUENTE}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;`
+
+/** Etiqueta de la tarjeta según el aviso: a domiciliar, presenta hoy o cuántos días quedan. */
+function renderKindBadge(kind: ObligacionNoticeKind, daysLeft: number): string {
+  if (kind === 'presentacion') {
+    return `<span style="${BADGE_BASE_STYLE} background-color: ${EMAIL_COLORES.ambarUrgenteFondo}; color: ${EMAIL_COLORES.ambarUrgenteTexto};">Se presenta hoy</span>`
+  }
+  if (kind === 'domiciliar') {
+    return `<span style="${BADGE_BASE_STYLE} background-color: ${EMAIL_COLORES.verdeBrisa}; color: ${EMAIL_COLORES.verdeAgua};">A domiciliar</span>`
+  }
+  if (daysLeft <= 0) return ''
+  const label = daysLeft === 1 ? 'Vence mañana' : `Vence en ${daysLeft} días`
+  return `<span style="${BADGE_BASE_STYLE} background-color: ${EMAIL_COLORES.neutroFondo}; color: ${EMAIL_COLORES.neutroTexto};">${label}</span>`
 }
 
 function renderModelChip(item: ObligacionReminderDigestItem): string {
   const label = escapeHtml(item.modelLabel)
-  const baseStyle = `display: inline-block; margin: 0 6px 6px 0; padding: 6px 13px; border-radius: 999px; border: 1px solid ${EMAIL_COLORES.bordeClaro}; font-family: ${FUENTE}; font-size: 12.5px; font-weight: 600; white-space: nowrap;`
+  const isMissing = item.completion.level === 'missing'
+  const palette = isMissing
+    ? {
+        borde: EMAIL_COLORES.rojoPendiente,
+        fondo: EMAIL_COLORES.rojoPendienteFondo,
+        texto: EMAIL_COLORES.rojoPendiente,
+      }
+    : {
+        borde: EMAIL_COLORES.ambarUrgente,
+        fondo: EMAIL_COLORES.ambarUrgenteFondo,
+        texto: EMAIL_COLORES.ambarUrgenteTexto,
+      }
+  const style = `display: inline-block; margin: 0 6px 6px 0; padding: 6px 13px; border-radius: 999px; border: 1px solid ${palette.borde}; background-color: ${palette.fondo}; color: ${palette.texto}; font-family: ${FUENTE}; font-size: 12.5px; font-weight: 600; white-space: nowrap; text-decoration: none;`
+  const title = escapeHtml(describeCompletion(item.completion))
 
   if (!item.taskUrl) {
-    return `<span style="${baseStyle} color: ${EMAIL_COLORES.textoPrincipal}; background-color: ${EMAIL_COLORES.blancoNeblina};">${label}</span>`
+    return `<span title="${title}" style="${style}">${label}</span>`
   }
 
-  return `<a href="${item.taskUrl}" style="${baseStyle} color: ${EMAIL_COLORES.verdeAgua}; background-color: #FFFFFF; text-decoration: none;">${label}</a>`
+  return `<a href="${item.taskUrl}" title="${title}" style="${style}">${label}</a>`
 }
 
 /**
- * Una tarjeta por cliente+plazo: nombre y badge de urgencia arriba, modelos
+ * Una tarjeta por cliente+plazo: nombre y badge del aviso arriba, modelos
  * como botones (enlazan a su tarea en Odoo — ver `buildOdooRecordUrl`) y
  * fecha abajo. Los botones envuelven en varias líneas si hay muchos modelos
  * para el mismo plazo — no hay límite, la tarjeta simplemente crece.
  */
 function renderDeadlineCard(group: DeadlineGroup): string {
   const chips = group.items.map(renderModelChip).join('')
-  const badge = renderUrgencyBadge(group.daysLeft)
+  const badge = renderKindBadge(pickGroupKind(group.items), group.daysLeft)
 
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid ${EMAIL_COLORES.bordeClaro}; border-radius: 10px; margin-top: 12px;">
@@ -134,6 +176,43 @@ function renderDeadlineCard(group: DeadlineGroup): string {
     </table>`
 }
 
+type AllKind = (kind: ObligacionNoticeKind) => boolean
+
+function buildSubject(
+  items: ObligacionReminderDigestItem[],
+  distinctClients: number,
+  allKind: AllKind
+): string {
+  const [first] = items
+  const clients = `${distinctClients} ${distinctClients === 1 ? 'cliente' : 'clientes'}`
+
+  if (allKind('presentacion')) {
+    return items.length === 1
+      ? `Hoy se presenta ${first.modelLabel} (${first.clientName}) y no está completa`
+      : `Hoy se presentan ${items.length} obligaciones sin completar (${clients})`
+  }
+
+  if (allKind('domiciliar')) {
+    return items.length === 1
+      ? `${first.modelLabel} (${first.clientName}): a domiciliar`
+      : `${items.length} obligaciones a domiciliar (${clients})`
+  }
+
+  return items.length === 1
+    ? `${first.modelLabel} (${first.clientName}) vence ${formatDaysLabel(first.daysLeft)}`
+    : `${items.length} obligaciones fiscales próximas a vencer (${clients})`
+}
+
+function buildIntro(allKind: AllKind): string {
+  if (allKind('presentacion')) {
+    return 'Hoy es el último día para presentar estas obligaciones y todavía no están completas:'
+  }
+  if (allKind('domiciliar')) {
+    return 'Estas obligaciones se domicilian y el plazo de domiciliación termina en breve:'
+  }
+  return 'Estas son las obligaciones fiscales que vencen en los próximos días y no están completas:'
+}
+
 /**
  * Digest diario para el equipo interno (admins + gestores): las obligaciones
  * las presenta la asesoría, no el cliente, así que el aviso va a quien debe
@@ -148,10 +227,8 @@ export function buildObligacionReminderDigestEmail({
   const groups = groupByClientAndDeadline(items)
   const distinctClients = new Set(items.map((item) => item.clientName)).size
 
-  const subject =
-    items.length === 1
-      ? `${items[0].modelLabel} (${items[0].clientName}) vence ${formatDaysLabel(items[0].daysLeft)}`
-      : `${items.length} obligaciones fiscales próximas a vencer (${distinctClients} clientes)`
+  const allKind = (kind: ObligacionNoticeKind) => items.every((item) => item.kind === kind)
+  const subject = buildSubject(items, distinctClients, allKind)
 
   const bloques: EmailBlock[] = []
 
@@ -165,7 +242,12 @@ export function buildObligacionReminderDigestEmail({
 
   bloques.push({
     tipo: 'parrafo',
-    html: `Estas son las obligaciones fiscales pendientes de presentar que vencen en los próximos días${items.some((item) => item.taskUrl) ? ' — cada modelo abre su tarea en Odoo' : ''}:`,
+    html: `${buildIntro(allKind)}${items.some((item) => item.taskUrl) ? ' Cada modelo abre su tarea en Odoo.' : ''}`,
+  })
+
+  bloques.push({
+    tipo: 'parrafo',
+    html: `<span style="color: ${EMAIL_COLORES.rojoPendiente};"><strong>Rojo</strong></span>: sin marcar como hecha y sin justificante. <span style="color: ${EMAIL_COLORES.ambarUrgenteTexto};"><strong>Ámbar</strong></span>: falta una de las dos cosas, revísala.`,
   })
 
   bloques.push({ tipo: 'html', html: groups.map(renderDeadlineCard).join('') })
@@ -180,14 +262,15 @@ export function buildObligacionReminderDigestEmail({
   const textRows = groups.flatMap((group) => [
     `${group.clientName} — vence el ${formatDeadlineLabel(group.deadline)} (${formatDaysLabel(group.daysLeft)}):`,
     ...group.items.map(
-      (item) => `  - ${item.modelLabel}${item.taskUrl ? ` — ${item.taskUrl}` : ''}`
+      (item) =>
+        `  - ${item.modelLabel} [${describeCompletion(item.completion)}]${item.taskUrl ? ` — ${item.taskUrl}` : ''}`
     ),
   ])
 
   const text = [
     'Hola,',
     isOverrideRecipient ? `Correo de prueba: aviso generado para ${realRecipientEmail}.` : '',
-    'Estas son las obligaciones fiscales pendientes de presentar que vencen en los próximos días:',
+    buildIntro(allKind),
     ...textRows,
     '',
     'Un cordial saludo,',
