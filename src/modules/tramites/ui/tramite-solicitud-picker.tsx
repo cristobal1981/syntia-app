@@ -18,6 +18,8 @@ const ALL_PICKER_OPTIONS = [
   tramiteSolicitudes.picker.altaTrabajador,
   tramiteSolicitudes.picker.bajaTrabajador,
   tramiteSolicitudes.picker.cartaVacaciones,
+  tramiteSolicitudes.picker.bajaAutonomo,
+  tramiteSolicitudes.picker.bajaServicio,
   tramiteSolicitudes.picker.general,
 ] as const
 

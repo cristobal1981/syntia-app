@@ -4,14 +4,16 @@ export type ProcedureTicketType =
   | 'alta-trabajador'
   | 'baja-trabajador'
   | 'carta-vacaciones'
+  | 'baja-autonomo'
+  | 'baja-servicio'
 
 export type SolicitudPickerId = ProcedureTicketType | 'general'
 
 /**
  * Solicitudes DESACTIVADAS A PROPÓSITO en «Nueva solicitud»: baja de trabajador
  * y carta de vacaciones hasta su lanzamiento, y el alta de trabajador (wizard
- * de `/alta-trabajador`) por decisión de producto mientras solo se ofrece la
- * consulta general. NO es código muerto: formularios, validación, payloads,
+ * de `/alta-trabajador`) por decisión de producto mientras solo se ofrecen la
+ * consulta general y las bajas de autónomo y de servicio. NO es código muerto: formularios, validación, payloads,
  * acciones y tests se conservan para reactivarlos; para volver a ofrecer una
  * basta con quitarla de aquí (la ruta `/alta-trabajador` y los accesos lo
  * siguen). No borrar en limpiezas de código sin uso; ver CLAUDE.md.
@@ -30,6 +32,8 @@ const ALL_PROCEDURE_TYPES: readonly ProcedureTicketType[] = [
   'alta-trabajador',
   'baja-trabajador',
   'carta-vacaciones',
+  'baja-autonomo',
+  'baja-servicio',
 ]
 
 /** Hay alguna solicitud estructurada que ofrecer además de la consulta general. */
@@ -122,12 +126,41 @@ type CartaVacacionesPayload = {
   observations: string
 }
 
+/**
+ * Baja del propio autónomo (titular de la cuenta): no lleva datos de persona
+ * porque el ticket ya cuelga del cliente. `desiredDate` es la fecha en la que
+ * quiere que se tramite; la de la petición la fija el servidor (hoy).
+ */
+export type BajaAutonomoPayload = {
+  type: 'baja-autonomo'
+  desiredDate: string
+  reason: string
+  observations: string
+}
+
+/** Baja de un servicio contratado con la asesoría (`service` es una clave de `BAJA_SERVICIO_OPTIONS`). */
+export type BajaServicioPayload = {
+  type: 'baja-servicio'
+  service: string
+  desiredDate: string
+  observations: string
+}
+
+/** Solicitudes sobre una persona concreta (trabajador): llevan nombre y DNI. */
+export type WorkerProcedurePayload = TrabajadorBajaPayload | CartaVacacionesPayload
+
 export type ProcedureTicketPayload =
   | TrabajadorAltaPayload
   | TrabajadorBajaPayload
   | CartaVacacionesPayload
+  | BajaAutonomoPayload
+  | BajaServicioPayload
 
 /** Tipos que siguen creando un ticket genérico vía `createProcedureTicketAction`
  * (con mensaje de chatter). Alta-trabajador tiene su propio método,
  * `createAltaTrabajadorTaskAction` — ver esa acción para el motivo. */
-export type GenericProcedureTicketPayload = TrabajadorBajaPayload | CartaVacacionesPayload
+export type GenericProcedureTicketPayload =
+  | TrabajadorBajaPayload
+  | CartaVacacionesPayload
+  | BajaAutonomoPayload
+  | BajaServicioPayload

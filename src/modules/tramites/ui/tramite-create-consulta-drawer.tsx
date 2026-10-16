@@ -13,8 +13,12 @@ import {
 } from '@/components/ui/dialog'
 import { createProcedureTicketAction } from '@/src/modules/tramites/application/create-procedure-ticket-action'
 import { createTicketAction } from '@/src/modules/tramites/application/create-ticket-action'
+import { formatIsoDateEs } from '@/lib/format/date'
+import { bajaAutonomoDownloadDeadline } from '@/src/modules/tramites/domain/baja-autonomo-access'
 import {
   hasAvailableProcedureTypes,
+  type BajaAutonomoPayload,
+  type GenericProcedureTicketPayload,
   type ProcedureTicketType,
   type SolicitudPickerId,
 } from '@/src/modules/tramites/domain/procedure-ticket-types'
@@ -31,11 +35,19 @@ import {
   type CartaVacacionesFormValues,
 } from '@/src/modules/tramites/ui/tramite-carta-vacaciones-form'
 import {
+  EMPTY_BAJA_AUTONOMO_FORM,
+  EMPTY_BAJA_SERVICIO_FORM,
+  type BajaAutonomoFormValues,
+  type BajaServicioFormValues,
+} from '@/src/modules/tramites/ui/tramite-baja-cliente-forms'
+import {
   GENERAL_FORM_ID,
   PROCEDURE_FORM_ID,
   type DrawerStep,
+  bajaFormHasContent,
   cartaFormHasContent,
   generalCopy,
+  isProcedureFormStep,
   mapGeneralActionError,
   mapGeneralFieldError,
   mapProcedureActionError,
@@ -86,6 +98,12 @@ export function TramiteCreateConsultaDrawer({
   const [cartaValues, setCartaValues] = useState<CartaVacacionesFormValues>(
     EMPTY_CARTA_VACACIONES_FORM
   )
+  const [bajaAutonomoValues, setBajaAutonomoValues] =
+    useState<BajaAutonomoFormValues>(EMPTY_BAJA_AUTONOMO_FORM)
+  const [bajaServicioValues, setBajaServicioValues] =
+    useState<BajaServicioFormValues>(EMPTY_BAJA_SERVICIO_FORM)
+  const [pendingBajaAutonomo, setPendingBajaAutonomo] =
+    useState<BajaAutonomoPayload | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
@@ -99,6 +117,9 @@ export function TramiteCreateConsultaDrawer({
     setComposerResetToken((value) => value + 1)
     setTrabajadorValues(EMPTY_TRABAJADOR_FORM)
     setCartaValues(EMPTY_CARTA_VACACIONES_FORM)
+    setBajaAutonomoValues(EMPTY_BAJA_AUTONOMO_FORM)
+    setBajaServicioValues(EMPTY_BAJA_SERVICIO_FORM)
+    setPendingBajaAutonomo(null)
     setFieldErrors({})
     setFormError(null)
   }, [initialProcedure])
@@ -130,7 +151,9 @@ export function TramiteCreateConsultaDrawer({
     subject.trim().length > 0 ||
     !composerEmpty ||
     (step === 'baja-trabajador' && trabajadorFormHasContent(trabajadorValues)) ||
-    cartaFormHasContent(cartaValues)
+    cartaFormHasContent(cartaValues) ||
+    bajaFormHasContent(bajaAutonomoValues) ||
+    bajaFormHasContent(bajaServicioValues)
 
   const handleOpenChange = (next: boolean) => {
     if (!next && hasUnsavedContent && !pending) {
@@ -206,6 +229,33 @@ export function TramiteCreateConsultaDrawer({
     })
   }
 
+  const sendProcedure = (
+    normalized: GenericProcedureTicketPayload,
+    currentStep: DrawerStep
+  ) => {
+    startTransition(async () => {
+      const result = await createProcedureTicketAction(normalized)
+
+      if (!result.ok) {
+        if (result.error === 'validation' && result.fieldErrors) {
+          const mapped: Record<string, string> = {}
+          for (const [field, key] of Object.entries(result.fieldErrors)) {
+            mapped[field] = mapProcedureFieldError(key)
+          }
+          setFieldErrors(mapped)
+          return
+        }
+
+        if (result.error !== 'validation') {
+          setFormError(mapProcedureActionError(result.error))
+        }
+        return
+      }
+
+      finishCreated(result.ticketId, result.name, currentStep)
+    })
+  }
+
   const handleProcedureSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (pending) return
@@ -214,7 +264,11 @@ export function TramiteCreateConsultaDrawer({
     setFormError(null)
 
     const payload =
-      step === 'baja-trabajador'
+      step === 'baja-autonomo'
+        ? { type: 'baja-autonomo' as const, ...bajaAutonomoValues }
+        : step === 'baja-servicio'
+        ? { type: 'baja-servicio' as const, ...bajaServicioValues }
+        : step === 'baja-trabajador'
         ? {
             type: 'baja-trabajador' as const,
             fullName: trabajadorValues.fullName,
@@ -245,27 +299,14 @@ export function TramiteCreateConsultaDrawer({
       return
     }
 
-    startTransition(async () => {
-      const result = await createProcedureTicketAction(normalized)
+    // La baja de autónomo corta el acceso a la plataforma: antes de enviarla se
+    // pide una confirmación expresa.
+    if (normalized.type === 'baja-autonomo') {
+      setPendingBajaAutonomo(normalized)
+      return
+    }
 
-      if (!result.ok) {
-        if (result.error === 'validation' && result.fieldErrors) {
-          const mapped: Record<string, string> = {}
-          for (const [field, key] of Object.entries(result.fieldErrors)) {
-            mapped[field] = mapProcedureFieldError(key)
-          }
-          setFieldErrors(mapped)
-          return
-        }
-
-        if (result.error !== 'validation') {
-          setFormError(mapProcedureActionError(result.error))
-        }
-        return
-      }
-
-      finishCreated(result.ticketId, result.name, step)
-    })
+    sendProcedure(normalized as GenericProcedureTicketPayload, step)
   }
 
   const header = (() => {
@@ -285,6 +326,18 @@ export function TramiteCreateConsultaDrawer({
       return {
         title: solicitudCopy.bajaTrabajador.title,
         description: solicitudCopy.bajaTrabajador.description,
+      }
+    }
+    if (step === 'baja-autonomo') {
+      return {
+        title: solicitudCopy.bajaAutonomo.title,
+        description: solicitudCopy.bajaAutonomo.description,
+      }
+    }
+    if (step === 'baja-servicio') {
+      return {
+        title: solicitudCopy.bajaServicio.title,
+        description: solicitudCopy.bajaServicio.description,
       }
     }
     return {
@@ -352,13 +405,17 @@ export function TramiteCreateConsultaDrawer({
               />
             ) : null}
 
-            {step === 'baja-trabajador' || step === 'carta-vacaciones' ? (
+            {isProcedureFormStep(step) ? (
               <TramiteProcedureStepForm
                 step={step}
                 trabajadorValues={trabajadorValues}
                 onTrabajadorChange={setTrabajadorValues}
                 cartaValues={cartaValues}
                 onCartaChange={setCartaValues}
+                bajaAutonomoValues={bajaAutonomoValues}
+                onBajaAutonomoChange={setBajaAutonomoValues}
+                bajaServicioValues={bajaServicioValues}
+                onBajaServicioChange={setBajaServicioValues}
                 pending={pending}
                 fieldErrors={fieldErrors}
                 formError={formError}
@@ -378,7 +435,7 @@ export function TramiteCreateConsultaDrawer({
             />
           ) : null}
 
-          {step === 'baja-trabajador' || step === 'carta-vacaciones' ? (
+          {isProcedureFormStep(step) ? (
             <TramiteDrawerFooter
               formId={PROCEDURE_FORM_ID}
               pending={pending}
@@ -400,6 +457,26 @@ export function TramiteCreateConsultaDrawer({
         cancelLabel={unsavedCopy.keepEditing}
         confirmVariant="destructive"
         onConfirm={handleConfirmDiscard}
+      />
+
+      <PortalConfirmDialog
+        open={pendingBajaAutonomo !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingBajaAutonomo(null)
+        }}
+        title={solicitudCopy.bajaAutonomo.confirm.title}
+        description={solicitudCopy.bajaAutonomo.confirm.description.replace(
+          '{fecha}',
+          pendingBajaAutonomo
+            ? formatIsoDateEs(bajaAutonomoDownloadDeadline(pendingBajaAutonomo.desiredDate))
+            : ''
+        )}
+        confirmLabel={solicitudCopy.bajaAutonomo.confirm.confirm}
+        cancelLabel={solicitudCopy.bajaAutonomo.confirm.cancel}
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (pendingBajaAutonomo) sendProcedure(pendingBajaAutonomo, 'baja-autonomo')
+        }}
       />
     </>
   )

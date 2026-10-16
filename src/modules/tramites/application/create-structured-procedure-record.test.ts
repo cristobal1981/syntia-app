@@ -256,6 +256,43 @@ describe('createStructuredProcedureRecord — creación', () => {
   })
 })
 
+describe('createStructuredProcedureRecord — bajas de cliente', () => {
+  const bajaAutonomo = {
+    type: 'baja-autonomo' as const,
+    desiredDate: '2099-01-01',
+    reason: 'cese_actividad',
+    observations: '',
+  }
+
+  it('baja de autónomo: crea el ticket sin nombre ni DNI y con la fecha de la petición', async () => {
+    const result = await run({ payload: bajaAutonomo })
+    expect(result).toMatchObject({ ok: true, recordId: 11, name: 'Baja de autónomo' })
+    const arg = m.createPartnerTicket.mock.calls[0][0]
+    expect(arg.description).toContain('Fecha de la petición')
+  })
+
+  it('baja de servicio sin servicio: devuelve el error de validación y no crea nada', async () => {
+    const result = await run({
+      payload: { type: 'baja-servicio', service: '', desiredDate: '2099-01-01', observations: '' },
+    })
+    expect(result).toEqual({
+      ok: false,
+      error: 'validation',
+      fieldErrors: { service: 'selectRequired' },
+    })
+    expect(m.createPartnerTicket).not.toHaveBeenCalled()
+  })
+
+  it('la misma fecha de petición va en la descripción y en el chatter', async () => {
+    await run({ payload: bajaAutonomo })
+    const description: string = m.createPartnerTicket.mock.calls[0][0].description
+    const chatter: string = m.postRecordComment.mock.calls[0][0].htmlBody
+    const dateText = (html: string) => html.match(/\d{1,2} de \w+ de \d{4} a las \d{1,2}:\d{2}/)?.[0]
+    expect(dateText(description)).toBeDefined()
+    expect(dateText(description)).toEqual(dateText(chatter))
+  })
+})
+
 describe('createStructuredProcedureRecord — mapeo de errores de Odoo', () => {
   it.each([
     ['ODOO_TICKET_TEAM_NOT_CONFIGURED', 'odoo_unavailable'],

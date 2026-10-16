@@ -889,3 +889,112 @@ describe('normalizeProcedureTicketPayload — resto', () => {
     expect(n.identityDocument).toBe(doc)
   })
 })
+
+type BajaAutonomo = Extract<ProcedureTicketPayload, { type: 'baja-autonomo' }>
+type BajaServicio = Extract<ProcedureTicketPayload, { type: 'baja-servicio' }>
+
+function bajaAutonomo(overrides: Partial<BajaAutonomo> = {}): BajaAutonomo {
+  return {
+    type: 'baja-autonomo',
+    desiredDate: localIso(10),
+    reason: 'cese_actividad',
+    observations: '',
+    ...overrides,
+  }
+}
+
+function bajaServicio(overrides: Partial<BajaServicio> = {}): BajaServicio {
+  return {
+    type: 'baja-servicio',
+    service: 'laboral',
+    desiredDate: localIso(10),
+    observations: '',
+    ...overrides,
+  }
+}
+
+describe('validateProcedureTicketPayload — baja-autonomo', () => {
+  it('acepta una baja completa, sin nombre ni DNI', () => {
+    expect(validateProcedureTicketPayload(bajaAutonomo())).toEqual({})
+  })
+
+  it('acepta la fecha de hoy y rechaza la de ayer', () => {
+    expect(validateProcedureTicketPayload(bajaAutonomo({ desiredDate: localIso(0) }))).toEqual({})
+    expect(validateProcedureTicketPayload(bajaAutonomo({ desiredDate: localIso(-1) }))).toEqual({
+      desiredDate: 'desiredDateInPast',
+    })
+  })
+
+  it('exige fecha válida y motivo', () => {
+    expect(validateProcedureTicketPayload(bajaAutonomo({ desiredDate: '' }))).toEqual({
+      desiredDate: 'dateRequired',
+    })
+    expect(validateProcedureTicketPayload(bajaAutonomo({ desiredDate: '2099-02-31' }))).toEqual({
+      desiredDate: 'dateInvalid',
+    })
+    expect(validateProcedureTicketPayload(bajaAutonomo({ reason: '' }))).toEqual({
+      reason: 'selectRequired',
+    })
+  })
+
+  it('limita las observaciones a 500 caracteres', () => {
+    expect(
+      validateProcedureTicketPayload(bajaAutonomo({ observations: 'a'.repeat(500) }))
+    ).toEqual({})
+    expect(
+      validateProcedureTicketPayload(bajaAutonomo({ observations: 'a'.repeat(501) }))
+    ).toEqual({ observations: 'observationsTooLong' })
+  })
+})
+
+describe('validateProcedureTicketPayload — baja-servicio', () => {
+  it('acepta una baja completa', () => {
+    expect(validateProcedureTicketPayload(bajaServicio())).toEqual({})
+  })
+
+  it('exige servicio y fecha, y no admite fechas pasadas', () => {
+    expect(validateProcedureTicketPayload(bajaServicio({ service: '' }))).toEqual({
+      service: 'selectRequired',
+    })
+    expect(validateProcedureTicketPayload(bajaServicio({ desiredDate: '' }))).toEqual({
+      desiredDate: 'dateRequired',
+    })
+    expect(validateProcedureTicketPayload(bajaServicio({ desiredDate: localIso(-1) }))).toEqual({
+      desiredDate: 'desiredDateInPast',
+    })
+  })
+
+  it('limita las observaciones a 500 caracteres', () => {
+    expect(
+      validateProcedureTicketPayload(bajaServicio({ observations: 'a'.repeat(501) }))
+    ).toEqual({ observations: 'observationsTooLong' })
+  })
+})
+
+describe('normalizeProcedureTicketPayload — bajas de cliente', () => {
+  it('recorta los campos de la baja de autónomo y descarta cualquier campo ajeno', () => {
+    const dirty = {
+      ...bajaAutonomo({ desiredDate: ' 2099-01-01 ', reason: ' otros ', observations: ' hola ' }),
+      fullName: 'no debe pasar',
+    } as BajaAutonomo
+    expect(normalizeProcedureTicketPayload(dirty)).toEqual({
+      type: 'baja-autonomo',
+      desiredDate: '2099-01-01',
+      reason: 'otros',
+      observations: 'hola',
+    })
+  })
+
+  it('recorta los campos de la baja de servicio y descarta cualquier campo ajeno', () => {
+    const dirty = {
+      ...bajaServicio({ service: ' fiscal ', desiredDate: ' 2099-01-01 ', observations: ' x ' }),
+      dni: 'no debe pasar',
+    } as BajaServicio
+    expect(normalizeProcedureTicketPayload(dirty)).toEqual({
+      type: 'baja-servicio',
+      service: 'fiscal',
+      desiredDate: '2099-01-01',
+      observations: 'x',
+    })
+  })
+})

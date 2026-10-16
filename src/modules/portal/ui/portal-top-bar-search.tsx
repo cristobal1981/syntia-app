@@ -93,6 +93,20 @@ const ALL_PROCEDURE_SEARCH_ACTIONS: Array<{
     description: tramiteSolicitudes.picker.cartaVacaciones.description,
     keywords: ['vacaciones', 'carta', 'descanso', 'festivos'],
   },
+  {
+    id: 'action:procedure:baja-autonomo',
+    procedure: 'baja-autonomo',
+    label: tramiteSolicitudes.picker.bajaAutonomo.label,
+    description: tramiteSolicitudes.picker.bajaAutonomo.description,
+    keywords: ['baja', 'autónomo', 'autonomo', 'cese', 'cese de actividad', 'darme de baja'],
+  },
+  {
+    id: 'action:procedure:baja-servicio',
+    procedure: 'baja-servicio',
+    label: tramiteSolicitudes.picker.bajaServicio.label,
+    description: tramiteSolicitudes.picker.bajaServicio.description,
+    keywords: ['baja', 'servicio', 'cancelar', 'dejar', 'contratado', 'contrato'],
+  },
 ]
 
 const PROCEDURE_SEARCH_ACTIONS = ALL_PROCEDURE_SEARCH_ACTIONS.filter((action) =>

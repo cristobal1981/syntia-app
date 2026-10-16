@@ -16,10 +16,21 @@ describe('isProcedureTypeAvailable — solicitudes desactivadas a propósito', (
     expect(isProcedureTypeAvailable('alta-trabajador')).toBe(false)
   })
 
-  it('hoy no hay ninguna solicitud estructurada disponible: solo la consulta general', () => {
-    const all: ProcedureTicketType[] = ['alta-trabajador', 'baja-trabajador', 'carta-vacaciones']
+  it('las bajas de autónomo y de servicio sí están disponibles', () => {
+    expect(isProcedureTypeAvailable('baja-autonomo')).toBe(true)
+    expect(isProcedureTypeAvailable('baja-servicio')).toBe(true)
+  })
 
-    expect(all.filter(isProcedureTypeAvailable)).toEqual([])
-    expect(hasAvailableProcedureTypes()).toBe(false)
+  it('hoy solo las bajas de autónomo y de servicio se ofrecen además de la consulta general', () => {
+    const all: ProcedureTicketType[] = [
+      'alta-trabajador',
+      'baja-trabajador',
+      'carta-vacaciones',
+      'baja-autonomo',
+      'baja-servicio',
+    ]
+
+    expect(all.filter(isProcedureTypeAvailable)).toEqual(['baja-autonomo', 'baja-servicio'])
+    expect(hasAvailableProcedureTypes()).toBe(true)
   })
 })
