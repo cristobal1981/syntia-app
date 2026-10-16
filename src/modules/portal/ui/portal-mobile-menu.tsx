@@ -10,6 +10,7 @@ import { SignOutButton } from '@/src/modules/auth/ui/sign-out-button'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { AccessibilityControls } from '@/src/modules/portal/ui/accessibility-controls'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
+import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
 import { renderNavItem } from '@/src/modules/portal/ui/portal-nav-items'
 import { usePortalInviteOptional } from '@/src/modules/invitations/ui/portal-invite-context'
 import { usePortalReportProblemOptional } from '@/src/modules/portal/ui/portal-report-problem-context'
@@ -102,10 +103,12 @@ export function PortalMobileMenu({
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
   return (
-    <nav
+    <PortalScrollFade
       id="mobile-nav"
-      className="flex h-full flex-col overflow-y-auto bg-sidebar px-3 py-3 text-sidebar-foreground"
-      aria-label="Principal"
+      ariaLabel="Principal"
+      className="h-full bg-sidebar"
+      scrollClassName="px-3 py-3 text-sidebar-foreground"
+      contentClassName="flex min-h-full flex-col"
     >
       <div className="mb-2 flex justify-center py-2">
         <PortalBrandMark className="max-w-[200px]" />
@@ -145,6 +148,6 @@ export function PortalMobileMenu({
         </div>
         <SignOutButton />
       </div>
-    </nav>
+    </PortalScrollFade>
   )
 }

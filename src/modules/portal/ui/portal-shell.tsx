@@ -12,6 +12,7 @@ import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types
 import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
+import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
@@ -166,12 +167,11 @@ export function PortalShell({
           <PortalBrandMark collapsed={sidebarCollapsed} priority />
         </div>
 
-        <nav
-          className={cn(
-            'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto py-2',
-            sidebarCollapsed ? 'px-2' : 'px-3'
-          )}
-          aria-label="Principal"
+        <PortalScrollFade
+          ariaLabel="Principal"
+          className="flex-1"
+          scrollClassName={cn('py-2', sidebarCollapsed ? 'px-2' : 'px-3')}
+          contentClassName="flex flex-col gap-1"
         >
           {/* «Perfil» ya está en el menú del pie del sidebar; en móvil (sin ese menú) se mantiene. */}
           {navItems
@@ -179,10 +179,12 @@ export function PortalShell({
             .map((item) =>
               renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
             )}
-          <div className="mt-auto pt-3">
-            <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
-          </div>
-        </nav>
+        </PortalScrollFade>
+
+        {/* Fuera de la zona con scroll: la subida rápida debe estar siempre a mano. */}
+        <div className={cn('shrink-0 pb-3 empty:hidden', sidebarCollapsed ? 'px-2' : 'px-3')}>
+          <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
+        </div>
 
         <div className={cn('border-t border-sidebar-border py-3', sidebarCollapsed ? 'px-2' : 'px-3')}>
           <PortalProfileMenu

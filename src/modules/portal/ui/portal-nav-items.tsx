@@ -181,27 +181,40 @@ function NavGroup({
           aria-hidden
         />
       </button>
-      {open ? (
-        <div className="flex flex-col gap-1 border-l border-sidebar-border pl-2">
-          {children.map((child) =>
-            child.href ? (
-              <NavLink
-                key={child.label}
-                href={child.href}
-                label={child.label}
-                icon={child.icon}
-                isActive={isNavItemActive(pathname, child.href)}
-                isPending={pendingHref === child.href}
-                collapsed={false}
-                size={size}
-                nested
-                onNavigate={onNavigate}
-                onNavStart={onNavStart}
-              />
-            ) : null
-          )}
+      {/*
+        Despliegue animado: la fila del grid pasa de 0fr a 1fr (altura automática sin medir).
+        Cerrado queda `inert` para que sus enlaces no reciban foco ni lectores de pantalla.
+        Sin movimiento con prefers-reduced-motion.
+      */}
+      <div
+        inert={!open}
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        )}
+      >
+        <div className="-mx-1 min-h-0 overflow-hidden px-1">
+          <div className="flex flex-col gap-1 border-l border-sidebar-border pl-2">
+            {children.map((child) =>
+              child.href ? (
+                <NavLink
+                  key={child.label}
+                  href={child.href}
+                  label={child.label}
+                  icon={child.icon}
+                  isActive={isNavItemActive(pathname, child.href)}
+                  isPending={pendingHref === child.href}
+                  collapsed={false}
+                  size={size}
+                  nested
+                  onNavigate={onNavigate}
+                  onNavStart={onNavStart}
+                />
+              ) : null
+            )}
+          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   )
 }

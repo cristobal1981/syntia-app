@@ -418,6 +418,15 @@ html.dark.hc .portal-surface {
 }
 
 @layer utilities {
+  /* Zona desplazable sin barra visible (el contenido sigue haciendo scroll). */
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   .portal-menu-corner::after {
     content: '';
     pointer-events: none;
