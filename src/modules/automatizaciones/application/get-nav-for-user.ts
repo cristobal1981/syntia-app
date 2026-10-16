@@ -6,6 +6,8 @@ import {
 } from '@/src/modules/automatizaciones/infrastructure/automation-repository.supabase'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
+import { buildInvoicingNavItems } from '@/src/modules/facturacion/domain/invoicing-nav'
+import { isInvoicingMockEnabled } from '@/src/modules/facturacion/domain/invoicing-availability'
 import { isWorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 
 const AUTOMATIZACIONES_HREF = '/automatizaciones'
@@ -51,8 +53,16 @@ export async function shouldShowAutomatizacionesNav(
   }
 }
 
+/** Mock local de facturación: solo el titular y solo si no es un despliegue de Vercel. */
+function withInvoicingNav(items: NavItem[], user: PortalUser): NavItem[] {
+  if (user.role !== 'client' || !isInvoicingMockEnabled()) return items
+  const afterDocuments = items.findIndex((item) => item.href === '/documentos') + 1
+  const position = afterDocuments > 0 ? afterDocuments : items.length
+  return [...items.slice(0, position), ...buildInvoicingNavItems(), ...items.slice(position)]
+}
+
 export async function getNavForUser(user: PortalUser): Promise<NavItem[]> {
-  const items = getNavForRole(user.role)
+  const items = withInvoicingNav(getNavForRole(user.role), user)
 
   if (user.role === 'worker') {
     return filterNavForWorker(items, user)

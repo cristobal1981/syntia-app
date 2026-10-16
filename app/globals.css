@@ -861,3 +861,22 @@ html.dark.hc .portal-surface {
     stroke-dashoffset: 0;
   }
 }
+
+/* Facturación: al imprimir solo sale la hoja de la factura. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .invoice-print-area,
+  .invoice-print-area * {
+    visibility: visible;
+  }
+  .invoice-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+    --tw-ring-shadow: 0 0 #0000;
+  }
+}

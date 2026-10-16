@@ -183,3 +183,60 @@ describe('canAccessAutomatizacionesPage', () => {
     ).resolves.toBe(false)
   })
 })
+
+describe('getNavForUser — facturación (mock local)', () => {
+  const CLIENT_NAV: NavItem[] = [
+    { label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' },
+    { label: 'Documentos', href: '/documentos', implemented: true, icon: 'documents' },
+    { label: 'Firmas', href: '/firmas', implemented: true, icon: 'signatures' },
+  ]
+
+  beforeEach(() => {
+    vi.unstubAllEnvs()
+    getNavForRole.mockReturnValue(CLIENT_NAV)
+  })
+
+  const facturacionLabels = (items: NavItem[]) =>
+    items.filter((item) => item.label === 'Facturación' || item.label === 'Contabilidad').map((item) => item.label)
+
+  it('en local el titular ve los grupos Facturación y Contabilidad justo después de Documentos', async () => {
+    vi.stubEnv('VERCEL', '')
+    const items = await getNavForUser(user({ role: 'client' }))
+    expect(items.map((item) => item.href ?? item.label)).toEqual([
+      '/dashboard',
+      '/documentos',
+      'Facturación',
+      'Contabilidad',
+      '/firmas',
+    ])
+    expect(items[2].children?.[0].href).toBe('/facturacion/panel')
+  })
+
+  it('en Vercel (develop, main o preview) no aparece', async () => {
+    vi.stubEnv('VERCEL', '1')
+    const items = await getNavForUser(user({ role: 'client' }))
+    expect(facturacionLabels(items)).toEqual([])
+  })
+
+  it('un colaborador no la ve aunque sea local', async () => {
+    vi.stubEnv('VERCEL', '')
+    getAllowedSectionsForWorker.mockResolvedValue(new Set(['/documentos', '/firmas']))
+    const items = await getNavForUser(user({ role: 'worker' }))
+    expect(facturacionLabels(items)).toEqual([])
+  })
+
+  it('un asesor tampoco', async () => {
+    vi.stubEnv('VERCEL', '')
+    countVisibleAutomationsForAdvisor.mockResolvedValue(0)
+    resolveDirectoryActorId.mockResolvedValue('actor')
+    const items = await getNavForUser(user({ role: 'advisor' }))
+    expect(facturacionLabels(items)).toEqual([])
+  })
+
+  it('sin Documentos en el menú se añade al final', async () => {
+    vi.stubEnv('VERCEL', '')
+    getNavForRole.mockReturnValue([{ label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' }])
+    const items = await getNavForUser(user({ role: 'client' }))
+    expect(items.map((item) => item.href ?? item.label)).toEqual(['/dashboard', 'Facturación', 'Contabilidad'])
+  })
+})
