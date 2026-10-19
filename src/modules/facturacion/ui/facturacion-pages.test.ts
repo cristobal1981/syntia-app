@@ -386,6 +386,9 @@ describe('filtro de periodo fijo', () => {
     expect(html).toMatch(/aria-label="Trimestre"[^>]*md:hidden|md:hidden[^>]*aria-label="Trimestre"/)
     expect(html).toMatch(/aria-label="Nueva factura"/)
     expect(html).toContain('hidden md:inline')
+    // Desde md el botón vuelve a la altura normal (h-8); `size-auto` lo dejaba sin altura.
+    expect(html).toContain('md:h-8 md:w-auto')
+    expect(html).not.toContain('md:size-auto')
     expect(html).toContain('hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto md:flex')
     expect(html).not.toContain('overflow-x-auto md:overflow')
   })

@@ -110,7 +110,7 @@ export function PeriodBar() {
         ) : (
           <div className="flex-1" />
         )}
-        <Button asChild size="sm" className="size-11 shrink-0 md:size-auto">
+        <Button asChild size="sm" className="size-11 shrink-0 px-0 md:h-8 md:w-auto md:px-3 md:has-[>svg]:px-2.5">
           <Link href={NEW_INVOICE_HREF} aria-label={copy.page.newInvoice}>
             <Plus aria-hidden />
             <span className="hidden md:inline">{copy.page.newInvoice}</span>
