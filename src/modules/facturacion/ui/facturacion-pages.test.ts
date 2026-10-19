@@ -367,6 +367,9 @@ describe('filtro de periodo fijo', () => {
       // Desde lg queda por debajo de la esquina cóncava del topbar, sin cubrirla.
       expect(html, path).toContain('lg:top-[calc(var(--radius-xl)-2.5rem)]')
       expect(html, path).toContain('lg:before:left-[var(--radius-xl)]')
+      // El aire sobre y bajo los controles es el mismo: la franja superior aporta el radio, la barra no suma relleno arriba.
+      expect(html, path).toContain('lg:pt-0 lg:pb-[var(--radius-xl)]')
+      expect(html, path).toContain('lg:before:h-[var(--radius-xl)]')
       expect(html, path).toContain('aria-label="Periodo"')
       expect(text(html), path).toContain('Año completo')
       expect(text(html), path).toContain('4T')

@@ -77,7 +77,9 @@ export function PeriodBar() {
           'flex items-center gap-2 md:sticky md:-top-10 md:z-20 md:-mx-10 md:gap-3 md:bg-background/95 md:px-10 md:py-2.5 md:backdrop-blur md:transition-shadow',
           // Desde lg el topbar dibuja una esquina cóncava de `--radius-xl` sobre el contenido: la barra se pega justo
           // debajo de ella y una franja con su mismo fondo (que no cubre la esquina) tapa el hueco de encima.
-          'lg:top-[calc(var(--radius-xl)-2.5rem)] lg:before:absolute lg:before:bottom-full lg:before:left-[var(--radius-xl)] lg:before:right-0 lg:before:h-[var(--radius-xl)] lg:before:bg-background/95',
+          // La franja de encima ya aporta `--radius-xl` de aire: la barra no suma relleno arriba y baja el mismo valor,
+          // para que el espacio sobre y bajo los controles sea igual.
+          'lg:top-[calc(var(--radius-xl)-2.5rem)] lg:pt-0 lg:pb-[var(--radius-xl)] lg:before:absolute lg:before:bottom-full lg:before:left-[var(--radius-xl)] lg:before:right-0 lg:before:h-[var(--radius-xl)] lg:before:bg-background/95',
           stuck && 'md:shadow-[0_1px_0_0_var(--border)]'
         )}
       >
