@@ -1,10 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo } from 'react'
-import { Plus } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { facturacion } from '@/content/facturacion'
 import { formatIsoDateEs } from '@/lib/format/date'
 import {
@@ -19,7 +16,6 @@ import type { Invoice } from '@/src/modules/facturacion/domain/types'
 import { InvoiceLink } from '@/src/modules/facturacion/ui/invoice-link'
 import { ComplianceCard } from '@/src/modules/facturacion/ui/compliance-card'
 import { MonthlyChart } from '@/src/modules/facturacion/ui/monthly-chart'
-import { sectionHref } from '@/src/modules/facturacion/domain/sections'
 
 const copy = facturacion.dashboard
 const TOP_PARTIES = 5
@@ -62,12 +58,6 @@ function PendingCard({
             </span>
           </p>
         </div>
-        <Button asChild size="sm">
-          <Link href={sectionHref({ slug: 'facturas/nueva' })}>
-            <Plus aria-hidden />
-            {text.new}
-          </Link>
-        </Button>
       </div>
 
       {overdue.length === 0 ? (

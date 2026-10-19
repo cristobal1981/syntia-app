@@ -28,7 +28,6 @@ export const facturacion = {
     issued: {
       title: 'Facturas emitidas',
       pendingLabel: 'Pendiente de cobro',
-      new: 'Nueva factura',
     },
     pendingCount: (count: number) => (count === 1 ? '1 factura' : `${count} facturas`),
     overdue: (count: number, amount: string) =>

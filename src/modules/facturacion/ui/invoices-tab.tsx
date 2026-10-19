@@ -87,9 +87,7 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
   const columns = copy.columns
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>{actions}</div>
-
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((value) => (
           <PortalFilterChip key={value} label={copy.statusFilters[value]} active={status === value} onClick={() => setStatus(value)} />
@@ -100,7 +98,7 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
           onChange={(event) => setQuery(event.target.value)}
           placeholder={copy.searchPlaceholder}
           aria-label={copy.searchLabel}
-          className="h-9 w-full min-w-64 sm:w-80"
+          className="h-9 w-full sm:ml-auto sm:w-72"
         />
       </div>
 

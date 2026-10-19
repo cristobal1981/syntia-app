@@ -84,8 +84,8 @@ describe('lista de facturas', () => {
     expect(plain).not.toContain('Acciones')
   })
 
-  it('ofrece crear una factura y nada de recibidas ni subir documentos', () => {
-    expect(html).toContain('href="/facturacion/facturas/nueva"')
+  it('la acción de crear está en la barra fija, no repetida en la lista, y no hay recibidas ni subir documentos', () => {
+    expect(html).not.toContain('href="/facturacion/facturas/nueva"')
     expect(html).not.toContain('tipo=recibida')
     expect(text(html)).not.toContain('Subir factura')
     expect(text(html)).not.toContain('Recibidas')
@@ -347,6 +347,25 @@ describe('filtro de periodo fijo', () => {
       expect(text(html), path).toContain('Año completo')
       expect(text(html), path).toContain('4T')
     }
+  })
+
+  it('la barra lleva a la derecha la acción de crear factura, igual en Panel y Facturas', () => {
+    for (const path of ['/facturacion/panel', '/facturacion/facturas']) {
+      const html = bar(path)
+      expect(html, path).toContain('href="/facturacion/facturas/nueva"')
+      expect(text(html), path).toContain('Nueva factura')
+    }
+  })
+
+  it('el panel no repite la acción dentro de la tarjeta de pendiente', () => {
+    const html = render('/facturacion/panel', createElement(PanelSection))
+    expect(html).not.toContain('href="/facturacion/facturas/nueva"')
+  })
+
+  it('la lista agrupa los filtros de estado y el buscador en una sola fila de herramientas', () => {
+    const html = render('/facturacion/facturas', createElement(InvoicesSection))
+    expect(html).toMatch(/aria-pressed="true"[^]*type="search"/)
+    expect(html).toContain('sm:ml-auto')
   })
 
   it('Clientes y Datos fiscales no tienen filtro de periodo', () => {
