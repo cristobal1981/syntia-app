@@ -12,6 +12,7 @@ export const facturacion = {
   period: {
     label: 'Periodo',
     year: 'Año',
+    quarterLabel: 'Trimestre',
     wholeYear: 'Año completo',
     quarter: (quarter: number) => `${quarter}T`,
   },

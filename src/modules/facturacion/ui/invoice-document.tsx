@@ -31,7 +31,7 @@ export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDoc
 
   return (
     <article
-      className="invoice-print-area mx-auto w-full max-w-[52rem] rounded-sm bg-white p-8 text-[13px] leading-relaxed text-neutral-900 shadow-md ring-1 ring-black/10 sm:p-12"
+      className="invoice-print-area mx-auto w-full max-w-[52rem] rounded-sm bg-white p-4 text-[13px] leading-relaxed text-neutral-900 shadow-md ring-1 ring-black/10 sm:p-8 md:p-12"
       aria-label={invoice.invoiceNumber || copy.pendingNumber}
     >
       <header className="flex flex-wrap items-start justify-between gap-6 border-b border-neutral-300 pb-6">

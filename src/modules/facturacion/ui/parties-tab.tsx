@@ -61,6 +61,27 @@ export function PartiesTab({ parties, invoices }: { parties: Party[]; invoices: 
               party.billedCents ? formatCents(party.billedCents) : '',
               party.pendingCents ? formatCents(party.pendingCents) : '',
             ],
+            mobile: (
+              <>
+                <span className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 font-medium text-foreground [overflow-wrap:anywhere]">{party.name}</span>
+                  <span className="shrink-0 font-medium tabular-nums text-foreground">
+                    {party.billedCents ? formatCents(party.billedCents) : '—'}
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-sm text-muted-foreground">
+                  {[party.taxId, party.city].filter(Boolean).join(' · ')}
+                </span>
+                <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                  <span>{copy.columns.invoices}: {party.invoiceCount}</span>
+                  {party.pendingCents ? (
+                    <span>
+                      {copy.columns.pending}: <span className="font-medium tabular-nums text-foreground">{formatCents(party.pendingCents)}</span>
+                    </span>
+                  ) : null}
+                </span>
+              </>
+            ),
           }
         })}
       />

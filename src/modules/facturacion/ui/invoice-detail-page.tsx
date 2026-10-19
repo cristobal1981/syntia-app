@@ -164,13 +164,14 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
             <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
               {invoice.counterpartyName} · {formatIsoDateEs(invoice.issueDate)}
             </p>
+            <p className="mt-2 font-sans text-2xl font-semibold tabular-nums text-foreground">{formatCents(invoice.totalCents)}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <InvoiceStatusPill invoice={invoice} today={today} />
               {rectified ? <Pill tone="neutral">{facturacion.lifecycle.rectified}</Pill> : null}
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             {isDraft ? (
               <Button type="button" onClick={() => setConfirmEmit(true)}>
                 <Stamp aria-hidden />
@@ -254,7 +255,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
             </Button>
           </div>
 
-          <div className="overflow-x-auto rounded-xl bg-muted/40 p-3 sm:p-6 dark:bg-muted/20">
+          <div className="overflow-x-auto rounded-xl bg-muted/40 p-2 sm:p-6 dark:bg-muted/20">
             <InvoiceDocument invoice={invoice} currentIssuer={issuer} original={original} />
           </div>
         </section>

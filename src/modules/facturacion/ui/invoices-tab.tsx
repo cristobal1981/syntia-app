@@ -88,17 +88,20 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {STATUS_FILTERS.map((value) => (
-          <PortalFilterChip key={value} label={copy.statusFilters[value]} active={status === value} onClick={() => setStatus(value)} />
-        ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+        {/* En móvil los estados hacen scroll en una sola línea en vez de ocupar varias filas. */}
+        <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible">
+          {STATUS_FILTERS.map((value) => (
+            <PortalFilterChip key={value} label={copy.statusFilters[value]} active={status === value} onClick={() => setStatus(value)} />
+          ))}
+        </div>
         <Input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={copy.searchPlaceholder}
           aria-label={copy.searchLabel}
-          className="h-9 w-full sm:ml-auto sm:w-72"
+          className="h-11 w-full text-base sm:ml-auto sm:h-9 sm:w-72 sm:text-sm"
         />
       </div>
 
@@ -174,6 +177,26 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
                 formatCents(invoice.totalCents),
                 <InvoiceStatusPill key="s" invoice={invoice} today={today} />,
               ],
+              mobile: (
+                <>
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 font-medium text-foreground [overflow-wrap:anywhere]">{invoice.counterpartyName || '—'}</span>
+                    <span className="shrink-0 font-medium tabular-nums text-foreground">{formatCents(invoice.totalCents)}</span>
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                    {invoice.invoiceNumber || facturacion.document.pendingNumber} · {formatIsoDateEs(invoice.issueDate)}
+                  </span>
+                  <span className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <InvoiceStatusPill invoice={invoice} today={today} />
+                    {rectified ? <span className="text-xs text-muted-foreground">{facturacion.lifecycle.rectified}</span> : null}
+                    {overdue ? (
+                      <span className="text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
+                    ) : collectable ? (
+                      <span className="text-xs text-muted-foreground">{copy.dueOn(formatIsoDateEs(invoice.dueDate))}</span>
+                    ) : null}
+                  </span>
+                </>
+              ),
             }
           })}
         />

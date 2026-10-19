@@ -37,15 +37,33 @@ function useStuck() {
   return { sentinel, stuck }
 }
 
+const TRIGGER_CLASS = 'h-11 rounded-md border border-border bg-field px-3 text-base shadow-xs md:h-9 md:text-sm'
+
 /**
- * Barra fija de Panel y Facturas: a la izquierda el periodo (año y trimestre), a la derecha la acción
- * principal de la sección, siempre a mano al desplazarse. Ocupa todo el ancho de la zona de contenido.
+ * Barra de Panel y Facturas: a la izquierda el periodo, a la derecha la acción principal de la sección.
+ * En móvil es una fila normal (dos selectores y un «+», sin ocupar pantalla al desplazarse); desde `md`
+ * se fija arriba con los trimestres como chips y el botón con texto.
  */
 export function PeriodBar() {
   const { section, nested, year, setYear, years, quarter, setQuarter } = useFacturacion()
   const { sentinel, stuck } = useStuck()
 
   if (!section.usesPeriod || nested) return null
+
+  const yearSelect = (
+    <Select value={String(year)} onValueChange={(value) => setYear(Number(value))}>
+      <SelectTrigger aria-label={copy.period.year} className={cn(TRIGGER_CLASS, 'w-28 shrink-0')}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {years.map((value) => (
+          <SelectItem key={value} value={String(value)}>
+            {value}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
 
   return (
     <>
@@ -54,25 +72,30 @@ export function PeriodBar() {
         role="group"
         aria-label={copy.period.label}
         className={cn(
-          'sticky top-0 z-20 -mx-4 flex items-center gap-3 bg-background/95 px-4 py-2.5 backdrop-blur transition-shadow sm:-mx-10 sm:px-10',
-          stuck && 'shadow-[0_1px_0_0_var(--border)]'
+          'flex items-center gap-2 md:sticky md:top-0 md:z-20 md:-mx-10 md:gap-3 md:bg-background/95 md:px-10 md:py-2.5 md:backdrop-blur md:transition-shadow',
+          stuck && 'md:shadow-[0_1px_0_0_var(--border)]'
         )}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
-          <Select value={String(year)} onValueChange={(value) => setYear(Number(value))}>
-            <SelectTrigger aria-label={copy.period.year} className="h-9 w-28 shrink-0 rounded-md border border-border bg-field px-3 text-sm shadow-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((value) => (
-                <SelectItem key={value} value={String(value)}>
-                  {value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {section.usesQuarter ? (
-            <>
+        {yearSelect}
+        {section.usesQuarter ? (
+          <>
+            <Select
+              value={quarter === null ? 'all' : String(quarter)}
+              onValueChange={(value) => setQuarter(value === 'all' ? null : (Number(value) as Quarter))}
+            >
+              <SelectTrigger aria-label={copy.period.quarterLabel} className={cn(TRIGGER_CLASS, 'min-w-0 flex-1 md:hidden')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{copy.period.wholeYear}</SelectItem>
+                {QUARTERS.map((value) => (
+                  <SelectItem key={value} value={String(value)}>
+                    {copy.period.quarter(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto md:flex">
               <PortalFilterChip label={copy.period.wholeYear} active={quarter === null} onClick={() => setQuarter(null)} />
               {QUARTERS.map((value) => (
                 <PortalFilterChip
@@ -82,13 +105,15 @@ export function PeriodBar() {
                   onClick={() => setQuarter(value)}
                 />
               ))}
-            </>
-          ) : null}
-        </div>
-        <Button asChild size="sm" className="shrink-0">
-          <Link href={NEW_INVOICE_HREF}>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1" />
+        )}
+        <Button asChild size="sm" className="size-11 shrink-0 md:size-auto">
+          <Link href={NEW_INVOICE_HREF} aria-label={copy.page.newInvoice}>
             <Plus aria-hidden />
-            {copy.page.newInvoice}
+            <span className="hidden md:inline">{copy.page.newInvoice}</span>
           </Link>
         </Button>
       </div>

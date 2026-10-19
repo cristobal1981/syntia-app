@@ -91,6 +91,26 @@ describe('lista de facturas', () => {
     expect(text(html)).not.toContain('Recibidas')
   })
 
+  it('móvil primero: tarjetas apiladas con cliente, total, número, fecha y estado; la tabla solo desde md', () => {
+    expect(html).toContain('flex flex-col gap-2 md:hidden')
+    expect(html).toContain('hidden md:block')
+    // Cada tarjeta es un enlace a la ficha, sin enlaces anidados.
+    const cards = html.slice(html.indexOf('flex flex-col gap-2 md:hidden'), html.indexOf('hidden md:block'))
+    expect(cards.match(/href="\/facturacion\/facturas\/ejemplo-/g)?.length).toBeGreaterThan(5)
+    for (const card of cards.split('<li ').slice(1)) expect(card.match(/<a /g)?.length).toBe(1)
+    expect(text(cards)).toContain('Hotel Costa Teguise S.L.')
+    expect(text(cards)).toContain('Vence el')
+  })
+
+  it('móvil primero: los filtros de estado hacen scroll en una línea y desde sm pasan a la fila con el buscador', () => {
+    expect(html).toContain('flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible')
+    expect(html).toContain('flex flex-col gap-3 sm:flex-row sm:flex-wrap')
+  })
+
+  it('el buscador es táctil en móvil: alto de 44 px y 16 px de letra para que iOS no haga zoom', () => {
+    expect(html).toContain('h-11 w-full text-base')
+  })
+
   it('solo hay facturas emitidas: ninguna recibida de ejemplo', () => {
     expect(html).not.toContain('Endesa')
     expect(html).not.toContain('Vodafone')
@@ -247,7 +267,8 @@ describe('clientes', () => {
     expect(plain).toContain('Facturado')
     expect(plain).not.toContain('Recibido')
     expect(plain).not.toContain('Proveedores')
-    expect((plain.match(/Hotel Costa Teguise S\.L\./g) ?? []).length).toBe(1)
+    // Una vez en la tabla (desde md) y otra en la tarjeta (móvil): nunca duplicado dentro de un mismo diseño.
+    expect((plain.match(/Hotel Costa Teguise S\.L\./g) ?? []).length).toBe(2)
   })
 
   it('el alta de cliente no sugiere nada con el formulario vacío', () => {
@@ -339,10 +360,10 @@ describe('estados vacíos y carga', () => {
 describe('filtro de periodo fijo', () => {
   const bar = (path: string) => render(path, createElement(PeriodBar))
 
-  it('Panel y Facturas comparten el mismo filtro, fijo arriba al desplazarse', () => {
+  it('Panel y Facturas comparten el mismo filtro, fijo arriba al desplazarse desde md', () => {
     for (const path of ['/facturacion/panel', '/facturacion/facturas']) {
       const html = bar(path)
-      expect(html, path).toContain('sticky top-0')
+      expect(html, path).toContain('md:sticky md:top-0')
       expect(html, path).toContain('aria-label="Periodo"')
       expect(text(html), path).toContain('Año completo')
       expect(text(html), path).toContain('4T')
@@ -355,6 +376,18 @@ describe('filtro de periodo fijo', () => {
       expect(html, path).toContain('href="/facturacion/facturas/nueva"')
       expect(text(html), path).toContain('Nueva factura')
     }
+  })
+
+  it('móvil primero: dos selectores y un «+» sin texto; los chips y el botón con texto solo desde md', () => {
+    const html = bar('/facturacion/facturas')
+    expect(html).toContain('aria-label="Año"')
+    expect(html).toContain('aria-label="Trimestre"')
+    // El selector de trimestre solo existe en móvil; desde md lo sustituyen los chips.
+    expect(html).toMatch(/aria-label="Trimestre"[^>]*md:hidden|md:hidden[^>]*aria-label="Trimestre"/)
+    expect(html).toMatch(/aria-label="Nueva factura"/)
+    expect(html).toContain('hidden md:inline')
+    expect(html).toContain('hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto md:flex')
+    expect(html).not.toContain('overflow-x-auto md:overflow')
   })
 
   it('el panel no repite la acción dentro de la tarjeta de pendiente', () => {
