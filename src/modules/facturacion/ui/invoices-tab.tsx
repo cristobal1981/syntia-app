@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Eye, Plus, Receipt } from 'lucide-react'
+import { Plus, Receipt } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 import { facturacion } from '@/content/facturacion'
 import { formatIsoDateEs } from '@/lib/format/date'
-import { getCategory } from '@/src/modules/facturacion/domain/categories'
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import { compareInvoices } from '@/src/modules/facturacion/domain/periods'
 import { daysOverdue, paymentStatus, type PaymentStatus } from '@/src/modules/facturacion/domain/payment-status'
@@ -17,9 +16,8 @@ import { rectificationsOf } from '@/src/modules/facturacion/domain/rectification
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import type { Invoice } from '@/src/modules/facturacion/domain/types'
 import { BookTable } from '@/src/modules/facturacion/ui/book-table'
-import { LifecyclePills, PaymentPill, Pill } from '@/src/modules/facturacion/ui/invoice-badges'
+import { InvoiceStatusPill } from '@/src/modules/facturacion/ui/invoice-badges'
 import { InvoiceLink } from '@/src/modules/facturacion/ui/invoice-link'
-import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 
 const copy = facturacion.invoices
@@ -62,6 +60,17 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
     [invoices, status, query, today]
   )
 
+  const totals = useMemo(() => {
+    // Las rectificativas restan: lo facturado es el neto de lo expedido.
+    const issued = visible.filter((invoice) => invoice.status === 'definitiva')
+    return {
+      billedCents: issued.reduce((sum, invoice) => sum + invoice.totalCents, 0),
+      pendingCents: issued
+        .filter((invoice) => invoice.kind === 'ordinaria' && !invoice.paymentDate)
+        .reduce((sum, invoice) => sum + invoice.totalCents, 0),
+    }
+  }, [visible])
+
   const actions = (
     <Button asChild>
       <Link href={`${invoicesHref}/nueva`}>
@@ -95,60 +104,56 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
         />
       </div>
 
+      <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
+        {copy.summary.count(visible.length)}
+        {totals.billedCents > 0 || totals.pendingCents > 0 ? (
+          <>
+            {' · '}
+            {copy.summary.billed} <span className="font-medium text-foreground">{formatCents(totals.billedCents)}</span>
+            {' · '}
+            {copy.summary.pending} <span className="font-medium text-foreground">{formatCents(totals.pendingCents)}</span>
+          </>
+        ) : null}
+      </p>
+
       <BookTable
         caption={facturacion.tabs.invoices}
         emptyMessage={copy.noResults}
         columns={[
           { key: 'date', label: columns.date },
           { key: 'number', label: columns.number },
-          { key: 'due', label: columns.due },
           { key: 'counterparty', label: columns.counterparty },
-          { key: 'category', label: columns.category },
           { key: 'total', label: columns.total, align: 'right' },
           { key: 'status', label: columns.status },
-          { key: 'actions', label: columns.actions },
         ]}
         rows={visible.map((invoice) => {
           const href = `${invoicesHref}/${invoice.id}`
           const isDraft = invoice.status === 'borrador'
           const rectified = rectificationsOf(invoice, allInvoices).length > 0
+          const overdue = !isDraft && invoice.kind === 'ordinaria' && paymentStatus(invoice, today) === 'vencida'
+          const collectable = !isDraft && invoice.kind === 'ordinaria' && !invoice.paymentDate
           return {
             key: invoice.id,
             href,
             cells: [
-              formatIsoDateEs(invoice.issueDate),
+              <span key="d">
+                {formatIsoDateEs(invoice.issueDate)}
+                {overdue ? (
+                  <span className="block text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
+                ) : collectable ? (
+                  <span className="block text-xs text-muted-foreground">{copy.dueOn(formatIsoDateEs(invoice.dueDate))}</span>
+                ) : null}
+              </span>,
               <span key="n">
                 <InvoiceLink href={href}>{invoice.invoiceNumber || facturacion.document.pendingNumber}</InvoiceLink>
-                <span className="block text-xs text-muted-foreground">
-                  {invoice.kind === 'rectificativa' ? facturacion.lifecycle.kind.rectificativa : facturacion.lifecycle.kind.ordinaria}
-                </span>
-              </span>,
-              <span key="d">
-                {isDraft ? '—' : formatIsoDateEs(invoice.dueDate)}
-                {!isDraft && paymentStatus(invoice, today) === 'vencida' ? (
-                  <span className="block text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
-                ) : null}
+                {rectified ? <span className="block text-xs text-muted-foreground">{facturacion.lifecycle.rectified}</span> : null}
               </span>,
               <span key="c">
                 {invoice.counterpartyName || '—'}
-                <span className="block text-xs text-muted-foreground">{invoice.counterpartyTaxId}</span>
+                {invoice.counterpartyTaxId ? <span className="block text-xs text-muted-foreground">{invoice.counterpartyTaxId}</span> : null}
               </span>,
-              getCategory(invoice.categoryId).label,
               formatCents(invoice.totalCents),
-              <span key="s" className="flex flex-col items-start gap-1">
-                <span className="flex flex-wrap gap-1">
-                  <LifecyclePills invoice={invoice} rectified={rectified} />
-                </span>
-                {!isDraft ? <PaymentPill invoice={invoice} today={today} /> : null}
-                {!isDraft ? <Pill tone={invoice.review === 'revisada' ? 'done' : 'pending'}>{copy.review[invoice.review]}</Pill> : null}
-              </span>,
-              <PortalActionTooltip key="a" content={copy.open}>
-                <Button asChild variant="ghost" size="icon-sm">
-                  <Link href={href} aria-label={copy.open}>
-                    <Eye aria-hidden />
-                  </Link>
-                </Button>
-              </PortalActionTooltip>,
+              <InvoiceStatusPill key="s" invoice={invoice} today={today} />,
             ],
           }
         })}

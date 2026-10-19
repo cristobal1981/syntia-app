@@ -46,12 +46,32 @@ describe('lista de facturas', () => {
     expect(html).toContain('F-2026-0001')
   })
 
-  it('muestra el borrador sin número, la rectificativa y el candado de las expedidas', () => {
+  it('muestra el borrador sin número, la rectificativa y la factura rectificada', () => {
     const plain = text(html)
     expect(plain).toContain('Sin número (borrador)')
     expect(plain).toContain('Rectificativa')
-    expect(plain).toContain('Expedida')
+    expect(plain).toContain('Rectificada')
     expect(plain).toContain('Borrador')
+  })
+
+  it('cada fila lleva un único estado: cobro, no ciclo de vida ni revisión', () => {
+    const plain = text(html)
+    expect(plain).toContain('Cobrada')
+    expect(plain).not.toContain('Expedida')
+    expect(plain).not.toContain('Sin revisar')
+    expect(plain).not.toContain('Revisada')
+  })
+
+  it('resume lo filtrado: número de facturas, facturado y pendiente de cobro', () => {
+    const plain = text(html)
+    expect(plain).toMatch(/\d+ facturas · Facturado [\d.,]+ € · Pendiente de cobro [\d.,]+ €/)
+  })
+
+  it('el vencimiento va bajo la fecha y no hay columna de acciones', () => {
+    const plain = text(html)
+    expect(plain).toMatch(/Vencida hace \d+ días?/)
+    expect(plain).not.toContain('Ver detalle')
+    expect(plain).not.toContain('Acciones')
   })
 
   it('ofrece crear una factura y nada de recibidas ni subir documentos', () => {
