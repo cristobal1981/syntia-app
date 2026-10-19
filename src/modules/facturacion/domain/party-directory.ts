@@ -1,3 +1,4 @@
+import { normalizeForSearch } from '@/src/modules/facturacion/domain/search'
 import { isAccounted } from '@/src/modules/facturacion/domain/invoice-rules'
 import { DEFAULT_PAYMENT_TERM_DAYS } from '@/src/modules/facturacion/domain/payment-status'
 import { isValidTaxId, normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
@@ -25,6 +26,7 @@ export type PartyErrorKey =
   | 'postalCodeInvalid'
   | 'emailInvalid'
   | 'paymentTermInvalid'
+  | 'tooLong'
 
 export function emptyParty(): Omit<Party, 'id'> {
   return {
@@ -44,6 +46,8 @@ export function emptyParty(): Omit<Party, 'id'> {
 export function validateParty(party: Party): Partial<Record<keyof Party, PartyErrorKey>> {
   const errors: Partial<Record<keyof Party, PartyErrorKey>> = {}
   if (!party.name.trim()) errors.name = 'nameRequired'
+  else if (party.name.trim().length > 120) errors.name = 'tooLong'
+  if (party.address.trim().length > 200) errors.address = 'tooLong'
 
   if (!isValidTaxId(party.taxId)) errors.taxId = 'taxIdInvalid'
 
@@ -68,10 +72,7 @@ function references(party: Pick<Party, 'taxId'>, invoice: Invoice): boolean {
 }
 
 function normalizeName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+  return normalizeForSearch(name)
     .replace(/\b(s\.?\s?l\.?u?\.?|s\.?\s?a\.?|s\.?\s?l\.?l\.?|c\.?\s?b\.?)(?=\s|$)/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()

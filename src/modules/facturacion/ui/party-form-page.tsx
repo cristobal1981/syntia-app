@@ -25,6 +25,7 @@ import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provide
 import { LifecyclePills } from '@/src/modules/facturacion/ui/invoice-badges'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { TramiteDrawerField } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.partyPages
 const partiesHref = sectionHref(SECTIONS.find((section) => section.id === 'parties')!)
@@ -48,15 +49,12 @@ export function PartyFormPage(props: PartyFormPageProps) {
 
   if (props.mode === 'edit' && !existing) {
     return (
-      <div className="flex flex-col items-start gap-4">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={partiesHref}>
-            <ArrowLeft aria-hidden />
-            {copy.back}
-          </Link>
-        </Button>
-        <p className="text-sm text-muted-foreground">{copy.notFound}</p>
-      </div>
+      <NotFoundState
+        title={copy.notFound.title}
+        description={copy.notFound.description}
+        backHref={partiesHref}
+        backLabel={copy.back}
+      />
     )
   }
 

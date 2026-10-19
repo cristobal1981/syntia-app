@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Receipt } from 'lucide-react'
+import { Plus, Receipt, SearchX } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 import { facturacion } from '@/content/facturacion'
 import { formatIsoDateEs } from '@/lib/format/date'
+import { invoiceMatchesQuery } from '@/src/modules/facturacion/domain/search'
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import { compareInvoices } from '@/src/modules/facturacion/domain/periods'
 import { daysOverdue, paymentStatus, type PaymentStatus } from '@/src/modules/facturacion/domain/payment-status'
@@ -26,15 +27,6 @@ const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invo
 type StatusFilter = 'all' | PaymentStatus
 
 const STATUS_FILTERS: readonly StatusFilter[] = ['all', 'pendiente', 'vencida', 'pagada']
-
-function matches(invoice: Invoice, query: string): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  return [invoice.counterpartyName, invoice.counterpartyTaxId, invoice.invoiceNumber, invoice.concept]
-    .join(' ')
-    .toLowerCase()
-    .includes(needle)
-}
 
 type InvoicesTabProps = {
   /** Todas las del periodo, borradores incluidos. */
@@ -54,7 +46,7 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
         .filter(
           (invoice) =>
             (status === 'all' || (invoice.status === 'definitiva' && paymentStatus(invoice, today) === status)) &&
-            matches(invoice, query)
+            invoiceMatchesQuery(invoice, query)
         )
         .sort((a, b) => compareInvoices(b, a)),
     [invoices, status, query, today]
@@ -81,7 +73,15 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
   )
 
   if (invoices.length === 0) {
-    return <PortalEmptyState icon={Receipt} title={copy.empty.title} description={copy.empty.description} action={actions} />
+    return (
+      <PortalEmptyState
+        icon={Receipt}
+        title={copy.empty.title}
+        description={copy.empty.description}
+        hint={allInvoices.length > 0 ? copy.empty.otherPeriods : undefined}
+        action={actions}
+      />
+    )
   }
 
   const columns = copy.columns
@@ -116,48 +116,70 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
         ) : null}
       </p>
 
-      <BookTable
-        caption={facturacion.tabs.invoices}
-        emptyMessage={copy.noResults}
-        columns={[
-          { key: 'date', label: columns.date },
-          { key: 'number', label: columns.number },
-          { key: 'counterparty', label: columns.counterparty },
-          { key: 'total', label: columns.total, align: 'right' },
-          { key: 'status', label: columns.status },
-        ]}
-        rows={visible.map((invoice) => {
-          const href = `${invoicesHref}/${invoice.id}`
-          const isDraft = invoice.status === 'borrador'
-          const rectified = rectificationsOf(invoice, allInvoices).length > 0
-          const overdue = !isDraft && invoice.kind === 'ordinaria' && paymentStatus(invoice, today) === 'vencida'
-          const collectable = !isDraft && invoice.kind === 'ordinaria' && !invoice.paymentDate
-          return {
-            key: invoice.id,
-            href,
-            cells: [
-              <span key="d">
-                {formatIsoDateEs(invoice.issueDate)}
-                {overdue ? (
-                  <span className="block text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
-                ) : collectable ? (
-                  <span className="block text-xs text-muted-foreground">{copy.dueOn(formatIsoDateEs(invoice.dueDate))}</span>
-                ) : null}
-              </span>,
-              <span key="n">
-                <InvoiceLink href={href}>{invoice.invoiceNumber || facturacion.document.pendingNumber}</InvoiceLink>
-                {rectified ? <span className="block text-xs text-muted-foreground">{facturacion.lifecycle.rectified}</span> : null}
-              </span>,
-              <span key="c">
-                {invoice.counterpartyName || '—'}
-                {invoice.counterpartyTaxId ? <span className="block text-xs text-muted-foreground">{invoice.counterpartyTaxId}</span> : null}
-              </span>,
-              formatCents(invoice.totalCents),
-              <InvoiceStatusPill key="s" invoice={invoice} today={today} />,
-            ],
+      {visible.length === 0 ? (
+        <PortalEmptyState
+          icon={SearchX}
+          title={copy.noResults}
+          description={copy.noResultsHint}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setQuery('')
+                setStatus('all')
+              }}
+            >
+              {copy.clearFilters}
+            </Button>
           }
-        })}
-      />
+        />
+      ) : null}
+
+      {visible.length > 0 ? (
+        <BookTable
+          caption={facturacion.tabs.invoices}
+          emptyMessage={copy.noResults}
+          columns={[
+            { key: 'date', label: columns.date },
+            { key: 'number', label: columns.number },
+            { key: 'counterparty', label: columns.counterparty },
+            { key: 'total', label: columns.total, align: 'right' },
+            { key: 'status', label: columns.status },
+          ]}
+          rows={visible.map((invoice) => {
+            const href = `${invoicesHref}/${invoice.id}`
+            const isDraft = invoice.status === 'borrador'
+            const rectified = rectificationsOf(invoice, allInvoices).length > 0
+            const overdue = !isDraft && invoice.kind === 'ordinaria' && paymentStatus(invoice, today) === 'vencida'
+            const collectable = !isDraft && invoice.kind === 'ordinaria' && !invoice.paymentDate
+            return {
+              key: invoice.id,
+              href,
+              cells: [
+                <span key="d">
+                  {formatIsoDateEs(invoice.issueDate)}
+                  {overdue ? (
+                    <span className="block text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
+                  ) : collectable ? (
+                    <span className="block text-xs text-muted-foreground">{copy.dueOn(formatIsoDateEs(invoice.dueDate))}</span>
+                  ) : null}
+                </span>,
+                <span key="n">
+                  <InvoiceLink href={href}>{invoice.invoiceNumber || facturacion.document.pendingNumber}</InvoiceLink>
+                  {rectified ? <span className="block text-xs text-muted-foreground">{facturacion.lifecycle.rectified}</span> : null}
+                </span>,
+                <span key="c">
+                  {invoice.counterpartyName || '—'}
+                  {invoice.counterpartyTaxId ? <span className="block text-xs text-muted-foreground">{invoice.counterpartyTaxId}</span> : null}
+                </span>,
+                formatCents(invoice.totalCents),
+                <InvoiceStatusPill key="s" invoice={invoice} today={today} />,
+              ],
+            }
+          })}
+        />
+      ) : null}
     </div>
   )
 }

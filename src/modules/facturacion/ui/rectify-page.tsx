@@ -22,6 +22,7 @@ import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.page.rectify
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
@@ -59,10 +60,12 @@ export function RectifyPage({ invoiceId }: { invoiceId: string }) {
 
   if (!original) {
     return (
-      <div className="flex flex-col items-start gap-4">
-        {back}
-        <p className="text-sm text-muted-foreground">{facturacion.page.detail.notFound}</p>
-      </div>
+      <NotFoundState
+        title={facturacion.page.detail.notFound.title}
+        description={facturacion.page.detail.notFound.description}
+        backHref={invoicesHref}
+        backLabel={facturacion.page.back}
+      />
     )
   }
 

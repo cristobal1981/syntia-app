@@ -98,8 +98,11 @@ export const facturacion = {
     empty: {
       title: 'Todavía no hay facturas en este periodo',
       description: 'Crea tu primera factura para un cliente.',
+      otherPeriods: 'Tienes facturas en otros periodos: cambia el año o el trimestre para verlas.',
     },
     noResults: 'Ninguna factura coincide con la búsqueda.',
+    noResultsHint: 'Prueba con otro nombre, número o estado, o quita los filtros.',
+    clearFilters: 'Quitar filtros',
   },
   editor: {
     newTitle: 'Nueva factura',
@@ -143,6 +146,8 @@ export const facturacion = {
       baseInvalid: 'Introduce un importe mayor que cero.',
       paymentDateInvalid: 'Indica una fecha válida.',
       paymentBeforeIssue: 'No puede ser anterior a la fecha de la factura.',
+      baseTooLarge: 'El importe no puede superar los 9.999.999,99 €.',
+      tooLong: 'Es demasiado largo.',
     },
     deleteTitle: '¿Eliminar la factura?',
     deleteDescription: 'Se borra de este navegador. No se puede deshacer.',
@@ -173,6 +178,7 @@ export const facturacion = {
       markPending: 'Marcar como sin revisar',
       delete: 'Eliminar',
       close: 'Cerrar',
+      undo: 'Deshacer',
     },
     toasts: {
       paid: 'Factura marcada como cobrada.',
@@ -235,6 +241,8 @@ export const facturacion = {
         markReviewed: 'Marcar como revisada',
         markPending: 'Marcar como sin revisar',
       },
+      fixEmitIssues: 'Completar los datos de la factura',
+      fixIssuer: 'Completar mis datos fiscales',
       lockedTitle: 'Factura emitida: no se puede modificar',
       lockedBody:
         'Ya no se puede modificar ni borrar. Si hay un error, se corrige con una corrección (factura rectificativa) que la cita; la original se conserva tal cual.',
@@ -264,7 +272,10 @@ export const facturacion = {
       },
       deleteTitle: '¿Eliminar la factura?',
       deleteBody: 'Se borra de este navegador. No se puede deshacer.',
-      notFound: 'No encontramos esta factura. Puede que se haya eliminado.',
+      notFound: {
+        title: 'No encontramos esta factura',
+        description: 'Puede que se haya eliminado de este navegador. Vuelve a la lista para ver las que tienes.',
+      },
     },
     form: {
       editTitle: 'Editar factura',
@@ -338,13 +349,17 @@ export const facturacion = {
     deleteTitle: '¿Eliminar este cliente?',
     deleteBody: 'Se quita del directorio. Solo es posible si no tiene facturas.',
     inUse: 'No se puede eliminar: tiene facturas.',
-    notFound: 'No encontramos este cliente.',
+    notFound: {
+      title: 'No encontramos este cliente',
+      description: 'Puede que se haya eliminado. Vuelve a la lista para ver los que tienes.',
+    },
     errors: {
       nameRequired: 'El nombre es obligatorio.',
       taxIdInvalid: 'Introduce un NIF, CIF o NIF-IVA válido.',
       postalCodeInvalid: 'Son cinco cifras.',
       emailInvalid: 'Introduce un correo válido.',
       paymentTermInvalid: 'Un número entero de 0 a 365.',
+      tooLong: 'Es demasiado largo.',
     },
     columns: { name: 'Nombre', taxId: 'NIF', city: 'Población', contact: 'Contacto', invoices: 'Facturas', billed: 'Facturado', pending: 'Pendiente' },
     open: 'Ver ficha',

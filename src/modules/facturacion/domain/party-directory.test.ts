@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   canDeleteParty,
+  validateParty,
   emptyParty,
   findSimilarParties,
   partiesFromInvoices,
@@ -64,5 +65,18 @@ describe('directorio de clientes', () => {
     const [directory] = partiesFromInvoices([first])
     expect(canDeleteParty(directory, [draft])).toBe(false)
     expect(canDeleteParty(directory, [])).toBe(true)
+  })
+})
+
+describe('validateParty: límites', () => {
+  const base = { ...emptyParty(), id: 'p', name: 'Acme', taxId: completeCif('B3500000') }
+
+  it('rechaza nombres y domicilios desmesurados', () => {
+    expect(validateParty({ ...base, name: 'N'.repeat(121) }).name).toBe('tooLong')
+    expect(validateParty({ ...base, address: 'D'.repeat(201) }).address).toBe('tooLong')
+  })
+
+  it('admite los máximos exactos y acepta un NIF repetido', () => {
+    expect(validateParty({ ...base, name: 'N'.repeat(120), address: 'D'.repeat(200) })).toEqual({})
   })
 })

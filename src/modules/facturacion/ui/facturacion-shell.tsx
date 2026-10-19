@@ -9,6 +9,8 @@ import { facturacion } from '@/content/facturacion'
 import type { Quarter } from '@/src/modules/facturacion/domain/periods'
 import { resetInvoicing } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { FacturacionProvider, useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
+import { useHydrated } from '@/src/modules/facturacion/ui/use-hydrated'
+import { PortalPageSkeletonBody } from '@/src/modules/portal/ui/skeletons'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 import { TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
 
@@ -95,12 +97,20 @@ function Header() {
 
 /** Marco común de todas las secciones: cabecera, menú, periodo y cifras clave. */
 export function FacturacionShell({ children }: { children: ReactNode }) {
+  const hydrated = useHydrated()
+
   return (
     <FacturacionProvider>
       <div className="flex flex-col gap-6">
         <Header />
-        <PeriodBar />
-        {children}
+        {hydrated ? (
+          <>
+            <PeriodBar />
+            {children}
+          </>
+        ) : (
+          <PortalPageSkeletonBody />
+        )}
       </div>
     </FacturacionProvider>
   )

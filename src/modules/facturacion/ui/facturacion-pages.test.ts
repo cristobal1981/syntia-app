@@ -12,6 +12,9 @@ vi.mock('next/navigation', () => ({
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FacturacionProvider } from '@/src/modules/facturacion/ui/facturacion-provider'
+import { FacturacionShell } from '@/src/modules/facturacion/ui/facturacion-shell'
+import { InvoicesTab } from '@/src/modules/facturacion/ui/invoices-tab'
+import { SAMPLE_INVOICES } from '@/src/modules/facturacion/domain/sample-invoices'
 import {
   EditInvoiceSection,
   EditPartySection,
@@ -165,9 +168,21 @@ describe('ficha de una factura', () => {
     expect(plain).toContain('BORRADOR')
   })
 
-  it('una factura inexistente lo dice y vuelve a la lista', () => {
+  it('una factura inexistente lo dice, explica por qué y ofrece volver a la lista', () => {
     const html = render('/facturacion/facturas/nope', createElement(InvoiceDetailSection, { invoiceId: 'nope' }))
     expect(text(html)).toContain('No encontramos esta factura')
+    expect(text(html)).toContain('Puede que se haya eliminado')
+    expect(html).toContain('href="/facturacion/facturas"')
+    expect(text(html)).toContain('Volver a facturas')
+  })
+
+  it('lo mismo al editar o corregir una factura que no existe', () => {
+    const edit = render('/facturacion/facturas/nope/editar', createElement(EditInvoiceSection, { invoiceId: 'nope' }))
+    const fix = render('/facturacion/facturas/nope/rectificar', createElement(RectifyInvoiceSection, { invoiceId: 'nope' }))
+    for (const html of [edit, fix]) {
+      expect(text(html)).toContain('No encontramos esta factura')
+      expect(html).toContain('href="/facturacion/facturas"')
+    }
   })
 })
 
@@ -249,8 +264,10 @@ describe('clientes', () => {
     expect(html).toContain('/facturacion/facturas/')
   })
 
-  it('un cliente inexistente lo dice', () => {
-    expect(text(render('/facturacion/clientes/zzz', createElement(EditPartySection, { partyId: 'zzz' })))).toContain('No encontramos este cliente')
+  it('un cliente inexistente lo dice y ofrece volver a la lista', () => {
+    const html = render('/facturacion/clientes/zzz', createElement(EditPartySection, { partyId: 'zzz' }))
+    expect(text(html)).toContain('No encontramos este cliente')
+    expect(html).toContain('href="/facturacion/clientes"')
   })
 })
 
@@ -289,5 +306,32 @@ describe('datos fiscales y panel', () => {
     const plain = text(render('/facturacion/panel', createElement(PanelSection)))
     expect(plain).not.toContain('Pendiente de pago')
     expect(plain).not.toContain('Principales proveedores')
+  })
+})
+
+describe('estados vacíos y carga', () => {
+  const tab = (invoices: typeof SAMPLE_INVOICES, all: typeof SAMPLE_INVOICES) =>
+    text(render('/facturacion/facturas', createElement(InvoicesTab, { invoices: [...invoices], allInvoices: [...all], today: '2026-10-16' })))
+
+  it('sin facturas en el periodo pero con facturas en otros, lo dice y apunta a cambiar el periodo', () => {
+    const plain = tab([], SAMPLE_INVOICES)
+    expect(plain).toContain('Todavía no hay facturas en este periodo')
+    expect(plain).toContain('Tienes facturas en otros periodos')
+    expect(plain).toContain('Nueva factura')
+  })
+
+  it('sin ninguna factura no habla de otros periodos', () => {
+    const plain = tab([], [])
+    expect(plain).toContain('Todavía no hay facturas en este periodo')
+    expect(plain).not.toContain('otros periodos')
+  })
+
+  it('hasta que el navegador carga sus datos se ve un esqueleto, no los de ejemplo ni el contenido', () => {
+    nav.pathname = '/facturacion/panel'
+    const html = renderToString(
+      createElement(TooltipProvider, null, createElement(FacturacionShell, null, createElement('p', null, 'CONTENIDO DE LA PANTALLA')))
+    )
+    expect(html).not.toContain('CONTENIDO DE LA PANTALLA')
+    expect(text(html)).toContain('Vista de prueba en tu ordenador')
   })
 })

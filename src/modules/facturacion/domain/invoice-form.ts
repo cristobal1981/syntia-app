@@ -33,6 +33,12 @@ export type InvoiceFormValues = {
   review: InvoiceReviewStatus
 }
 
+/** Límites razonables: evitan importes que desbordan la pantalla y textos que rompen la factura. */
+export const MAX_BASE_CENTS = 999_999_999
+export const MAX_NAME_LENGTH = 120
+export const MAX_ADDRESS_LENGTH = 200
+export const MAX_CONCEPT_LENGTH = 300
+
 export type InvoiceFormErrorKey =
   | 'issueDateInvalid'
   | 'dueDateInvalid'
@@ -40,6 +46,8 @@ export type InvoiceFormErrorKey =
   | 'counterpartyRequired'
   | 'taxIdInvalid'
   | 'baseInvalid'
+  | 'baseTooLarge'
+  | 'tooLong'
   | 'paymentDateInvalid'
   | 'paymentBeforeIssue'
 
@@ -93,11 +101,15 @@ export function validateInvoiceForm(values: InvoiceFormValues): Partial<Record<k
     else if (!errors.issueDate && values.dueDate < values.issueDate) errors.dueDate = 'dueBeforeIssue'
   }
   if (!values.counterpartyName.trim()) errors.counterpartyName = 'counterpartyRequired'
+  else if (values.counterpartyName.trim().length > MAX_NAME_LENGTH) errors.counterpartyName = 'tooLong'
+  if (values.counterpartyAddress.trim().length > MAX_ADDRESS_LENGTH) errors.counterpartyAddress = 'tooLong'
+  if (values.concept.trim().length > MAX_CONCEPT_LENGTH) errors.concept = 'tooLong'
   // En un borrador el NIF puede esperar a la expedición, pero si se escribe debe ser válido.
   if (values.counterpartyTaxId.trim() && !isValidTaxId(values.counterpartyTaxId)) errors.counterpartyTaxId = 'taxIdInvalid'
 
   const base = parseAmountToCents(values.base)
   if (base === null || base <= 0) errors.base = 'baseInvalid'
+  else if (base > MAX_BASE_CENTS) errors.base = 'baseTooLarge'
 
   if (values.paymentDate) {
     if (!isValidIsoDate(values.paymentDate)) {

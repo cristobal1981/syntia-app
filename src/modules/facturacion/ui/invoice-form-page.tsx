@@ -29,6 +29,7 @@ import type { TaxRegime } from '@/src/modules/facturacion/domain/types'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.editor
 const pageCopy = facturacion.page.form
@@ -59,15 +60,12 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
 
   if (props.mode === 'edit' && !existing) {
     return (
-      <div className="flex flex-col items-start gap-4">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={invoicesHref}>
-            <ArrowLeft aria-hidden />
-            {facturacion.page.back}
-          </Link>
-        </Button>
-        <p className="text-sm text-muted-foreground">{facturacion.page.detail.notFound}</p>
-      </div>
+      <NotFoundState
+        title={facturacion.page.detail.notFound.title}
+        description={facturacion.page.detail.notFound.description}
+        backHref={invoicesHref}
+        backLabel={facturacion.page.back}
+      />
     )
   }
 

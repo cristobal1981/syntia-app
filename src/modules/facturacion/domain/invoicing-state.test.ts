@@ -215,6 +215,20 @@ describe('setPaymentDate / setReview — permitidos aunque esté expedida', () =
     expect(result.state.events.at(-1)?.type).toBe('revision')
   })
 
+  it('deshacer: volver a la fecha o a la revisión anteriores deja la factura como estaba', () => {
+    const start = stateWith({ invoices: [{ ...issuedInvoice, paymentDate: null, review: 'pendiente' }] })
+
+    const paid = setPaymentDate(start, 'issued', '2026-10-20', context())
+    const unpaid = setPaymentDate(paid.state, 'issued', null, context())
+    expect(unpaid.ok && unpaid.invoice.paymentDate).toBeNull()
+
+    const reviewed = setReview(start, 'issued', 'revisada', context())
+    const back = setReview(reviewed.state, 'issued', 'pendiente', context())
+    expect(back.ok && back.invoice.review).toBe('pendiente')
+    // Cada paso, hacia delante y hacia atrás, queda en el historial.
+    expect(back.state.events.length).toBe(start.events.length + 2)
+  })
+
   it('una factura inexistente devuelve not_found', () => {
     expect(setPaymentDate(stateWith(), 'nope', null, context())).toMatchObject({ ok: false, error: 'not_found' })
   })

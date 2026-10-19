@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, FilePenLine, HandCoins, Lock, Printer, Stamp, Undo2 } from 'lucide-react'
@@ -23,9 +23,11 @@ import { InvoiceDocument } from '@/src/modules/facturacion/ui/invoice-document'
 import { InvoiceActionsMenu, type InvoiceMenuAction } from '@/src/modules/facturacion/ui/invoice-actions-menu'
 import { InvoiceStatusPill, Pill } from '@/src/modules/facturacion/ui/invoice-badges'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
+import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.page.detail
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
+const settingsHref = sectionHref(SECTIONS.find((section) => section.id === 'settings')!)
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -52,6 +54,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
   const [confirmEmit, setConfirmEmit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [emitIssues, setEmitIssues] = useState<EmissionIssue[]>([])
+  const issuesRef = useRef<HTMLDivElement>(null)
+
+  // Al fallar la emisión, el foco pasa al aviso: quien usa teclado o lector de pantalla se entera.
+  useEffect(() => {
+    if (emitIssues.length > 0) issuesRef.current?.focus()
+  }, [emitIssues])
 
   const invoice = allInvoices.find((candidate) => candidate.id === invoiceId) ?? null
   const original = invoice?.rectifies ? (allInvoices.find((candidate) => candidate.id === invoice.rectifies) ?? null) : null
@@ -60,15 +68,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
 
   if (!invoice) {
     return (
-      <div className="flex flex-col items-start gap-4">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={invoicesHref}>
-            <ArrowLeft aria-hidden />
-            {facturacion.page.back}
-          </Link>
-        </Button>
-        <p className="text-sm text-muted-foreground">{copy.notFound}</p>
-      </div>
+      <NotFoundState
+        title={copy.notFound.title}
+        description={copy.notFound.description}
+        backHref={invoicesHref}
+        backLabel={facturacion.page.back}
+      />
     )
   }
 
@@ -97,15 +102,27 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
   }
 
   const togglePayment = () => {
-    runInvoicingOperation((state, context) =>
-      setPaymentDate(state, invoice.id, invoice.paymentDate ? null : today < invoice.issueDate ? invoice.issueDate : today, context)
-    )
+    const previous = invoice.paymentDate
+    const next = previous ? null : today < invoice.issueDate ? invoice.issueDate : today
+    runInvoicingOperation((state, context) => setPaymentDate(state, invoice.id, next, context))
+    toast.success(previous ? facturacion.detail.toasts.unpaid : facturacion.detail.toasts.paid, {
+      action: {
+        label: facturacion.detail.actions.undo,
+        onClick: () => runInvoicingOperation((state, context) => setPaymentDate(state, invoice.id, previous, context)),
+      },
+    })
   }
 
   const toggleReview = () => {
-    runInvoicingOperation((state, context) =>
-      setReview(state, invoice.id, invoice.review === 'revisada' ? 'pendiente' : 'revisada', context)
-    )
+    const previous = invoice.review
+    const next = previous === 'revisada' ? 'pendiente' : 'revisada'
+    runInvoicingOperation((state, context) => setReview(state, invoice.id, next, context))
+    toast.success(next === 'revisada' ? facturacion.detail.toasts.reviewed : facturacion.detail.toasts.pending, {
+      action: {
+        label: facturacion.detail.actions.undo,
+        onClick: () => runInvoicingOperation((state, context) => setReview(state, invoice.id, previous, context)),
+      },
+    })
   }
 
   const collectable = !isDraft && invoice.kind === 'ordinaria'
@@ -141,8 +158,8 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">{title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="font-sans text-2xl font-semibold text-foreground [overflow-wrap:anywhere] md:text-3xl">{title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
               {invoice.counterpartyName} · {formatIsoDateEs(invoice.issueDate)}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -186,12 +203,29 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
       </div>
 
       {emitIssues.length > 0 ? (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+        <div
+          ref={issuesRef}
+          tabIndex={-1}
+          role="alert"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <ul className="list-disc space-y-0.5 pl-5 text-foreground">
             {emitIssues.map((issue) => (
               <li key={`${issue.code}-${issue.field}`}>{copy.emitIssues[issue.code]}</li>
             ))}
           </ul>
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+            {emitIssues.some((issue) => issue.code === 'issuer_incomplete') ? (
+              <Link href={settingsHref} className="font-medium text-foreground underline underline-offset-4">
+                {copy.fixIssuer}
+              </Link>
+            ) : null}
+            {emitIssues.some((issue) => issue.code !== 'issuer_incomplete') && !locked ? (
+              <Link href={`${invoicesHref}/${invoice.id}/editar`} className="font-medium text-foreground underline underline-offset-4">
+                {copy.fixEmitIssues}
+              </Link>
+            ) : null}
+          </p>
         </div>
       ) : null}
 

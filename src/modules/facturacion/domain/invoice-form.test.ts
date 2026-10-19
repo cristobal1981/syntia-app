@@ -70,6 +70,26 @@ describe('validateInvoiceForm', () => {
   })
 })
 
+describe('límites de entrada', () => {
+  it('el importe máximo se admite y uno más se rechaza', () => {
+    expect(validateInvoiceForm(validForm({ base: '9.999.999,99' })).base).toBeUndefined()
+    expect(validateInvoiceForm(validForm({ base: '10.000.000,00' })).base).toBe('baseTooLarge')
+    expect(validateInvoiceForm(validForm({ base: '999999999999999999' })).base).toBe('baseTooLarge')
+  })
+
+  it('el nombre, el domicilio y el concepto tienen un máximo', () => {
+    expect(validateInvoiceForm(validForm({ counterpartyName: 'A'.repeat(120) })).counterpartyName).toBeUndefined()
+    expect(validateInvoiceForm(validForm({ counterpartyName: 'A'.repeat(121) })).counterpartyName).toBe('tooLong')
+    expect(validateInvoiceForm(validForm({ counterpartyAddress: 'C'.repeat(201) })).counterpartyAddress).toBe('tooLong')
+    expect(validateInvoiceForm(validForm({ concept: 'x'.repeat(300) })).concept).toBeUndefined()
+    expect(validateInvoiceForm(validForm({ concept: 'x'.repeat(301) })).concept).toBe('tooLong')
+  })
+
+  it('emoji y caracteres no latinos no rompen la validación', () => {
+    expect(validateInvoiceForm(validForm({ counterpartyName: '🏨 Hotel 株式会社 مرحبا', concept: 'Diseño 🎨' }))).toEqual({})
+  })
+})
+
 describe('draftFromForm', () => {
   it('calcula cuota, retención y total y normaliza el NIF', () => {
     const draft = draftFromForm(
