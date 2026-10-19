@@ -13,7 +13,6 @@ import { getCategory } from '@/src/modules/facturacion/domain/categories'
 import type { EmissionIssue } from '@/src/modules/facturacion/domain/emission'
 import { canDeleteInvoice, isLocked } from '@/src/modules/facturacion/domain/invoice-rules'
 import { emitDraft, removeInvoice, setPaymentDate, setReview } from '@/src/modules/facturacion/domain/invoicing-state'
-import { buildJournal, entryTotals } from '@/src/modules/facturacion/domain/journal'
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import { daysOverdue, paymentStatus } from '@/src/modules/facturacion/domain/payment-status'
 import { canRectify, netAmountsAfterRectification, rectificationsOf } from '@/src/modules/facturacion/domain/rectification'
@@ -21,7 +20,6 @@ import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { deleteInvoicePdf } from '@/src/modules/facturacion/infrastructure/local-pdf-store'
 import { AttachmentPreview } from '@/src/modules/facturacion/ui/attachment-preview'
-import { BookTable } from '@/src/modules/facturacion/ui/book-table'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { InvoiceDocument } from '@/src/modules/facturacion/ui/invoice-document'
 import { LifecyclePills, PaymentPill, Pill } from '@/src/modules/facturacion/ui/invoice-badges'
@@ -65,7 +63,6 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
   const invoice = allInvoices.find((candidate) => candidate.id === invoiceId) ?? null
   const original = invoice?.rectifies ? (allInvoices.find((candidate) => candidate.id === invoice.rectifies) ?? null) : null
   const rectifications = useMemo(() => (invoice ? rectificationsOf(invoice, allInvoices) : []), [invoice, allInvoices])
-  const entries = useMemo(() => (invoice && invoice.status === 'definitiva' ? buildJournal([invoice]) : []), [invoice])
   const history = events.filter((event) => event.invoiceId === invoiceId).slice().reverse()
 
   if (!invoice) {
@@ -337,43 +334,6 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
               ) : null}
             </dl>
           </Card>
-
-          {entries.length > 0 ? (
-            <Card title={facturacion.detail.sections.accounting} description={facturacion.detail.accountingNote}>
-              <div className="flex flex-col gap-4">
-                {entries.map((entry) => {
-                  const totals = entryTotals(entry)
-                  return (
-                    <div key={entry.kind} className="flex flex-col gap-1.5">
-                      <p className="text-xs text-muted-foreground">
-                        {facturacion.detail.entryKind[entry.kind]} · {formatIsoDateEs(entry.date)}
-                      </p>
-                      <BookTable
-                        caption={`${facturacion.detail.sections.accounting}: ${facturacion.detail.entryKind[entry.kind]}`}
-                        emptyMessage={facturacion.books.empty}
-                        columns={[
-                          { key: 'account', label: facturacion.books.journal.columns.account },
-                          { key: 'name', label: facturacion.books.journal.columns.name },
-                          { key: 'debit', label: facturacion.books.journal.columns.debit, align: 'right' },
-                          { key: 'credit', label: facturacion.books.journal.columns.credit, align: 'right' },
-                        ]}
-                        rows={entry.lines.map((line, index) => ({
-                          key: `${line.account}-${index}`,
-                          cells: [
-                            line.account,
-                            line.accountName,
-                            line.debitCents ? formatCents(line.debitCents) : '',
-                            line.creditCents ? formatCents(line.creditCents) : '',
-                          ],
-                        }))}
-                        footer={['', facturacion.books.totals, formatCents(totals.debitCents), formatCents(totals.creditCents)]}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            </Card>
-          ) : null}
 
           <Card title={facturacion.history.title} description={facturacion.history.description}>
             {history.length === 0 ? (

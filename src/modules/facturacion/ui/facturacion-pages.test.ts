@@ -18,7 +18,6 @@ import {
   EditPartySection,
   InvoiceDetailSection,
   InvoicesSection,
-  JournalSection,
   NewInvoiceSection,
   NewPartySection,
   PanelSection,
@@ -75,7 +74,7 @@ describe('ficha de una factura', () => {
     expect(html).toContain('/rectificar')
     expect(html).not.toContain('/editar')
     expect(plain).not.toContain('Eliminar')
-    expect(plain).toContain('Asiento contable')
+    expect(plain).not.toContain('Asiento contable')
     expect(plain).toContain('Historial')
   })
 
@@ -170,14 +169,21 @@ describe('clientes y proveedores', () => {
     const html = render('/facturacion/clientes-y-proveedores', createElement(PartiesSection))
     expect(text(html)).toContain('Hotel Costa Teguise S.L.')
     expect(text(html)).toContain('Clínica Dental Sonrisa S.L.')
-    expect(html).toContain('href="/facturacion/clientes-y-proveedores/nuevo?tipo=cliente"')
-    expect(html).toContain('href="/facturacion/clientes-y-proveedores/nuevo?tipo=proveedor"')
+    expect(html).toContain('href="/facturacion/clientes-y-proveedores/nuevo"')
     expect(html).toMatch(/href="\/facturacion\/clientes-y-proveedores\/tercero-\d+"/)
   })
 
-  it('nuevo cliente y nuevo proveedor', () => {
-    expect(text(render('/facturacion/clientes-y-proveedores/nuevo', createElement(NewPartySection), 'tipo=cliente'))).toContain('Nuevo cliente')
-    expect(text(render('/facturacion/clientes-y-proveedores/nuevo', createElement(NewPartySection), 'tipo=proveedor'))).toContain('Nuevo proveedor')
+  it('un único directorio: sin tablas separadas de clientes y proveedores', () => {
+    const plain = text(render('/facturacion/clientes-y-proveedores', createElement(PartiesSection)))
+    expect(plain).toContain('Emitido')
+    expect(plain).toContain('Recibido')
+    expect((plain.match(/Hotel Costa Teguise S\.L\./g) ?? []).length).toBe(1)
+  })
+
+  it('el alta es común a cliente y proveedor y no sugiere nada con el formulario vacío', () => {
+    const plain = text(render('/facturacion/clientes-y-proveedores/nuevo', createElement(NewPartySection)))
+    expect(plain).toContain('Nuevo cliente o proveedor')
+    expect(plain).not.toContain('Puede que ya exista')
   })
 
   it('la ficha de un tercero con facturas muestra sus cifras, sus facturas y avisa de que no se puede borrar', () => {
@@ -208,12 +214,6 @@ describe('datos fiscales, panel y libros', () => {
     expect(plain).toContain('1 rectificativa en serie propia')
     expect(plain).toContain('1 borrador pendiente de expedir')
     expect(plain).toContain('No incluye Veri*factu')
-  })
-
-  it('el libro diario no contiene el borrador y sí la rectificativa', () => {
-    const plain = text(render('/facturacion/libro-diario', createElement(JournalSection)))
-    expect(plain).toContain('Factura rectificativa')
-    expect(plain).not.toContain('Diseño de la web corporativa')
   })
 
   it('cobros y pagos se renderiza', () => {

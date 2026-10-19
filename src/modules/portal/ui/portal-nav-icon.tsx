@@ -1,11 +1,7 @@
 import {
   BookOpen,
   Banknote,
-  ChartNoAxesColumn,
   Contact,
-  Landmark,
-  Library,
-  NotebookText,
   BriefcaseBusiness,
   ClipboardList,
   FileText,
@@ -49,12 +45,6 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   invoicing: Receipt,
   cash: Banknote,
   contacts: Contact,
-  books: BookOpen,
-  journal: NotebookText,
-  ledger: Library,
-  report: ChartNoAxesColumn,
-  balance: Scale,
-  tax: Landmark,
 }
 
 type PortalNavIconProps = {

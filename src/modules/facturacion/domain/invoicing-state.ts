@@ -289,7 +289,7 @@ export type SavePartyResult =
  * los datos: cambiar el directorio no altera ninguna factura existente.
  */
 export function saveParty(state: InvoicingState, party: Party, context: OperationContext): SavePartyResult {
-  const errors = validateParty(party, state.parties)
+  const errors = validateParty(party)
   if (Object.keys(errors).length > 0) return { ok: false, errors, state }
 
   const exists = state.parties.some((candidate) => candidate.id === party.id)
@@ -297,7 +297,7 @@ export function saveParty(state: InvoicingState, party: Party, context: Operatio
   return {
     ok: true,
     party,
-    state: withEvent({ ...state, parties }, context, 'modificada', null, `${party.kind === 'cliente' ? 'Cliente' : 'Proveedor'} ${party.name} ${exists ? 'actualizado' : 'creado'}`),
+    state: withEvent({ ...state, parties }, context, 'modificada', null, `Tercero ${party.name} ${exists ? 'actualizado' : 'creado'}`),
   }
 }
 
@@ -317,7 +317,7 @@ export function removeParty(
       context,
       'eliminada',
       null,
-      `${party.kind === 'cliente' ? 'Cliente' : 'Proveedor'} ${party.name} eliminado`
+      `Tercero ${party.name} eliminado`
     ),
   }
 }

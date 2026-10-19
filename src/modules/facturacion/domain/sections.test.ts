@@ -19,22 +19,16 @@ describe('SECTIONS', () => {
     }
   })
 
-  it('cobros y pagos no usa periodo; el resumen fiscal usa el año pero no el trimestre', () => {
+  it('cobros y pagos no usa periodo; las facturas usan año y trimestre', () => {
     const byId = Object.fromEntries(SECTIONS.map((section) => [section.id, section]))
     expect(byId.collections).toMatchObject({ usesPeriod: false, usesQuarter: false })
-    expect(byId.summary).toMatchObject({ usesPeriod: true, usesQuarter: false })
     expect(byId.invoices).toMatchObject({ usesPeriod: true, usesQuarter: true })
-  })
-
-  it('hay secciones en los dos grupos del sidebar', () => {
-    expect(SECTIONS.some((section) => section.navGroup === 'billing')).toBe(true)
-    expect(SECTIONS.some((section) => section.navGroup === 'accounting')).toBe(true)
   })
 })
 
 describe('sectionHref / sectionForPath', () => {
   it('toda sección vive bajo /facturacion/<slug>', () => {
-    expect(sectionHref({ slug: 'libro-diario' })).toBe('/facturacion/libro-diario')
+    expect(sectionHref({ slug: 'facturas' })).toBe('/facturacion/facturas')
   })
 
   it('ida y vuelta: la ruta de cada sección vuelve a esa sección', () => {
@@ -64,7 +58,7 @@ describe('sectionHref / sectionForPath', () => {
   })
 
   it('tolera la barra final y cae al panel con una ruta desconocida', () => {
-    expect(sectionForPath('/facturacion/libro-diario/').id).toBe('journal')
+    expect(sectionForPath('/facturacion/facturas/').id).toBe('invoices')
     expect(sectionForPath('/facturacion/no-existe').id).toBe('panel')
     expect(sectionForPath('/facturacion').id).toBe('panel')
     expect(sectionForPath('/otra-cosa').id).toBe('panel')

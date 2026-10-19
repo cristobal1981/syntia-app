@@ -1,13 +1,11 @@
 'use client'
 
-import { type ReactNode, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { FlaskConical } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { facturacion } from '@/content/facturacion'
-import { buildIncomeExpenseBook } from '@/src/modules/facturacion/domain/books'
-import { formatCents } from '@/src/modules/facturacion/domain/money'
 import type { Quarter } from '@/src/modules/facturacion/domain/periods'
 import { resetInvoicing } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { FacturacionProvider, useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
@@ -17,19 +15,8 @@ import { TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-fi
 const QUARTERS: Quarter[] = [1, 2, 3, 4]
 const copy = facturacion
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="portal-home-card rounded-xl px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-sans text-xl font-semibold tabular-nums text-foreground">{value}</p>
-    </div>
-  )
-}
-
 function PeriodBar() {
-  const { section, nested, year, setYear, years, quarter, setQuarter, periodInvoices } = useFacturacion()
-  const result = useMemo(() => buildIncomeExpenseBook(periodInvoices), [periodInvoices])
-  const pendingReview = periodInvoices.filter((invoice) => invoice.review === 'pendiente').length
+  const { section, nested, year, setYear, years, quarter, setQuarter } = useFacturacion()
 
   if (!section.usesPeriod || nested) return null
 
@@ -60,13 +47,6 @@ function PeriodBar() {
             ))}
           </div>
         ) : null}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label={copy.stats.income} value={formatCents(result.incomeCents)} />
-        <Stat label={copy.stats.expenses} value={formatCents(result.expenseCents)} />
-        <Stat label={copy.stats.result} value={formatCents(result.resultCents)} />
-        <Stat label={copy.stats.pendingReview} value={String(pendingReview)} />
       </div>
     </>
   )

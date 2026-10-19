@@ -6,10 +6,10 @@ import { completeCif } from '@/src/modules/facturacion/domain/tax-id'
 export const SAMPLE_PARTIES: readonly Party[] = [
   ...partiesFromInvoices([...SAMPLE_INVOICES]).map((party) => ({
     ...party,
-    email: party.kind === 'cliente' ? 'administracion@cliente.example' : '',
+    email: 'administracion@tercero.example',
   })),
   {
-    ...emptyParty('cliente'),
+    ...emptyParty(),
     id: 'tercero-extra',
     name: 'Clínica Dental Sonrisa S.L.',
     taxId: completeCif('B3566677'),

@@ -19,12 +19,6 @@ export type NavIconId =
   | 'invoicing'
   | 'cash'
   | 'contacts'
-  | 'books'
-  | 'journal'
-  | 'ledger'
-  | 'report'
-  | 'balance'
-  | 'tax'
 
 export type NavItem = {
   label: string

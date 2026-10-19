@@ -3,11 +3,9 @@ import { DEFAULT_PAYMENT_TERM_DAYS } from '@/src/modules/facturacion/domain/paym
 import { isValidTaxId, normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
 import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
-export type PartyKind = 'cliente' | 'proveedor'
-
+/** Un tercero del directorio común: puede ser cliente, proveedor o ambos según sus facturas. */
 export type Party = {
   id: string
-  kind: PartyKind
   name: string
   taxId: string
   address: string
@@ -24,16 +22,12 @@ export type Party = {
 export type PartyErrorKey =
   | 'nameRequired'
   | 'taxIdInvalid'
-  | 'taxIdDuplicate'
   | 'postalCodeInvalid'
   | 'emailInvalid'
   | 'paymentTermInvalid'
 
-export const KIND_OF_DIRECTION = { emitida: 'cliente', recibida: 'proveedor' } as const
-
-export function emptyParty(kind: PartyKind): Omit<Party, 'id'> {
+export function emptyParty(): Omit<Party, 'id'> {
   return {
-    kind,
     name: '',
     taxId: '',
     address: '',
@@ -47,19 +41,11 @@ export function emptyParty(kind: PartyKind): Omit<Party, 'id'> {
   }
 }
 
-export function validateParty(party: Party, others: Party[]): Partial<Record<keyof Party, PartyErrorKey>> {
+export function validateParty(party: Party): Partial<Record<keyof Party, PartyErrorKey>> {
   const errors: Partial<Record<keyof Party, PartyErrorKey>> = {}
   if (!party.name.trim()) errors.name = 'nameRequired'
 
-  if (!isValidTaxId(party.taxId)) {
-    errors.taxId = 'taxIdInvalid'
-  } else if (
-    others.some(
-      (other) => other.id !== party.id && other.kind === party.kind && normalizeTaxId(other.taxId) === normalizeTaxId(party.taxId)
-    )
-  ) {
-    errors.taxId = 'taxIdDuplicate'
-  }
+  if (!isValidTaxId(party.taxId)) errors.taxId = 'taxIdInvalid'
 
   if (party.postalCode.trim() && !/^\d{5}$/.test(party.postalCode.trim())) errors.postalCode = 'postalCodeInvalid'
   if (party.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(party.email.trim())) errors.email = 'emailInvalid'
@@ -77,13 +63,43 @@ export function formatPartyAddress(party: Pick<Party, 'address' | 'postalCode' |
     .join(', ')
 }
 
-function references(party: Pick<Party, 'kind' | 'taxId'>, invoice: Invoice): boolean {
-  return KIND_OF_DIRECTION[invoice.direction] === party.kind && normalizeTaxId(invoice.counterpartyTaxId) === normalizeTaxId(party.taxId)
+function references(party: Pick<Party, 'taxId'>, invoice: Invoice): boolean {
+  return normalizeTaxId(invoice.counterpartyTaxId) === normalizeTaxId(party.taxId)
+}
+
+function normalizeName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\b(s\.?\s?l\.?u?\.?|s\.?\s?a\.?|s\.?\s?l\.?l\.?|c\.?\s?b\.?)(?=\s|$)/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/**
+ * Terceros que podrían ser el mismo que el que se está dando de alta: mismo NIF o nombre parecido
+ * (sin tildes, mayúsculas ni forma societaria). Es solo una sugerencia: quien da el alta decide.
+ */
+export function findSimilarParties(candidate: Pick<Party, 'id' | 'name' | 'taxId'>, parties: Party[]): Party[] {
+  const taxId = normalizeTaxId(candidate.taxId)
+  const name = normalizeName(candidate.name)
+
+  return parties.filter((other) => {
+    if (other.id === candidate.id) return false
+    if (taxId && normalizeTaxId(other.taxId) === taxId) return true
+    const otherName = normalizeName(other.name)
+    if (name.length < 3 || otherName.length < 3) return false
+    return name === otherName || otherName.includes(name) || name.includes(otherName)
+  })
 }
 
 export type PartyWithStats = Party & {
   invoiceCount: number
-  billedCents: number
+  /** Total de lo que se le ha facturado (facturas emitidas). */
+  issuedCents: number
+  /** Total de lo que ha facturado él (facturas recibidas). */
+  receivedCents: number
   pendingCents: number
 }
 
@@ -91,34 +107,36 @@ export type PartyWithStats = Party & {
 export function partiesWithStats(parties: Party[], invoices: Invoice[]): PartyWithStats[] {
   return parties.map((party) => {
     const own = invoices.filter((invoice) => isAccounted(invoice) && references(party, invoice))
+    const total = (direction: Invoice['direction']) =>
+      own.filter((invoice) => invoice.direction === direction).reduce((sum, invoice) => sum + invoice.totalCents, 0)
     return {
       ...party,
       invoiceCount: own.length,
-      billedCents: own.reduce((total, invoice) => total + invoice.totalCents, 0),
-      pendingCents: own.filter((invoice) => !invoice.paymentDate).reduce((total, invoice) => total + invoice.totalCents, 0),
+      issuedCents: total('emitida'),
+      receivedCents: total('recibida'),
+      pendingCents: own.filter((invoice) => !invoice.paymentDate).reduce((sum, invoice) => sum + invoice.totalCents, 0),
     }
   })
 }
 
 /** Un tercero con facturas (aunque sean borradores) no se borra: las facturas lo citan. */
-export function canDeleteParty(party: Pick<Party, 'kind' | 'taxId'>, invoices: Invoice[]): boolean {
+export function canDeleteParty(party: Pick<Party, 'taxId'>, invoices: Invoice[]): boolean {
   return !invoices.some((invoice) => references(party, invoice))
 }
 
-/** Directorio inicial a partir de las facturas existentes: un tercero por rol y NIF. */
+/** Directorio inicial a partir de las facturas existentes: un tercero por NIF, sea cliente, proveedor o ambos. */
 export function partiesFromInvoices(invoices: Invoice[]): Party[] {
   const seen = new Map<string, Party>()
   const ordered = [...invoices].sort((a, b) => b.issueDate.localeCompare(a.issueDate))
 
   for (const invoice of ordered) {
-    const kind = KIND_OF_DIRECTION[invoice.direction]
-    const key = `${kind}:${normalizeTaxId(invoice.counterpartyTaxId)}`
-    if (seen.has(key) || !invoice.counterpartyTaxId) continue
+    const key = normalizeTaxId(invoice.counterpartyTaxId)
+    if (!key || seen.has(key)) continue
     seen.set(key, {
-      ...emptyParty(kind),
+      ...emptyParty(),
       id: `tercero-${seen.size + 1}`,
       name: invoice.counterpartyName,
-      taxId: normalizeTaxId(invoice.counterpartyTaxId),
+      taxId: key,
       address: invoice.counterpartyAddress,
     })
   }

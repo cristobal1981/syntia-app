@@ -4,15 +4,15 @@ import { buildInvoicingNavItems } from '@/src/modules/facturacion/domain/invoici
 import { SECTIONS, sectionHref } from '@/src/modules/facturacion/domain/sections'
 
 describe('buildInvoicingNavItems', () => {
-  const [billing, accounting] = buildInvoicingNavItems()
+  const [billing, ...rest] = buildInvoicingNavItems()
 
-  it('son dos grupos desplegables, sin enlace propio', () => {
-    expect([billing.label, accounting.label]).toEqual(['Facturación', 'Contabilidad'])
+  it('es un único grupo desplegable «Facturación», sin enlace propio', () => {
+    expect(rest).toHaveLength(0)
+    expect(billing.label).toBe('Facturación')
     expect(billing.href).toBeUndefined()
-    expect(accounting.href).toBeUndefined()
   })
 
-  it('reparte las secciones en su grupo, en orden', () => {
+  it('lista las secciones en orden', () => {
     expect(billing.children?.map((child) => child.label)).toEqual([
       'Panel',
       'Facturas',
@@ -20,25 +20,15 @@ describe('buildInvoicingNavItems', () => {
       'Clientes y proveedores',
       'Datos fiscales',
     ])
-    expect(accounting.children?.map((child) => child.href)).toEqual([
-      '/facturacion/libro-recibidas',
-      '/facturacion/libro-emitidas',
-      '/facturacion/ingresos-y-gastos',
-      '/facturacion/libro-diario',
-      '/facturacion/libro-mayor',
-      '/facturacion/perdidas-y-ganancias',
-      '/facturacion/balance',
-      '/facturacion/resumen-fiscal',
-    ])
   })
 
   it('no se pierde ni se repite ninguna sección', () => {
-    const hrefs = [billing, accounting].flatMap((group) => group.children?.map((child) => child.href) ?? [])
+    const hrefs = billing.children?.map((child) => child.href) ?? []
     expect([...hrefs].sort()).toEqual(SECTIONS.map((section) => sectionHref(section)).sort())
   })
 
   it('ninguna ruta de hijo es prefijo de otra: el sidebar marca una sola activa', () => {
-    const hrefs = [billing, accounting].flatMap((group) => group.children?.map((child) => child.href ?? '') ?? [])
+    const hrefs = billing.children?.map((child) => child.href ?? '') ?? []
     for (const a of hrefs) {
       for (const b of hrefs) {
         if (a !== b) expect(b.startsWith(`${a}/`), `${a} / ${b}`).toBe(false)
@@ -47,8 +37,6 @@ describe('buildInvoicingNavItems', () => {
   })
 
   it('cada hijo lleva icono', () => {
-    for (const child of [billing, accounting].flatMap((group) => group.children ?? [])) {
-      expect(child.icon).toBeTruthy()
-    }
+    for (const child of billing.children ?? []) expect(child.icon).toBeTruthy()
   })
 })

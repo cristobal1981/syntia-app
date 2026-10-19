@@ -14,10 +14,9 @@ import { formatCents } from '@/src/modules/facturacion/domain/money'
 import {
   canDeleteParty,
   emptyParty,
-  KIND_OF_DIRECTION,
+  findSimilarParties,
   partiesWithStats,
   type Party,
-  type PartyKind,
 } from '@/src/modules/facturacion/domain/party-directory'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
@@ -31,7 +30,7 @@ const copy = facturacion.partyPages
 const partiesHref = sectionHref(SECTIONS.find((section) => section.id === 'parties')!)
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
 
-type PartyFormPageProps = { mode: 'new'; kind: PartyKind } | { mode: 'edit'; partyId: string }
+type PartyFormPageProps = { mode: 'new' } | { mode: 'edit'; partyId: string }
 
 export function PartyFormPage(props: PartyFormPageProps) {
   const router = useRouter()
@@ -40,7 +39,7 @@ export function PartyFormPage(props: PartyFormPageProps) {
 
   const existing = props.mode === 'edit' ? (parties.find((party) => party.id === props.partyId) ?? null) : null
   const [values, setValues] = useState<Party>(() =>
-    existing ?? { ...emptyParty(props.mode === 'new' ? props.kind : 'cliente'), id: `tercero-${Date.now().toString(36)}` }
+    existing ?? { ...emptyParty(), id: `tercero-${Date.now().toString(36)}` }
   )
   const [errors, setErrors] = useState<Partial<Record<keyof Party, string>>>({})
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -61,14 +60,11 @@ export function PartyFormPage(props: PartyFormPageProps) {
     )
   }
 
-  const kind = values.kind
   const stats = existing ? partiesWithStats([existing], allInvoices)[0] : null
   const related = existing
-    ? allInvoices.filter(
-        (invoice) =>
-          KIND_OF_DIRECTION[invoice.direction] === existing.kind && normalizeTaxId(invoice.counterpartyTaxId) === normalizeTaxId(existing.taxId)
-      )
+    ? allInvoices.filter((invoice) => normalizeTaxId(invoice.counterpartyTaxId) === normalizeTaxId(existing.taxId))
     : []
+  const similar = existing ? [] : findSimilarParties(values, parties)
   const deletable = existing ? canDeleteParty(existing, allInvoices) : false
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -105,13 +101,14 @@ export function PartyFormPage(props: PartyFormPageProps) {
           </Link>
         </Button>
         <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-          {existing ? values.name || copy.editTitle[kind] : copy.new[kind]}
+          {existing ? values.name || copy.editTitle : copy.new}
         </h1>
         {stats ? (
-          <dl className="grid max-w-xl grid-cols-3 gap-3">
+          <dl className="grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               [copy.stats.invoices, String(stats.invoiceCount)],
-              [copy.stats.billed, formatCents(stats.billedCents)],
+              [copy.stats.issued, formatCents(stats.issuedCents)],
+              [copy.stats.received, formatCents(stats.receivedCents)],
               [copy.stats.pending, formatCents(stats.pendingCents)],
             ].map(([label, value]) => (
               <div key={label} className="portal-home-card rounded-xl px-4 py-3">
@@ -129,6 +126,24 @@ export function PartyFormPage(props: PartyFormPageProps) {
             <legend className="text-sm font-semibold text-foreground">{copy.sections.identity}</legend>
             <TramiteDrawerField id={`${baseId}-name`} name="name" label={copy.fields.name} value={values.name} error={errors.name} required onChange={(name) => patch({ name })} />
             <TramiteDrawerField id={`${baseId}-taxid`} name="taxId" label={copy.fields.taxId} value={values.taxId} error={errors.taxId} required onChange={(taxId) => patch({ taxId })} />
+            {similar.length > 0 ? (
+              <div role="status" className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm dark:border-border/60">
+                <p className="font-medium text-foreground">{copy.similar.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{copy.similar.hint}</p>
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {similar.map((party) => (
+                    <li key={party.id} className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="min-w-0 text-foreground">
+                        {party.name} <span className="text-muted-foreground">· {party.taxId}</span>
+                      </span>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`${partiesHref}/${party.id}`}>{copy.similar.use}</Link>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </fieldset>
           <fieldset className="flex flex-col gap-4 border-0 p-0">
             <legend className="text-sm font-semibold text-foreground">{copy.sections.address}</legend>

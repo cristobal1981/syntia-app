@@ -24,7 +24,7 @@ import { isLocked } from '@/src/modules/facturacion/domain/invoice-rules'
 import { emitDraft, saveInvoice } from '@/src/modules/facturacion/domain/invoicing-state'
 import { formatCents, parseAmountToCents } from '@/src/modules/facturacion/domain/money'
 import { countParsedFields, PARSED_FIELD_KEYS, parseInvoiceText } from '@/src/modules/facturacion/domain/parse-invoice-text'
-import { formatPartyAddress, KIND_OF_DIRECTION } from '@/src/modules/facturacion/domain/party-directory'
+import { formatPartyAddress } from '@/src/modules/facturacion/domain/party-directory'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { DEFAULT_TAX_RATE, taxRatesFor, WITHHOLDING_RATES } from '@/src/modules/facturacion/domain/tax-rates'
 import type { InvoiceDirection, TaxRegime } from '@/src/modules/facturacion/domain/types'
@@ -343,9 +343,7 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
               label={pageCopy.pickParty}
               placeholder={pageCopy.pickPartyPlaceholder}
               value=""
-              options={Object.fromEntries(
-                parties.filter((party) => party.kind === KIND_OF_DIRECTION[direction]).map((party) => [party.id, party.name])
-              )}
+              options={Object.fromEntries(parties.map((party) => [party.id, party.name]))}
               onChange={pickParty}
             />
             <p className="-mt-2 text-xs text-muted-foreground">{pageCopy.pickPartyHint}</p>

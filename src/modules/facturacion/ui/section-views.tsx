@@ -4,8 +4,6 @@ import { useSearchParams } from 'next/navigation'
 
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import type { InvoiceDirection } from '@/src/modules/facturacion/domain/types'
-import type { PartyKind } from '@/src/modules/facturacion/domain/party-directory'
-import { IncomeExpenseTab, JournalTab, LedgerTab, RegistryBookTab } from '@/src/modules/facturacion/ui/books-tabs'
 import { CollectionsTab } from '@/src/modules/facturacion/ui/collections-tab'
 import { DashboardTab } from '@/src/modules/facturacion/ui/dashboard-tab'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
@@ -15,9 +13,7 @@ import { InvoicesTab } from '@/src/modules/facturacion/ui/invoices-tab'
 import { PartiesTab } from '@/src/modules/facturacion/ui/parties-tab'
 import { PartyFormPage } from '@/src/modules/facturacion/ui/party-form-page'
 import { RectifyPage } from '@/src/modules/facturacion/ui/rectify-page'
-import { BalanceSheetTab, ProfitAndLossTab } from '@/src/modules/facturacion/ui/reports-tabs'
 import { SettingsPage } from '@/src/modules/facturacion/ui/settings-page'
-import { TaxSummaryTab } from '@/src/modules/facturacion/ui/tax-summary-tab'
 
 /** Una vista por ruta: cada una toma lo que necesita del estado compartido del layout. */
 
@@ -64,9 +60,7 @@ export function PartiesSection() {
 }
 
 export function NewPartySection() {
-  const tipo = useSearchParams().get('tipo')
-  const kind: PartyKind = tipo === 'proveedor' ? 'proveedor' : 'cliente'
-  return <PartyFormPage key={kind} mode="new" kind={kind} />
+  return <PartyFormPage mode="new" />
 }
 
 export function EditPartySection({ partyId }: { partyId: string }) {
@@ -75,40 +69,4 @@ export function EditPartySection({ partyId }: { partyId: string }) {
 
 export function SettingsSection() {
   return <SettingsPage />
-}
-
-export function ReceivedSection() {
-  const f = useFacturacion()
-  return <RegistryBookTab invoices={f.periodInvoices} direction="recibida" invoiceHref={invoiceHref} />
-}
-
-export function IssuedSection() {
-  const f = useFacturacion()
-  return <RegistryBookTab invoices={f.periodInvoices} direction="emitida" invoiceHref={invoiceHref} />
-}
-
-export function IncomeExpenseSection() {
-  const f = useFacturacion()
-  return <IncomeExpenseTab invoices={f.periodInvoices} invoiceHref={invoiceHref} />
-}
-
-export function JournalSection() {
-  return <JournalTab invoices={useFacturacion().periodInvoices} />
-}
-
-export function LedgerSection() {
-  return <LedgerTab invoices={useFacturacion().periodInvoices} />
-}
-
-export function ProfitLossSection() {
-  return <ProfitAndLossTab invoices={useFacturacion().periodInvoices} />
-}
-
-export function BalanceSection() {
-  return <BalanceSheetTab invoices={useFacturacion().periodInvoices} />
-}
-
-export function SummarySection() {
-  const f = useFacturacion()
-  return <TaxSummaryTab invoices={f.invoices} year={f.year} />
 }

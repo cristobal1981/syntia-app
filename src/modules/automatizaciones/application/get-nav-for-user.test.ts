@@ -197,18 +197,12 @@ describe('getNavForUser — facturación (mock local)', () => {
   })
 
   const facturacionLabels = (items: NavItem[]) =>
-    items.filter((item) => item.label === 'Facturación' || item.label === 'Contabilidad').map((item) => item.label)
+    items.filter((item) => item.label === 'Facturación').map((item) => item.label)
 
-  it('en local el titular ve los grupos Facturación y Contabilidad justo después de Documentos', async () => {
+  it('en local el titular ve el grupo Facturación justo después de Documentos', async () => {
     vi.stubEnv('VERCEL', '')
     const items = await getNavForUser(user({ role: 'client' }))
-    expect(items.map((item) => item.href ?? item.label)).toEqual([
-      '/dashboard',
-      '/documentos',
-      'Facturación',
-      'Contabilidad',
-      '/firmas',
-    ])
+    expect(items.map((item) => item.href ?? item.label)).toEqual(['/dashboard', '/documentos', 'Facturación', '/firmas'])
     expect(items[2].children?.[0].href).toBe('/facturacion/panel')
   })
 
@@ -237,6 +231,6 @@ describe('getNavForUser — facturación (mock local)', () => {
     vi.stubEnv('VERCEL', '')
     getNavForRole.mockReturnValue([{ label: 'Inicio', href: '/dashboard', implemented: true, icon: 'home' }])
     const items = await getNavForUser(user({ role: 'client' }))
-    expect(items.map((item) => item.href ?? item.label)).toEqual(['/dashboard', 'Facturación', 'Contabilidad'])
+    expect(items.map((item) => item.href ?? item.label)).toEqual(['/dashboard', 'Facturación'])
   })
 })

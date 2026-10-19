@@ -16,7 +16,6 @@ import {
   type OperationContext,
 } from '@/src/modules/facturacion/domain/invoicing-state'
 import { EMPTY_ISSUER } from '@/src/modules/facturacion/domain/issuer'
-import { buildJournal, isBalanced } from '@/src/modules/facturacion/domain/journal'
 import { emptyParty } from '@/src/modules/facturacion/domain/party-directory'
 import { accountedInvoices } from '@/src/modules/facturacion/domain/invoice-rules'
 import { makeInvoice } from '@/src/modules/facturacion/domain/test-fixtures'
@@ -152,7 +151,6 @@ describe('rectifyInvoice', () => {
     const invoices = accountedInvoices(result.state.invoices)
     expect(invoices.reduce((total, invoice) => total + invoice.baseCents, 0)).toBe(0)
     expect(invoices.reduce((total, invoice) => total + invoice.totalCents, 0)).toBe(0)
-    for (const entry of buildJournal(invoices)) expect(isBalanced(entry), entry.concept).toBe(true)
   })
 
   it('no permite rectificar dos veces por completo', () => {
@@ -229,7 +227,7 @@ describe('setPaymentDate / setReview — permitidos aunque esté expedida', () =
 })
 
 describe('terceros y emisor', () => {
-  const newParty = { ...emptyParty('cliente'), id: 'p-new', name: 'Cliente Nuevo S.L.', taxId: completeCif('B3500000') }
+  const newParty = { ...emptyParty(), id: 'p-new', name: 'Cliente Nuevo S.L.', taxId: completeCif('B3500000') }
 
   it('crea un tercero válido', () => {
     const state = stateWith({ parties: [] })
@@ -245,10 +243,10 @@ describe('terceros y emisor', () => {
     expect(result.state).toBe(state)
   })
 
-  it('rechaza un NIF repetido en el mismo rol, pero lo admite en el otro', () => {
+  it('admite un tercero con el mismo NIF que otro: la sugerencia de duplicado no obliga', () => {
     const state = stateWith({ parties: [newParty] })
-    expect(saveParty(state, { ...newParty, id: 'otro' }, context()).ok).toBe(false)
-    expect(saveParty(state, { ...newParty, id: 'otro', kind: 'proveedor' }, context()).ok).toBe(true)
+    const result = saveParty(state, { ...newParty, id: 'otro' }, context())
+    expect(result.ok && result.state.parties.map((party) => party.id)).toEqual(['p-new', 'otro'])
   })
 
   it('editar un tercero NO altera las facturas ya expedidas con sus datos', () => {
@@ -318,10 +316,6 @@ describe('datos de ejemplo', () => {
     const drafts = state.invoices.filter((invoice) => invoice.status === 'borrador')
     expect(drafts.length).toBeGreaterThan(0)
     for (const draft of drafts) expect(draft.invoiceNumber).toBe('')
-  })
-
-  it('todos los asientos de las facturas de ejemplo cuadran, rectificativa incluida', () => {
-    for (const entry of buildJournal(state.invoices)) expect(isBalanced(entry), entry.concept).toBe(true)
   })
 
   it('cada tercero de las facturas tiene su ficha en el directorio y un NIF válido', () => {

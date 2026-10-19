@@ -5,24 +5,12 @@ type SectionId =
   | 'invoices'
   | 'collections'
   | 'parties'
-  | 'received'
-  | 'issued'
-  | 'incomeExpense'
-  | 'journal'
-  | 'ledger'
-  | 'profitLoss'
-  | 'balance'
-  | 'summary'
   | 'settings'
-
-/** Grupo del sidebar al que pertenece la sección. */
-export type SectionNavGroup = 'billing' | 'accounting'
 
 export type SectionDefinition = {
   id: SectionId
   /** Segmento de la URL bajo `/facturacion`. */
   slug: string
-  navGroup: SectionNavGroup
   icon: NavIconId
   /** Muestra el selector de año y las cifras del periodo. */
   usesPeriod: boolean
@@ -33,29 +21,19 @@ export type SectionDefinition = {
 const section = (
   id: SectionId,
   slug: string,
-  navGroup: SectionNavGroup,
   icon: NavIconId,
   usesPeriod = true,
   usesQuarter = true
-): SectionDefinition => ({ id, slug, navGroup, icon, usesPeriod, usesQuarter })
+): SectionDefinition => ({ id, slug, icon, usesPeriod, usesQuarter })
 
 export const SECTIONS: readonly SectionDefinition[] = [
-  section('panel', 'panel', 'billing', 'home'),
-  section('invoices', 'facturas', 'billing', 'invoicing'),
+  section('panel', 'panel', 'home'),
+  section('invoices', 'facturas', 'invoicing'),
   // Situación a hoy: no depende del periodo.
-  section('collections', 'cobros-y-pagos', 'billing', 'cash', false, false),
-  section('parties', 'clientes-y-proveedores', 'billing', 'contacts'),
+  section('collections', 'cobros-y-pagos', 'cash', false, false),
+  section('parties', 'clientes-y-proveedores', 'contacts'),
   // Datos fiscales del emisor: ajustes, sin periodo.
-  section('settings', 'configuracion', 'billing', 'settings', false, false),
-  section('received', 'libro-recibidas', 'accounting', 'books'),
-  section('issued', 'libro-emitidas', 'accounting', 'books'),
-  section('incomeExpense', 'ingresos-y-gastos', 'accounting', 'cash'),
-  section('journal', 'libro-diario', 'accounting', 'journal'),
-  section('ledger', 'libro-mayor', 'accounting', 'ledger'),
-  section('profitLoss', 'perdidas-y-ganancias', 'accounting', 'report'),
-  section('balance', 'balance', 'accounting', 'balance'),
-  // Siempre el año entero, trimestre a trimestre.
-  section('summary', 'resumen-fiscal', 'accounting', 'tax', true, false),
+  section('settings', 'configuracion', 'settings', false, false),
 ]
 
 const FACTURACION_PATH = '/facturacion'

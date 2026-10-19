@@ -1,7 +1,7 @@
 export const facturacion = {
   title: 'Facturación',
   description:
-    'Sube tus facturas, revisa los datos que leemos de ellas y consulta tus libros contables.',
+    'Sube tus facturas, revisa los datos que leemos de ellas y controla lo pendiente de cobro y de pago.',
   mockNotice: {
     title: 'Vista de prueba en tu ordenador',
     description:
@@ -14,28 +14,14 @@ export const facturacion = {
     wholeYear: 'Año completo',
     quarter: (quarter: number) => `${quarter}T`,
   },
-  stats: {
-    income: 'Ingresos',
-    expenses: 'Gastos deducibles',
-    result: 'Resultado',
-    pendingReview: 'Pendientes de revisar',
-  },
   nav: {
-    groups: { billing: 'Facturación', accounting: 'Contabilidad' },
+    group: 'Facturación',
   },
   tabs: {
     panel: 'Panel',
     invoices: 'Facturas',
     collections: 'Cobros y pagos',
     parties: 'Clientes y proveedores',
-    received: 'Libro de recibidas',
-    issued: 'Libro de emitidas',
-    incomeExpense: 'Ingresos y gastos',
-    journal: 'Libro diario',
-    ledger: 'Libro mayor',
-    profitLoss: 'Pérdidas y ganancias',
-    balance: 'Balance de situación',
-    summary: 'Resumen fiscal',
     settings: 'Datos fiscales',
   },
   dashboard: {
@@ -108,8 +94,7 @@ export const facturacion = {
     empty: 'Nada pendiente. Todo al día.',
   },
   parties: {
-    clients: { title: 'Clientes', party: 'Cliente' },
-    suppliers: { title: 'Proveedores', party: 'Proveedor' },
+    title: 'Clientes y proveedores',
     columns: {
       taxId: 'NIF',
       invoices: 'Facturas',
@@ -117,31 +102,9 @@ export const facturacion = {
       pending: 'Pendiente',
       last: 'Última factura',
     },
-    description: 'Todo lo facturado con cada tercero en el periodo elegido, y lo que sigue pendiente.',
-    empty: 'Sin movimientos en este periodo.',
-  },
-  reports: {
-    profitLoss: {
-      title: 'Pérdidas y ganancias',
-      description:
-        'Qué has ingresado, qué has gastado y cuánto queda. Gastos contables completos: aquí no se aplica la deducibilidad fiscal.',
-      income: 'Ingresos',
-      expenses: 'Gastos',
-      result: 'Resultado antes de impuestos',
-      columns: { account: 'Cuenta', name: 'Concepto', amount: 'Importe' },
-    },
-    balance: {
-      title: 'Balance de situación',
-      description:
-        'Lo que tienes y lo que debes en el periodo elegido, a partir de tus asientos. Sin saldos iniciales: parte de cero al empezar el periodo.',
-      assets: 'Activo',
-      liabilities: 'Pasivo',
-      equity: 'Patrimonio neto',
-      resultLine: 'Resultado del periodo',
-      totalAssets: 'Total activo',
-      totalLiabilities: 'Total pasivo y patrimonio neto',
-      columns: { account: 'Cuenta', name: 'Concepto', amount: 'Importe' },
-    },
+    description:
+      'Un único directorio: la misma persona o empresa puede ser cliente y proveedor. Al dar de alta uno nuevo te sugerimos los que ya existen para no duplicarlos.',
+    empty: 'Todavía no hay terceros.',
   },
   invoices: {
     searchPlaceholder: 'Buscar por proveedor, cliente, número o concepto',
@@ -250,99 +213,9 @@ export const facturacion = {
     deleteTitle: '¿Eliminar la factura?',
     deleteDescription: 'Se borra de este navegador, también su PDF. No se puede deshacer.',
   },
-  books: {
-    empty: 'No hay datos en este periodo.',
-    totals: 'Totales',
-    registry: {
-      received: {
-        title: 'Libro registro de facturas recibidas',
-        description:
-          'Todas las facturas de tus compras y gastos, en orden de fecha. Es el libro del que sale el IGIC o IVA soportado.',
-      },
-      issued: {
-        title: 'Libro registro de facturas emitidas',
-        description:
-          'Todas las facturas que has emitido, en orden de fecha. Es el libro del que sale el IGIC o IVA repercutido.',
-      },
-      columns: {
-        order: 'Nº',
-        date: 'Fecha',
-        number: 'Factura',
-        counterparty: 'Tercero',
-        taxId: 'NIF',
-        base: 'Base',
-        rate: 'Tipo',
-        tax: 'Cuota',
-        withholding: 'Retención',
-        total: 'Total',
-      },
-    },
-    incomeExpense: {
-      title: 'Libro de ingresos y gastos',
-      description:
-        'Es el libro de la estimación directa simplificada del IRPF: ingresos por la base de las facturas emitidas y gastos por la parte deducible de las recibidas. El IGIC o IVA no cuenta, se liquida aparte.',
-      columns: {
-        date: 'Fecha',
-        number: 'Factura',
-        counterparty: 'Tercero',
-        category: 'Categoría',
-        income: 'Ingreso',
-        expense: 'Gasto',
-        running: 'Resultado acumulado',
-      },
-      byCategory: 'Gasto deducible por categoría',
-      all: 'Todo',
-      onlyIncome: 'Ingresos',
-      onlyExpenses: 'Gastos',
-    },
-    journal: {
-      title: 'Libro diario',
-      description:
-        'Cada factura genera su asiento con las cuentas del Plan General Contable, y cada pago o cobro, el suyo contra bancos. Los asientos se generan solos a partir de las facturas.',
-      entry: (number: number) => `Asiento ${number}`,
-      columns: { account: 'Cuenta', name: 'Nombre', debit: 'Debe', credit: 'Haber' },
-      balanced: 'Cuadrado',
-    },
-    ledger: {
-      title: 'Libro mayor',
-      description:
-        'Los mismos apuntes del diario agrupados por cuenta, con su saldo acumulado. Abajo, el balance de sumas y saldos.',
-      columns: { date: 'Fecha', entry: 'Asiento', concept: 'Concepto', debit: 'Debe', credit: 'Haber', balance: 'Saldo' },
-      trialBalance: 'Balance de sumas y saldos',
-      trialColumns: { account: 'Cuenta', name: 'Nombre', debit: 'Suma debe', credit: 'Suma haber', debtor: 'Saldo deudor', creditor: 'Saldo acreedor' },
-    },
-    summary: {
-      title: 'Resumen fiscal',
-      description:
-        'Cifras orientativas calculadas con tus facturas, trimestre a trimestre. No sustituyen a la liquidación de tu asesoría.',
-      disclaimer: 'Orientativo: no tiene en cuenta prorratas, compensaciones de periodos anteriores ni otros ajustes.',
-      columns: {
-        quarter: 'Trimestre',
-        income: 'Ingresos',
-        expenses: 'Gastos',
-        net: 'Rendimiento neto',
-        fractional: 'Pago fraccionado (130)',
-      },
-      indirect: {
-        title: (model: string, regime: string) => `${regime} del trimestre (modelo ${model})`,
-        charged: 'Repercutido',
-        deductible: 'Soportado',
-        result: 'Resultado',
-        toPay: 'A ingresar',
-        toCompensate: 'A compensar',
-      },
-      withholdings: {
-        title: 'Retenciones',
-        suffered: 'Que te han practicado (se descuentan en el 130)',
-        applied: 'Que has practicado a proveedores (modelos 111 y 115)',
-      },
-      fractionalNote:
-        'Pago fraccionado: 20 % del rendimiento neto acumulado del año, menos retenciones soportadas y pagos de trimestres anteriores.',
-    },
-  },
   detail: {
     title: (number: string) => `Factura ${number}`,
-    sections: { data: 'Datos de la factura', amounts: 'Importes', accounting: 'Asiento contable', document: 'Documento' },
+    sections: { data: 'Datos de la factura', amounts: 'Importes', document: 'Documento' },
     fields: {
       counterparty: { recibida: 'Proveedor', emitida: 'Cliente' },
       taxId: 'NIF / CIF',
@@ -358,8 +231,6 @@ export const facturacion = {
       deductible: 'Parte deducible',
       none: '—',
     },
-    accountingNote: 'Se genera sola a partir de los datos de la factura.',
-    entryKind: { registro: 'Registro', pago: 'Pago o cobro' },
     document: { attached: 'PDF adjunto', none: 'Esta factura no tiene PDF adjunto.' },
     actions: {
       edit: 'Editar',
@@ -509,10 +380,15 @@ export const facturacion = {
     },
   },
   partyPages: {
-    new: { cliente: 'Nuevo cliente', proveedor: 'Nuevo proveedor' },
-    editTitle: { cliente: 'Editar cliente', proveedor: 'Editar proveedor' },
+    new: 'Nuevo cliente o proveedor',
+    editTitle: 'Editar cliente o proveedor',
     back: 'Volver a clientes y proveedores',
-    newButtons: { cliente: 'Nuevo cliente', proveedor: 'Nuevo proveedor' },
+    newButton: 'Nuevo cliente o proveedor',
+    similar: {
+      title: 'Puede que ya exista',
+      hint: 'Mismo NIF o un nombre parecido. Si es el mismo, ábrelo en vez de crear otro; si no, sigue y guarda.',
+      use: 'Abrir este',
+    },
     sections: { identity: 'Identificación', address: 'Domicilio', contact: 'Contacto', billing: 'Facturación' },
     fields: {
       name: 'Nombre o razón social',
@@ -528,7 +404,7 @@ export const facturacion = {
     },
     snapshotNote:
       'Los cambios no afectan a las facturas ya expedidas: cada factura conserva los datos del tercero tal como estaban al emitirla.',
-    stats: { invoices: 'Facturas', billed: 'Facturado', pending: 'Pendiente' },
+    stats: { invoices: 'Facturas', issued: 'Emitido', received: 'Recibido', pending: 'Pendiente' },
     invoicesTitle: 'Facturas de este tercero',
     noInvoices: 'Todavía no hay facturas con este tercero.',
     save: 'Guardar',
@@ -542,12 +418,11 @@ export const facturacion = {
     errors: {
       nameRequired: 'El nombre es obligatorio.',
       taxIdInvalid: 'Introduce un NIF, CIF o NIF-IVA válido.',
-      taxIdDuplicate: 'Ya existe un tercero con este NIF.',
       postalCodeInvalid: 'Son cinco cifras.',
       emailInvalid: 'Introduce un correo válido.',
       paymentTermInvalid: 'Un número entero de 0 a 365.',
     },
-    columns: { name: 'Nombre', taxId: 'NIF', city: 'Población', contact: 'Contacto', invoices: 'Facturas', billed: 'Facturado', pending: 'Pendiente' },
+    columns: { name: 'Nombre', taxId: 'NIF', city: 'Población', contact: 'Contacto', invoices: 'Facturas', issued: 'Emitido', received: 'Recibido', pending: 'Pendiente' },
     open: 'Ver ficha',
   },
   settings: {

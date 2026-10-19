@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { deductibleExpenseCents } from '@/src/modules/facturacion/domain/compute-invoice'
 import {
   buildMonthlySeries,
   niceCeilCents,
@@ -8,7 +9,6 @@ import {
 } from '@/src/modules/facturacion/domain/dashboard'
 import { accountedInvoices } from '@/src/modules/facturacion/domain/invoice-rules'
 import { SAMPLE_INVOICES } from '@/src/modules/facturacion/domain/sample-invoices'
-import { buildIncomeExpenseBook } from '@/src/modules/facturacion/domain/books'
 
 const invoices = [...SAMPLE_INVOICES]
 const accounted = accountedInvoices(invoices)
@@ -21,10 +21,12 @@ describe('buildMonthlySeries', () => {
     expect(series.map((point) => point.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   })
 
-  it('la suma de los meses coincide con el libro de ingresos y gastos del año', () => {
-    const book = buildIncomeExpenseBook(invoices)
-    expect(series.reduce((t, p) => t + p.incomeCents, 0)).toBe(book.incomeCents)
-    expect(series.reduce((t, p) => t + p.expenseCents, 0)).toBe(book.expenseCents)
+  it('la suma de los meses coincide con la base emitida y el gasto deducible recibido del año', () => {
+    const year = accounted.filter((i) => i.issueDate.startsWith('2026'))
+    const income = year.filter((i) => i.direction === 'emitida').reduce((t, i) => t + i.baseCents, 0)
+    const expense = year.filter((i) => i.direction === 'recibida').reduce((t, i) => t + deductibleExpenseCents(i), 0)
+    expect(series.reduce((t, p) => t + p.incomeCents, 0)).toBe(income)
+    expect(series.reduce((t, p) => t + p.expenseCents, 0)).toBe(expense)
   })
 
   it('coloca cada factura en el mes de su fecha', () => {
