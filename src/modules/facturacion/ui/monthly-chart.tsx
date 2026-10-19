@@ -21,15 +21,6 @@ function axisLabel(cents: number): string {
 const INCOME_BAR = 'bg-[#12a090]'
 const PLOT_HEIGHT = 176
 
-function LegendKey({ barClass, label }: { barClass: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-      <span className={`h-[3px] w-4 rounded-full ${barClass}`} aria-hidden />
-      {label}
-    </span>
-  )
-}
-
 export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
   const [asTable, setAsTable] = useState(false)
   const [active, setActive] = useState<number | null>(null)
@@ -41,7 +32,7 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
   const activePoint = active === null ? null : series[active]
 
   return (
-    <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={copy.title}>
+    <section className="portal-home-card rounded-xl p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-sans text-base font-semibold text-foreground">{copy.title}</h2>
@@ -69,10 +60,6 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
         </div>
       ) : (
         <>
-          <div className="mt-3 flex gap-4">
-            <LegendKey barClass={INCOME_BAR} label={copy.income} />
-          </div>
-
           {!hasData ? <p className="mt-6 text-sm text-muted-foreground">{copy.empty}</p> : null}
 
           <div className="relative mt-4 flex gap-2" style={{ height: PLOT_HEIGHT + 24 }}>

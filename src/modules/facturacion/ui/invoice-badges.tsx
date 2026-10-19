@@ -25,7 +25,7 @@ export function Pill({
   )
 }
 
-export function PaymentPill({ invoice, today }: { invoice: Invoice; today: string }) {
+function PaymentPill({ invoice, today }: { invoice: Invoice; today: string }) {
   const status = paymentStatus(invoice, today)
   return <Pill tone={PILL_TONE[status]}>{facturacion.invoices.status[status]}</Pill>
 }

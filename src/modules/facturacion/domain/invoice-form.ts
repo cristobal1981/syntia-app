@@ -34,10 +34,10 @@ export type InvoiceFormValues = {
 }
 
 /** Límites razonables: evitan importes que desbordan la pantalla y textos que rompen la factura. */
-export const MAX_BASE_CENTS = 999_999_999
-export const MAX_NAME_LENGTH = 120
-export const MAX_ADDRESS_LENGTH = 200
-export const MAX_CONCEPT_LENGTH = 300
+const MAX_BASE_CENTS = 999_999_999
+const MAX_NAME_LENGTH = 120
+const MAX_ADDRESS_LENGTH = 200
+const MAX_CONCEPT_LENGTH = 300
 
 export type InvoiceFormErrorKey =
   | 'issueDateInvalid'

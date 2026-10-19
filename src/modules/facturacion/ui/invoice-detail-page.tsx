@@ -26,6 +26,8 @@ import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dial
 import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.page.detail
+const longDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeStyle: 'short' })
+const mediumDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
 const settingsHref = sectionHref(SECTIONS.find((section) => section.id === 'settings')!)
 
@@ -40,7 +42,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Card({ title, children, description }: { title: string; children: React.ReactNode; description?: string }) {
   return (
-    <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={title}>
+    <section className="portal-home-card rounded-xl p-4 sm:p-5">
       <h2 className="font-sans text-base font-semibold text-foreground">{title}</h2>
       {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
       <div className="mt-3">{children}</div>
@@ -281,7 +283,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
               {!isDraft ? <Field label={facturacion.detail.fields.review}>{facturacion.invoices.review[invoice.review]}</Field> : null}
               {invoice.issuedAt ? (
                 <Field label={copy.issuedAt}>
-                  {new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(invoice.issuedAt))}
+                  {longDateTime.format(new Date(invoice.issuedAt))}
                 </Field>
               ) : null}
               <div className="sm:col-span-2">
@@ -336,7 +338,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                   <li key={event.id} className="text-sm">
                     <p className="text-foreground">{event.summary}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.at))}
+                      {mediumDateTime.format(new Date(event.at))}
                     </p>
                   </li>
                 ))}

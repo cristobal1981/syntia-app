@@ -15,5 +15,3 @@ export function taxRatesFor(regime: TaxRegime): readonly number[] {
   return regime === 'igic' ? IGIC_RATES : IVA_RATES
 }
 
-/** Modelo trimestral en el que se declara cada impuesto. */
-export const QUARTERLY_TAX_MODEL: Record<TaxRegime, string> = { igic: '420', iva: '303' }

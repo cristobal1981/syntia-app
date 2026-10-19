@@ -90,12 +90,3 @@ export function BookTable({ caption, columns, rows, footer, emptyMessage }: Book
     </div>
   )
 }
-
-export function BookHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <div>
-      <h2 className="font-sans text-lg font-semibold text-foreground">{title}</h2>
-      <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{description}</p>
-    </div>
-  )
-}
