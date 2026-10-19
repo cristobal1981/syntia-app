@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FacturacionProvider } from '@/src/modules/facturacion/ui/facturacion-provider'
-import { FacturacionShell } from '@/src/modules/facturacion/ui/facturacion-shell'
+import { FacturacionShell, PeriodBar } from '@/src/modules/facturacion/ui/facturacion-shell'
 import { InvoicesTab } from '@/src/modules/facturacion/ui/invoices-tab'
 import { SAMPLE_INVOICES } from '@/src/modules/facturacion/domain/sample-invoices'
 import {
@@ -333,5 +333,31 @@ describe('estados vacíos y carga', () => {
     )
     expect(html).not.toContain('CONTENIDO DE LA PANTALLA')
     expect(text(html)).toContain('Vista de prueba en tu ordenador')
+  })
+})
+
+describe('filtro de periodo fijo', () => {
+  const bar = (path: string) => render(path, createElement(PeriodBar))
+
+  it('Panel y Facturas comparten el mismo filtro, fijo arriba al desplazarse', () => {
+    for (const path of ['/facturacion/panel', '/facturacion/facturas']) {
+      const html = bar(path)
+      expect(html, path).toContain('sticky top-0')
+      expect(html, path).toContain('aria-label="Periodo"')
+      expect(text(html), path).toContain('Año completo')
+      expect(text(html), path).toContain('4T')
+    }
+  })
+
+  it('Clientes y Datos fiscales no tienen filtro de periodo', () => {
+    for (const path of ['/facturacion/clientes', '/facturacion/configuracion']) {
+      expect(bar(path), path).toBe('')
+    }
+  })
+
+  it('las pantallas de detalle, edición y alta tampoco', () => {
+    for (const path of ['/facturacion/facturas/ejemplo-01', '/facturacion/facturas/nueva', '/facturacion/clientes/nuevo']) {
+      expect(bar(path), path).toBe('')
+    }
   })
 })

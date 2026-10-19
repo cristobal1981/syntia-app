@@ -5,6 +5,7 @@ import { FlaskConical } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { facturacion } from '@/content/facturacion'
 import type { Quarter } from '@/src/modules/facturacion/domain/periods'
 import { resetInvoicing } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
@@ -12,45 +13,51 @@ import { FacturacionProvider, useFacturacion } from '@/src/modules/facturacion/u
 import { useHydrated } from '@/src/modules/facturacion/ui/use-hydrated'
 import { PortalPageSkeletonBody } from '@/src/modules/portal/ui/skeletons'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
-import { TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
 
 const QUARTERS: Quarter[] = [1, 2, 3, 4]
 const copy = facturacion
 
-function PeriodBar() {
+/**
+ * Filtro de periodo (año y trimestre) de las vistas con cifras por periodo (Panel y Facturas). Queda fijo
+ * arriba al desplazarse, a todo el ancho de la zona de contenido, para no perderlo en listas largas.
+ */
+export function PeriodBar() {
   const { section, nested, year, setYear, years, quarter, setQuarter } = useFacturacion()
 
   if (!section.usesPeriod || nested) return null
 
   return (
-    <>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-32">
-          <TramiteDrawerSelect
-            id="facturacion-year"
-            name="year"
-            label={copy.period.year}
-            placeholder=""
-            value={String(year)}
-            options={Object.fromEntries(years.map((value) => [String(value), String(value)]))}
-            onChange={(value) => setYear(Number(value))}
-          />
-        </div>
-        {section.usesQuarter ? (
-          <div className="flex flex-wrap gap-2">
-            <PortalFilterChip label={copy.period.wholeYear} active={quarter === null} onClick={() => setQuarter(null)} />
-            {QUARTERS.map((value) => (
-              <PortalFilterChip
-                key={value}
-                label={copy.period.quarter(value)}
-                active={quarter === value}
-                onClick={() => setQuarter(value)}
-              />
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </>
+    <div
+      role="group"
+      aria-label={copy.period.label}
+      className="sticky top-0 z-20 -mx-4 flex items-center gap-2 overflow-x-auto border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur sm:-mx-10 sm:px-10 dark:border-border/60"
+    >
+      <Select value={String(year)} onValueChange={(value) => setYear(Number(value))}>
+        <SelectTrigger aria-label={copy.period.year} className="h-9 w-28 shrink-0 rounded-md border border-border bg-field px-3 text-sm shadow-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((value) => (
+            <SelectItem key={value} value={String(value)}>
+              {value}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {section.usesQuarter ? (
+        <>
+          <PortalFilterChip label={copy.period.wholeYear} active={quarter === null} onClick={() => setQuarter(null)} />
+          {QUARTERS.map((value) => (
+            <PortalFilterChip
+              key={value}
+              label={copy.period.quarter(value)}
+              active={quarter === value}
+              onClick={() => setQuarter(value)}
+            />
+          ))}
+        </>
+      ) : null}
+    </div>
   )
 }
 

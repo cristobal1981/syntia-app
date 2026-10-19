@@ -28,7 +28,8 @@ const section = (
 export const SECTIONS: readonly SectionDefinition[] = [
   section('panel', 'panel', 'home'),
   section('invoices', 'facturas', 'invoicing'),
-  section('parties', 'clientes', 'contacts'),
+  // El directorio de clientes no depende del periodo: lo facturado y lo pendiente son de siempre.
+  section('parties', 'clientes', 'contacts', false, false),
   // Datos fiscales del emisor: ajustes, sin periodo.
   section('settings', 'configuracion', 'settings', false, false),
 ]

@@ -10,6 +10,7 @@ export const facturacion = {
     resetDone: 'Datos de ejemplo restaurados.',
   },
   period: {
+    label: 'Periodo',
     year: 'Año',
     wholeYear: 'Año completo',
     quarter: (quarter: number) => `${quarter}T`,
