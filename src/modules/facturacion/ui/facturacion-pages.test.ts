@@ -364,6 +364,9 @@ describe('filtro de periodo fijo', () => {
     for (const path of ['/facturacion/panel', '/facturacion/facturas']) {
       const html = bar(path)
       expect(html, path).toContain('md:sticky md:-top-10')
+      // Desde lg queda por debajo de la esquina cóncava del topbar, sin cubrirla.
+      expect(html, path).toContain('lg:top-[calc(var(--radius-xl)-2.5rem)]')
+      expect(html, path).toContain('lg:before:left-[var(--radius-xl)]')
       expect(html, path).toContain('aria-label="Periodo"')
       expect(text(html), path).toContain('Año completo')
       expect(text(html), path).toContain('4T')

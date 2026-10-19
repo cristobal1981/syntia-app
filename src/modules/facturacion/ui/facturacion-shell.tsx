@@ -44,6 +44,7 @@ const TRIGGER_CLASS = 'h-11 rounded-md border border-border bg-field px-3 text-b
  * En móvil es una fila normal (dos selectores y un «+», sin ocupar pantalla al desplazarse); desde `md`
  * se fija arriba con los trimestres como chips y el botón con texto. El contenedor que se desplaza tiene
  * relleno (`p-10`) y un elemento fijo se pega al borde del relleno, no al borde exterior: `-top-10` lo compensa.
+ * Desde lg, además, queda por debajo de la esquina redondeada invertida del topbar.
  */
 export function PeriodBar() {
   const { section, nested, year, setYear, years, quarter, setQuarter } = useFacturacion()
@@ -74,6 +75,9 @@ export function PeriodBar() {
         aria-label={copy.period.label}
         className={cn(
           'flex items-center gap-2 md:sticky md:-top-10 md:z-20 md:-mx-10 md:gap-3 md:bg-background/95 md:px-10 md:py-2.5 md:backdrop-blur md:transition-shadow',
+          // Desde lg el topbar dibuja una esquina cóncava de `--radius-xl` sobre el contenido: la barra se pega justo
+          // debajo de ella y una franja con su mismo fondo (que no cubre la esquina) tapa el hueco de encima.
+          'lg:top-[calc(var(--radius-xl)-2.5rem)] lg:before:absolute lg:before:bottom-full lg:before:left-[var(--radius-xl)] lg:before:right-0 lg:before:h-[var(--radius-xl)] lg:before:bg-background/95',
           stuck && 'md:shadow-[0_1px_0_0_var(--border)]'
         )}
       >
