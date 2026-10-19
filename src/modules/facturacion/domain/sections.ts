@@ -3,7 +3,6 @@ import type { NavIconId } from '@/src/modules/portal/domain/types'
 type SectionId =
   | 'panel'
   | 'invoices'
-  | 'collections'
   | 'parties'
   | 'settings'
 
@@ -29,9 +28,7 @@ const section = (
 export const SECTIONS: readonly SectionDefinition[] = [
   section('panel', 'panel', 'home'),
   section('invoices', 'facturas', 'invoicing'),
-  // Situación a hoy: no depende del periodo.
-  section('collections', 'cobros-y-pagos', 'cash', false, false),
-  section('parties', 'clientes-y-proveedores', 'contacts'),
+  section('parties', 'clientes', 'contacts'),
   // Datos fiscales del emisor: ajustes, sin periodo.
   section('settings', 'configuracion', 'settings', false, false),
 ]

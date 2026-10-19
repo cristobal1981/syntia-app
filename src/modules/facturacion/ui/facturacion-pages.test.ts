@@ -13,7 +13,6 @@ vi.mock('next/navigation', () => ({
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FacturacionProvider } from '@/src/modules/facturacion/ui/facturacion-provider'
 import {
-  CollectionsSection,
   EditInvoiceSection,
   EditPartySection,
   InvoiceDetailSection,
@@ -55,10 +54,16 @@ describe('lista de facturas', () => {
     expect(plain).toContain('Borrador')
   })
 
-  it('ofrece crear emitida, crear recibida y subir un documento', () => {
-    expect(html).toContain('href="/facturacion/facturas/nueva?tipo=emitida"')
-    expect(html).toContain('href="/facturacion/facturas/nueva?tipo=recibida"')
-    expect(text(html)).toContain('Subir factura recibida')
+  it('ofrece crear una factura y nada de recibidas ni subir documentos', () => {
+    expect(html).toContain('href="/facturacion/facturas/nueva"')
+    expect(html).not.toContain('tipo=recibida')
+    expect(text(html)).not.toContain('Subir factura')
+    expect(text(html)).not.toContain('Recibidas')
+  })
+
+  it('solo hay facturas emitidas: ninguna recibida de ejemplo', () => {
+    expect(html).not.toContain('Endesa')
+    expect(html).not.toContain('Vodafone')
   })
 })
 
@@ -103,13 +108,6 @@ describe('ficha de una factura', () => {
     expect(plain).toContain('BORRADOR')
   })
 
-  it('recibida: se puede editar y eliminar, y sin documento adjunto lo dice', () => {
-    const html = render('/facturacion/facturas/ejemplo-08', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-08' }))
-    expect(html).toContain('/editar')
-    expect(text(html)).toContain('Eliminar')
-    expect(text(html)).toContain('no tiene documento adjunto')
-  })
-
   it('una factura inexistente lo dice y vuelve a la lista', () => {
     const html = render('/facturacion/facturas/nope', createElement(InvoiceDetailSection, { invoiceId: 'nope' }))
     expect(text(html)).toContain('No encontramos esta factura')
@@ -117,21 +115,20 @@ describe('ficha de una factura', () => {
 })
 
 describe('formularios de factura', () => {
-  it('nueva emitida: sin número (lo asigna la expedición), con "Guardar y expedir"', () => {
-    const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection), 'tipo=emitida'))
-    expect(plain).toContain('Nueva factura emitida')
+  it('nueva factura: sin número (lo asigna la expedición), con "Guardar y expedir"', () => {
+    const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))
+    expect(plain).toContain('Nueva factura')
     expect(plain).toContain('los asigna la aplicación al expedir')
     expect(plain).toContain('Guardar borrador')
     expect(plain).toContain('Guardar y expedir')
     expect(plain).not.toContain('Número de factura')
   })
 
-  it('nueva recibida: pide el número y no ofrece expedir', () => {
-    const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection), 'tipo=recibida'))
-    expect(plain).toContain('Nueva factura recibida')
-    expect(plain).toContain('Número de factura')
-    expect(plain).toContain('Guardar factura')
-    expect(plain).not.toContain('Guardar y expedir')
+  it('el formulario no pide tipo, proveedor, parte deducible ni documento adjunto', () => {
+    const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))
+    expect(plain).not.toContain('Proveedor')
+    expect(plain).not.toContain('Parte deducible')
+    expect(plain).not.toContain('Documento adjunto')
   })
 
   it('editar una expedida no muestra el formulario: avisa de que es inalterable', () => {
@@ -164,42 +161,43 @@ describe('rectificar', () => {
   })
 })
 
-describe('clientes y proveedores', () => {
-  it('el directorio lista los terceros con enlace a su ficha y botones para crear', () => {
-    const html = render('/facturacion/clientes-y-proveedores', createElement(PartiesSection))
+describe('clientes', () => {
+  it('el directorio lista los clientes con enlace a su ficha y botones para crear', () => {
+    const html = render('/facturacion/clientes', createElement(PartiesSection))
     expect(text(html)).toContain('Hotel Costa Teguise S.L.')
     expect(text(html)).toContain('Clínica Dental Sonrisa S.L.')
-    expect(html).toContain('href="/facturacion/clientes-y-proveedores/nuevo"')
-    expect(html).toMatch(/href="\/facturacion\/clientes-y-proveedores\/tercero-\d+"/)
+    expect(html).toContain('href="/facturacion/clientes/nuevo"')
+    expect(html).toMatch(/href="\/facturacion\/clientes\/tercero-\d+"/)
   })
 
-  it('un único directorio: sin tablas separadas de clientes y proveedores', () => {
-    const plain = text(render('/facturacion/clientes-y-proveedores', createElement(PartiesSection)))
-    expect(plain).toContain('Emitido')
-    expect(plain).toContain('Recibido')
+  it('un único directorio de clientes, sin proveedores ni columnas de recibido', () => {
+    const plain = text(render('/facturacion/clientes', createElement(PartiesSection)))
+    expect(plain).toContain('Facturado')
+    expect(plain).not.toContain('Recibido')
+    expect(plain).not.toContain('Proveedores')
     expect((plain.match(/Hotel Costa Teguise S\.L\./g) ?? []).length).toBe(1)
   })
 
-  it('el alta es común a cliente y proveedor y no sugiere nada con el formulario vacío', () => {
-    const plain = text(render('/facturacion/clientes-y-proveedores/nuevo', createElement(NewPartySection)))
-    expect(plain).toContain('Nuevo cliente o proveedor')
+  it('el alta de cliente no sugiere nada con el formulario vacío', () => {
+    const plain = text(render('/facturacion/clientes/nuevo', createElement(NewPartySection)))
+    expect(plain).toContain('Nuevo cliente')
     expect(plain).not.toContain('Puede que ya exista')
   })
 
-  it('la ficha de un tercero con facturas muestra sus cifras, sus facturas y avisa de que no se puede borrar', () => {
-    const html = render('/facturacion/clientes-y-proveedores/tercero-1', createElement(EditPartySection, { partyId: 'tercero-1' }))
+  it('la ficha de un cliente con facturas muestra sus cifras, sus facturas y avisa de que no se puede borrar', () => {
+    const html = render('/facturacion/clientes/tercero-1', createElement(EditPartySection, { partyId: 'tercero-1' }))
     const plain = text(html)
-    expect(plain).toContain('Facturas de este tercero')
+    expect(plain).toContain('Facturas de este cliente')
     expect(plain).toContain('no afectan a las facturas ya expedidas')
     expect(html).toContain('/facturacion/facturas/')
   })
 
-  it('un tercero inexistente lo dice', () => {
-    expect(text(render('/facturacion/clientes-y-proveedores/zzz', createElement(EditPartySection, { partyId: 'zzz' })))).toContain('No encontramos este tercero')
+  it('un cliente inexistente lo dice', () => {
+    expect(text(render('/facturacion/clientes/zzz', createElement(EditPartySection, { partyId: 'zzz' })))).toContain('No encontramos este cliente')
   })
 })
 
-describe('datos fiscales, panel y libros', () => {
+describe('datos fiscales y panel', () => {
   it('datos fiscales: formulario con el emisor cargado', () => {
     const html = render('/facturacion/configuracion', createElement(SettingsSection))
     expect(html).toContain('Estudio Gráfico Tías (demo)')
@@ -216,7 +214,10 @@ describe('datos fiscales, panel y libros', () => {
     expect(plain).toContain('No incluye Veri*factu')
   })
 
-  it('cobros y pagos se renderiza', () => {
-    expect(text(render('/facturacion/cobros-y-pagos', createElement(CollectionsSection)))).toContain('Pendiente de cobro')
+  it('el panel muestra lo pendiente de cobro y no hay panel de proveedores', () => {
+    const plain = text(render('/facturacion/panel', createElement(PanelSection)))
+    expect(plain).toContain('Pendiente de cobro')
+    expect(plain).not.toContain('Pendiente de pago')
+    expect(plain).not.toContain('Principales proveedores')
   })
 })

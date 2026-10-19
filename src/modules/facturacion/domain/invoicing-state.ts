@@ -59,11 +59,8 @@ const CONTENT_KEYS = [
   'withholdingRate',
   'withholdingCents',
   'totalCents',
-  'deductiblePercent',
   'paymentDate',
   'review',
-  'pdfName',
-  'attachmentMime',
   'source',
 ] as const satisfies readonly (keyof Invoice)[]
 
@@ -92,7 +89,7 @@ export function saveInvoice(
         context,
         'creada',
         invoice.id,
-        invoice.status === 'borrador' ? 'Borrador creado' : `Factura recibida ${label(invoice)} registrada`
+        invoice.status === 'borrador' ? 'Borrador creado' : `Factura ${label(invoice)} creada`
       ),
     }
   }
@@ -102,7 +99,6 @@ export function saveInvoice(
 
   const changes: Partial<Invoice> = {}
   for (const key of CONTENT_KEYS) Object.assign(changes, { [key]: draft[key] })
-  if (existing.direction === 'recibida') changes.invoiceNumber = draft.invoiceNumber
 
   const result = applyInvoiceChanges(existing, changes)
   if (!result.ok) {
@@ -207,7 +203,7 @@ export type RemoveResult =
   | { ok: true; state: InvoicingState }
   | { ok: false; error: 'locked' | 'not_found'; state: InvoicingState }
 
-/** Solo se borran borradores y facturas recibidas; una expedida no se borra nunca. */
+/** Solo se borran borradores; una expedida no se borra nunca. */
 export function removeInvoice(state: InvoicingState, invoiceId: string, context: OperationContext): RemoveResult {
   const invoice = state.invoices.find((candidate) => candidate.id === invoiceId)
   if (!invoice) return { ok: false, error: 'not_found', state }

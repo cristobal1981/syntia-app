@@ -86,12 +86,6 @@ describe('saveInvoice', () => {
     expect(result.ok && result.invoice.invoiceNumber).toBe('')
   })
 
-  it('en una recibida sí se puede cambiar el número', () => {
-    const received = makeInvoice({ id: 'rec', direction: 'recibida', invoiceNumber: 'A-1', series: '', sequence: null })
-    const result = saveInvoice(stateWith({ invoices: [received] }), { ...draftFromInvoice(received), invoiceNumber: 'A-2' }, context(), 'rec')
-    expect(result.ok && result.invoice.invoiceNumber).toBe('A-2')
-  })
-
   it('un identificador que no existe devuelve not_found', () => {
     expect(saveInvoice(stateWith(), draftFromInvoice(draftInvoice), context(), 'nope')).toMatchObject({ ok: false, error: 'not_found' })
   })
@@ -196,9 +190,9 @@ describe('removeInvoice', () => {
     expect(result.state.events.at(-1)?.type).toBe('bloqueada')
   })
 
-  it('una factura recibida sí se puede borrar', () => {
-    const received = makeInvoice({ id: 'rec', direction: 'recibida', series: '', sequence: null })
-    expect(removeInvoice(stateWith({ invoices: [received] }), 'rec', context()).ok).toBe(true)
+  it('un borrador sí se puede borrar', () => {
+    const draft = makeInvoice({ id: 'borr', status: 'borrador', invoiceNumber: '', series: '', sequence: null, issuedAt: null })
+    expect(removeInvoice(stateWith({ invoices: [draft] }), 'borr', context()).ok).toBe(true)
   })
 })
 
@@ -289,7 +283,7 @@ describe('datos de ejemplo', () => {
   it('las emitidas expedidas están numeradas sin saltos, por serie y año', () => {
     for (const series of ['F', 'R']) {
       const sequences = state.invoices
-        .filter((invoice) => invoice.direction === 'emitida' && invoice.status === 'definitiva' && invoice.series === series)
+        .filter((invoice) => invoice.status === 'definitiva' && invoice.series === series)
         .map((invoice) => invoice.sequence)
         .sort((a, b) => (a ?? 0) - (b ?? 0))
       expect(sequences, series).toEqual(sequences.map((_, index) => index + 1))
@@ -297,7 +291,7 @@ describe('datos de ejemplo', () => {
   })
 
   it('el número de cada emitida coincide con su serie, año y orden', () => {
-    for (const invoice of state.invoices.filter((candidate) => candidate.direction === 'emitida' && candidate.status === 'definitiva')) {
+    for (const invoice of state.invoices.filter((candidate) => candidate.status === 'definitiva')) {
       expect(invoice.invoiceNumber).toBe(`${invoice.series}-${invoice.issueDate.slice(0, 4)}-${String(invoice.sequence).padStart(4, '0')}`)
     }
   })

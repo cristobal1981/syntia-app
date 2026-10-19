@@ -66,7 +66,7 @@ describe('runInvoicingOperation', () => {
     const listener = vi.fn()
     const unsubscribe = subscribeToInvoicing(listener)
 
-    const target = getInvoicingSnapshot().invoices.find((invoice) => invoice.direction === 'recibida' && invoice.paymentDate === null)!
+    const target = getInvoicingSnapshot().invoices.find((invoice) => invoice.status === 'definitiva' && invoice.paymentDate === null)!
     const result = runInvoicingOperation((state, context) => setPaymentDate(state, target.id, '2026-10-20', context))
 
     expect(result.ok).toBe(true)

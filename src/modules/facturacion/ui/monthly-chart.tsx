@@ -17,9 +17,8 @@ function axisLabel(cents: number): string {
   return euros >= 1000 ? `${String(euros / 1000).replace('.', ',')} k €` : `${euros} €`
 }
 
-// Teal de marca y naranja, validados juntos contra el fondo claro y el oscuro de la tarjeta (#003737), siempre en este orden.
+// Teal de marca, validado contra el fondo claro y el oscuro de la tarjeta (#003737).
 const INCOME_BAR = 'bg-[#12a090]'
-const EXPENSE_BAR = 'bg-[#eb6834] dark:bg-[#d95926]'
 const PLOT_HEIGHT = 176
 
 function LegendKey({ barClass, label }: { barClass: string; label: string }) {
@@ -35,7 +34,7 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
   const [asTable, setAsTable] = useState(false)
   const [active, setActive] = useState<number | null>(null)
 
-  const max = Math.max(...series.flatMap((point) => [point.incomeCents, point.expenseCents]))
+  const max = Math.max(...series.map((point) => point.incomeCents))
   const top = niceCeilCents(max)
   const hasData = max > 0
   const ticks = [top, top / 2, 0]
@@ -61,11 +60,10 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
             columns={[
               { key: 'month', label: copy.month },
               { key: 'income', label: copy.income, align: 'right' },
-              { key: 'expenses', label: copy.expenses, align: 'right' },
             ]}
             rows={series.map((point) => ({
               key: String(point.month),
-              cells: [facturacion.months[point.month - 1], formatCents(point.incomeCents), formatCents(point.expenseCents)],
+              cells: [facturacion.months[point.month - 1], formatCents(point.incomeCents)],
             }))}
           />
         </div>
@@ -73,7 +71,6 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
         <>
           <div className="mt-3 flex gap-4">
             <LegendKey barClass={INCOME_BAR} label={copy.income} />
-            <LegendKey barClass={EXPENSE_BAR} label={copy.expenses} />
           </div>
 
           {!hasData ? <p className="mt-6 text-sm text-muted-foreground">{copy.empty}</p> : null}
@@ -108,16 +105,12 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
                     onMouseLeave={() => setActive(null)}
                     onFocus={() => setActive(index)}
                     onBlur={() => setActive(null)}
-                    aria-label={`${facturacion.months[index]}: ${copy.income} ${formatCents(point.incomeCents)}, ${copy.expenses} ${formatCents(point.expenseCents)}`}
+                    aria-label={`${facturacion.months[index]}: ${copy.income} ${formatCents(point.incomeCents)}`}
                   >
                     <span className="flex items-end gap-0.5" style={{ height: PLOT_HEIGHT }}>
                       <span
                         className={`w-2 rounded-t-[4px] sm:w-3 ${INCOME_BAR} ${active === index ? 'opacity-100' : 'group-hover:opacity-90'}`}
                         style={{ height: `${(point.incomeCents / top) * 100}%` }}
-                      />
-                      <span
-                        className={`w-2 rounded-t-[4px] sm:w-3 ${EXPENSE_BAR} ${active === index ? 'opacity-100' : 'group-hover:opacity-90'}`}
-                        style={{ height: `${(point.expenseCents / top) * 100}%` }}
                       />
                     </span>
                     <span className="mt-2 text-[11px] leading-none text-muted-foreground">
@@ -143,13 +136,6 @@ export function MonthlyChart({ series }: { series: MonthlyPoint[] }) {
                       {copy.income}
                     </span>
                     <strong className="tabular-nums">{formatCents(activePoint.incomeCents)}</strong>
-                  </p>
-                  <p className="mt-0.5 flex items-center justify-between gap-2 text-foreground">
-                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                      <span className={`h-[3px] w-3 rounded-full ${EXPENSE_BAR}`} aria-hidden />
-                      {copy.expenses}
-                    </span>
-                    <strong className="tabular-nums">{formatCents(activePoint.expenseCents)}</strong>
                   </p>
                 </div>
               ) : null}

@@ -1,6 +1,5 @@
 import {
   BookOpen,
-  Banknote,
   Contact,
   BriefcaseBusiness,
   ClipboardList,
@@ -43,7 +42,6 @@ const navIcons: Record<NavIconId, LucideIcon> = {
   guides: BookOpen,
   leads: TrendingUp,
   invoicing: Receipt,
-  cash: Banknote,
   contacts: Contact,
 }
 

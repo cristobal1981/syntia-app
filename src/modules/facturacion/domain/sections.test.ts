@@ -19,9 +19,9 @@ describe('SECTIONS', () => {
     }
   })
 
-  it('cobros y pagos no usa periodo; las facturas usan año y trimestre', () => {
+  it('los datos fiscales no usan periodo; las facturas usan año y trimestre', () => {
     const byId = Object.fromEntries(SECTIONS.map((section) => [section.id, section]))
-    expect(byId.collections).toMatchObject({ usesPeriod: false, usesQuarter: false })
+    expect(byId.settings).toMatchObject({ usesPeriod: false, usesQuarter: false })
     expect(byId.invoices).toMatchObject({ usesPeriod: true, usesQuarter: true })
   })
 })
@@ -41,7 +41,7 @@ describe('sectionHref / sectionForPath', () => {
     expect(sectionForPath('/facturacion/facturas/abc').id).toBe('invoices')
     expect(sectionForPath('/facturacion/facturas/abc/editar').id).toBe('invoices')
     expect(sectionForPath('/facturacion/facturas/nueva').id).toBe('invoices')
-    expect(sectionForPath('/facturacion/clientes-y-proveedores/nuevo').id).toBe('parties')
+    expect(sectionForPath('/facturacion/clientes/nuevo').id).toBe('parties')
   })
 
   it('un slug que solo comparte el comienzo no cuenta como anidado', () => {

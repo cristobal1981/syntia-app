@@ -1,9 +1,9 @@
 import { computeInvoiceAmounts } from '@/src/modules/facturacion/domain/compute-invoice'
 import type { Invoice, InvoiceDraft } from '@/src/modules/facturacion/domain/types'
 
-/** Solo se rectifica una emitida ordinaria ya expedida (no una rectificativa ni un borrador). */
+/** Solo se rectifica una factura ordinaria ya expedida (no una rectificativa ni un borrador). */
 export function canRectify(invoice: Invoice): boolean {
-  return invoice.direction === 'emitida' && invoice.status === 'definitiva' && invoice.kind === 'ordinaria'
+  return invoice.status === 'definitiva' && invoice.kind === 'ordinaria'
 }
 
 /** Rectificativas expedidas de una factura, de la más antigua a la más reciente. */
@@ -78,7 +78,6 @@ export function buildRectificationDraft(original: Invoice, all: Invoice[], input
       : computeInvoiceAmounts(input.deltaBaseCents, original.taxRate, original.withholdingRate)
 
   return {
-    direction: 'emitida',
     invoiceNumber: '',
     status: 'borrador',
     kind: 'rectificativa',
@@ -93,15 +92,12 @@ export function buildRectificationDraft(original: Invoice, all: Invoice[], input
     categoryId: original.categoryId,
     regime: original.regime,
     ...amounts,
-    deductiblePercent: 100,
     paymentDate: null,
     review: 'pendiente',
     rectifies: original.id,
     rectificationReason: input.reason.trim(),
     issuedAt: null,
     issuer: null,
-    pdfName: null,
-    attachmentMime: null,
     source: 'manual',
   }
 }

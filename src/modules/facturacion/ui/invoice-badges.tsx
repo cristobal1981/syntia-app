@@ -27,14 +27,13 @@ export function Pill({
 
 export function PaymentPill({ invoice, today }: { invoice: Invoice; today: string }) {
   const status = paymentStatus(invoice, today)
-  return <Pill tone={PILL_TONE[status]}>{facturacion.invoices.status[invoice.direction][status]}</Pill>
+  return <Pill tone={PILL_TONE[status]}>{facturacion.invoices.status[status]}</Pill>
 }
 
 /** Estado de vida de la factura: borrador, expedida (con candado) o rectificativa. */
 export function LifecyclePills({ invoice, rectified = false }: { invoice: Invoice; rectified?: boolean }) {
   const copy = facturacion.lifecycle
 
-  if (invoice.direction === 'recibida') return <Pill tone="neutral">{copy.received}</Pill>
   if (invoice.status === 'borrador') return <Pill tone="pending">{copy.status.borrador}</Pill>
 
   return (

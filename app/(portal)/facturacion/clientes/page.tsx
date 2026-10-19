@@ -1,5 +1,5 @@
 import { PartiesSection } from '@/src/modules/facturacion/ui/section-views'
 
-export default function FacturacionClientesYProveedoresPage() {
+export default function FacturacionClientesPage() {
   return <PartiesSection />
 }

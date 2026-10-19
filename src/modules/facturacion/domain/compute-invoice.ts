@@ -24,14 +24,6 @@ export function computeInvoiceAmounts(
   }
 }
 
-/** Importe del gasto que cuenta como deducible en IRPF (solo recibidas). */
-export function deductibleExpenseCents(
-  invoice: Pick<Invoice, 'direction' | 'baseCents' | 'deductiblePercent'>
-): number {
-  if (invoice.direction !== 'recibida') return 0
-  return Math.round((invoice.baseCents * invoice.deductiblePercent) / 100)
-}
-
 /** El borrador equivalente a una factura guardada (para cambiarle un campo y volver a guardarla). */
 export function draftFromInvoice(invoice: Invoice): InvoiceDraft {
   const { id, createdAt, ...draft } = invoice

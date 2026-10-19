@@ -1,5 +1,5 @@
 import { accountedInvoices } from '@/src/modules/facturacion/domain/invoice-rules'
-import type { Invoice, InvoiceDirection } from '@/src/modules/facturacion/domain/types'
+import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
 export type Party = {
   key: string
@@ -8,18 +8,16 @@ export type Party = {
   invoiceCount: number
   /** Total facturado (con impuestos y menos retención). */
   billedCents: number
-  /** Parte aún sin cobrar o pagar. */
+  /** Parte aún sin cobrar. */
   pendingCents: number
   lastInvoiceDate: string
 }
 
-/** Clientes (emitidas) o proveedores (recibidas) con lo facturado y lo pendiente, de mayor a menor. */
-export function buildParties(invoices: Invoice[], direction: InvoiceDirection): Party[] {
+/** Clientes con lo facturado y lo pendiente, de mayor a menor. */
+export function buildParties(invoices: Invoice[]): Party[] {
   const parties = new Map<string, Party>()
 
   for (const invoice of accountedInvoices(invoices)) {
-    if (invoice.direction !== direction) continue
-
     const key = invoice.counterpartyTaxId || invoice.counterpartyName
     const party =
       parties.get(key) ??

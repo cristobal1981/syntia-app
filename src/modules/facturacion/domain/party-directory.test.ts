@@ -42,22 +42,27 @@ describe('findSimilarParties', () => {
   })
 })
 
-describe('terceros comunes entre emitidas y recibidas', () => {
+describe('directorio de clientes', () => {
   const taxId = completeCif('B3500000')
-  const issued = makeInvoice({ id: 'e', direction: 'emitida', counterpartyName: 'Acme', counterpartyTaxId: taxId })
-  const received = makeInvoice({ id: 'r', direction: 'recibida', counterpartyName: 'Acme', counterpartyTaxId: taxId })
+  const first = makeInvoice({ id: 'a', counterpartyName: 'Acme', counterpartyTaxId: taxId, paymentDate: '2026-02-01' })
+  const second = makeInvoice({ id: 'b', counterpartyName: 'Acme', counterpartyTaxId: taxId, totalCents: 5000 })
+  const draft = makeInvoice({ id: 'c', counterpartyName: 'Acme', counterpartyTaxId: taxId, status: 'borrador' })
 
-  it('el directorio inicial crea un solo tercero por NIF aunque sea cliente y proveedor', () => {
-    expect(partiesFromInvoices([issued, received])).toHaveLength(1)
+  it('el directorio inicial crea un solo cliente por NIF', () => {
+    expect(partiesFromInvoices([first, second])).toHaveLength(1)
   })
 
-  it('las cifras separan lo emitido de lo recibido y no se puede borrar con facturas', () => {
-    const [directory] = partiesFromInvoices([issued, received])
-    const [stats] = partiesWithStats([directory], [issued, received])
+  it('las cifras cuentan solo las facturas expedidas y separan lo pendiente', () => {
+    const [directory] = partiesFromInvoices([first, second])
+    const [stats] = partiesWithStats([directory], [first, second, draft])
     expect(stats.invoiceCount).toBe(2)
-    expect(stats.issuedCents).toBe(issued.totalCents)
-    expect(stats.receivedCents).toBe(received.totalCents)
-    expect(canDeleteParty(directory, [issued])).toBe(false)
+    expect(stats.billedCents).toBe(first.totalCents + second.totalCents)
+    expect(stats.pendingCents).toBe(second.totalCents)
+  })
+
+  it('no se puede borrar un cliente con facturas, ni siquiera con borradores', () => {
+    const [directory] = partiesFromInvoices([first])
+    expect(canDeleteParty(directory, [draft])).toBe(false)
     expect(canDeleteParty(directory, [])).toBe(true)
   })
 })

@@ -3,7 +3,7 @@ import { DEFAULT_PAYMENT_TERM_DAYS } from '@/src/modules/facturacion/domain/paym
 import { isValidTaxId, normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
 import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
-/** Un tercero del directorio común: puede ser cliente, proveedor o ambos según sus facturas. */
+/** Un cliente del directorio. */
 export type Party = {
   id: string
   name: string
@@ -78,7 +78,7 @@ function normalizeName(name: string): string {
 }
 
 /**
- * Terceros que podrían ser el mismo que el que se está dando de alta: mismo NIF o nombre parecido
+ * Clientes que podrían ser el mismo que el que se está dando de alta: mismo NIF o nombre parecido
  * (sin tildes, mayúsculas ni forma societaria). Es solo una sugerencia: quien da el alta decide.
  */
 export function findSimilarParties(candidate: Pick<Party, 'id' | 'name' | 'taxId'>, parties: Party[]): Party[] {
@@ -96,35 +96,30 @@ export function findSimilarParties(candidate: Pick<Party, 'id' | 'name' | 'taxId
 
 export type PartyWithStats = Party & {
   invoiceCount: number
-  /** Total de lo que se le ha facturado (facturas emitidas). */
-  issuedCents: number
-  /** Total de lo que ha facturado él (facturas recibidas). */
-  receivedCents: number
+  /** Total facturado al cliente. */
+  billedCents: number
   pendingCents: number
 }
 
-/** El directorio con lo facturado y lo pendiente de cada tercero (solo facturas contabilizadas). */
+/** El directorio con lo facturado y lo pendiente de cada cliente (solo facturas contabilizadas). */
 export function partiesWithStats(parties: Party[], invoices: Invoice[]): PartyWithStats[] {
   return parties.map((party) => {
     const own = invoices.filter((invoice) => isAccounted(invoice) && references(party, invoice))
-    const total = (direction: Invoice['direction']) =>
-      own.filter((invoice) => invoice.direction === direction).reduce((sum, invoice) => sum + invoice.totalCents, 0)
     return {
       ...party,
       invoiceCount: own.length,
-      issuedCents: total('emitida'),
-      receivedCents: total('recibida'),
+      billedCents: own.reduce((sum, invoice) => sum + invoice.totalCents, 0),
       pendingCents: own.filter((invoice) => !invoice.paymentDate).reduce((sum, invoice) => sum + invoice.totalCents, 0),
     }
   })
 }
 
-/** Un tercero con facturas (aunque sean borradores) no se borra: las facturas lo citan. */
+/** Un cliente con facturas (aunque sean borradores) no se borra: las facturas lo citan. */
 export function canDeleteParty(party: Pick<Party, 'taxId'>, invoices: Invoice[]): boolean {
   return !invoices.some((invoice) => references(party, invoice))
 }
 
-/** Directorio inicial a partir de las facturas existentes: un tercero por NIF, sea cliente, proveedor o ambos. */
+/** Directorio inicial a partir de las facturas existentes: un cliente por NIF. */
 export function partiesFromInvoices(invoices: Invoice[]): Party[] {
   const seen = new Map<string, Party>()
   const ordered = [...invoices].sort((a, b) => b.issueDate.localeCompare(a.issueDate))

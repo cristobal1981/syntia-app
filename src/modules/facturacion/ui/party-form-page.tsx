@@ -104,11 +104,10 @@ export function PartyFormPage(props: PartyFormPageProps) {
           {existing ? values.name || copy.editTitle : copy.new}
         </h1>
         {stats ? (
-          <dl className="grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+          <dl className="grid max-w-xl grid-cols-3 gap-3">
             {[
               [copy.stats.invoices, String(stats.invoiceCount)],
-              [copy.stats.issued, formatCents(stats.issuedCents)],
-              [copy.stats.received, formatCents(stats.receivedCents)],
+              [copy.stats.billed, formatCents(stats.billedCents)],
               [copy.stats.pending, formatCents(stats.pendingCents)],
             ].map(([label, value]) => (
               <div key={label} className="portal-home-card rounded-xl px-4 py-3">

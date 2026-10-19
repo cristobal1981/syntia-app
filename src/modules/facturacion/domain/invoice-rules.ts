@@ -1,21 +1,21 @@
 import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
-/** Una emitida ya expedida es inalterable: solo se corrige con una factura rectificativa. */
-export function isLocked(invoice: Pick<Invoice, 'direction' | 'status'>): boolean {
-  return invoice.direction === 'emitida' && invoice.status === 'definitiva'
+/** Una factura expedida es inalterable: solo se corrige con una factura rectificativa. */
+export function isLocked(invoice: Pick<Invoice, 'status'>): boolean {
+  return invoice.status === 'definitiva'
 }
 
-/** Los borradores no tienen número ni efecto contable: no entran en libros, diario ni resúmenes. */
+/** Los borradores no tienen número: no cuentan en el panel ni en los saldos. */
 export function isAccounted(invoice: Pick<Invoice, 'status'>): boolean {
   return invoice.status === 'definitiva'
 }
 
-/** Solo las facturas expedidas (y las recibidas registradas) cuentan para libros e informes. */
+/** Solo las facturas expedidas cuentan en el panel y en los saldos. */
 export function accountedInvoices(invoices: Invoice[]): Invoice[] {
   return invoices.filter(isAccounted)
 }
 
-export function canDeleteInvoice(invoice: Pick<Invoice, 'direction' | 'status'>): boolean {
+export function canDeleteInvoice(invoice: Pick<Invoice, 'status'>): boolean {
   return !isLocked(invoice)
 }
 

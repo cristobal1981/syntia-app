@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FilePenLine, Lock, Maximize2, Printer, Stamp, Undo2 } from 'lucide-react'
+import { ArrowLeft, FilePenLine, Lock, Printer, Stamp, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -18,12 +18,9 @@ import { daysOverdue, paymentStatus } from '@/src/modules/facturacion/domain/pay
 import { canRectify, netAmountsAfterRectification, rectificationsOf } from '@/src/modules/facturacion/domain/rectification'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
-import { deleteInvoicePdf } from '@/src/modules/facturacion/infrastructure/local-pdf-store'
-import { AttachmentPreview } from '@/src/modules/facturacion/ui/attachment-preview'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { InvoiceDocument } from '@/src/modules/facturacion/ui/invoice-document'
 import { LifecyclePills, PaymentPill, Pill } from '@/src/modules/facturacion/ui/invoice-badges'
-import { InvoicePdfPreview } from '@/src/modules/facturacion/ui/invoice-pdf-preview'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 
 const copy = facturacion.page.detail
@@ -58,7 +55,6 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
   const [confirmEmit, setConfirmEmit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [emitIssues, setEmitIssues] = useState<EmissionIssue[]>([])
-  const [viewer, setViewer] = useState(false)
 
   const invoice = allInvoices.find((candidate) => candidate.id === invoiceId) ?? null
   const original = invoice?.rectifies ? (allInvoices.find((candidate) => candidate.id === invoice.rectifies) ?? null) : null
@@ -79,11 +75,10 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
     )
   }
 
-  const direction = invoice.direction
   const locked = isLocked(invoice)
   const isDraft = invoice.status === 'borrador'
   const status = paymentStatus(invoice, today)
-  const category = getCategory(invoice.categoryId, direction)
+  const category = getCategory(invoice.categoryId)
   const net = rectifications.length > 0 ? netAmountsAfterRectification(invoice, allInvoices) : null
   const title = invoice.invoiceNumber || facturacion.document.pendingNumber
 
@@ -97,10 +92,9 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     const result = runInvoicingOperation((state, context) => removeInvoice(state, invoice.id, context))
     if (!result.ok) return
-    await deleteInvoicePdf(invoice.id)
     toast.success(facturacion.editor.deleted)
     router.push(invoicesHref)
   }
@@ -141,7 +135,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
           </div>
 
           <div className="flex flex-wrap justify-end gap-2">
-            {isDraft && direction === 'emitida' ? (
+            {isDraft ? (
               <Button type="button" onClick={() => setConfirmEmit(true)}>
                 <Stamp aria-hidden />
                 {copy.actions.emit}
@@ -165,7 +159,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
             ) : null}
             {!isDraft ? (
               <Button type="button" variant="outline" onClick={togglePayment}>
-                {invoice.paymentDate ? copy.actions.markUnpaid[direction] : copy.actions.markPaid[direction]}
+                {invoice.paymentDate ? copy.actions.markUnpaid : copy.actions.markPaid}
               </Button>
             ) : null}
             {!isDraft ? (
@@ -200,7 +194,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
             <p className="mt-0.5 text-muted-foreground">{copy.lockedBody}</p>
           </div>
         </div>
-      ) : isDraft && direction === 'emitida' ? (
+      ) : isDraft ? (
         <div className="rounded-lg border border-service-fiscal/40 bg-service-fiscal/10 px-4 py-3 text-sm">
           <p className="font-medium text-foreground">{copy.draftTitle}</p>
           <p className="mt-0.5 text-muted-foreground">{copy.draftBody}</p>
@@ -208,42 +202,24 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-        <section className="flex min-w-0 flex-col gap-3" aria-label={direction === 'emitida' ? copy.document : copy.attachment}>
+        <section className="flex min-w-0 flex-col gap-3" aria-label={copy.document}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-sans text-base font-semibold text-foreground">
-              {direction === 'emitida' ? copy.document : copy.attachment}
-            </h2>
-            {direction === 'emitida' ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer aria-hidden />
-                {copy.print}
-              </Button>
-            ) : invoice.pdfName ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setViewer(true)}>
-                <Maximize2 aria-hidden />
-                {copy.expand}
-              </Button>
-            ) : null}
+            <h2 className="font-sans text-base font-semibold text-foreground">{copy.document}</h2>
+            <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer aria-hidden />
+              {copy.print}
+            </Button>
           </div>
 
-          {direction === 'emitida' ? (
-            <div className="overflow-x-auto rounded-xl bg-muted/40 p-3 sm:p-6 dark:bg-muted/20">
-              <InvoiceDocument invoice={invoice} currentIssuer={issuer} original={original} />
-            </div>
-          ) : (
-            <AttachmentPreview
-              invoiceId={invoice.pdfName ? invoice.id : undefined}
-              name={invoice.pdfName ?? ''}
-              mimetype={invoice.attachmentMime}
-              emptyMessage={copy.noAttachment}
-            />
-          )}
+          <div className="overflow-x-auto rounded-xl bg-muted/40 p-3 sm:p-6 dark:bg-muted/20">
+            <InvoiceDocument invoice={invoice} currentIssuer={issuer} original={original} />
+          </div>
         </section>
 
         <div className="flex min-w-0 flex-col gap-4">
           <Card title={copy.info}>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Field label={facturacion.detail.fields.counterparty[direction]}>
+              <Field label={facturacion.detail.fields.counterparty}>
                 {invoice.counterpartyName}
                 {invoice.counterpartyAddress ? (
                   <span className="block text-xs text-muted-foreground">{invoice.counterpartyAddress}</span>
@@ -257,7 +233,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                   <span className="ml-2 text-xs text-destructive">{facturacion.invoices.overdueDays(daysOverdue(invoice, today))}</span>
                 ) : null}
               </Field>
-              <Field label={facturacion.detail.fields.paymentDate[direction]}>
+              <Field label={facturacion.detail.fields.paymentDate}>
                 {invoice.paymentDate ? formatIsoDateEs(invoice.paymentDate) : facturacion.detail.fields.none}
               </Field>
               <Field label={facturacion.detail.fields.category}>{category.label}</Field>
@@ -326,12 +302,6 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 <dt className="text-foreground">{facturacion.detail.fields.total}</dt>
                 <dd className="tabular-nums text-foreground">{formatCents(invoice.totalCents)}</dd>
               </div>
-              {direction === 'recibida' ? (
-                <div className="flex justify-between px-4 py-2">
-                  <dt className="text-muted-foreground">{facturacion.detail.fields.deductible}</dt>
-                  <dd className="tabular-nums text-foreground">{invoice.deductiblePercent} %</dd>
-                </div>
-              ) : null}
             </dl>
           </Card>
 
@@ -369,13 +339,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         description={copy.deleteBody}
         confirmLabel={copy.actions.delete}
         confirmVariant="destructive"
-        onConfirm={() => void handleDelete()}
-      />
-      <InvoicePdfPreview
-        invoiceId={viewer ? invoice.id : null}
-        filename={invoice.pdfName}
-        mimetype={invoice.attachmentMime}
-        onClose={() => setViewer(false)}
+        onConfirm={handleDelete}
       />
     </div>
   )

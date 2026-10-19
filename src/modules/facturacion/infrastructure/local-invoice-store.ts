@@ -19,7 +19,6 @@ function isInvoice(value: unknown): value is Invoice {
   const v = value as Record<string, unknown>
   return (
     typeof v.id === 'string' &&
-    (v.direction === 'recibida' || v.direction === 'emitida') &&
     (v.status === 'borrador' || v.status === 'definitiva') &&
     typeof v.invoiceNumber === 'string' &&
     typeof v.issueDate === 'string' &&

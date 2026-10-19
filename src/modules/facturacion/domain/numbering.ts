@@ -11,7 +11,7 @@ export function formatInvoiceNumber(series: string, year: number, sequence: numb
 }
 
 function isIssued(invoice: Invoice, series: string): boolean {
-  return invoice.direction === 'emitida' && invoice.status === 'definitiva' && invoice.series === series
+  return invoice.status === 'definitiva' && invoice.series === series
 }
 
 /** Siguiente número de la serie en ese año: correlativo y sin saltos (empieza de nuevo cada año). */
@@ -33,7 +33,7 @@ export type NumberingIssue =
  * sin saltos por serie y año, sin repetidos, con el formato esperado y en orden de fecha.
  */
 export function verifyNumbering(invoices: Invoice[]): NumberingIssue[] {
-  const issued = invoices.filter((invoice) => invoice.direction === 'emitida' && invoice.status === 'definitiva')
+  const issued = invoices.filter((invoice) => invoice.status === 'definitiva')
   const issues: NumberingIssue[] = []
   const groups = new Map<string, Invoice[]>()
 

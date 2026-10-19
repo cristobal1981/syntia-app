@@ -37,10 +37,9 @@ describe('nextSequence', () => {
     expect(nextSequence(invoices, 'F', 2026)).toBe(10)
   })
 
-  it('ignora borradores y recibidas', () => {
+  it('ignora borradores', () => {
     const invoices = [
       makeInvoice({ id: 'd', status: 'borrador', sequence: 50 }),
-      makeInvoice({ id: 'r', direction: 'recibida', sequence: 60 }),
       makeInvoice({ id: 'ok', sequence: 3 }),
     ]
     expect(nextSequence(invoices, 'F', 2026)).toBe(4)
@@ -116,7 +115,7 @@ describe('verifyNumbering', () => {
     expect(verifyNumbering([ok(1), ok(2), other, nextYear])).toEqual([])
   })
 
-  it('ignora borradores y recibidas', () => {
-    expect(verifyNumbering([ok(1), makeInvoice({ id: 'd', status: 'borrador', sequence: 9 }), makeInvoice({ id: 'r', direction: 'recibida', sequence: 8 })])).toEqual([])
+  it('ignora borradores', () => {
+    expect(verifyNumbering([ok(1), makeInvoice({ id: 'd', status: 'borrador', sequence: 9 })])).toEqual([])
   })
 })

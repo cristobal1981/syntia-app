@@ -26,10 +26,9 @@ function rectificativa(id: string, deltaBase: number, overrides = {}) {
 }
 
 describe('canRectify', () => {
-  it('solo una emitida ordinaria ya expedida', () => {
+  it('solo una ordinaria ya expedida', () => {
     expect(canRectify(original)).toBe(true)
     expect(canRectify(makeInvoice({ status: 'borrador' }))).toBe(false)
-    expect(canRectify(makeInvoice({ direction: 'recibida' }))).toBe(false)
     expect(canRectify(rectificativa('a', -100))).toBe(false)
   })
 })
@@ -60,7 +59,6 @@ describe('buildRectificationDraft', () => {
     const draft = buildRectificationDraft(original, [original], { mode: 'total', reason: ' Error de facturación ', issueDate: '2026-03-01' })
 
     expect(draft).toMatchObject({
-      direction: 'emitida',
       kind: 'rectificativa',
       status: 'borrador',
       rectifies: 'orig',

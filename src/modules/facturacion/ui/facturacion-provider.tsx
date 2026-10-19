@@ -20,9 +20,9 @@ import {
 type FacturacionContextValue = {
   /** Todas las facturas, borradores incluidos. */
   allInvoices: Invoice[]
-  /** Solo las contabilizadas: lo que cuenta para libros, informes y saldos. */
+  /** Solo las expedidas: lo que cuenta en el panel y en los saldos. */
   invoices: Invoice[]
-  /** Las contabilizadas del periodo elegido. */
+  /** Las expedidas del periodo elegido. */
   periodInvoices: Invoice[]
   /** Todas (borradores incluidos) las del periodo elegido, para la lista de facturas. */
   periodAllInvoices: Invoice[]
@@ -38,9 +38,6 @@ type FacturacionContextValue = {
   quarter: Quarter | null
   setQuarter: (quarter: Quarter | null) => void
   years: number[]
-  /** Archivo elegido en la lista y pendiente de rellenar en «Nueva factura». */
-  pendingUpload: File | null
-  setPendingUpload: (file: File | null) => void
 }
 
 const FacturacionContext = createContext<FacturacionContextValue | null>(null)
@@ -53,7 +50,7 @@ export function useFacturacion(): FacturacionContextValue {
 
 /**
  * Estado compartido de todas las secciones de facturación. Vive en el layout, así
- * que el periodo elegido y el archivo pendiente sobreviven al cambiar de pantalla.
+ * que el periodo elegido sobrevive al cambiar de pantalla.
  */
 export function FacturacionProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -64,7 +61,6 @@ export function FacturacionProvider({ children }: { children: ReactNode }) {
   const [today] = useState(() => localIsoDate())
   const [year, setYear] = useState(() => new Date().getFullYear())
   const [quarter, setQuarter] = useState<Quarter | null>(null)
-  const [pendingUpload, setPendingUpload] = useState<File | null>(null)
 
   const invoices = useMemo(() => accountedInvoices(state.invoices), [state.invoices])
   const years = useMemo(() => availableYears(state.invoices, new Date().getFullYear()), [state.invoices])
@@ -88,8 +84,6 @@ export function FacturacionProvider({ children }: { children: ReactNode }) {
     quarter,
     setQuarter,
     years,
-    pendingUpload,
-    setPendingUpload,
   }
 
   return <FacturacionContext.Provider value={value}>{children}</FacturacionContext.Provider>

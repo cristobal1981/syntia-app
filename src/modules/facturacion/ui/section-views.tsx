@@ -1,10 +1,6 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
-
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
-import type { InvoiceDirection } from '@/src/modules/facturacion/domain/types'
-import { CollectionsTab } from '@/src/modules/facturacion/ui/collections-tab'
 import { DashboardTab } from '@/src/modules/facturacion/ui/dashboard-tab'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { InvoiceDetailPage } from '@/src/modules/facturacion/ui/invoice-detail-page'
@@ -27,14 +23,11 @@ export function PanelSection() {
 
 export function InvoicesSection() {
   const f = useFacturacion()
-  return <InvoicesTab invoices={f.periodAllInvoices} allInvoices={f.allInvoices} today={f.today} onUpload={f.setPendingUpload} />
+  return <InvoicesTab invoices={f.periodAllInvoices} allInvoices={f.allInvoices} today={f.today} />
 }
 
 export function NewInvoiceSection() {
-  const tipo = useSearchParams().get('tipo')
-  const direction: InvoiceDirection = tipo === 'recibida' ? 'recibida' : 'emitida'
-  // La clave reinicia el formulario si se cambia de tipo con la misma pantalla abierta.
-  return <InvoiceFormPage key={direction} mode="new" direction={direction} />
+  return <InvoiceFormPage mode="new" />
 }
 
 export function InvoiceDetailSection({ invoiceId }: { invoiceId: string }) {
@@ -47,11 +40,6 @@ export function EditInvoiceSection({ invoiceId }: { invoiceId: string }) {
 
 export function RectifyInvoiceSection({ invoiceId }: { invoiceId: string }) {
   return <RectifyPage invoiceId={invoiceId} />
-}
-
-export function CollectionsSection() {
-  const f = useFacturacion()
-  return <CollectionsTab invoices={f.invoices} today={f.today} />
 }
 
 export function PartiesSection() {

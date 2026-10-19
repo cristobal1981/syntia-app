@@ -26,7 +26,7 @@ type InvoiceDocumentProps = {
 export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDocumentProps) {
   const issuer = invoice.issuer ?? currentIssuer
   const isDraft = invoice.status === 'borrador'
-  const category = getCategory(invoice.categoryId, invoice.direction)
+  const category = getCategory(invoice.categoryId)
   const taxName = invoice.regime === 'igic' ? 'IGIC' : 'IVA'
 
   return (

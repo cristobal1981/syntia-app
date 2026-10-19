@@ -18,7 +18,7 @@ const partiesHref = sectionHref(SECTIONS.find((section) => section.id === 'parti
 
 export function PartiesTab({ parties, invoices }: { parties: Party[]; invoices: Invoice[] }) {
   const rows = useMemo(
-    () => partiesWithStats(parties, invoices).sort((a, b) => b.issuedCents + b.receivedCents - (a.issuedCents + a.receivedCents) || a.name.localeCompare(b.name)),
+    () => partiesWithStats(parties, invoices).sort((a, b) => b.billedCents - a.billedCents || a.name.localeCompare(b.name)),
     [parties, invoices]
   )
 
@@ -42,8 +42,7 @@ export function PartiesTab({ parties, invoices }: { parties: Party[]; invoices: 
           { key: 'city', label: copy.columns.city },
           { key: 'contact', label: copy.columns.contact },
           { key: 'count', label: copy.columns.invoices, align: 'right' },
-          { key: 'issued', label: copy.columns.issued, align: 'right' },
-          { key: 'received', label: copy.columns.received, align: 'right' },
+          { key: 'billed', label: copy.columns.billed, align: 'right' },
           { key: 'pending', label: copy.columns.pending, align: 'right' },
         ]}
         rows={rows.map((party) => {
@@ -59,8 +58,7 @@ export function PartiesTab({ parties, invoices }: { parties: Party[]; invoices: 
               party.city || formatPartyAddress(party) || '—',
               party.email || party.phone || '—',
               party.invoiceCount,
-              party.issuedCents ? formatCents(party.issuedCents) : '',
-              party.receivedCents ? formatCents(party.receivedCents) : '',
+              party.billedCents ? formatCents(party.billedCents) : '',
               party.pendingCents ? formatCents(party.pendingCents) : '',
             ],
           }

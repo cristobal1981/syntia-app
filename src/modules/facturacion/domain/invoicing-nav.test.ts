@@ -16,8 +16,7 @@ describe('buildInvoicingNavItems', () => {
     expect(billing.children?.map((child) => child.label)).toEqual([
       'Panel',
       'Facturas',
-      'Cobros y pagos',
-      'Clientes y proveedores',
+      'Clientes',
       'Datos fiscales',
     ])
   })

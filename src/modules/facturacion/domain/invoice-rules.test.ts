@@ -11,29 +11,22 @@ import { makeInvoice } from '@/src/modules/facturacion/domain/test-fixtures'
 
 const issued = makeInvoice()
 const draft = makeInvoice({ status: 'borrador', invoiceNumber: '', series: '', sequence: null, issuedAt: null })
-const received = makeInvoice({ direction: 'recibida', status: 'definitiva', series: '', sequence: null, invoiceNumber: 'A-1' })
 
 describe('isLocked / isAccounted / canDeleteInvoice', () => {
-  it('una emitida expedida está bloqueada', () => {
+  it('una factura expedida está bloqueada', () => {
     expect(isLocked(issued)).toBe(true)
     expect(canDeleteInvoice(issued)).toBe(false)
   })
 
-  it('un borrador de emitida no está bloqueado y se puede borrar', () => {
+  it('un borrador no está bloqueado y se puede borrar', () => {
     expect(isLocked(draft)).toBe(false)
     expect(canDeleteInvoice(draft)).toBe(true)
   })
 
-  it('una recibida nunca se bloquea (es un documento ajeno que puede corregirse al registrarlo)', () => {
-    expect(isLocked(received)).toBe(false)
-    expect(canDeleteInvoice(received)).toBe(true)
-  })
-
   it('solo las definitivas cuentan para la contabilidad', () => {
     expect(isAccounted(issued)).toBe(true)
-    expect(isAccounted(received)).toBe(true)
     expect(isAccounted(draft)).toBe(false)
-    expect(accountedInvoices([issued, draft, received])).toEqual([issued, received])
+    expect(accountedInvoices([issued, draft])).toEqual([issued])
   })
 })
 
@@ -77,14 +70,11 @@ describe('applyInvoiceChanges — factura expedida', () => {
   })
 })
 
-describe('applyInvoiceChanges — borradores y recibidas', () => {
+describe('applyInvoiceChanges — borradores', () => {
   it('un borrador admite cualquier cambio', () => {
     const result = applyInvoiceChanges(draft, { baseCents: 5, counterpartyName: 'Otro' })
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.invoice).toMatchObject({ baseCents: 5, counterpartyName: 'Otro' })
   })
 
-  it('una recibida también', () => {
-    expect(applyInvoiceChanges(received, { baseCents: 5 }).ok).toBe(true)
-  })
 })

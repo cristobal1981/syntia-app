@@ -29,7 +29,7 @@ export function validateEmission(
   all: Invoice[],
   today: string
 ): EmissionIssue[] {
-  if (invoice.direction !== 'emitida' || invoice.status !== 'borrador') {
+  if (invoice.status !== 'borrador') {
     return [{ code: 'not_issuable', field: 'status' }]
   }
 

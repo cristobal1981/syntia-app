@@ -6,7 +6,6 @@ import type { Invoice } from '@/src/modules/facturacion/domain/types'
 export function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
     id: 'inv-1',
-    direction: 'emitida',
     invoiceNumber: 'F-2026-0001',
     status: 'definitiva',
     kind: 'ordinaria',
@@ -21,15 +20,12 @@ export function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     categoryId: 'servicios',
     regime: 'igic',
     ...computeInvoiceAmounts(100000, 7, 0),
-    deductiblePercent: 100,
     paymentDate: null,
     review: 'pendiente',
     rectifies: null,
     rectificationReason: '',
     issuedAt: '2026-01-10T10:00:00.000Z',
     issuer: DEMO_ISSUER,
-    pdfName: null,
-    attachmentMime: null,
     source: 'manual',
     createdAt: '2026-01-10T09:00:00.000Z',
     ...overrides,

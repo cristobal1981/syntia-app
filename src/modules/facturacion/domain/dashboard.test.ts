@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { deductibleExpenseCents } from '@/src/modules/facturacion/domain/compute-invoice'
 import {
   buildMonthlySeries,
   niceCeilCents,
@@ -21,32 +20,29 @@ describe('buildMonthlySeries', () => {
     expect(series.map((point) => point.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   })
 
-  it('la suma de los meses coincide con la base emitida y el gasto deducible recibido del año', () => {
-    const year = accounted.filter((i) => i.issueDate.startsWith('2026'))
-    const income = year.filter((i) => i.direction === 'emitida').reduce((t, i) => t + i.baseCents, 0)
-    const expense = year.filter((i) => i.direction === 'recibida').reduce((t, i) => t + deductibleExpenseCents(i), 0)
+  it('la suma de los meses coincide con la base facturada del año', () => {
+    const income = accounted.filter((i) => i.issueDate.startsWith('2026')).reduce((t, i) => t + i.baseCents, 0)
     expect(series.reduce((t, p) => t + p.incomeCents, 0)).toBe(income)
-    expect(series.reduce((t, p) => t + p.expenseCents, 0)).toBe(expense)
   })
 
   it('coloca cada factura en el mes de su fecha', () => {
     const january = series[0]
     const expectedIncome = invoices
-      .filter((i) => i.direction === 'emitida' && i.issueDate.startsWith('2026-01'))
+      .filter((i) => i.status === 'definitiva' && i.issueDate.startsWith('2026-01'))
       .reduce((t, i) => t + i.baseCents, 0)
     expect(january.incomeCents).toBe(expectedIncome)
     expect(january.incomeCents).toBeGreaterThan(0)
   })
 
   it('otro año sin facturas sale todo a cero', () => {
-    expect(buildMonthlySeries(invoices, 2020).every((p) => p.incomeCents === 0 && p.expenseCents === 0)).toBe(true)
+    expect(buildMonthlySeries(invoices, 2020).every((p) => p.incomeCents === 0)).toBe(true)
   })
 })
 
 describe('buildPendingSummary', () => {
   it('cuenta lo impagado y, de ello, lo vencido', () => {
-    const summary = buildPendingSummary(invoices, 'emitida', TODAY)
-    const unpaid = accounted.filter((i) => i.direction === 'emitida' && !i.paymentDate)
+    const summary = buildPendingSummary(invoices, TODAY)
+    const unpaid = accounted.filter((i) => !i.paymentDate)
     const overdue = unpaid.filter((i) => i.dueDate < TODAY)
 
     expect(summary.pendingCount).toBe(unpaid.length)
@@ -57,8 +53,8 @@ describe('buildPendingSummary', () => {
   })
 
   it('una factura que vence hoy está pendiente, no vencida', () => {
-    const [sample] = accounted.filter((i) => i.direction === 'emitida')
-    const summary = buildPendingSummary([{ ...sample, paymentDate: null, dueDate: TODAY }], 'emitida', TODAY)
+    const [sample] = accounted
+    const summary = buildPendingSummary([{ ...sample, paymentDate: null, dueDate: TODAY }], TODAY)
     expect(summary).toMatchObject({ pendingCount: 1, overdueCount: 0, overdueCents: 0 })
   })
 })

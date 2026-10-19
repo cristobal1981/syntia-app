@@ -49,9 +49,8 @@ describe('validateEmission — contenido mínimo de la factura (art. 6)', () => 
     expect(codes(draft({ baseCents: -100 }))).toEqual(['amount'])
   })
 
-  it('solo se expide un borrador de emitida', () => {
+  it('solo se expide un borrador', () => {
     expect(codes(makeInvoice())).toEqual(['not_issuable'])
-    expect(codes(draft({ direction: 'recibida' }))).toEqual(['not_issuable'])
   })
 })
 

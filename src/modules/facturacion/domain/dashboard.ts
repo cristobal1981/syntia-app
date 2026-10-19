@@ -1,24 +1,21 @@
-import { deductibleExpenseCents } from '@/src/modules/facturacion/domain/compute-invoice'
 import { accountedInvoices } from '@/src/modules/facturacion/domain/invoice-rules'
 import { daysOverdue, paymentStatus } from '@/src/modules/facturacion/domain/payment-status'
 import { yearOf } from '@/src/modules/facturacion/domain/periods'
-import type { Invoice, InvoiceDirection } from '@/src/modules/facturacion/domain/types'
+import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
-export type MonthlyPoint = { month: number; incomeCents: number; expenseCents: number }
+export type MonthlyPoint = { month: number; incomeCents: number }
 
-/** Ingresos (base de las emitidas) y gastos deducibles (recibidas) de cada mes del año. */
+/** Lo facturado (base de las facturas expedidas) en cada mes del año. */
 export function buildMonthlySeries(invoices: Invoice[], year: number): MonthlyPoint[] {
   const points: MonthlyPoint[] = Array.from({ length: 12 }, (_, index) => ({
     month: index + 1,
     incomeCents: 0,
-    expenseCents: 0,
   }))
 
   for (const invoice of accountedInvoices(invoices)) {
     if (yearOf(invoice.issueDate) !== year) continue
     const point = points[Number(invoice.issueDate.slice(5, 7)) - 1]
-    if (invoice.direction === 'emitida') point.incomeCents += invoice.baseCents
-    else point.expenseCents += deductibleExpenseCents(invoice)
+    point.incomeCents += invoice.baseCents
   }
 
   return points
@@ -31,16 +28,11 @@ export type PendingSummary = {
   overdueCount: number
 }
 
-/** Lo pendiente de cobro o de pago a una fecha, y de ello lo ya vencido. */
-export function buildPendingSummary(
-  invoices: Invoice[],
-  direction: InvoiceDirection,
-  today: string
-): PendingSummary {
+/** Lo pendiente de cobro a una fecha, y de ello lo ya vencido. */
+export function buildPendingSummary(invoices: Invoice[], today: string): PendingSummary {
   const summary: PendingSummary = { pendingCents: 0, pendingCount: 0, overdueCents: 0, overdueCount: 0 }
 
   for (const invoice of accountedInvoices(invoices)) {
-    if (invoice.direction !== direction) continue
     const status = paymentStatus(invoice, today)
     if (status === 'pagada') continue
 
@@ -55,7 +47,7 @@ export function buildPendingSummary(
   return summary
 }
 
-/** Facturas vencidas y sin pagar, de las más atrasadas a las que menos. */
+/** Facturas vencidas y sin cobrar, de las más atrasadas a las que menos. */
 export function listOverdueInvoices(invoices: Invoice[], today: string, limit: number): Invoice[] {
   return accountedInvoices(invoices)
     .filter((invoice) => paymentStatus(invoice, today) === 'vencida')

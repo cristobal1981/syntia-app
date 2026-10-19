@@ -17,7 +17,6 @@ export type NavIconId =
   | 'guides'
   | 'leads'
   | 'invoicing'
-  | 'cash'
   | 'contacts'
 
 export type NavItem = {

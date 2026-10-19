@@ -9,8 +9,8 @@ const accounted = accountedInvoices(invoices)
 const HOTEL_TAX_ID = SAMPLE_THIRD_PARTIES.hotel.taxId
 
 describe('buildParties', () => {
-  it('clientes: agrupa las emitidas por NIF, con total facturado y pendiente', () => {
-    const clients = buildParties(invoices, 'emitida')
+  it('clientes: agrupa las facturas por NIF, con total facturado y pendiente', () => {
+    const clients = buildParties(invoices)
     const hotel = clients.find((party) => party.taxId === HOTEL_TAX_ID)!
 
     const hotelInvoices = accounted.filter((i) => i.counterpartyTaxId === HOTEL_TAX_ID)
@@ -20,21 +20,18 @@ describe('buildParties', () => {
     expect(hotel.lastInvoiceDate).toBe(hotelInvoices.map((i) => i.issueDate).sort().at(-1))
   })
 
-  it('proveedores: solo recibidas, de mayor a menor facturado', () => {
-    const suppliers = buildParties(invoices, 'recibida')
-    const billed = suppliers.map((party) => party.billedCents)
-
+  it('van de mayor a menor facturado', () => {
+    const billed = buildParties(invoices).map((party) => party.billedCents)
     expect(billed).toEqual([...billed].sort((a, b) => b - a))
-    expect(suppliers.some((party) => party.taxId === HOTEL_TAX_ID)).toBe(false)
   })
 
   it('el pendiente nunca supera lo facturado', () => {
-    for (const party of [...buildParties(invoices, 'emitida'), ...buildParties(invoices, 'recibida')]) {
+    for (const party of buildParties(invoices)) {
       expect(party.pendingCents).toBeLessThanOrEqual(party.billedCents)
     }
   })
 
-  it('sin facturas no hay terceros', () => {
-    expect(buildParties([], 'emitida')).toEqual([])
+  it('sin facturas no hay clientes', () => {
+    expect(buildParties([])).toEqual([])
   })
 })

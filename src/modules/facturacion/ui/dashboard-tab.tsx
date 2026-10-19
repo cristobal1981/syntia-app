@@ -15,7 +15,7 @@ import {
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import { buildParties } from '@/src/modules/facturacion/domain/parties'
 import { daysOverdue } from '@/src/modules/facturacion/domain/payment-status'
-import type { Invoice, InvoiceDirection } from '@/src/modules/facturacion/domain/types'
+import type { Invoice } from '@/src/modules/facturacion/domain/types'
 import { InvoiceLink } from '@/src/modules/facturacion/ui/invoice-link'
 import { ComplianceCard } from '@/src/modules/facturacion/ui/compliance-card'
 import { MonthlyChart } from '@/src/modules/facturacion/ui/monthly-chart'
@@ -28,24 +28,16 @@ const OVERDUE_LIMIT = 5
 type DashboardTabProps = {
   /** Todas las facturas: lo pendiente y lo vencido es a día de hoy. */
   invoices: Invoice[]
-  /** Las del periodo elegido: para terceros. */
+  /** Las del periodo elegido: para clientes. */
   periodInvoices: Invoice[]
   year: number
   today: string
   invoiceHref: (id: string) => string
 }
 
-function JournalCard({
-  direction,
-  invoices,
-  today,
-}: {
-  direction: InvoiceDirection
-  invoices: Invoice[]
-  today: string
-}) {
-  const text = direction === 'emitida' ? copy.issued : copy.received
-  const summary = useMemo(() => buildPendingSummary(invoices, direction, today), [invoices, direction, today])
+function IssuedCard({ invoices, today }: { invoices: Invoice[]; today: string }) {
+  const text = copy.issued
+  const summary = useMemo(() => buildPendingSummary(invoices, today), [invoices, today])
 
   return (
     <section className="portal-home-card flex flex-col gap-3 rounded-xl p-4 sm:p-5" aria-label={text.title}>
@@ -62,21 +54,19 @@ function JournalCard({
       </div>
       <div className="mt-auto flex flex-wrap gap-2">
         <Button asChild size="sm">
-          <Link href={`${sectionHref({ slug: 'facturas/nueva' })}?tipo=${direction}`}>
+          <Link href={sectionHref({ slug: 'facturas/nueva' })}>
             <Plus aria-hidden />
             {text.new}
           </Link>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link href={sectionHref({ slug: 'cobros-y-pagos' })}>{copy.seeCollections}</Link>
         </Button>
       </div>
     </section>
   )
 }
 
-function TopParties({ title, invoices, direction }: { title: string; invoices: Invoice[]; direction: InvoiceDirection }) {
-  const parties = useMemo(() => buildParties(invoices, direction).slice(0, TOP_PARTIES), [invoices, direction])
+function TopClients({ invoices }: { invoices: Invoice[] }) {
+  const title = copy.topClients
+  const parties = useMemo(() => buildParties(invoices).slice(0, TOP_PARTIES), [invoices])
 
   return (
     <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={title}>
@@ -103,19 +93,13 @@ export function DashboardTab({ invoices, periodInvoices, year, today, invoiceHre
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <JournalCard direction="emitida" invoices={invoices} today={today} />
-        <JournalCard direction="recibida" invoices={invoices} today={today} />
-      </div>
+      <IssuedCard invoices={invoices} today={today} />
 
       <ComplianceCard />
 
       <MonthlyChart series={series} />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <TopParties title={copy.topClients} invoices={periodInvoices} direction="emitida" />
-        <TopParties title={copy.topSuppliers} invoices={periodInvoices} direction="recibida" />
-      </div>
+      <TopClients invoices={periodInvoices} />
 
       <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={copy.overdueTitle}>
         <h2 className="font-sans text-base font-semibold text-foreground">{copy.overdueTitle}</h2>
