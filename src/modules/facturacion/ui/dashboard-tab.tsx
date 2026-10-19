@@ -35,24 +35,33 @@ type DashboardTabProps = {
   invoiceHref: (id: string) => string
 }
 
-function IssuedCard({ invoices, today }: { invoices: Invoice[]; today: string }) {
+/** Lo primero que se quiere saber: cuánto se debe y quién lo debe, con la acción de facturar a mano. */
+function PendingCard({
+  invoices,
+  today,
+  invoiceHref,
+}: {
+  invoices: Invoice[]
+  today: string
+  invoiceHref: (id: string) => string
+}) {
   const text = copy.issued
   const summary = useMemo(() => buildPendingSummary(invoices, today), [invoices, today])
+  const overdue = useMemo(() => listOverdueInvoices(invoices, today, OVERDUE_LIMIT), [invoices, today])
 
   return (
-    <section className="portal-home-card flex flex-col gap-3 rounded-xl p-4 sm:p-5" aria-label={text.title}>
-      <h2 className="font-sans text-sm font-semibold text-muted-foreground">{text.title}</h2>
-      <div>
-        <p className="text-xs text-muted-foreground">{text.pendingLabel}</p>
-        <p className="font-sans text-3xl font-semibold text-foreground">{formatCents(summary.pendingCents)}</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {copy.pendingCount(summary.pendingCount)} ·{' '}
-          <span className={summary.overdueCount > 0 ? 'font-medium text-destructive' : undefined}>
-            {copy.overdue(summary.overdueCount, formatCents(summary.overdueCents))}
-          </span>
-        </p>
-      </div>
-      <div className="mt-auto flex flex-wrap gap-2">
+    <section className="portal-home-card flex flex-col gap-4 rounded-xl p-4 sm:p-5" aria-label={text.title}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-sans text-sm font-semibold text-muted-foreground">{text.pendingLabel}</h2>
+          <p className="font-sans text-3xl font-semibold tabular-nums text-foreground">{formatCents(summary.pendingCents)}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {copy.pendingCount(summary.pendingCount)} ·{' '}
+            <span className={summary.overdueCount > 0 ? 'font-medium text-destructive' : undefined}>
+              {copy.overdue(summary.overdueCount, formatCents(summary.overdueCents))}
+            </span>
+          </p>
+        </div>
         <Button asChild size="sm">
           <Link href={sectionHref({ slug: 'facturas/nueva' })}>
             <Plus aria-hidden />
@@ -60,6 +69,30 @@ function IssuedCard({ invoices, today }: { invoices: Invoice[]; today: string })
           </Link>
         </Button>
       </div>
+
+      {overdue.length === 0 ? (
+        <p className="border-t border-border pt-3 text-sm text-muted-foreground dark:border-border/50">{copy.overdueEmpty}</p>
+      ) : (
+        <div className="border-t border-border pt-3 dark:border-border/50">
+          <h3 className="font-sans text-sm font-semibold text-foreground">{copy.overdueTitle}</h3>
+          <ul className="mt-1 flex flex-col divide-y divide-border dark:divide-border/50">
+            {overdue.map((invoice) => (
+              <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="text-foreground">{invoice.counterpartyName}</span>
+                  <span className="ml-2">
+                    <InvoiceLink href={invoiceHref(invoice.id)}>{invoice.invoiceNumber}</InvoiceLink>
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {copy.overdueSince(daysOverdue(invoice, today))} · {formatIsoDateEs(invoice.dueDate)}
+                  </span>
+                </span>
+                <span className="font-medium tabular-nums text-foreground">{formatCents(invoice.totalCents)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   )
 }
@@ -89,41 +122,17 @@ function TopClients({ invoices }: { invoices: Invoice[] }) {
 
 export function DashboardTab({ invoices, periodInvoices, year, today, invoiceHref }: DashboardTabProps) {
   const series = useMemo(() => buildMonthlySeries(invoices, year), [invoices, year])
-  const overdue = useMemo(() => listOverdueInvoices(invoices, today, OVERDUE_LIMIT), [invoices, today])
 
   return (
     <div className="flex flex-col gap-4">
-      <IssuedCard invoices={invoices} today={today} />
+      <PendingCard invoices={invoices} today={today} invoiceHref={invoiceHref} />
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <MonthlyChart series={series} />
+        <TopClients invoices={periodInvoices} />
+      </div>
 
       <ComplianceCard />
-
-      <MonthlyChart series={series} />
-
-      <TopClients invoices={periodInvoices} />
-
-      <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={copy.overdueTitle}>
-        <h2 className="font-sans text-base font-semibold text-foreground">{copy.overdueTitle}</h2>
-        {overdue.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">{copy.overdueEmpty}</p>
-        ) : (
-          <ul className="mt-3 flex flex-col divide-y divide-border dark:divide-border/50">
-            {overdue.map((invoice) => (
-              <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                <span className="min-w-0">
-                  <span className="text-foreground">{invoice.counterpartyName}</span>
-                  <span className="ml-2">
-                    <InvoiceLink href={invoiceHref(invoice.id)}>{invoice.invoiceNumber}</InvoiceLink>
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {copy.overdueSince(daysOverdue(invoice, today))} · {formatIsoDateEs(invoice.dueDate)}
-                  </span>
-                </span>
-                <span className="font-medium tabular-nums text-foreground">{formatCents(invoice.totalCents)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FilePenLine, Lock, Printer, Stamp, Undo2 } from 'lucide-react'
+import { ArrowLeft, FilePenLine, HandCoins, Lock, Printer, Stamp, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -20,15 +20,12 @@ import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { InvoiceDocument } from '@/src/modules/facturacion/ui/invoice-document'
-import { LifecyclePills, PaymentPill, Pill } from '@/src/modules/facturacion/ui/invoice-badges'
+import { InvoiceActionsMenu, type InvoiceMenuAction } from '@/src/modules/facturacion/ui/invoice-actions-menu'
+import { InvoiceStatusPill, Pill } from '@/src/modules/facturacion/ui/invoice-badges'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 
 const copy = facturacion.page.detail
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
-
-function rateLabel(rate: number): string {
-  return `${String(rate).replace('.', ',')} %`
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -111,6 +108,27 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
     )
   }
 
+  const collectable = !isDraft && invoice.kind === 'ordinaria'
+  const markPaidIsNext = collectable && !invoice.paymentDate
+  const rectified = rectifications.length > 0
+
+  // Una sola acción principal según el estado; lo demás, a la vista solo si es el siguiente paso probable.
+  const menuActions: InvoiceMenuAction[] = [
+    ...(collectable && invoice.paymentDate ? [{ key: 'unpay', label: copy.actions.markUnpaid, onSelect: togglePayment }] : []),
+    ...(!isDraft
+      ? [
+          {
+            key: 'review',
+            label: invoice.review === 'revisada' ? copy.actions.markPending : copy.actions.markReviewed,
+            onSelect: toggleReview,
+          },
+        ]
+      : []),
+    ...(canDeleteInvoice(invoice)
+      ? [{ key: 'delete', label: copy.actions.delete, onSelect: () => setConfirmDelete(true), destructive: true }]
+      : []),
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
@@ -128,9 +146,8 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
               {invoice.counterpartyName} · {formatIsoDateEs(invoice.issueDate)}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <LifecyclePills invoice={invoice} rectified={rectifications.length > 0} />
-              {!isDraft ? <PaymentPill invoice={invoice} today={today} /> : null}
-              <Pill tone={invoice.review === 'revisada' ? 'done' : 'pending'}>{facturacion.invoices.review[invoice.review]}</Pill>
+              <InvoiceStatusPill invoice={invoice} today={today} />
+              {rectified ? <Pill tone="neutral">{facturacion.lifecycle.rectified}</Pill> : null}
             </div>
           </div>
 
@@ -141,12 +158,10 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 {copy.actions.emit}
               </Button>
             ) : null}
-            {canRectify(invoice) ? (
-              <Button asChild>
-                <Link href={`${invoicesHref}/${invoice.id}/rectificar`}>
-                  <Undo2 aria-hidden />
-                  {copy.actions.rectify}
-                </Link>
+            {markPaidIsNext ? (
+              <Button type="button" onClick={togglePayment}>
+                <HandCoins aria-hidden />
+                {copy.actions.markPaid}
               </Button>
             ) : null}
             {!locked ? (
@@ -157,21 +172,15 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 </Link>
               </Button>
             ) : null}
-            {!isDraft ? (
-              <Button type="button" variant="outline" onClick={togglePayment}>
-                {invoice.paymentDate ? copy.actions.markUnpaid : copy.actions.markPaid}
+            {canRectify(invoice) ? (
+              <Button asChild variant="outline">
+                <Link href={`${invoicesHref}/${invoice.id}/rectificar`}>
+                  <Undo2 aria-hidden />
+                  {copy.actions.rectify}
+                </Link>
               </Button>
             ) : null}
-            {!isDraft ? (
-              <Button type="button" variant="outline" onClick={toggleReview}>
-                {invoice.review === 'revisada' ? copy.actions.markPending : copy.actions.markReviewed}
-              </Button>
-            ) : null}
-            {canDeleteInvoice(invoice) ? (
-              <Button type="button" variant="ghost" className="text-destructive" onClick={() => setConfirmDelete(true)}>
-                {copy.actions.delete}
-              </Button>
-            ) : null}
+            <InvoiceActionsMenu label={copy.actions.more} actions={menuActions} />
           </div>
         </div>
       </div>
@@ -187,18 +196,16 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
       ) : null}
 
       {locked ? (
-        <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+        <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
           <Lock className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
-          <div>
-            <p className="font-medium text-foreground">{copy.lockedTitle}</p>
-            <p className="mt-0.5 text-muted-foreground">{copy.lockedBody}</p>
-          </div>
-        </div>
+          <span>
+            <span className="font-medium text-foreground">{copy.lockedTitle}.</span> {copy.lockedBody}
+          </span>
+        </p>
       ) : isDraft ? (
-        <div className="rounded-lg border border-service-fiscal/40 bg-service-fiscal/10 px-4 py-3 text-sm">
-          <p className="font-medium text-foreground">{copy.draftTitle}</p>
-          <p className="mt-0.5 text-muted-foreground">{copy.draftBody}</p>
-        </div>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{copy.draftTitle}.</span> {copy.draftBody}
+        </p>
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
@@ -237,6 +244,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 {invoice.paymentDate ? formatIsoDateEs(invoice.paymentDate) : facturacion.detail.fields.none}
               </Field>
               <Field label={facturacion.detail.fields.category}>{category.label}</Field>
+              {!isDraft ? <Field label={facturacion.detail.fields.review}>{facturacion.invoices.review[invoice.review]}</Field> : null}
               {invoice.issuedAt ? (
                 <Field label={copy.issuedAt}>
                   {new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(invoice.issuedAt))}
@@ -280,36 +288,16 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
             </Card>
           ) : null}
 
-          <Card title={facturacion.detail.sections.amounts}>
-            <dl className="flex flex-col divide-y divide-border rounded-lg border border-border text-sm dark:divide-border/50">
-              <div className="flex justify-between px-4 py-2">
-                <dt className="text-muted-foreground">{facturacion.detail.fields.base}</dt>
-                <dd className="tabular-nums text-foreground">{formatCents(invoice.baseCents)}</dd>
-              </div>
-              <div className="flex justify-between px-4 py-2">
-                <dt className="text-muted-foreground">
-                  {facturacion.detail.fields.tax(invoice.regime === 'igic' ? 'IGIC' : 'IVA', rateLabel(invoice.taxRate))}
-                </dt>
-                <dd className="tabular-nums text-foreground">{formatCents(invoice.taxCents)}</dd>
-              </div>
-              {invoice.withholdingCents !== 0 ? (
-                <div className="flex justify-between px-4 py-2">
-                  <dt className="text-muted-foreground">{facturacion.detail.fields.withholding(rateLabel(invoice.withholdingRate))}</dt>
-                  <dd className="tabular-nums text-foreground">{formatCents(-invoice.withholdingCents)}</dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between bg-muted/40 px-4 py-2 font-semibold">
-                <dt className="text-foreground">{facturacion.detail.fields.total}</dt>
-                <dd className="tabular-nums text-foreground">{formatCents(invoice.totalCents)}</dd>
-              </div>
-            </dl>
-          </Card>
-
-          <Card title={facturacion.history.title} description={facturacion.history.description}>
+          <details className="portal-home-card group rounded-xl p-4 sm:p-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm font-sans text-base font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+              {facturacion.history.title}
+              <span className="text-xs font-normal text-muted-foreground">{facturacion.history.count(history.length)}</span>
+            </summary>
+            <p className="mt-0.5 text-xs text-muted-foreground">{facturacion.history.description}</p>
             {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{facturacion.history.empty}</p>
+              <p className="mt-3 text-sm text-muted-foreground">{facturacion.history.empty}</p>
             ) : (
-              <ol className="flex flex-col gap-2.5">
+              <ol className="mt-3 flex flex-col gap-2.5">
                 {history.map((event) => (
                   <li key={event.id} className="text-sm">
                     <p className="text-foreground">{event.summary}</p>
@@ -320,7 +308,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 ))}
               </ol>
             )}
-          </Card>
+          </details>
         </div>
       </div>
 

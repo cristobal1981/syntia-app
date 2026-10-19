@@ -162,6 +162,7 @@ export const facturacion = {
       tax: (regime: string, rate: string) => `${regime} (${rate})`,
       withholding: (rate: string) => `Retención IRPF (${rate})`,
       total: 'Total',
+      review: 'Revisión de la asesoría',
       none: '—',
     },
     actions: {
@@ -197,6 +198,8 @@ export const facturacion = {
       drafts: (count: number) => (count === 0 ? 'Sin borradores pendientes' : `${count === 1 ? '1 borrador' : `${count} borradores`} pendiente${count === 1 ? '' : 's'} de emitir`),
     },
     fix: 'Completar',
+    allGood: 'Todo en orden',
+    needsAttention: 'Hay algo que revisar',
     notice:
       'Aplica las reglas del Reglamento de facturación (RD 1619/2012): contenido, numeración, correcciones y facturas que no se pueden modificar. No incluye Veri*factu ni envío a la Agencia Tributaria, y es una demostración, no un software homologado.',
     numberingIssue: {
@@ -210,6 +213,7 @@ export const facturacion = {
     title: 'Historial',
     description: 'Apuntes automáticos que no se pueden editar ni borrar.',
     empty: 'Todavía no hay actividad registrada.',
+    count: (count: number) => (count === 1 ? '1 apunte' : `${count} apuntes`),
   },
   page: {
     back: 'Volver a facturas',
@@ -227,6 +231,7 @@ export const facturacion = {
         delete: 'Eliminar',
         markPaid: 'Marcar como cobrada',
         markUnpaid: 'Quitar el cobro',
+        more: 'Más',
         markReviewed: 'Marcar como revisada',
         markPending: 'Marcar como sin revisar',
       },

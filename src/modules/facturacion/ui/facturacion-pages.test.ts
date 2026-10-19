@@ -110,6 +110,35 @@ describe('ficha de una factura', () => {
     expect(plain).toContain('Historial')
   })
 
+  it('la acción principal depende del estado: pendiente de cobro → «Marcar como cobrada»; cobrada → ninguna', () => {
+    const pending = text(render('/facturacion/facturas/ejemplo-09', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-09' })))
+    expect(pending).toContain('Marcar como cobrada')
+    expect(pending).toContain('Corregir')
+    const paid = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(paid).not.toContain('Marcar como cobrada')
+    expect(paid).toContain('Más')
+  })
+
+  it('las acciones secundarias (revisión, quitar cobro) no están a la vista; la revisión es un dato de la ficha', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(plain).not.toContain('Marcar como revisada')
+    expect(plain).not.toContain('Quitar el cobro')
+    expect(plain).toContain('Revisión de la asesoría')
+  })
+
+  it('una corrección no ofrece cobrarse ni corregirse', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-r1', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-r1' })))
+    expect(plain).not.toContain('Marcar como cobrada')
+    expect(plain).not.toContain('Corregir')
+  })
+
+  it('el historial va plegado con su recuento y los importes no se repiten fuera del documento', () => {
+    const html = render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' }))
+    expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>[^]*Historial/)
+    expect(text(html)).toMatch(/\d+ apuntes?|0 apuntes/)
+    expect(text(html)).not.toContain('Importes')
+  })
+
   it('factura corregida: enlaza con su corrección y muestra el importe vigente', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
     expect(plain).toContain('Corregida por')
@@ -124,12 +153,13 @@ describe('ficha de una factura', () => {
     expect(plain).toContain('Descuento por volumen pactado')
   })
 
-  it('borrador: se puede emitir, editar y eliminar, y avisa de que no cuenta aún', () => {
+  it('borrador: se puede emitir y editar, con Eliminar recogido en «Más», y avisa de que aún no tiene número', () => {
     const html = render('/facturacion/facturas/ejemplo-15', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-15' }))
     const plain = text(html)
 
     expect(plain).toContain('Emitir factura')
-    expect(plain).toContain('Eliminar')
+    expect(plain).toContain('Más')
+    expect(plain).not.toContain('Eliminar')
     expect(html).toContain('/editar')
     expect(plain).toContain('Todavía no tiene número')
     expect(plain).toContain('BORRADOR')
@@ -241,9 +271,22 @@ describe('datos fiscales y panel', () => {
     expect(plain).toContain('No incluye Veri*factu')
   })
 
-  it('el panel muestra lo pendiente de cobro y no hay panel de proveedores', () => {
+  it('el panel abre con lo pendiente de cobro y las vencidas, antes que el gráfico y la revisión', () => {
     const plain = text(render('/facturacion/panel', createElement(PanelSection)))
-    expect(plain).toContain('Pendiente de cobro')
+    expect(plain.indexOf('Pendiente de cobro')).toBeGreaterThanOrEqual(0)
+    expect(plain.indexOf('Facturas vencidas')).toBeGreaterThan(plain.indexOf('Pendiente de cobro'))
+    expect(plain.indexOf('Facturado por mes')).toBeGreaterThan(plain.indexOf('Facturas vencidas'))
+    expect(plain.indexOf('Revisión de tus facturas')).toBeGreaterThan(plain.indexOf('Facturado por mes'))
+  })
+
+  it('la revisión de las facturas se despliega sola si hay algo que atender y se pliega si todo está bien', () => {
+    const html = render('/facturacion/panel', createElement(PanelSection))
+    expect(html).toMatch(/<details[^>]*open[^>]*>/)
+    expect(text(html)).toContain('Hay algo que revisar')
+  })
+
+  it('el panel no tiene panel de proveedores', () => {
+    const plain = text(render('/facturacion/panel', createElement(PanelSection)))
     expect(plain).not.toContain('Pendiente de pago')
     expect(plain).not.toContain('Principales proveedores')
   })

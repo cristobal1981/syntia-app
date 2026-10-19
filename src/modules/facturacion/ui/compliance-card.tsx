@@ -41,39 +41,58 @@ export function ComplianceCard() {
   const issuerOk = isIssuerComplete(issuer)
   const settings = SECTIONS.find((section) => section.id === 'settings')
 
+  const allGood = issuerOk && numberingIssues.length === 0 && drafts === 0
+
+  const checks = (
+    <ul className="mt-4 flex flex-col gap-2.5">
+      <Check
+        ok={issuerOk}
+        action={
+          !issuerOk && settings ? (
+            <Link href={sectionHref(settings)} className="shrink-0 text-sm font-medium text-foreground underline underline-offset-4">
+              {copy.fix}
+            </Link>
+          ) : undefined
+        }
+      >
+        {issuerOk ? copy.checks.issuer.ok : copy.checks.issuer.fail}
+      </Check>
+      <Check ok={numberingIssues.length === 0}>
+        {numberingIssues.length === 0 ? copy.checks.numbering.ok : copy.checks.numbering.fail(numberingIssues.length)}
+        {numberingIssues.length > 0 ? (
+          <span className="mt-1 block text-xs text-muted-foreground">{numberingIssues.map(describeIssue).join(' · ')}</span>
+        ) : null}
+      </Check>
+      <Check ok>{copy.checks.locked(locked)}</Check>
+      <Check ok>{copy.checks.rectifications(rectifications)}</Check>
+      <Check ok={drafts === 0}>{copy.checks.drafts(drafts)}</Check>
+    </ul>
+  )
+
+  const notice = (
+    <p className="mt-4 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      {copy.notice}
+    </p>
+  )
+
+  // Con todo en orden basta una línea; el detalle se despliega a petición. Si algo falla, se ve de entrada.
   return (
-    <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={copy.title}>
-      <h2 className="font-sans text-base font-semibold text-foreground">{copy.title}</h2>
+    <details className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={copy.title} open={!allGood}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        <h2 className="font-sans text-base font-semibold text-foreground">{copy.title}</h2>
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          {allGood ? (
+            <CircleCheck className="size-4 text-primary" aria-hidden />
+          ) : (
+            <CircleAlert className="size-4 text-destructive" aria-hidden />
+          )}
+          {allGood ? copy.allGood : copy.needsAttention}
+        </span>
+      </summary>
       <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
-
-      <ul className="mt-4 flex flex-col gap-2.5">
-        <Check
-          ok={issuerOk}
-          action={
-            !issuerOk && settings ? (
-              <Link href={sectionHref(settings)} className="shrink-0 text-sm font-medium text-foreground underline underline-offset-4">
-                {copy.fix}
-              </Link>
-            ) : undefined
-          }
-        >
-          {issuerOk ? copy.checks.issuer.ok : copy.checks.issuer.fail}
-        </Check>
-        <Check ok={numberingIssues.length === 0}>
-          {numberingIssues.length === 0 ? copy.checks.numbering.ok : copy.checks.numbering.fail(numberingIssues.length)}
-          {numberingIssues.length > 0 ? (
-            <span className="mt-1 block text-xs text-muted-foreground">{numberingIssues.map(describeIssue).join(' · ')}</span>
-          ) : null}
-        </Check>
-        <Check ok>{copy.checks.locked(locked)}</Check>
-        <Check ok>{copy.checks.rectifications(rectifications)}</Check>
-        <Check ok={drafts === 0}>{copy.checks.drafts(drafts)}</Check>
-      </ul>
-
-      <p className="mt-4 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        {copy.notice}
-      </p>
-    </section>
+      {checks}
+      {notice}
+    </details>
   )
 }
