@@ -70,7 +70,7 @@ export type SaveInvoiceResult =
   | { ok: false; error: 'not_found'; state: InvoicingState }
 
 /**
- * Crea o modifica una factura. Una emitida ya expedida rechaza cualquier cambio de
+ * Crea o modifica una factura. Una factura ya emitida rechaza cualquier cambio de
  * contenido, y el intento queda anotado en el historial.
  */
 export function saveInvoice(
@@ -111,7 +111,7 @@ export function saveInvoice(
         context,
         'bloqueada',
         existing.id,
-        `Intento de modificar la factura ${label(existing)} rechazado: está expedida (campos: ${result.fields.join(', ')})`
+        `Intento de modificar la factura ${label(existing)} rechazado: ya está emitida (campos: ${result.fields.join(', ')})`
       ),
     }
   }
@@ -150,7 +150,7 @@ export function emitDraft(state: InvoicingState, invoiceId: string, context: Ope
       context,
       'expedida',
       draft.id,
-      `Factura ${result.invoice.invoiceNumber} expedida`
+      `Factura ${result.invoice.invoiceNumber} emitida`
     ),
   }
 }
@@ -161,7 +161,7 @@ export type RectifyResult =
   | { ok: false; error: 'invalid'; issues: RectificationIssueCode[]; state: InvoicingState }
   | { ok: false; error: 'emission'; issues: EmissionIssue[]; state: InvoicingState }
 
-/** Expide una factura rectificativa de una emitida ya expedida (la original no se toca). */
+/** Emite una factura rectificativa de una ya emitida (la original no se toca). */
 export function rectifyInvoice(
   state: InvoicingState,
   originalId: string,
@@ -194,7 +194,7 @@ export function rectifyInvoice(
       context,
       'rectificada',
       original.id,
-      `Factura ${original.invoiceNumber} rectificada por ${emitted.invoice.invoiceNumber}: ${input.reason.trim()}`
+      `Factura ${original.invoiceNumber} corregida por ${emitted.invoice.invoiceNumber}: ${input.reason.trim()}`
     ),
   }
 }
@@ -212,7 +212,7 @@ export function removeInvoice(state: InvoicingState, invoiceId: string, context:
     return {
       ok: false,
       error: 'locked',
-      state: withEvent(state, context, 'bloqueada', invoice.id, `Intento de borrar la factura ${label(invoice)} rechazado: está expedida`),
+      state: withEvent(state, context, 'bloqueada', invoice.id, `Intento de borrar la factura ${label(invoice)} rechazado: ya está emitida`),
     }
   }
 

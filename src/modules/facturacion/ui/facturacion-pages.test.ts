@@ -46,11 +46,11 @@ describe('lista de facturas', () => {
     expect(html).toContain('F-2026-0001')
   })
 
-  it('muestra el borrador sin número, la rectificativa y la factura rectificada', () => {
+  it('muestra el borrador sin número, la corrección y la factura corregida', () => {
     const plain = text(html)
     expect(plain).toContain('Sin número (borrador)')
-    expect(plain).toContain('Rectificativa')
-    expect(plain).toContain('Rectificada')
+    expect(plain).toContain('Corrección')
+    expect(plain).toContain('Corregida')
     expect(plain).toContain('Borrador')
   })
 
@@ -60,6 +60,13 @@ describe('lista de facturas', () => {
     expect(plain).not.toContain('Expedida')
     expect(plain).not.toContain('Sin revisar')
     expect(plain).not.toContain('Revisada')
+  })
+
+  it('habla de emitir y corregir, no de expedir ni rectificar, en la lista y el panel', () => {
+    const panel = text(render('/facturacion/panel', createElement(PanelSection)))
+    for (const plain of [text(html), panel]) {
+      expect(plain).not.toMatch(/expedi|rectificativ|rectificad|inalterab/i)
+    }
   })
 
   it('resume lo filtrado: número de facturas, facturado y pendiente de cobro', () => {
@@ -88,12 +95,12 @@ describe('lista de facturas', () => {
 })
 
 describe('ficha de una factura', () => {
-  it('emitida expedida: documento con sus datos, aviso de inalterable y rectificar; sin editar ni borrar', () => {
+  it('factura emitida: documento con sus datos, aviso de que no se puede modificar y corregir; sin editar ni borrar', () => {
     const html = render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' }))
     const plain = text(html)
 
     expect(plain).toContain('F-2026-0003')
-    expect(plain).toContain('Factura expedida: inalterable')
+    expect(plain).toContain('Factura emitida: no se puede modificar')
     expect(plain).toContain('Estudio Gráfico Tías (demo)')
     expect(plain).toContain('Cabildo de Lanzarote')
     expect(html).toContain('/rectificar')
@@ -103,25 +110,25 @@ describe('ficha de una factura', () => {
     expect(plain).toContain('Historial')
   })
 
-  it('emitida rectificada: enlaza con su rectificativa y muestra el importe vigente', () => {
+  it('factura corregida: enlaza con su corrección y muestra el importe vigente', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
-    expect(plain).toContain('Rectificada por')
+    expect(plain).toContain('Corregida por')
     expect(plain).toContain('R-2026-0001')
-    expect(plain).toContain('Importe vigente tras rectificar')
+    expect(plain).toContain('Importe vigente tras corregir')
   })
 
-  it('rectificativa: cita la factura rectificada y el motivo', () => {
+  it('corrección: cita la factura corregida y el motivo (el documento conserva el término legal)', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-r1', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-r1' })))
     expect(plain).toContain('FACTURA RECTIFICATIVA')
     expect(plain).toContain('Rectifica la factura F-2026-0002')
     expect(plain).toContain('Descuento por volumen pactado')
   })
 
-  it('borrador: se puede expedir, editar y eliminar, y avisa de que no cuenta aún', () => {
+  it('borrador: se puede emitir, editar y eliminar, y avisa de que no cuenta aún', () => {
     const html = render('/facturacion/facturas/ejemplo-15', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-15' }))
     const plain = text(html)
 
-    expect(plain).toContain('Expedir factura')
+    expect(plain).toContain('Emitir factura')
     expect(plain).toContain('Eliminar')
     expect(html).toContain('/editar')
     expect(plain).toContain('Todavía no tiene número')
@@ -135,12 +142,12 @@ describe('ficha de una factura', () => {
 })
 
 describe('formularios de factura', () => {
-  it('nueva factura: sin número (lo asigna la expedición), con "Guardar y expedir"', () => {
+  it('nueva factura: sin número (lo asigna la emisión), con "Guardar y emitir"', () => {
     const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))
     expect(plain).toContain('Nueva factura')
-    expect(plain).toContain('los asigna la aplicación al expedir')
+    expect(plain).toContain('los asigna la aplicación al emitir la factura')
     expect(plain).toContain('Guardar borrador')
-    expect(plain).toContain('Guardar y expedir')
+    expect(plain).toContain('Guardar y emitir')
     expect(plain).not.toContain('Número de factura')
   })
 
@@ -151,9 +158,9 @@ describe('formularios de factura', () => {
     expect(plain).not.toContain('Documento adjunto')
   })
 
-  it('editar una expedida no muestra el formulario: avisa de que es inalterable', () => {
+  it('editar una factura emitida no muestra el formulario: avisa de que no se puede modificar', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-06/editar', createElement(EditInvoiceSection, { invoiceId: 'ejemplo-06' })))
-    expect(plain).toContain('ya está expedida y no se puede editar')
+    expect(plain).toContain('ya está emitida y no se puede editar')
     expect(plain).not.toContain('Guardar')
   })
 
@@ -165,19 +172,19 @@ describe('formularios de factura', () => {
 })
 
 describe('rectificar', () => {
-  it('una expedida muestra el formulario y la vista previa de la rectificativa', () => {
+  it('una factura emitida muestra el formulario y la vista previa de la corrección', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-06/rectificar', createElement(RectifyInvoiceSection, { invoiceId: 'ejemplo-06' })))
-    expect(plain).toContain('Rectificar la factura F-2026-0003')
-    expect(plain).toContain('Motivo de la rectificación')
-    expect(plain).toContain('Emitir rectificativa')
-    expect(plain).toContain('Así quedará la rectificativa')
+    expect(plain).toContain('Corregir la factura F-2026-0003')
+    expect(plain).toContain('Motivo de la corrección')
+    expect(plain).toContain('Emitir corrección')
+    expect(plain).toContain('Así quedará la corrección')
   })
 
-  it('un borrador o una rectificativa no se pueden rectificar', () => {
+  it('un borrador o una corrección no se pueden corregir', () => {
     const draft = text(render('/facturacion/facturas/ejemplo-15/rectificar', createElement(RectifyInvoiceSection, { invoiceId: 'ejemplo-15' })))
-    expect(draft).toContain('no se puede rectificar')
+    expect(draft).toContain('no se puede corregir')
     const rect = text(render('/facturacion/facturas/ejemplo-r1/rectificar', createElement(RectifyInvoiceSection, { invoiceId: 'ejemplo-r1' })))
-    expect(rect).toContain('no se puede rectificar')
+    expect(rect).toContain('no se puede corregir')
   })
 })
 
@@ -208,7 +215,7 @@ describe('clientes', () => {
     const html = render('/facturacion/clientes/tercero-1', createElement(EditPartySection, { partyId: 'tercero-1' }))
     const plain = text(html)
     expect(plain).toContain('Facturas de este cliente')
-    expect(plain).toContain('no afectan a las facturas ya expedidas')
+    expect(plain).toContain('no afectan a las facturas ya emitidas')
     expect(html).toContain('/facturacion/facturas/')
   })
 
@@ -224,13 +231,13 @@ describe('datos fiscales y panel', () => {
     expect(text(html)).toContain('Guardar datos fiscales')
   })
 
-  it('el panel incluye las comprobaciones de cumplimiento y avisa de lo que no incluye', () => {
+  it('el panel incluye la revisión de las facturas y avisa de lo que no incluye', () => {
     const plain = text(render('/facturacion/panel', createElement(PanelSection)))
-    expect(plain).toContain('Cumplimiento de facturación')
+    expect(plain).toContain('Revisión de tus facturas')
     expect(plain).toContain('Numeración correlativa, sin saltos ni repetidos')
     expect(plain).toContain('Datos fiscales del emisor completos')
-    expect(plain).toContain('1 rectificativa en serie propia')
-    expect(plain).toContain('1 borrador pendiente de expedir')
+    expect(plain).toContain('1 corrección')
+    expect(plain).toContain('1 borrador pendiente de emitir')
     expect(plain).toContain('No incluye Veri*factu')
   })
 
