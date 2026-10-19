@@ -363,7 +363,7 @@ describe('filtro de periodo fijo', () => {
   it('Panel y Facturas comparten el mismo filtro, fijo arriba al desplazarse desde md', () => {
     for (const path of ['/facturacion/panel', '/facturacion/facturas']) {
       const html = bar(path)
-      expect(html, path).toContain('md:sticky md:top-0')
+      expect(html, path).toContain('md:sticky md:-top-10')
       expect(html, path).toContain('aria-label="Periodo"')
       expect(text(html), path).toContain('Año completo')
       expect(text(html), path).toContain('4T')

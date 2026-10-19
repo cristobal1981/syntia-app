@@ -193,8 +193,9 @@ function NavGroup({
           open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         )}
       >
+        {/* El recorte del despliegue corta el anillo de foco: deja 4 px a los lados y 2 px arriba y abajo. */}
         <div className="-mx-1 min-h-0 overflow-hidden px-1">
-          <div className="flex flex-col gap-1 border-l border-sidebar-border pl-2">
+          <div className="flex flex-col gap-1 border-l border-sidebar-border py-0.5 pl-2">
             {children.map((child) =>
               child.href ? (
                 <NavLink
