@@ -1,9 +1,13 @@
-const DEFAULT_DRIVE_FIELD = 'x_studio_google_drive'
+const DEFAULT_PUBLIC_DRIVE_FIELD = 'x_studio_google_drive_publica'
 const DEFAULT_CONTACT_EMAIL_FIELD = 'x_studio_email_recepcion_nominas'
 const DEFAULT_CATALOG_TTL_SECONDS = 600
 
-export function getOdooDriveFieldName(): string {
-  return process.env.ODOO_PARTNER_DRIVE_FIELD?.trim() || DEFAULT_DRIVE_FIELD
+/** Campo del contacto con el ID de su carpeta Pública de Drive (lo rellena el workflow de n8n al crearla). */
+export function getOdooPublicDriveFieldName(): string {
+  return (
+    process.env.ODOO_PARTNER_PUBLIC_DRIVE_FIELD?.trim() ||
+    DEFAULT_PUBLIC_DRIVE_FIELD
+  )
 }
 
 export function getOdooContactEmailFieldName(): string {

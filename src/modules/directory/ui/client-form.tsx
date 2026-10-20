@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
+import { TriangleAlertIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -68,8 +69,12 @@ type ClientImportDraft = {
   companyName?: string
   corporateEmail?: string
   odooPartnerId?: string
-  driveFolderId?: string
 }
+
+/** Estado de la carga del ID de carpeta pública guardado en Odoo para el contacto elegido. */
+export type DriveFolderAutofill =
+  | { status: 'idle' | 'loading' | 'notFound' | 'error' }
+  | { status: 'found'; folderId: string }
 
 type ClientFormProps = {
   mode: 'create' | 'edit'
@@ -83,6 +88,7 @@ type ClientFormProps = {
   onDeleted?: () => void
   formInstanceKey?: string
   importDraft?: ClientImportDraft | null
+  driveAutofill?: DriveFolderAutofill
   odooPartners?: OdooPartnerImportOption[]
   odooImportLoadState?: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
   selectedOdooPartnerId?: number | null
@@ -112,6 +118,7 @@ export function ClientForm({
   onDeleted,
   formInstanceKey,
   importDraft,
+  driveAutofill = { status: 'idle' },
   odooPartners = [],
   odooImportLoadState = 'idle',
   selectedOdooPartnerId = null,
@@ -149,7 +156,7 @@ export function ClientForm({
         phone: importDraft?.phone ?? '',
         companyName: importDraft?.companyName ?? '',
         odooPartnerId: importDraft?.odooPartnerId ?? '',
-        driveFolderId: importDraft?.driveFolderId ?? '',
+        driveFolderId: '',
         advisorId: '',
       }
     : {
@@ -163,6 +170,20 @@ export function ClientForm({
         driveFolderId: client?.driveFolderId ?? '',
         advisorId: client?.advisorId ?? '',
       }
+
+  // Controlado para poder rellenarlo cuando llegue Drive sin pisar lo que el usuario ya haya escrito.
+  const [driveValue, setDriveValue] = useState(defaults.driveFolderId)
+  const [driveEdited, setDriveEdited] = useState(false)
+  const autofillFolderId =
+    driveAutofill.status === 'found' ? driveAutofill.folderId : undefined
+  const [prevAutofillFolderId, setPrevAutofillFolderId] =
+    useState(autofillFolderId)
+  if (autofillFolderId !== prevAutofillFolderId) {
+    setPrevAutofillFolderId(autofillFolderId)
+    if (autofillFolderId && !driveEdited) {
+      setDriveValue(autofillFolderId)
+    }
+  }
 
   const [advisorIdValue, setAdvisorIdValue] = useState(defaults.advisorId)
   const [prevDefaultsAdvisorId, setPrevDefaultsAdvisorId] = useState(
@@ -492,13 +513,38 @@ export function ClientForm({
           {...NO_AUTOFILL}
           id="client-drive"
           name="driveFolderId"
-          defaultValue={defaults.driveFolderId}
+          value={driveValue}
+          onChange={(event) => {
+            setDriveValue(event.target.value)
+            setDriveEdited(true)
+          }}
           aria-describedby="client-drive-hint"
           aria-invalid={Boolean(getFieldError('driveFolderId'))}
         />
         <p id="client-drive-hint" className="text-xs text-muted-foreground">
           {copy.fields.driveFolderIdHint}
         </p>
+        {isCreate && driveAutofill.status === 'loading' ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            {copy.fields.driveFolderIdAutofill.loading}
+          </p>
+        ) : null}
+        {isCreate && driveAutofill.status === 'found' && !driveEdited ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            {copy.fields.driveFolderIdAutofill.found}
+          </p>
+        ) : null}
+        {isCreate &&
+        (driveAutofill.status === 'notFound' ||
+          driveAutofill.status === 'error') ? (
+          <p
+            className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>{copy.fields.driveFolderIdAutofill[driveAutofill.status]}</span>
+          </p>
+        ) : null}
         <FieldError message={getFieldError('driveFolderId')} />
       </div>
 

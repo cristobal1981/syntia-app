@@ -91,7 +91,7 @@ export const equipo = {
     odooImport: {
       title: 'Importar desde Odoo',
       description:
-        'Contactos con carpeta Drive en Odoo que aún no están en el portal. Al elegir uno se rellena el formulario con la subcarpeta pública de documentos.',
+        'Contactos de Odoo que aún no están en el portal. Al elegir uno se rellena el formulario, incluida su carpeta pública de Drive si Odoo la tiene guardada.',
       searchPlaceholder: 'Buscar por nombre o correo…',
       empty: 'No hay contactos de Odoo disponibles para importar.',
       noResults: 'Ningún contacto coincide con la búsqueda.',
@@ -196,6 +196,13 @@ export const equipo = {
       driveFolderId: 'ID carpeta Drive',
       driveFolderIdHint:
         'ID de la subcarpeta pública de documentos (no la carpeta padre de Odoo). Solo visible en este formulario.',
+      driveFolderIdAutofill: {
+        loading: 'Buscando la carpeta pública de este contacto en Odoo…',
+        found: 'Rellenado desde Odoo (carpeta pública de este contacto). Revísalo antes de crear.',
+        notFound:
+          'Este contacto no tiene guardada su carpeta pública en Odoo (aún no se creó o no se compartió con el portal). Pega el ID a mano si hace falta.',
+        error: 'No pudimos consultar Odoo. Pega el ID a mano si hace falta.',
+      },
       unassigned: 'Sin asignar',
       odooUserId: 'ID usuario Odoo',
       odooUserIdHint: 'res.users.id del asesor en Odoo.',
