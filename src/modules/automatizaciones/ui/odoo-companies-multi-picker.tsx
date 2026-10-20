@@ -1,11 +1,18 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState } from 'react'
+import { XIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { automatizaciones } from '@/content/automatizaciones'
 import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
+import {
+  addCompanyIds,
+  filterCompanies,
+  resolveSelectedCompanies,
+  toggleCompanyId,
+} from '@/src/modules/automatizaciones/domain/odoo-company-selection'
 import { cn } from '@/lib/utils'
 import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
@@ -27,30 +34,27 @@ export function OdooCompaniesMultiPicker({
 }: OdooCompaniesMultiPickerProps) {
   const copy = automatizaciones.odooCompaniesPicker
   const [query, setQuery] = useState('')
+  const [onlySelectedRequested, setOnlySelectedRequested] = useState(false)
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  // Sin nada seleccionado el filtro no tiene sentido: se desactiva solo en vez de dejar la lista vacía.
+  const onlySelected = onlySelectedRequested && selectedIds.length > 0
 
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    if (!normalized) return companies
-    return companies.filter((company) =>
-      company.name.toLowerCase().includes(normalized)
-    )
-  }, [companies, query])
+  const selectedCompanies = useMemo(
+    () => resolveSelectedCompanies(companies, selectedIds),
+    [companies, selectedIds]
+  )
+
+  const filtered = useMemo(
+    () => filterCompanies(companies, { query, onlySelected, selectedIds }),
+    [companies, query, onlySelected, selectedIds]
+  )
 
   function toggleCompany(id: number) {
-    if (selectedSet.has(id)) {
-      onChange(selectedIds.filter((entry) => entry !== id))
-      return
-    }
-    onChange([...selectedIds, id])
+    onChange(toggleCompanyId(selectedIds, id))
   }
 
   function selectAllVisible() {
-    const next = new Set(selectedIds)
-    for (const company of filtered) {
-      next.add(company.id)
-    }
-    onChange([...next])
+    onChange(addCompanyIds(selectedIds, filtered))
   }
 
   function clearSelection() {
@@ -73,6 +77,34 @@ export function OdooCompaniesMultiPicker({
           {copy.selectedCount.replace('{count}', String(selectedIds.length))}
         </span>
       </div>
+
+      {selectedCompanies.length > 0 ? (
+        <div
+          className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-md border border-border bg-muted/30 p-2"
+          role="group"
+          aria-label={copy.selectedHeading}
+        >
+          {selectedCompanies.map(({ id, name }) => {
+            const displayName = name ?? copy.unknownCompany.replace('{id}', String(id))
+            return (
+              <span
+                key={id}
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-background py-0.5 pl-2.5 pr-1 text-xs text-foreground"
+              >
+                <span className="truncate">{displayName}</span>
+                <button
+                  type="button"
+                  className="flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label={copy.removeCompany.replace('{name}', displayName)}
+                  onClick={() => toggleCompany(id)}
+                >
+                  <XIcon aria-hidden className="size-3" />
+                </button>
+              </span>
+            )
+          })}
+        </div>
+      ) : null}
 
       <Input
         {...NO_AUTOFILL}
@@ -100,6 +132,16 @@ export function OdooCompaniesMultiPicker({
           disabled={!selectedIds.length}
         >
           {copy.clearSelection}
+        </Button>
+        <Button
+          type="button"
+          variant={onlySelected ? 'secondary' : 'ghost'}
+          size="sm"
+          aria-pressed={onlySelected}
+          onClick={() => setOnlySelectedRequested((current) => !current)}
+          disabled={!selectedIds.length}
+        >
+          {onlySelected ? copy.showAll : copy.onlySelected}
         </Button>
       </div>
 
