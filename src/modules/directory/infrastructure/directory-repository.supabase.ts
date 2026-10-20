@@ -13,8 +13,14 @@ import {
 import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
 import { sendClientAccessEmailForClient } from '@/src/modules/directory/infrastructure/client-access-link'
-import { upsertClientIntegration } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
-import { propagateOwnerIntegrationToWorkers } from '@/src/modules/colaboradores/infrastructure/worker-grants.supabase'
+import {
+  listUserIdsByDriveFolder,
+  upsertClientIntegration,
+} from '@/src/modules/directory/infrastructure/client-integrations.supabase'
+import {
+  listWorkerGrantsForOwner,
+  propagateOwnerIntegrationToWorkers,
+} from '@/src/modules/colaboradores/infrastructure/worker-grants.supabase'
 import {
   buildAdvisorNameMap,
   buildDirectorySources,
@@ -35,6 +41,35 @@ import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructur
 
 /** Forma del `jsonb` del RPC `count_clients_by_advisor` — frontera real (SQL). */
 const clientCountsByAdvisorSchema = z.record(z.string(), z.number())
+
+/**
+ * Dos clientes distintos nunca deben compartir carpeta Pública: uno vería los
+ * documentos del otro. Los colaboradores del propio titular SÍ repiten su
+ * carpeta (se propaga a su fila), así que no cuentan como conflicto. La
+ * migración trae un índice único, pero choca con esa propagación y no se puede
+ * dar por activo: la garantía tiene que estar también aquí.
+ */
+async function assertDriveFolderNotTakenByOtherClient(
+  ownerUserId: string | null,
+  driveFolderId: string | null | undefined
+): Promise<void> {
+  const folderId = driveFolderId?.trim()
+  if (!folderId) return
+
+  const others = (await listUserIdsByDriveFolder(folderId)).filter(
+    (userId) => userId !== ownerUserId
+  )
+  if (!others.length) return
+
+  const ownWorkers = new Set(
+    ownerUserId
+      ? (await listWorkerGrantsForOwner(ownerUserId)).map((grant) => grant.worker_user_id)
+      : []
+  )
+  if (others.some((userId) => !ownWorkers.has(userId))) {
+    throw new Error('DUPLICATE_DRIVE_FOLDER')
+  }
+}
 
 export const supabaseDirectoryRepository: DirectoryRepository = {
   async listGestores() {
@@ -254,6 +289,9 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
     const supabase = createSupabaseAdminClient()
     const email = input.email.trim().toLowerCase()
 
+    // Antes de crear la cuenta: así un error aquí no deja un usuario a medias.
+    await assertDriveFolderNotTakenByOtherClient(null, input.driveFolderId)
+
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
@@ -356,6 +394,8 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
   },
 
   async updateClient(input) {
+    // Antes de escribir nada: un conflicto no debe dejar el cliente a medio actualizar.
+    await assertDriveFolderNotTakenByOtherClient(input.id, input.driveFolderId)
     const supabase = createSupabaseAdminClient()
     const status = mapPersonStatusToDb(input.status)
     const profileFields = mapClientProfileFields({

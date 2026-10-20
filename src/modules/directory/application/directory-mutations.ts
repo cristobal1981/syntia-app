@@ -38,6 +38,12 @@ export type DirectoryUpdateResult =
       message?: string
     }
 
+const DUPLICATE_DRIVE_FOLDER_RESULT: DirectoryUpdateResult = {
+  ok: false,
+  error: 'validation',
+  fieldErrors: { driveFolderId: 'Esa carpeta ya está asignada a otro cliente.' },
+}
+
 type DirectoryDeleteResult =
   | { ok: true }
   | {
@@ -211,6 +217,9 @@ export async function createClientCore(
     updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
+    if (error instanceof Error && error.message === 'DUPLICATE_DRIVE_FOLDER') {
+      return DUPLICATE_DRIVE_FOLDER_RESULT
+    }
     if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {
       return {
         ok: false,
@@ -332,6 +341,9 @@ export async function updateClientAction(
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'DUPLICATE_DRIVE_FOLDER') {
+      return DUPLICATE_DRIVE_FOLDER_RESULT
     }
     return {
       ok: false,

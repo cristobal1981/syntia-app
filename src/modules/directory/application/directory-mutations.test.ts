@@ -834,6 +834,25 @@ describe('error propagation across actions', () => {
     })
   })
 
+  it('una carpeta Pública ya asignada a otro cliente es un error del campo, no un fallo genérico (alta y edición)', async () => {
+    const expected = {
+      ok: false,
+      error: 'validation',
+      fieldErrors: { driveFolderId: 'Esa carpeta ya está asignada a otro cliente.' },
+    }
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+
+    createClient.mockRejectedValue(new Error('DUPLICATE_DRIVE_FOLDER'))
+    await expect(createClientAction(null, clientFormData())).resolves.toEqual(expected)
+
+    getClient.mockResolvedValue(client({ id: 'client-1' }))
+    updateClient.mockRejectedValue(new Error('DUPLICATE_DRIVE_FOLDER'))
+    await expect(
+      updateClientAction(null, updateClientFormData({ id: 'client-1' }))
+    ).resolves.toEqual(expected)
+  })
+
   it('createClientCore maps a not_found-style email error to unknown and a generic error to its message', async () => {
     createClient.mockRejectedValue(new Error('NOT_FOUND'))
     const input = {
