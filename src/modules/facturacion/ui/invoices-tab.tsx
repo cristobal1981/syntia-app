@@ -20,6 +20,7 @@ import { BookTable } from '@/src/modules/facturacion/ui/book-table'
 import { InvoiceStatusPill } from '@/src/modules/facturacion/ui/invoice-badges'
 import { InvoiceLink } from '@/src/modules/facturacion/ui/invoice-link'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const copy = facturacion.invoices
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
@@ -96,6 +97,7 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
           ))}
         </div>
         <Input
+          {...NO_AUTOFILL}
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}

@@ -19,6 +19,7 @@ import type { AutomationInputField } from '@/src/modules/automatizaciones/domain
 import { MAX_AUTOMATION_INPUT_TEXT_LENGTH } from '@/src/modules/automatizaciones/domain/types'
 import { OdooCompaniesMultiPicker } from '@/src/modules/automatizaciones/ui/odoo-companies-multi-picker'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const SELECT_CLASS =
   'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm'
@@ -249,6 +250,7 @@ export function AutomationLaunchDrawer({
         </label>
         {field.type === 'text' ? (
           <Input
+            {...NO_AUTOFILL}
             id={`launch-${field.key}`}
             value={values[field.key] ?? ''}
             onChange={(event) => {

@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { equipo } from '@/content/equipo'
 import { deleteClientAction } from '@/src/modules/directory/application/directory-mutations'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type ClientDangerZoneProps = {
   client: ClientRecord
@@ -139,6 +140,7 @@ export function ClientDangerZone({ client, onDeleted }: ClientDangerZoneProps) {
             <p className="font-medium text-foreground">{client.name}</p>
             <div className="mt-2 flex items-center gap-2">
               <Input
+                {...NO_AUTOFILL}
                 ref={emailCopyRef}
                 readOnly
                 value={client.email}
@@ -171,12 +173,12 @@ export function ClientDangerZone({ client, onDeleted }: ClientDangerZoneProps) {
               {copy.confirmEmailLabel}
             </label>
             <Input
+              {...NO_AUTOFILL}
               id="client-delete-email-confirm"
               type="email"
               value={emailConfirm}
               onChange={(event) => setEmailConfirm(event.target.value)}
               placeholder={copy.confirmPlaceholder}
-              autoComplete="off"
               disabled={pending}
             />
           </div>

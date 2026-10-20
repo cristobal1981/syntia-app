@@ -37,6 +37,7 @@ import {
   type DraftInputField,
 } from '@/src/modules/automatizaciones/ui/automation-input-fields-editor'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const FORM_ID = 'automation-create-drawer-form'
 
@@ -203,12 +204,12 @@ export function AutomationCreateDrawer({
           >
             <DrawerField id="automation-slug" label={copy.fields.slug} hint={copy.hints.slug}>
               <Input
+                {...NO_AUTOFILL}
                 id="automation-slug"
                 name="slug"
                 value={form.slug}
                 onChange={(event) => patchForm({ slug: event.target.value })}
                 placeholder="sync-odoo-partners"
-                autoComplete="off"
                 aria-describedby="automation-slug-hint"
                 className={RECESSED_FIELD_CLASS}
               />
@@ -216,12 +217,12 @@ export function AutomationCreateDrawer({
 
             <DrawerField id="automation-title" label={copy.fields.title}>
               <Input
+                {...NO_AUTOFILL}
                 id="automation-title"
                 name="title"
                 value={form.title}
                 onChange={(event) => patchForm({ title: event.target.value })}
                 placeholder={copy.placeholders.title}
-                autoComplete="off"
                 className={RECESSED_FIELD_CLASS}
               />
             </DrawerField>
@@ -231,6 +232,7 @@ export function AutomationCreateDrawer({
               label={copy.fields.description}
             >
               <Textarea
+                {...NO_AUTOFILL}
                 id="automation-description"
                 name="description"
                 value={form.description}
@@ -249,6 +251,7 @@ export function AutomationCreateDrawer({
               hint={copy.hints.webhookPath}
             >
               <Input
+                {...NO_AUTOFILL}
                 id="automation-webhook"
                 name="webhookPath"
                 value={form.webhookPath}
@@ -256,7 +259,6 @@ export function AutomationCreateDrawer({
                   patchForm({ webhookPath: event.target.value })
                 }
                 placeholder="/webhook/mi-flujo"
-                autoComplete="off"
                 aria-describedby="automation-webhook-hint"
                 className={RECESSED_FIELD_CLASS}
               />

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type PortalSearchToolbarProps = {
   searchId: string
@@ -46,12 +47,12 @@ export function PortalSearchToolbar({
             aria-hidden
           />
           <Input
+            {...NO_AUTOFILL}
             id={searchId}
             type="search"
             name={searchId}
             value={query}
             placeholder={searchPlaceholder}
-            autoComplete="off"
             spellCheck={false}
             className={cn(
               'h-10 bg-input pl-9',

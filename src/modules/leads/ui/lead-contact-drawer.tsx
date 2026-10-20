@@ -12,6 +12,7 @@ import { leads as leadsCopy } from '@/content/leads'
 import type { LeadContactCandidate } from '@/src/modules/leads/domain/types'
 import { sendLeadContactEmailAction } from '@/src/modules/leads/application/send-lead-contact-email'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const FORM_ID = 'lead-contact-drawer-form'
 const RECESSED_FIELD_CLASS = 'border-input bg-background dark:border-input dark:bg-background'
@@ -94,6 +95,7 @@ function LeadContactForm({ candidate, onOpenChange, onSuccess }: LeadContactForm
               {copy.drawer.subjectLabel}
             </label>
             <Input
+              {...NO_AUTOFILL}
               id="lead-contact-subject"
               required
               value={subject}
@@ -107,6 +109,7 @@ function LeadContactForm({ candidate, onOpenChange, onSuccess }: LeadContactForm
               {copy.drawer.bodyLabel}
             </label>
             <Textarea
+              {...NO_AUTOFILL}
               id="lead-contact-body"
               required
               rows={10}

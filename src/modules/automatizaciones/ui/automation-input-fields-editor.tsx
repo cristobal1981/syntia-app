@@ -17,6 +17,7 @@ import {
   type AutomationInputField,
   type AutomationInputFieldType,
 } from '@/src/modules/automatizaciones/domain/types'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 export type DraftInputOption = {
   localId: string
@@ -215,13 +216,13 @@ export function AutomationInputFieldsEditor({
                 {copy.key}
               </label>
               <Input
+                {...NO_AUTOFILL}
                 id={`field-key-${field.localId}`}
                 value={field.key}
                 onChange={(event) =>
                   patchField(field.localId, { key: event.target.value })
                 }
                 placeholder="mes"
-                autoComplete="off"
                 className={RECESSED_FIELD_CLASS}
               />
               <p className="text-xs text-muted-foreground">{hints.inputKey}</p>
@@ -234,13 +235,13 @@ export function AutomationInputFieldsEditor({
                 {copy.label}
               </label>
               <Input
+                {...NO_AUTOFILL}
                 id={`field-label-${field.localId}`}
                 value={field.label}
                 onChange={(event) =>
                   patchField(field.localId, { label: event.target.value })
                 }
                 placeholder="Mes a relanzar"
-                autoComplete="off"
                 className={RECESSED_FIELD_CLASS}
               />
             </div>
@@ -252,6 +253,7 @@ export function AutomationInputFieldsEditor({
               {field.options.map((option) => (
                 <div key={option.localId} className="flex items-center gap-2">
                   <Input
+                    {...NO_AUTOFILL}
                     value={option.value}
                     onChange={(event) =>
                       patchOption(field.localId, option.localId, {
@@ -260,10 +262,10 @@ export function AutomationInputFieldsEditor({
                     }
                     placeholder={copy.optionValue}
                     aria-label={copy.optionValue}
-                    autoComplete="off"
                     className={RECESSED_FIELD_CLASS}
                   />
                   <Input
+                    {...NO_AUTOFILL}
                     value={option.label}
                     onChange={(event) =>
                       patchOption(field.localId, option.localId, {
@@ -272,7 +274,6 @@ export function AutomationInputFieldsEditor({
                     }
                     placeholder={copy.optionLabel}
                     aria-label={copy.optionLabel}
-                    autoComplete="off"
                     className={RECESSED_FIELD_CLASS}
                   />
                   <Button
@@ -332,13 +333,13 @@ export function AutomationInputFieldsEditor({
                 </label>
               {field.type === 'text' ? (
                 <Input
+                  {...NO_AUTOFILL}
                   id={`field-default-${field.localId}`}
                   value={field.defaultValue}
                   onChange={(event) =>
                     patchField(field.localId, { defaultValue: event.target.value })
                   }
                   placeholder={copy.defaultTextPlaceholder}
-                  autoComplete="off"
                   className={RECESSED_FIELD_CLASS}
                 />
               ) : field.type === 'select' ? (

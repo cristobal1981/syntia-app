@@ -39,6 +39,7 @@ import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selec
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
 import { OdooPartnerImportPicker } from '@/src/modules/directory/ui/odoo-partner-import-picker'
 import { RequiredFieldLabel } from '@/src/modules/directory/ui/required-field-label'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 function parseClientFormData(formData: FormData) {
   return {
@@ -338,6 +339,7 @@ export function ClientForm({
             {copy.fields.companyLegalName}
           </RequiredFieldLabel>
           <Input
+            {...NO_AUTOFILL}
             id="client-company-legal"
             name="companyName"
             defaultValue={defaults.companyName}
@@ -354,10 +356,10 @@ export function ClientForm({
               {copy.fields.firstName}
             </RequiredFieldLabel>
             <Input
+              {...NO_AUTOFILL}
               id="client-first-name"
               name="firstName"
               defaultValue={defaults.firstName}
-              autoComplete="given-name"
               required
               aria-required="true"
               aria-invalid={Boolean(getFieldError('firstName'))}
@@ -370,10 +372,10 @@ export function ClientForm({
               {copy.fields.firstSurname}
             </RequiredFieldLabel>
             <Input
+              {...NO_AUTOFILL}
               id="client-first-surname"
               name="firstSurname"
               defaultValue={defaults.firstSurname}
-              autoComplete="family-name"
               required
               aria-required="true"
               aria-invalid={Boolean(getFieldError('firstSurname'))}
@@ -389,10 +391,10 @@ export function ClientForm({
               {copy.fields.secondSurname}
             </label>
             <Input
+              {...NO_AUTOFILL}
               id="client-second-surname"
               name="secondSurname"
               defaultValue={defaults.secondSurname}
-              autoComplete="additional-name"
               aria-invalid={Boolean(getFieldError('secondSurname'))}
             />
             <FieldError message={getFieldError('secondSurname')} />
@@ -405,11 +407,11 @@ export function ClientForm({
           {isCompany ? copy.fields.contactEmail : copy.fields.email}
         </RequiredFieldLabel>
         <Input
+          {...NO_AUTOFILL}
           id="client-email"
           name="email"
           type="email"
           defaultValue={defaults.email}
-          autoComplete="email"
           required
           aria-required="true"
           aria-describedby={isCompany ? 'client-email-hint' : undefined}
@@ -431,11 +433,11 @@ export function ClientForm({
           {copy.fields.phone}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="client-phone"
           name="phone"
           type="tel"
           defaultValue={defaults.phone}
-          autoComplete="tel"
         />
       </div>
 
@@ -448,6 +450,7 @@ export function ClientForm({
             {copy.fields.companyCommercialName}
           </label>
           <Input
+            {...NO_AUTOFILL}
             id="client-company"
             name="companyName"
             defaultValue={defaults.companyName}
@@ -464,6 +467,7 @@ export function ClientForm({
           {copy.fields.odooPartnerId}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="client-odoo"
           name="odooPartnerId"
           inputMode="numeric"
@@ -485,6 +489,7 @@ export function ClientForm({
           {copy.fields.driveFolderId}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="client-drive"
           name="driveFolderId"
           defaultValue={defaults.driveFolderId}

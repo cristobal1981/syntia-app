@@ -27,6 +27,7 @@ import { GestorAccessSection } from '@/src/modules/directory/ui/gestor-access-se
 import { GestorDangerZone } from '@/src/modules/directory/ui/gestor-danger-zone'
 import { OdooGestorImportPicker } from '@/src/modules/directory/ui/odoo-gestor-import-picker'
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type GestorImportDraft = {
   firstName: string
@@ -210,10 +211,10 @@ export function GestorForm({
           {copy.fields.firstName}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-first-name"
           name="firstName"
           defaultValue={defaults.firstName}
-          autoComplete="given-name"
           aria-invalid={Boolean(
             state && !state.ok && state.fieldErrors?.firstName
           )}
@@ -233,10 +234,10 @@ export function GestorForm({
           {copy.fields.firstSurname}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-first-surname"
           name="firstSurname"
           defaultValue={defaults.firstSurname}
-          autoComplete="family-name"
           aria-invalid={Boolean(
             state && !state.ok && state.fieldErrors?.firstSurname
           )}
@@ -256,10 +257,10 @@ export function GestorForm({
           {copy.fields.secondSurname}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-second-surname"
           name="secondSurname"
           defaultValue={defaults.secondSurname}
-          autoComplete="additional-name"
           aria-invalid={Boolean(
             state && !state.ok && state.fieldErrors?.secondSurname
           )}
@@ -276,11 +277,11 @@ export function GestorForm({
           {copy.fields.email}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-email"
           name="email"
           type="email"
           defaultValue={defaults.email}
-          autoComplete="email"
           aria-invalid={Boolean(state && !state.ok && state.fieldErrors?.email)}
         />
         <FieldError
@@ -293,11 +294,11 @@ export function GestorForm({
           {copy.fields.phone}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-phone"
           name="phone"
           type="tel"
           defaultValue={defaults.phone}
-          autoComplete="tel"
         />
       </div>
 
@@ -306,6 +307,7 @@ export function GestorForm({
           {copy.fields.odooUserId}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-odoo"
           name="odooUserId"
           inputMode="numeric"
@@ -322,6 +324,7 @@ export function GestorForm({
           {copy.fields.company}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="gestor-company"
           name="companyName"
           defaultValue={gestor?.companyName ?? ''}

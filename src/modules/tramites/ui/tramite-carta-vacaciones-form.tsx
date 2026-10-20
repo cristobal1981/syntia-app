@@ -60,7 +60,6 @@ export function TramiteCartaVacacionesForm({
           value={values.fullName}
           error={fieldErrors.fullName}
           disabled={disabled}
-          autoComplete="name"
           onChange={(fullName) => patch({ fullName })}
         />
         <TramiteDrawerField

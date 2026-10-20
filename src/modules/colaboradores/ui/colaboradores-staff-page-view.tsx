@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { colaboradores } from '@/content/colaboradores'
 import type { AdminWorkerRecord } from '@/src/modules/colaboradores/domain/types'
 import { WorkerStatusBadge } from '@/src/modules/colaboradores/ui/colaboradores-section'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type ColaboradoresStaffPageViewProps = {
   initialWorkers: AdminWorkerRecord[]
@@ -79,6 +80,7 @@ export function ColaboradoresStaffPageView({
               aria-hidden
             />
             <Input
+              {...NO_AUTOFILL}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={copy.searchPlaceholder}

@@ -9,6 +9,7 @@ import { equipo } from '@/content/equipo'
 import type { PersonStatus } from '@/src/modules/directory/domain/types'
 import { PersonStatusBadge } from '@/src/modules/directory/ui/person-status-badge'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 export type PersonListItem = {
   id: string
@@ -111,6 +112,7 @@ export function PersonList({
           aria-hidden
         />
         <Input
+          {...NO_AUTOFILL}
           value={query}
           onChange={(event) =>
             serverSearch

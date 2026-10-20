@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { portal } from '@/content/portal'
 import { reportProblemAction } from '@/src/modules/portal/application/report-problem-action'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const copy = portal.shell.reportProblem
 const errorCopy = copy.errors
@@ -235,6 +236,7 @@ export function ReportProblemDialog({ open, onOpenChange }: ReportProblemDialogP
               {copy.problemLabel}
             </label>
             <Textarea
+              {...NO_AUTOFILL}
               id={problemId}
               ref={problemRef}
               value={values.problem}
@@ -263,6 +265,7 @@ export function ReportProblemDialog({ open, onOpenChange }: ReportProblemDialogP
               {copy.stepsHelp}
             </p>
             <Textarea
+              {...NO_AUTOFILL}
               id={stepsId}
               ref={stepsRef}
               value={values.steps}
@@ -292,6 +295,7 @@ export function ReportProblemDialog({ open, onOpenChange }: ReportProblemDialogP
               {copy.errorHelp}
             </p>
             <Textarea
+              {...NO_AUTOFILL}
               id={errorShownId}
               ref={errorShownRef}
               value={values.errorShown}

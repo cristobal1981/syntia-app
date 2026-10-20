@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { portal } from '@/content/portal'
 import { getClientInvitationQuotaAction } from '@/src/modules/invitations/application/get-client-invitation-quota-action'
 import { sendClientInvitationAction } from '@/src/modules/invitations/application/send-client-invitation-action'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const copy = portal.shell.invite
 const errors = copy.errors
@@ -133,11 +134,11 @@ export function InviteDialog({ open, onOpenChange }: InviteDialogProps) {
               {copy.emailLabel}
             </label>
             <Input
+              {...NO_AUTOFILL}
               id={emailId}
               ref={inputRef}
               type="email"
               inputMode="email"
-              autoComplete="off"
               value={email}
               maxLength={254}
               placeholder={copy.emailPlaceholder}

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { automatizaciones } from '@/content/automatizaciones'
 import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type OdooCompaniesMultiPickerProps = {
   companies: OdooCompanyOption[]
@@ -74,6 +75,7 @@ export function OdooCompaniesMultiPicker({
       </div>
 
       <Input
+        {...NO_AUTOFILL}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder={copy.searchPlaceholder}

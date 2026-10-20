@@ -73,7 +73,6 @@ export function TramiteTrabajadorForm({
           value={values.fullName}
           error={fieldErrors.fullName}
           disabled={disabled}
-          autoComplete="name"
           onChange={(fullName) => patch({ fullName })}
         />
         <TramiteDrawerField
