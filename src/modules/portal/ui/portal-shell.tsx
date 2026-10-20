@@ -46,6 +46,8 @@ type PortalShellProps = {
   user: PortalUser
   navItems?: NavItem[]
   workerWriteSections?: WorkerSectionHref[]
+  /** Staff viendo el portal como este cliente (solo lectura). */
+  viewingAs?: { clientName: string }
   children: React.ReactNode
 }
 
@@ -85,6 +87,7 @@ export function PortalShell({
   user,
   navItems: navItemsProp,
   workerWriteSections,
+  viewingAs,
   children,
 }: PortalShellProps) {
   const pathname = usePathname()
@@ -95,6 +98,9 @@ export function PortalShell({
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = navItemsProp ?? getNavForRole(user.role)
   const isClientOrWorker = user.role === 'client' || user.role === 'worker'
+  // Vista como cliente: sin sondeo de avisos ni accesos que escriben (consulta,
+  // factura rápida, invitar, problema, guía) — el proxy rechazaría todos igualmente.
+  const interactive = isClientOrWorker && !viewingAs
   /**
    * "Nueva consulta" crea un ticket/trámite — una mutación, no basta con
    * tener /tramites en lectura (eso solo decide si `navItems` lo incluye).
@@ -102,8 +108,9 @@ export function PortalShell({
    * `workerWriteSections` llega vacío igual que `navItems`.
    */
   const canCreateConsulta =
-    user.role === 'client' ||
-    (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites'))
+    !viewingAs &&
+    (user.role === 'client' ||
+      (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites')))
   const { bottomBarItems, moreNavItems } = getBottomBarSplit(navItems, user.role)
   const roleLabel = portal.roles[user.role]
 
@@ -141,13 +148,13 @@ export function PortalShell({
   return (
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
-    <PortalNotificationsProvider enabled={isClientOrWorker}>
+    <PortalNotificationsProvider enabled={interactive}>
     {/* Por fuera de la guía: esta necesita saber si el botón de factura existe para listar su paso. */}
-    <PortalQuickInvoiceProvider enabled={isClientOrWorker}>
-    <OnboardingChecklistProvider enabled={user.role === 'client'}>
+    <PortalQuickInvoiceProvider enabled={interactive}>
+    <OnboardingChecklistProvider enabled={user.role === 'client' && !viewingAs}>
     <PortalCreateConsultaProvider enabled={canCreateConsulta}>
-    <PortalReportProblemProvider enabled={isClientOrWorker}>
-    <PortalInviteProvider enabled={user.role === 'client'}>
+    <PortalReportProblemProvider enabled={interactive}>
+    <PortalInviteProvider enabled={user.role === 'client' && !viewingAs}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
@@ -208,6 +215,24 @@ export function PortalShell({
           onSidebarToggle={toggleSidebar}
           onNavigate={handleNavStart}
         />
+
+        {viewingAs ? (
+          <div
+            role="status"
+            className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-primary px-4 py-2 text-sm text-primary-foreground"
+          >
+            <span>
+              {portal.viewAs.banner(viewingAs.clientName)}
+            </span>
+            {/* Enlace normal (GET): el proxy bloquea cualquier otra petición durante la vista. */}
+            <a
+              href="/api/view-as/exit"
+              className="font-medium underline underline-offset-4"
+            >
+              {portal.viewAs.exit}
+            </a>
+          </div>
+        ) : null}
 
         <PortalContentProgress
           navPending={navPending}

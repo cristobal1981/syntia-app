@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
 
+import { applyViewAs } from '@/src/modules/auth/application/resolve-view-as-session'
 import { refreshPortalUser } from '@/src/modules/auth/application/resolve-portal-user'
 import {
   SESSION_COOKIE_NAME,
+  VIEW_AS_COOKIE_NAME,
   type PortalSession,
 } from '@/src/modules/auth/domain/types'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
@@ -17,6 +19,16 @@ import { isSupabaseServiceRoleConfigured } from '@/src/modules/directory/infrast
  */
 export async function getSession(): Promise<PortalSession | null> {
   const cookieStore = await cookies()
+  const real = await getRealSession(cookieStore)
+  if (!real) return null
+  return applyViewAs(real, cookieStore.get(VIEW_AS_COOKIE_NAME)?.value)
+}
+
+/** Sesión del staff real, sin la superposición de «vista como cliente». */
+export async function getRealSession(
+  cookieStore?: Awaited<ReturnType<typeof cookies>>
+): Promise<PortalSession | null> {
+  cookieStore ??= await cookies()
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
   const session = await getSessionFromToken(token)
 

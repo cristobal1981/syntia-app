@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-import { SESSION_COOKIE_NAME } from '@/src/modules/auth/domain/types'
-import { getSessionFromToken } from '@/src/modules/auth/infrastructure/session-cookie'
+import { SESSION_COOKIE_NAME, VIEW_AS_COOKIE_NAME } from '@/src/modules/auth/domain/types'
+import { isWriteMethod } from '@/src/modules/auth/domain/view-as-policy'
+import { getSessionFromToken, getViewAsFromToken } from '@/src/modules/auth/infrastructure/session-cookie'
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
@@ -18,6 +19,19 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
   const session = await getSessionFromToken(token)
   const isAuthenticated = Boolean(session)
+
+  /**
+   * «Vista como cliente» = solo lectura: mientras una vista vigente de este
+   * mismo usuario esté abierta, ninguna escritura (server actions y API son
+   * POST/PUT/…) llega a la aplicación. Una cookie caducada o de otra sesión
+   * no bloquea nada.
+   */
+  if (isWriteMethod(request.method)) {
+    const viewAs = await getViewAsFromToken(request.cookies.get(VIEW_AS_COOKIE_NAME)?.value)
+    if (viewAs && session && viewAs.staffAuthId === session.user.id) {
+      return NextResponse.json({ error: 'view_as_read_only' }, { status: 403 })
+    }
+  }
 
   if (pathname === '/') {
     const url = request.nextUrl.clone()
@@ -55,17 +69,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/',
-    '/login',
-    '/login/:path*',
-    '/dashboard',
-    '/dashboard/:path*',
-    '/perfil',
-    '/integraciones',
-    '/equipo',
-    '/equipo/:path*',
-    '/clientes',
-    '/clientes/:path*',
-  ],
+  // Todo menos estáticos: el bloqueo de escrituras de la vista como cliente
+  // tiene que cubrir cualquier ruta (firmas, trámites, documentos, API…).
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 }

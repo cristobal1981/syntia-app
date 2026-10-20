@@ -131,6 +131,17 @@ export const equipo = {
       reviewHint:
         'Datos importados de Odoo. Revisa y corrige lo necesario antes de crear.',
     },
+    viewAsSection: {
+      title: 'Ver como el cliente',
+      description:
+        'Abre el portal tal y como lo ve este cliente, en solo lectura y durante 2 horas. Sirve también si todavía no ha terminado el alta. No activa su cuenta ni le envía nada.',
+      button: 'Ver como cliente',
+      opening: 'Abriendo…',
+      errors: {
+        forbidden: 'No tienes permiso para ver el portal de este cliente.',
+        notFound: 'Este cliente no tiene acceso al portal que se pueda mostrar.',
+      },
+    },
     accessSection: {
       title: 'Acceso al portal',
       description:

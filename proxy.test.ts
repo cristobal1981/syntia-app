@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { SESSION_COOKIE_NAME, type PortalRole, type PortalSession } from '@/src/modules/auth/domain/types'
-import { createSessionToken, getSessionSecret } from '@/src/modules/auth/infrastructure/session-cookie'
+import { SESSION_COOKIE_NAME, VIEW_AS_COOKIE_NAME, type PortalRole, type PortalSession } from '@/src/modules/auth/domain/types'
+import { createSessionToken, createViewAsToken, getSessionSecret } from '@/src/modules/auth/infrastructure/session-cookie'
 import { proxy } from '@/proxy'
 
 beforeAll(() => {
@@ -94,5 +94,39 @@ describe('proxy (Edge auth guard)', () => {
     // Not in PROTECTED_PREFIXES: must never force a redirect for lack of auth.
     const response = await proxy(requestTo('/guias'))
     expect(locationPath(response)).toBeNull()
+  })
+})
+
+describe('proxy: vista como cliente (solo lectura)', () => {
+  async function viewAsRequest(method: string, staffAuthId: string, expiresInMs = 60_000) {
+    const session = await tokenFor('advisor')
+    const view = await createViewAsToken(
+      { staffAuthId, clientUserId: 'client-1', expiresAt: Date.now() + expiresInMs },
+      getSessionSecret()
+    )
+    const headers = new Headers({
+      cookie: `${SESSION_COOKIE_NAME}=${session}; ${VIEW_AS_COOKIE_NAME}=${view}`,
+    })
+    return new NextRequest(new URL('/firmas', 'https://portal.example.com'), { method, headers })
+  }
+
+  it('rechaza con 403 una escritura mientras la vista está abierta', async () => {
+    const response = await proxy(await viewAsRequest('POST', 'auth-advisor'))
+    expect(response.status).toBe(403)
+  })
+
+  it('deja pasar una lectura', async () => {
+    const response = await proxy(await viewAsRequest('GET', 'auth-advisor'))
+    expect(response.status).toBe(200)
+  })
+
+  it('una vista abierta por otro usuario no bloquea', async () => {
+    const response = await proxy(await viewAsRequest('POST', 'auth-otro'))
+    expect(response.status).toBe(200)
+  })
+
+  it('una vista caducada no bloquea', async () => {
+    const response = await proxy(await viewAsRequest('POST', 'auth-advisor', -1000))
+    expect(response.status).toBe(200)
   })
 })

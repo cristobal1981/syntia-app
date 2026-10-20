@@ -35,6 +35,7 @@ import type {
   PersonStatus,
 } from '@/src/modules/directory/domain/types'
 import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
+import { ClientViewAsSection } from '@/src/modules/directory/ui/client-view-as-section'
 import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
 import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selector'
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
@@ -619,6 +620,7 @@ export function ClientForm({
         </Button>
       </div>
 
+      {!isCreate && client ? <ClientViewAsSection client={client} /> : null}
       {!isCreate && client ? <ClientAccessSection client={client} /> : null}
 
       {!isCreate && client && onDeleted ? (

@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import { SESSION_COOKIE_NAME } from '@/src/modules/auth/domain/types'
+import { SESSION_COOKIE_NAME, VIEW_AS_COOKIE_NAME } from '@/src/modules/auth/domain/types'
 import { createSupabaseServerClient } from '@/src/modules/auth/infrastructure/supabase/server'
 import { isSupabaseConfigured } from '@/src/modules/auth/infrastructure/supabase/env'
 
@@ -21,6 +21,7 @@ export async function signOutAction(): Promise<void> {
 
   const cookieStore = await cookies()
   cookieStore.delete(SESSION_COOKIE_NAME)
+  cookieStore.delete(VIEW_AS_COOKIE_NAME)
 }
 
 export async function signOut(): Promise<void> {
