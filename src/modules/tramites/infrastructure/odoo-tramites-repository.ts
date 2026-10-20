@@ -29,6 +29,7 @@ type OdooTaskRow = {
   state?: string | false | null
   write_date?: string | false | null
   user_ids?: number[] | false | null
+  parent_id?: [number, string] | false | null
 }
 
 type OdooTaskIdRow = {
@@ -78,6 +79,7 @@ function mapTask(
     attachmentCount: attachmentCounts.get(row.id) ?? 0,
     isClosed: isTaskClosed(state),
     modifiedAt: parseOdooDateTime(row.write_date),
+    parentId: mapOdooMany2OneId(row.parent_id) ?? undefined,
     assignedNotifyPartnerIds: mapAssignedNotifyPartnerIds(
       mapOdooUserIds(row.user_ids),
       partnerByUserId
@@ -159,7 +161,7 @@ async function listProjectTaskRows(
       ['project_id', 'in', projectIds],
       ['id', 'child_of', flaggedIds],
     ],
-    fields: ['name', 'state', 'write_date', 'user_ids'],
+    fields: ['name', 'state', 'write_date', 'user_ids', 'parent_id'],
     order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })

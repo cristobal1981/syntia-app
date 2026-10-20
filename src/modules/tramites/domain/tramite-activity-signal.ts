@@ -8,6 +8,7 @@ import {
   getTramiteListRecordKind,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { getTramiteListItemStateBadge } from '@/src/modules/tramites/domain/filter-tramites'
 import { compareTramiteModifiedAtDesc } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 import { scopeFromTramiteListKind } from '@/src/modules/portal/domain/portal-notifications-types'
 
@@ -92,19 +93,26 @@ export function getTramiteActivitySignal(
 }
 
 /**
- * Trámites/consultas con alguna señal activa primero (más reciente
- * primero), el resto mantiene su orden habitual (más modificado primero).
- * Así lo que necesita atención se ve sin tener que buscarlo en dos sitios.
+ * Orden de la lista: primero los trámites en «Cambios solicitados» (los que el
+ * cliente tiene que atender, más recientes primero), luego los que tienen
+ * alguna señal activa (más reciente primero) y al final el resto en su orden
+ * habitual (más modificado primero). Así lo que necesita atención se ve sin
+ * tener que buscarlo en dos sitios.
  */
 export function sortTramiteListByActivity(
   items: TramiteListItem[],
   unreadNotifications: PortalNotification[],
   newItemKeys: readonly string[] = []
 ): TramiteListItem[] {
+  const changesRequested: TramiteListItem[] = []
   const withSignal: { item: TramiteListItem; timestamp: string }[] = []
   const withoutSignal: TramiteListItem[] = []
 
   for (const item of items) {
+    if (getTramiteListItemStateBadge(item).variant === 'changesRequested') {
+      changesRequested.push(item)
+      continue
+    }
     const signal = getTramiteActivitySignal(item, unreadNotifications, newItemKeys)
     if (signal) {
       withSignal.push({ item, timestamp: signal.timestamp })
@@ -113,7 +121,12 @@ export function sortTramiteListByActivity(
     }
   }
 
+  changesRequested.sort((a, b) => compareTramiteModifiedAtDesc(a.modifiedAt, b.modifiedAt))
   withSignal.sort((a, b) => compareTramiteModifiedAtDesc(a.timestamp, b.timestamp))
 
-  return [...withSignal.map((entry) => entry.item), ...withoutSignal]
+  return [
+    ...changesRequested,
+    ...withSignal.map((entry) => entry.item),
+    ...withoutSignal,
+  ]
 }
