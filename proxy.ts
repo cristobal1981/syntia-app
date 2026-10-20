@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import { SESSION_COOKIE_NAME, VIEW_AS_COOKIE_NAME } from '@/src/modules/auth/domain/types'
+import { isInvoicingMockEnabled } from '@/src/modules/facturacion/domain/invoicing-availability'
 import { isWriteMethod } from '@/src/modules/auth/domain/view-as-policy'
 import { getSessionFromToken, getViewAsFromToken } from '@/src/modules/auth/infrastructure/session-cookie'
 
@@ -19,6 +20,20 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
   const session = await getSessionFromToken(token)
   const isAuthenticated = Boolean(session)
+
+  /**
+   * Facturación (mock local) no existe en Vercel: 404 real desde el proxy. El
+   * `notFound()` del layout, con la página prerrenderizada, devolvía el
+   * contenido de «no encontrada» pero con estado 200.
+   */
+  if (
+    (pathname === '/facturacion' || pathname.startsWith('/facturacion/')) &&
+    !isInvoicingMockEnabled()
+  ) {
+    return NextResponse.rewrite(new URL('/facturacion-no-disponible', request.url), {
+      status: 404,
+    })
+  }
 
   /**
    * «Vista como cliente» = solo lectura: mientras una vista vigente de este

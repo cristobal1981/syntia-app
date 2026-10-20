@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { SESSION_COOKIE_NAME, VIEW_AS_COOKIE_NAME, type PortalRole, type PortalSession } from '@/src/modules/auth/domain/types'
 import { createSessionToken, createViewAsToken, getSessionSecret } from '@/src/modules/auth/infrastructure/session-cookie'
@@ -133,6 +133,31 @@ describe('proxy: vista como cliente (solo lectura)', () => {
 
   it('una vista caducada no bloquea', async () => {
     const response = await proxy(await viewAsRequest('POST', 'auth-advisor', -1000))
+    expect(response.status).toBe(200)
+  })
+})
+
+describe('proxy: facturación solo en local', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it.each(['/facturacion', '/facturacion/panel', '/facturacion/clientes/nuevo'])(
+    'en Vercel %s responde 404',
+    async (path) => {
+      vi.stubEnv('VERCEL', '1')
+      const response = await proxy(requestTo(path, await tokenFor('client')))
+      expect(response.status).toBe(404)
+    }
+  )
+
+  it('en local no se bloquea', async () => {
+    vi.stubEnv('VERCEL', '')
+    const response = await proxy(requestTo('/facturacion/panel', await tokenFor('client')))
+    expect(response.status).toBe(200)
+  })
+
+  it('no afecta a rutas que solo empiezan parecido', async () => {
+    vi.stubEnv('VERCEL', '1')
+    const response = await proxy(requestTo('/facturacionx', await tokenFor('client')))
     expect(response.status).toBe(200)
   })
 })
