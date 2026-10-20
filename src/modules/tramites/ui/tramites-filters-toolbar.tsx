@@ -51,7 +51,7 @@ function ChipGroup({
 }) {
   return (
     <div
-      className="flex flex-wrap items-center gap-1.5"
+      className="contents sm:flex sm:flex-wrap sm:items-center sm:gap-1.5"
       role="group"
       aria-label={label}
     >
@@ -92,7 +92,7 @@ export function TramitesFiltersToolbar({
       onQueryChange={(query) => onChange({ ...filters, query })}
       trailing={
         showIncludeClosed ? (
-          <label className="ml-auto flex items-center gap-1.5 text-sm whitespace-nowrap text-foreground">
+          <label className="flex items-center gap-1.5 text-sm whitespace-nowrap text-foreground sm:ml-auto">
             <input
               type="checkbox"
               checked={filters.includeClosed}
@@ -116,8 +116,10 @@ export function TramitesFiltersToolbar({
         ) : undefined
       }
       filters={
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 divide-x divide-border">
-          <div className="pr-4">
+        // En móvil los chips fluyen en una sola tanda (sin separadores ni grupos
+        // en filas propias); desde `sm` vuelven los tres grupos con su divisor.
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-x-4 sm:gap-y-2 sm:divide-x sm:divide-border">
+          <div className="contents sm:block sm:pr-4">
             <ChipGroup
               label={tramites.filters.typeLabel}
               options={typeChipOptions}
@@ -127,7 +129,7 @@ export function TramitesFiltersToolbar({
             />
           </div>
 
-          <div className="pr-4 pl-1">
+          <div className="contents sm:block sm:pr-4 sm:pl-1">
             <ChipGroup
               label={tramites.filters.stateLabel}
               options={stateChipOptions}
@@ -137,7 +139,7 @@ export function TramitesFiltersToolbar({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 pl-1">
+          <div className="contents sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:pl-1">
             <PortalFilterChip
               label={tramites.filters.views.withDocuments}
               count={documentsCount}

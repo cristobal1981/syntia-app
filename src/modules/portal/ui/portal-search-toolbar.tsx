@@ -36,8 +36,8 @@ export function PortalSearchToolbar({
   const isSearching = query.trim().length > 0
 
   return (
-    <div className={cn('portal-home-card flex flex-col gap-3 rounded-xl p-3', className)}>
-      <div className="flex flex-wrap items-center gap-3">
+    <div className={cn('portal-home-card flex flex-col gap-2.5 rounded-xl p-3 sm:gap-3', className)}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="relative min-w-[220px] flex-1">
           <label htmlFor={searchId} className="sr-only">
             {searchLabel}
@@ -55,7 +55,9 @@ export function PortalSearchToolbar({
             placeholder={searchPlaceholder}
             spellCheck={false}
             className={cn(
-              'h-10 bg-input pl-9',
+              // El texto escrito se queda en 16 px en móvil (por debajo, iOS hace zoom
+              // al enfocar); el placeholder no lo provoca y puede ser más discreto.
+              'h-10 bg-input pl-9 placeholder:text-sm',
               clearLabel && '[&::-webkit-search-cancel-button]:appearance-none pr-9'
             )}
             onChange={(event) => onQueryChange(event.target.value)}
