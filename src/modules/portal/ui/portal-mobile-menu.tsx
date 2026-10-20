@@ -62,6 +62,7 @@ type PortalMobileMenuProps = {
   roleLabel: string
   onNavigate: () => void
   onNavStart: (href: string) => void
+  hideSignOut?: boolean
 }
 
 function MobileAccessibilitySection() {
@@ -99,6 +100,7 @@ export function PortalMobileMenu({
   roleLabel,
   onNavigate,
   onNavStart,
+  hideSignOut,
 }: PortalMobileMenuProps) {
   const userInitial = user.name.trim().charAt(0).toUpperCase() || '?'
 
@@ -146,7 +148,7 @@ export function PortalMobileMenu({
             </p>
           </div>
         </div>
-        <SignOutButton />
+        {hideSignOut ? null : <SignOutButton />}
       </div>
     </PortalScrollFade>
   )

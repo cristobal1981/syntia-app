@@ -36,11 +36,13 @@ const resolveOverlay = cache(
 
 /**
  * Superpone «lo que ve el cliente» a la sesión real del staff. Solo lectura:
- * una server action (cabecera `next-action`) bajo la vista no tiene sesión.
+ * una server action (cabecera `next-action`) bajo la vista no tiene sesión,
+ * salvo las de lectura que lo piden con `allowActions`.
  */
 export async function applyViewAs(
   session: PortalSession,
-  token: string | undefined
+  token: string | undefined,
+  options: { allowActions?: boolean } = {}
 ): Promise<PortalSession | null> {
   if (!token) return session
   if (session.user.role !== 'advisor' && session.user.role !== 'admin') return session
@@ -54,7 +56,7 @@ export async function applyViewAs(
   // Cookie caducada, de otro usuario o sin permiso: se ignora y manda la sesión real.
   if (!clientUser) return session
 
-  if ((await headers()).get('next-action')) return null
+  if (!options.allowActions && (await headers()).get('next-action')) return null
 
   return { ...session, user: clientUser, viewingAs: { staff: session.user } }
 }

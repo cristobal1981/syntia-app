@@ -78,4 +78,10 @@ describe('applyViewAs', () => {
     headers.mockResolvedValue(new Headers({ 'next-action': 'abc' }))
     expect(await applyViewAs(staff('admin'), 'tok')).toBeNull()
   })
+
+  it('una server action de lectura que lo declara sí ve al cliente', async () => {
+    headers.mockResolvedValue(new Headers({ 'next-action': 'abc' }))
+    const result = await applyViewAs(staff('admin'), 'tok', { allowActions: true })
+    expect(result?.user).toEqual(clientUser)
+  })
 })

@@ -35,6 +35,8 @@ type PortalProfileMenuProps = {
   roleLabel: string
   collapsed: boolean
   onNavigate?: (href: string) => void
+  /** En la vista como cliente no se cierra sesión: se sale desde la banda. */
+  hideSignOut?: boolean
 }
 
 const ITEM_CLASS =
@@ -50,6 +52,7 @@ export function PortalProfileMenu({
   roleLabel,
   collapsed,
   onNavigate,
+  hideSignOut,
 }: PortalProfileMenuProps) {
   const [open, setOpen] = useState(false)
   const [accessibilityOpen, setAccessibilityOpen] = useState(false)
@@ -211,6 +214,8 @@ export function PortalProfileMenu({
           </button>
         ) : null}
 
+        {hideSignOut ? null : (
+          <>
         <div className="my-1 border-t border-sidebar-border" role="separator" />
 
         <button
@@ -226,6 +231,8 @@ export function PortalProfileMenu({
           <LogOut className="size-4 shrink-0" aria-hidden />
           {portal.shell.signOutLabel}
         </button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
     </>

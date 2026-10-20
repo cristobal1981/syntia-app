@@ -215,6 +215,7 @@ export function PortalShell({
             roleLabel={roleLabel}
             collapsed={sidebarCollapsed}
             onNavigate={handleNavStart}
+            hideSignOut={Boolean(viewingAs)}
           />
         </div>
       </aside>
@@ -256,6 +257,7 @@ export function PortalShell({
                   roleLabel={roleLabel}
                   onNavigate={() => setMobileOpen(false)}
                   onNavStart={handleNavStart}
+                  hideSignOut={Boolean(viewingAs)}
                 />
               </m.div>
             ) : null}

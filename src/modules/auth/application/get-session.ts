@@ -17,11 +17,23 @@ import { isSupabaseServiceRoleConfigured } from '@/src/modules/directory/infrast
  * cuenta se archiva o el colaborador pierde acceso, la sesión deja de valer
  * aunque la cookie firmada siga vigente.
  */
-export async function getSession(): Promise<PortalSession | null> {
+export type GetSessionOptions = {
+  /**
+   * Solo para acciones de LECTURA: bajo «vista como cliente» una server action
+   * no tiene sesión salvo que se declare así. Por defecto se deniega.
+   */
+  allowViewAsRead?: boolean
+}
+
+export async function getSession(
+  options: GetSessionOptions = {}
+): Promise<PortalSession | null> {
   const cookieStore = await cookies()
   const real = await getRealSession(cookieStore)
   if (!real) return null
-  return applyViewAs(real, cookieStore.get(VIEW_AS_COOKIE_NAME)?.value)
+  return applyViewAs(real, cookieStore.get(VIEW_AS_COOKIE_NAME)?.value, {
+    allowActions: options.allowViewAsRead === true,
+  })
 }
 
 /** Sesión del staff real, sin la superposición de «vista como cliente». */

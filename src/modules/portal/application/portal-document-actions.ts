@@ -28,7 +28,8 @@ async function resolveClientPartnerId(): Promise<
   | { ok: true; partnerId: number; user: PortalUser }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
-  const session = await getSession()
+  // Solo lectura de adjuntos: sirve también bajo la vista como cliente.
+  const session = await getSession({ allowViewAsRead: true })
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }

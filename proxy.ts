@@ -26,7 +26,10 @@ export async function proxy(request: NextRequest) {
    * POST/PUT/…) llega a la aplicación. Una cookie caducada o de otra sesión
    * no bloquea nada.
    */
-  if (isWriteMethod(request.method)) {
+  // Las server actions (cabecera `next-action`) pasan: `getSession` las deniega
+  // bajo la vista salvo las de lectura que lo declaran. El resto de escrituras
+  // (API, formularios) se corta aquí.
+  if (isWriteMethod(request.method) && !request.headers.has('next-action')) {
     const viewAs = await getViewAsFromToken(request.cookies.get(VIEW_AS_COOKIE_NAME)?.value)
     if (viewAs && session && viewAs.staffAuthId === session.user.id) {
       return NextResponse.json({ error: 'view_as_read_only' }, { status: 403 })

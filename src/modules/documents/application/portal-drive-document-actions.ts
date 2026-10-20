@@ -45,7 +45,7 @@ async function resolveClientDriveAccess(
   | { ok: true; rootId: string }
   | { ok: false; error: DriveDocumentErrorCode }
 > {
-  const session = await getDocumentsSession()
+  const session = await getDocumentsSession(requiredLevel === 'read')
   if (!session) {
     return { ok: false, error: 'session_expired' }
   }

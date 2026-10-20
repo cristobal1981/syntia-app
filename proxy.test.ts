@@ -115,6 +115,12 @@ describe('proxy: vista como cliente (solo lectura)', () => {
     expect(response.status).toBe(403)
   })
 
+  it('deja pasar una server action: la app la deniega salvo las de lectura', async () => {
+    const request = await viewAsRequest('POST', 'auth-advisor')
+    request.headers.set('next-action', 'abc')
+    expect((await proxy(request)).status).toBe(200)
+  })
+
   it('deja pasar una lectura', async () => {
     const response = await proxy(await viewAsRequest('GET', 'auth-advisor'))
     expect(response.status).toBe(200)
