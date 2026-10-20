@@ -10,6 +10,7 @@ import {
   PersonStanding,
   PlayCircle,
   UserCog,
+  UserPlus,
 } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -19,6 +20,7 @@ import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { SignOutOverlayPortal } from '@/src/modules/auth/ui/sign-out-button'
 import { useSignOut } from '@/src/modules/auth/ui/use-sign-out'
 import { AccessibilityControls } from '@/src/modules/portal/ui/accessibility-controls'
+import { usePortalInviteOptional } from '@/src/modules/invitations/ui/portal-invite-context'
 import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { usePortalReportProblemOptional } from '@/src/modules/portal/ui/portal-report-problem-context'
@@ -26,12 +28,15 @@ import { usePortalReportProblemOptional } from '@/src/modules/portal/ui/portal-r
 const copy = portal.shell.profileMenu
 const accessibilityCopy = portal.shell.accessibility
 const reportProblemCopy = portal.shell.reportProblem
+const inviteCopy = portal.shell.invite
 
 type PortalProfileMenuProps = {
   user: PortalUser
   roleLabel: string
   collapsed: boolean
   onNavigate?: (href: string) => void
+  /** En la vista como cliente no se cierra sesión: se sale desde la banda. */
+  hideSignOut?: boolean
 }
 
 const ITEM_CLASS =
@@ -47,12 +52,14 @@ export function PortalProfileMenu({
   roleLabel,
   collapsed,
   onNavigate,
+  hideSignOut,
 }: PortalProfileMenuProps) {
   const [open, setOpen] = useState(false)
   const [accessibilityOpen, setAccessibilityOpen] = useState(false)
   const onboardingChecklist = useOnboardingChecklistOptional()
   const { signOut, signingOut, busy: signOutBusy } = useSignOut()
   const reportProblem = usePortalReportProblemOptional()
+  const invite = usePortalInviteOptional()
   // El reporte de problemas solo existe para cliente y colaborador.
   const canReportProblem = user.role === 'client' || user.role === 'worker'
   const initial = user.name.trim().charAt(0).toUpperCase() || '?'
@@ -158,6 +165,20 @@ export function PortalProfileMenu({
           </button>
         ) : null}
 
+        {isClient && invite ? (
+          <button
+            type="button"
+            className={ITEM_CLASS}
+            onClick={() => {
+              setOpen(false)
+              invite.openInvite()
+            }}
+          >
+            <UserPlus className="size-4 shrink-0" aria-hidden />
+            {inviteCopy.label}
+          </button>
+        ) : null}
+
         <div className="my-1 border-t border-sidebar-border" role="separator" />
 
         <button
@@ -193,6 +214,8 @@ export function PortalProfileMenu({
           </button>
         ) : null}
 
+        {hideSignOut ? null : (
+          <>
         <div className="my-1 border-t border-sidebar-border" role="separator" />
 
         <button
@@ -208,6 +231,8 @@ export function PortalProfileMenu({
           <LogOut className="size-4 shrink-0" aria-hidden />
           {portal.shell.signOutLabel}
         </button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
     </>

@@ -11,6 +11,7 @@ import {
   deleteGestorAction,
   listOdooGestoresForImportAction,
   listOdooPartnersForImportAction,
+  resolveOdooPartnerDriveFolderAction,
   resendClientAccessEmailAction,
   resendGestorAccessEmailAction,
   updateClientAction,
@@ -22,6 +23,7 @@ const {
   requireDirectorySession,
   buildDirectoryScope,
   listOdooPartnersForImport,
+  resolveOdooPartnerDriveFolder,
   listOdooGestoresForImport,
   createGestor,
   updateGestor,
@@ -39,6 +41,7 @@ const {
   requireDirectorySession: vi.fn(),
   buildDirectoryScope: vi.fn(),
   listOdooPartnersForImport: vi.fn(),
+  resolveOdooPartnerDriveFolder: vi.fn(),
   listOdooGestoresForImport: vi.fn(),
   createGestor: vi.fn(),
   updateGestor: vi.fn(),
@@ -60,6 +63,9 @@ vi.mock('@/src/modules/directory/application/directory-queries', () => ({
 }))
 vi.mock('@/src/modules/directory/application/list-odoo-partners-for-import', () => ({
   listOdooPartnersForImport,
+}))
+vi.mock('@/src/modules/directory/application/resolve-odoo-partner-drive-folder', () => ({
+  resolveOdooPartnerDriveFolder,
 }))
 vi.mock('@/src/modules/directory/application/list-odoo-gestores-for-import', () => ({
   listOdooGestoresForImport,
@@ -674,6 +680,48 @@ describe('listOdooPartnersForImportAction', () => {
   )
 })
 
+describe('resolveOdooPartnerDriveFolderAction', () => {
+  it('returns forbidden for role=client without touching Odoo', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('client'))
+
+    expect(await resolveOdooPartnerDriveFolderAction(5)).toEqual({
+      ok: false,
+      error: 'forbidden',
+    })
+    expect(resolveOdooPartnerDriveFolder).not.toHaveBeenCalled()
+  })
+
+  it('returns unauthorized when there is no session', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+
+    expect(await resolveOdooPartnerDriveFolderAction(5)).toEqual({
+      ok: false,
+      error: 'unauthorized',
+    })
+  })
+
+  it.each(['admin', 'advisor'] as const)('role=%s gets the resolved folder', async (role) => {
+    requireDirectorySession.mockResolvedValue(sessionFor(role))
+    resolveOdooPartnerDriveFolder.mockResolvedValue({ ok: true, driveFolderId: 'PUB' })
+
+    expect(await resolveOdooPartnerDriveFolderAction(5)).toEqual({
+      ok: true,
+      driveFolderId: 'PUB',
+    })
+    expect(resolveOdooPartnerDriveFolder).toHaveBeenCalledWith(5)
+  })
+
+  it('maps a failed resolution to odoo_unavailable', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    resolveOdooPartnerDriveFolder.mockResolvedValue({ ok: false })
+
+    expect(await resolveOdooPartnerDriveFolderAction(5)).toEqual({
+      ok: false,
+      error: 'odoo_unavailable',
+    })
+  })
+})
+
 describe('listOdooGestoresForImportAction (admin-only)', () => {
   it('returns forbidden for a non-admin', async () => {
     requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
@@ -784,6 +832,25 @@ describe('error propagation across actions', () => {
       error: 'validation',
       fieldErrors: { email: 'Ya existe un usuario con ese correo.' },
     })
+  })
+
+  it('una carpeta Pública ya asignada a otro cliente es un error del campo, no un fallo genérico (alta y edición)', async () => {
+    const expected = {
+      ok: false,
+      error: 'validation',
+      fieldErrors: { driveFolderId: 'Esa carpeta ya está asignada a otro cliente.' },
+    }
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+
+    createClient.mockRejectedValue(new Error('DUPLICATE_DRIVE_FOLDER'))
+    await expect(createClientAction(null, clientFormData())).resolves.toEqual(expected)
+
+    getClient.mockResolvedValue(client({ id: 'client-1' }))
+    updateClient.mockRejectedValue(new Error('DUPLICATE_DRIVE_FOLDER'))
+    await expect(
+      updateClientAction(null, updateClientFormData({ id: 'client-1' }))
+    ).resolves.toEqual(expected)
   })
 
   it('createClientCore maps a not_found-style email error to unknown and a generic error to its message', async () => {

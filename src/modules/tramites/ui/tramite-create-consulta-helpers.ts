@@ -8,6 +8,10 @@ import {
 } from '@/src/modules/tramites/domain/procedure-ticket-types'
 import type { ProcedureFieldErrorKey } from '@/src/modules/tramites/domain/validate-procedure-ticket'
 import type { CartaVacacionesFormValues } from '@/src/modules/tramites/ui/tramite-carta-vacaciones-form'
+import type {
+  BajaAutonomoFormValues,
+  BajaServicioFormValues,
+} from '@/src/modules/tramites/ui/tramite-baja-cliente-forms'
 import type { TrabajadorFormValues } from '@/src/modules/tramites/ui/tramite-trabajador-form'
 
 export type DrawerStep = 'picker' | SolicitudPickerId
@@ -24,6 +28,8 @@ export function successMessageForStep(step: DrawerStep): string {
   if (step === 'general') return generalCopy.drawer.successToast
   if (step === 'baja-trabajador') return solicitudCopy.bajaTrabajador.successToast
   if (step === 'carta-vacaciones') return solicitudCopy.cartaVacaciones.successToast
+  if (step === 'baja-autonomo') return solicitudCopy.bajaAutonomo.successToast
+  if (step === 'baja-servicio') return solicitudCopy.bajaServicio.successToast
   return solicitudCopy.common.successToast
 }
 
@@ -76,4 +82,22 @@ export function trabajadorFormHasContent(values: TrabajadorFormValues): boolean 
 
 export function cartaFormHasContent(values: CartaVacacionesFormValues): boolean {
   return Object.values(values).some((value) => value.trim().length > 0)
+}
+
+export function bajaFormHasContent(
+  values: BajaAutonomoFormValues | BajaServicioFormValues
+): boolean {
+  return Object.values(values).some((value) => value.trim().length > 0)
+}
+
+/** Pasos del drawer que muestran el formulario de solicitud estructurada. */
+export function isProcedureFormStep(
+  step: DrawerStep
+): step is 'baja-trabajador' | 'carta-vacaciones' | 'baja-autonomo' | 'baja-servicio' {
+  return (
+    step === 'baja-trabajador' ||
+    step === 'carta-vacaciones' ||
+    step === 'baja-autonomo' ||
+    step === 'baja-servicio'
+  )
 }

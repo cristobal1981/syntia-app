@@ -2,25 +2,21 @@ import { unstable_cache } from 'next/cache'
 
 import {
   mapOdooPartnerRowToImportOption,
-  parseGoogleDriveParentFolderId,
   type OdooPartnerImportOption,
   type OdooPartnerRow,
 } from '@/src/modules/directory/domain/odoo-partner-import'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import {
-  getOdooDriveFieldName,
   getOdooContactEmailFieldName,
   getOdooPartnerCatalogTtlSeconds,
   ODOO_PARTNER_CATALOG_CACHE_TAG,
 } from '@/src/modules/directory/infrastructure/odoo-partner-env'
 import { odooSearchRead } from '@/src/modules/portal/infrastructure/odoo-json-client'
-import { resolvePublicDriveFolderMap } from '@/src/modules/portal/infrastructure/google-drive-public-folder'
 
-/** La clave incluye los campos Odoo configurables y `includeLinked` para no mezclar catálogos distintos. */
+/** La clave incluye el campo de correo configurable y `includeLinked` para no mezclar catálogos distintos. */
 function getOdooPartnerCatalogCacheKey(includeLinked: boolean): string[] {
   return [
     ODOO_PARTNER_CATALOG_CACHE_TAG,
-    getOdooDriveFieldName(),
     getOdooContactEmailFieldName(),
     includeLinked ? 'all' : 'unlinked',
   ]
@@ -45,7 +41,6 @@ export async function listLinkedOdooPartnerIds(): Promise<number[]> {
 async function fetchOdooPartnersForImport(
   linkedIds: number[]
 ): Promise<OdooPartnerImportOption[]> {
-  const driveField = getOdooDriveFieldName()
   const contactEmailField = getOdooContactEmailFieldName()
   const domain: unknown[] = []
   if (linkedIds.length > 0) {
@@ -54,39 +49,13 @@ async function fetchOdooPartnersForImport(
 
   const rows = await odooSearchRead<OdooPartnerRow>('res.partner', {
     domain,
-    fields: [
-      'name',
-      'email',
-      'phone',
-      'is_company',
-      driveField,
-      contactEmailField,
-    ],
+    fields: ['name', 'email', 'phone', 'is_company', contactEmailField],
     order: 'name asc',
     limit: 500,
   })
 
-  const parentFolderByPartnerId = new Map<number, string>()
-  const parentFolderIds: string[] = []
-
-  for (const row of rows) {
-    const driveUrl = row[driveField]
-    if (typeof driveUrl !== 'string' || !driveUrl.trim()) continue
-    const parentId = parseGoogleDriveParentFolderId(driveUrl)
-    if (!parentId) continue
-    parentFolderByPartnerId.set(row.id, parentId)
-    parentFolderIds.push(parentId)
-  }
-
-  const publicFolderByParentId = await resolvePublicDriveFolderMap(parentFolderIds)
-
   return rows.map((row) =>
-    mapOdooPartnerRowToImportOption(
-      row,
-      driveField,
-      contactEmailField,
-      publicFolderByParentId.get(parentFolderByPartnerId.get(row.id) ?? '')
-    )
+    mapOdooPartnerRowToImportOption(row, contactEmailField)
   )
 }
 

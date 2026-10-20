@@ -50,7 +50,9 @@ function baseSession(overrides: Partial<PortalUser> = {}): PortalSession {
 
 beforeEach(() => {
   vi.resetAllMocks()
-  cookies.mockResolvedValue({ get: () => ({ value: 'fake-token' }) })
+  cookies.mockResolvedValue({
+    get: (name: string) => (name === SESSION_COOKIE_NAME ? { value: 'fake-token' } : undefined),
+  })
   isSupabaseConfigured.mockReturnValue(true)
   isSupabaseServiceRoleConfigured.mockReturnValue(true)
 })

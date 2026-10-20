@@ -1,4 +1,8 @@
-import type { PortalRole, PortalSession } from '@/src/modules/auth/domain/types'
+import type {
+  PortalRole,
+  PortalSession,
+  ViewAsPayload,
+} from '@/src/modules/auth/domain/types'
 
 const VALID_ROLES: ReadonlySet<string> = new Set<PortalRole>([
   'advisor',
@@ -101,4 +105,64 @@ export async function getSessionFromToken(
 ): Promise<PortalSession | null> {
   if (!token) return null
   return parseSessionToken(token, getSessionSecret())
+}
+
+async function signPayload(payload: unknown, secret: string): Promise<string> {
+  const body = toBase64Url(encoder.encode(JSON.stringify(payload)))
+  const key = await importKey(secret)
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(body))
+  return `${body}.${toBase64Url(new Uint8Array(signature))}`
+}
+
+export async function createViewAsToken(
+  payload: ViewAsPayload,
+  secret: string
+): Promise<string> {
+  // Prefijo de dominio: una cookie de sesión firmada con el mismo secreto no
+  // puede reutilizarse como token de vista (ni al revés).
+  return signPayload({ kind: 'view-as', ...payload }, secret)
+}
+
+export async function parseViewAsToken(
+  token: string,
+  secret: string
+): Promise<ViewAsPayload | null> {
+  const parts = token.split('.')
+  if (parts.length !== 2) return null
+  const [body, signature] = parts
+  if (!body || !signature) return null
+
+  try {
+    const key = await importKey(secret)
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      fromBase64Url(signature),
+      encoder.encode(body)
+    )
+    if (!valid) return null
+
+    const parsed = JSON.parse(new TextDecoder().decode(fromBase64Url(body))) as
+      | (Partial<ViewAsPayload> & { kind?: string })
+      | null
+    if (parsed?.kind !== 'view-as') return null
+    if (typeof parsed.staffAuthId !== 'string' || !parsed.staffAuthId) return null
+    if (typeof parsed.clientUserId !== 'string' || !parsed.clientUserId) return null
+    if (typeof parsed.expiresAt !== 'number' || Date.now() > parsed.expiresAt) return null
+
+    return {
+      staffAuthId: parsed.staffAuthId,
+      clientUserId: parsed.clientUserId,
+      expiresAt: parsed.expiresAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function getViewAsFromToken(
+  token: string | undefined
+): Promise<ViewAsPayload | null> {
+  if (!token) return null
+  return parseViewAsToken(token, getSessionSecret())
 }

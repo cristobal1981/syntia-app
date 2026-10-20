@@ -1,12 +1,20 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState } from 'react'
+import { CheckIcon, XIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { automatizaciones } from '@/content/automatizaciones'
 import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/odoo-company-option'
+import {
+  addCompanyIds,
+  filterCompanies,
+  resolveSelectedCompanies,
+  toggleCompanyId,
+} from '@/src/modules/automatizaciones/domain/odoo-company-selection'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type OdooCompaniesMultiPickerProps = {
   companies: OdooCompanyOption[]
@@ -26,40 +34,46 @@ export function OdooCompaniesMultiPicker({
 }: OdooCompaniesMultiPickerProps) {
   const copy = automatizaciones.odooCompaniesPicker
   const [query, setQuery] = useState('')
+  const [onlySelectedRequested, setOnlySelectedRequested] = useState(false)
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  // Sin nada seleccionado el filtro no tiene sentido: se desactiva solo en vez de dejar la lista vacía.
+  const onlySelected = onlySelectedRequested && selectedIds.length > 0
 
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    if (!normalized) return companies
-    return companies.filter((company) =>
-      company.name.toLowerCase().includes(normalized)
-    )
-  }, [companies, query])
+  const selectedCompanies = useMemo(
+    () => resolveSelectedCompanies(companies, selectedIds),
+    [companies, selectedIds]
+  )
+
+  const filtered = useMemo(
+    () => filterCompanies(companies, { query, onlySelected, selectedIds }),
+    [companies, query, onlySelected, selectedIds]
+  )
 
   function toggleCompany(id: number) {
-    if (selectedSet.has(id)) {
-      onChange(selectedIds.filter((entry) => entry !== id))
-      return
-    }
-    onChange([...selectedIds, id])
+    onChange(toggleCompanyId(selectedIds, id))
   }
 
   function selectAllVisible() {
-    const next = new Set(selectedIds)
-    for (const company of filtered) {
-      next.add(company.id)
-    }
-    onChange([...next])
+    onChange(addCompanyIds(selectedIds, filtered))
   }
 
   function clearSelection() {
+    setOnlySelectedRequested(false)
     onChange([])
   }
 
+  const segmentClass = (active: boolean) =>
+    cn(
+      'rounded px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+      active
+        ? 'bg-background text-foreground shadow-sm'
+        : 'text-muted-foreground hover:text-foreground'
+    )
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <label className="text-xs font-medium text-foreground">
+        <label className="text-sm font-medium text-foreground">
           {label}
           {required ? (
             <span aria-hidden className="text-destructive">
@@ -73,14 +87,80 @@ export function OdooCompaniesMultiPicker({
         </span>
       </div>
 
+      {selectedCompanies.length > 0 ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {copy.selectedHeading}
+            </span>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              onClick={clearSelection}
+            >
+              {copy.clearSelection}
+            </button>
+          </div>
+          <div
+            className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto"
+            role="group"
+            aria-label={copy.selectedHeading}
+          >
+            {selectedCompanies.map(({ id, name }) => {
+              const displayName = name ?? copy.unknownCompany.replace('{id}', String(id))
+              return (
+                <span
+                  key={id}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-primary/15 py-0.5 pl-2.5 pr-1 text-xs font-medium text-foreground"
+                >
+                  <span className="truncate">{displayName}</span>
+                  <button
+                    type="button"
+                    className="flex size-4 shrink-0 items-center justify-center rounded-full text-foreground/60 transition-colors hover:bg-primary/30 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    aria-label={copy.removeCompany.replace('{name}', displayName)}
+                    onClick={() => toggleCompany(id)}
+                  >
+                    <XIcon aria-hidden className="size-3" />
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <Input
+        {...NO_AUTOFILL}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder={copy.searchPlaceholder}
         aria-label={copy.searchPlaceholder}
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div
+          className="inline-flex rounded-md bg-muted p-0.5"
+          role="group"
+          aria-label={label}
+        >
+          <button
+            type="button"
+            className={segmentClass(!onlySelected)}
+            aria-pressed={!onlySelected}
+            onClick={() => setOnlySelectedRequested(false)}
+          >
+            {copy.showAll}
+          </button>
+          <button
+            type="button"
+            className={segmentClass(onlySelected)}
+            aria-pressed={onlySelected}
+            disabled={!selectedIds.length}
+            onClick={() => setOnlySelectedRequested(true)}
+          >
+            {copy.onlySelected}
+          </button>
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -90,22 +170,13 @@ export function OdooCompaniesMultiPicker({
         >
           {copy.selectVisible}
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={clearSelection}
-          disabled={!selectedIds.length}
-        >
-          {copy.clearSelection}
-        </Button>
       </div>
 
       {companies.length === 0 ? (
         <p className="text-xs text-muted-foreground">{copy.empty}</p>
       ) : (
         <ul
-          className="max-h-48 overflow-y-auto rounded-md border border-border bg-background"
+          className="min-h-48 flex-1 overflow-y-auto rounded-lg border border-border bg-background"
           role="listbox"
           aria-label={label}
           aria-multiselectable="true"
@@ -124,7 +195,7 @@ export function OdooCompaniesMultiPicker({
                     role="option"
                     aria-selected={isSelected}
                     className={cn(
-                      'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/40',
+                      'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none',
                       isSelected && 'bg-muted/60'
                     )}
                     onClick={() => toggleCompany(company.id)}
@@ -132,14 +203,17 @@ export function OdooCompaniesMultiPicker({
                     <span
                       aria-hidden
                       className={cn(
-                        'flex size-4 shrink-0 items-center justify-center rounded border border-border text-[10px] font-semibold',
-                        isSelected &&
-                          'border-primary bg-primary text-primary-foreground'
+                        'flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                        isSelected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-input bg-background'
                       )}
                     >
-                      {isSelected ? '✓' : ''}
+                      {isSelected ? (
+                        <CheckIcon className="size-3" strokeWidth={3} />
+                      ) : null}
                     </span>
-                    <span className="font-medium text-foreground">
+                    <span className="min-w-0 truncate text-foreground">
                       {company.name}
                     </span>
                   </button>

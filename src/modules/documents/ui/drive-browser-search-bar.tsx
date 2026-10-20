@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { clientDocuments } from '@/content/client-documents'
 import type { DriveViewMode } from '@/src/modules/documents/ui/drive-item-card'
 import { PortalFilterIconChip } from '@/src/modules/portal/ui/portal-filter-chip'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type DriveBrowserSearchBarProps = {
   searchQuery: string
@@ -34,6 +35,7 @@ export function DriveBrowserSearchBar({
           aria-hidden
         />
         <Input
+          {...NO_AUTOFILL}
           value={searchQuery}
           onChange={(event) => onSearchQueryChange(event.target.value)}
           placeholder={clientDocuments.searchPlaceholder}

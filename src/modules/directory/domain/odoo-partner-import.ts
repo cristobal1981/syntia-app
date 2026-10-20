@@ -7,8 +7,6 @@ export type OdooPartnerImportOption = {
   contactEmail?: string
   phone?: string
   odooPartnerId: string
-  driveFolderId?: string
-  driveFolderParseFailed?: boolean
   odooIsCompany?: boolean
 }
 
@@ -182,9 +180,7 @@ export function detectDefaultOdooNameSplitMode(label: string): OdooNameSplitMode
 
 export function mapOdooPartnerRowToImportOption(
   row: OdooPartnerRow,
-  driveFieldName: string,
-  contactEmailFieldName: string,
-  publicDriveFolderId?: string
+  contactEmailFieldName: string
 ): OdooPartnerImportOption {
   const name = sanitizeOdooString(row.name) ?? 'Sin nombre'
   const corporateEmail = sanitizeOdooString(row.email)
@@ -192,11 +188,6 @@ export function mapOdooPartnerRowToImportOption(
     row[contactEmailFieldName] as string | undefined
   )
   const phone = sanitizeOdooString(row.phone)
-  const driveUrl = sanitizeOdooString(row[driveFieldName] as string | undefined)
-  const parentFolderId = driveUrl
-    ? parseGoogleDriveParentFolderId(driveUrl)
-    : undefined
-
   return {
     id: row.id,
     label: name,
@@ -204,8 +195,6 @@ export function mapOdooPartnerRowToImportOption(
     contactEmail,
     phone,
     odooPartnerId: String(row.id),
-    driveFolderId: publicDriveFolderId,
-    driveFolderParseFailed: Boolean(parentFolderId && !publicDriveFolderId),
     odooIsCompany: Boolean(row.is_company),
   }
 }
@@ -230,7 +219,6 @@ export function buildImportDraftFromOdooPartner(
       contactEmail,
       phone: partner.phone,
       odooPartnerId: partner.odooPartnerId,
-      driveFolderId: partner.driveFolderId,
     }
   }
 
@@ -247,6 +235,5 @@ export function buildImportDraftFromOdooPartner(
     contactEmail,
     phone: partner.phone,
     odooPartnerId: partner.odooPartnerId,
-    driveFolderId: partner.driveFolderId,
   }
 }

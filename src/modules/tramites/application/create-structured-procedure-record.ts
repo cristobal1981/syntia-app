@@ -127,7 +127,8 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
   }
 
   const subject = formatProcedureTicketSubject(normalized)
-  const description = formatProcedureRecordDescriptionHtml(normalized)
+  const requestedAt = new Date().toISOString()
+  const description = formatProcedureRecordDescriptionHtml(normalized, requestedAt)
 
   try {
     const recordId =
@@ -136,7 +137,6 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
         : await createPartnerTicket({ partnerId, subject, description })
 
     if (postChatterMessage) {
-      const requestedAt = new Date().toISOString()
       await postRecordComment({
         resModel: getOdooModelForRecordKind(recordKind),
         recordId,

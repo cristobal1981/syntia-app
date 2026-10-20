@@ -11,8 +11,11 @@ import {
 } from '@/lib/format/odoo-html'
 import { formatIsoDateEs } from '@/lib/format/date'
 import type {
+  BajaAutonomoPayload,
+  BajaServicioPayload,
   ProcedureTicketPayload,
   TrabajadorAltaPayload,
+  WorkerProcedurePayload,
 } from '@/src/modules/tramites/domain/procedure-ticket-types'
 
 const SUBJECT_MAX_LENGTH = 120
@@ -43,7 +46,7 @@ function optionalRow(label: string, value: string | undefined): OdooHtmlFieldRow
   return row(label, value)
 }
 
-function workerSection(payload: ProcedureTicketPayload): OdooHtmlSection {
+function workerSection(payload: WorkerProcedurePayload): OdooHtmlSection {
   const common = tramiteSolicitudes.common
   return {
     title: common.sections.worker,
@@ -217,8 +220,56 @@ function altaTrabajadorSections(payload: TrabajadorAltaPayload): OdooHtmlSection
   ]
 }
 
-function buildProcedureSections(payload: ProcedureTicketPayload): OdooHtmlSection[] {
+function observationsSections(observations: string): OdooHtmlSection[] {
+  if (!observations.trim()) return []
   const common = tramiteSolicitudes.common
+  return [
+    {
+      title: common.sections.observations,
+      rows: [row(common.fields.observations.label, observations)],
+    },
+  ]
+}
+
+function bajaClienteSections(
+  payload: BajaAutonomoPayload | BajaServicioPayload,
+  requestedAt: string | undefined
+): OdooHtmlSection[] {
+  const copy =
+    payload.type === 'baja-autonomo'
+      ? tramiteSolicitudes.bajaAutonomo
+      : tramiteSolicitudes.bajaServicio
+  const rows: Array<OdooHtmlFieldRow | null> = [
+    requestedAt ? row(copy.fields.requestDate.label, formatRequestedAt(requestedAt)) : null,
+    payload.type === 'baja-servicio'
+      ? row(
+          tramiteSolicitudes.bajaServicio.fields.service.label,
+          labelForOption(tramiteSolicitudes.bajaServicio.fields.service.options, payload.service)
+        )
+      : null,
+    row(copy.fields.desiredDate.label, formatIsoDateEs(payload.desiredDate)),
+    payload.type === 'baja-autonomo'
+      ? row(
+          tramiteSolicitudes.bajaAutonomo.fields.reason.label,
+          labelForOption(tramiteSolicitudes.bajaAutonomo.fields.reason.options, payload.reason)
+        )
+      : null,
+  ]
+  return [
+    { title: copy.sections.request, rows: rows.filter((r): r is OdooHtmlFieldRow => r !== null) },
+    ...observationsSections(payload.observations),
+  ]
+}
+
+function buildProcedureSections(
+  payload: ProcedureTicketPayload,
+  requestedAt?: string
+): OdooHtmlSection[] {
+  const common = tramiteSolicitudes.common
+
+  if (payload.type === 'baja-autonomo' || payload.type === 'baja-servicio') {
+    return bajaClienteSections(payload, requestedAt)
+  }
 
   if (payload.type === 'alta-trabajador') {
     const sections: OdooHtmlSection[] = [
@@ -277,6 +328,8 @@ function procedureTitle(payload: ProcedureTicketPayload): string {
   if (payload.type === 'baja-trabajador') {
     return tramiteSolicitudes.bajaTrabajador.title
   }
+  if (payload.type === 'baja-autonomo') return tramiteSolicitudes.bajaAutonomo.title
+  if (payload.type === 'baja-servicio') return tramiteSolicitudes.bajaServicio.title
   return tramiteSolicitudes.cartaVacaciones.title
 }
 
@@ -287,21 +340,35 @@ function subjectTemplate(payload: ProcedureTicketPayload): string {
   if (payload.type === 'baja-trabajador') {
     return tramiteSolicitudes.bajaTrabajador.subjectTemplate
   }
+  if (payload.type === 'baja-autonomo') return tramiteSolicitudes.bajaAutonomo.subjectTemplate
+  if (payload.type === 'baja-servicio') return tramiteSolicitudes.bajaServicio.subjectTemplate
   return tramiteSolicitudes.cartaVacaciones.subjectTemplate
 }
 
+/** Texto que sustituye al marcador del asunto: el trabajador, el servicio o nada (baja de autónomo). */
+function subjectSubstitution(payload: ProcedureTicketPayload): string {
+  if (payload.type === 'baja-autonomo') return ''
+  if (payload.type === 'baja-servicio') {
+    return labelForOption(tramiteSolicitudes.bajaServicio.fields.service.options, payload.service)
+  }
+  return payload.fullName
+}
+
 export function formatProcedureTicketSubject(payload: ProcedureTicketPayload): string {
-  const subject = subjectTemplate(payload).replace('{nombre}', payload.fullName)
+  const subject = subjectTemplate(payload)
+    .replace('{nombre}', subjectSubstitution(payload))
+    .replace('{servicio}', subjectSubstitution(payload))
   if (subject.length <= SUBJECT_MAX_LENGTH) return subject
   return subject.slice(0, SUBJECT_MAX_LENGTH - 1).trimEnd() + '…'
 }
 
 export function formatProcedureRecordDescriptionHtml(
-  payload: ProcedureTicketPayload
+  payload: ProcedureTicketPayload,
+  requestedAt?: string
 ): string {
   return formatOdooHtmlDocument({
     title: 'Solicitud enviada desde el portal Syntia',
-    sections: buildProcedureSections(payload),
+    sections: buildProcedureSections(payload, requestedAt),
   })
 }
 
@@ -310,7 +377,7 @@ export function formatProcedureTicketChatterMessage(input: {
   requestedAt: string
 }): string {
   const { payload, requestedAt } = input
-  const sections = buildProcedureSections(payload)
+  const sections = buildProcedureSections(payload, requestedAt)
 
   return (
     `<p><strong>${escapeHtml(procedureTitle(payload))}</strong></p>` +

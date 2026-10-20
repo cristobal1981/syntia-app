@@ -1,15 +1,18 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
-const { createSupabaseAdminClient, propagateOwnerIntegrationToWorkers } = vi.hoisted(() => ({
-  createSupabaseAdminClient: vi.fn(),
-  propagateOwnerIntegrationToWorkers: vi.fn(),
-}))
+const { createSupabaseAdminClient, propagateOwnerIntegrationToWorkers, listWorkerGrantsForOwner } =
+  vi.hoisted(() => ({
+    createSupabaseAdminClient: vi.fn(),
+    propagateOwnerIntegrationToWorkers: vi.fn(),
+    listWorkerGrantsForOwner: vi.fn(),
+  }))
 
 vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
   createSupabaseAdminClient,
 }))
 vi.mock('@/src/modules/colaboradores/infrastructure/worker-grants.supabase', () => ({
   propagateOwnerIntegrationToWorkers,
+  listWorkerGrantsForOwner,
 }))
 const { sendClientAccessEmailForClient } = vi.hoisted(() => ({
   sendClientAccessEmailForClient: vi.fn(),
@@ -33,6 +36,7 @@ vi.mock('@/src/modules/directory/infrastructure/directory-env', () => ({
 vi.mock('@/src/modules/directory/infrastructure/client-integrations.supabase', () => ({
   deleteClientIntegration: vi.fn(),
   fetchClientIntegrationMap: vi.fn().mockResolvedValue(new Map()),
+  listUserIdsByDriveFolder: vi.fn().mockResolvedValue([]),
   upsertClientIntegration: vi.fn(),
 }))
 
@@ -46,6 +50,7 @@ import {
 import {
   deleteClientIntegration,
   fetchClientIntegrationMap,
+  listUserIdsByDriveFolder,
   upsertClientIntegration,
 } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
 
@@ -83,6 +88,8 @@ beforeEach(() => {
   // configured inside vi.mock(...) factories and vi.hoisted() defaults
   // above — must be re-armed every test, not just once at module load.
   vi.mocked(fetchClientIntegrationMap).mockResolvedValue(new Map())
+  vi.mocked(listUserIdsByDriveFolder).mockResolvedValue([])
+  listWorkerGrantsForOwner.mockResolvedValue([])
   isResendConfigured.mockReturnValue(false)
   shouldSkipClientInviteEmail.mockReturnValue(false)
   shouldUseResendClientInvite.mockReturnValue(false)
@@ -1149,6 +1156,42 @@ describe('upsertProfile', () => {
   })
 })
 
+function makeUpdateClient(opts: {
+  updateError?: { message: string } | null
+  profileUpsertError?: { message: string } | null
+  userRow: unknown
+  profileRow: unknown
+}) {
+  const usersChain: Record<string, unknown> = {}
+  let usersIsUpdate = false
+  usersChain.update = () => {
+    usersIsUpdate = true
+    return usersChain
+  }
+  usersChain.select = () => {
+    usersIsUpdate = false
+    return usersChain
+  }
+  usersChain.eq = () => usersChain
+  usersChain.in = () => usersChain
+  usersChain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) => {
+    const result = usersIsUpdate
+      ? { error: opts.updateError ?? null }
+      : { data: [opts.userRow], error: null }
+    return Promise.resolve(result).then(resolve, reject)
+  }
+
+  const profilesChain: Record<string, unknown> = {}
+  profilesChain.upsert = () =>
+    Promise.resolve({ error: opts.profileUpsertError ?? null })
+  profilesChain.select = () => profilesChain
+  profilesChain.in = () => profilesChain
+  profilesChain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+    Promise.resolve({ data: [opts.profileRow], error: null }).then(resolve, reject)
+
+  return { from: (table: string) => (table === 'users' ? usersChain : profilesChain) }
+}
+
 describe('updateGestor / updateClient', () => {
   /**
    * `users` and `profiles` each get used for TWO different purposes within
@@ -1156,41 +1199,6 @@ describe('updateGestor / updateClient', () => {
    * then a read-back (`this.getGestor`/`this.getClient` → `buildDirectorySources`).
    * The chain tracks which verb started the call to answer each correctly.
    */
-  function makeUpdateClient(opts: {
-    updateError?: { message: string } | null
-    profileUpsertError?: { message: string } | null
-    userRow: unknown
-    profileRow: unknown
-  }) {
-    const usersChain: Record<string, unknown> = {}
-    let usersIsUpdate = false
-    usersChain.update = () => {
-      usersIsUpdate = true
-      return usersChain
-    }
-    usersChain.select = () => {
-      usersIsUpdate = false
-      return usersChain
-    }
-    usersChain.eq = () => usersChain
-    usersChain.in = () => usersChain
-    usersChain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) => {
-      const result = usersIsUpdate
-        ? { error: opts.updateError ?? null }
-        : { data: [opts.userRow], error: null }
-      return Promise.resolve(result).then(resolve, reject)
-    }
-
-    const profilesChain: Record<string, unknown> = {}
-    profilesChain.upsert = () =>
-      Promise.resolve({ error: opts.profileUpsertError ?? null })
-    profilesChain.select = () => profilesChain
-    profilesChain.in = () => profilesChain
-    profilesChain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
-      Promise.resolve({ data: [opts.profileRow], error: null }).then(resolve, reject)
-
-    return { from: (table: string) => (table === 'users' ? usersChain : profilesChain) }
-  }
 
   it('updateGestor writes the users row, upserts the profile, and returns the freshly read-back gestor', async () => {
     createSupabaseAdminClient.mockReturnValue(
@@ -1469,5 +1477,87 @@ describe('resendGestorAccessEmail / lookup — flujo feliz y errores', () => {
     await supabaseDirectoryRepository.resendClientAccessEmail('c1')
 
     expect(eq).toHaveBeenCalledWith('id', 'c1')
+  })
+})
+
+describe('una carpeta Pública no puede ser de dos clientes (aislamiento entre clientes)', () => {
+  const baseInput = {
+    clientKind: 'person' as const,
+    firstName: 'Bea',
+    firstSurname: 'López',
+    email: 'bea@example.com',
+  }
+
+  function updateInput(driveFolderId: string | undefined) {
+    return { ...baseInput, id: 'c1', status: 'active' as const, odooPartnerId: '123', driveFolderId }
+  }
+
+  it('updateClient: si OTRO cliente ya tiene esa carpeta → DUPLICATE_DRIVE_FOLDER y no se escribe nada', async () => {
+    vi.mocked(listUserIdsByDriveFolder).mockResolvedValue(['otro-cliente'])
+    createSupabaseAdminClient.mockReturnValue(makeUpdateClient({ userRow: clientUser({ id: 'c1' }), profileRow: profileRow('c1') }))
+
+    await expect(
+      supabaseDirectoryRepository.updateClient(updateInput('folder-ajena-123'))
+    ).rejects.toThrow('DUPLICATE_DRIVE_FOLDER')
+
+    expect(listUserIdsByDriveFolder).toHaveBeenCalledWith('folder-ajena-123')
+    expect(upsertClientIntegration).not.toHaveBeenCalled()
+    expect(propagateOwnerIntegrationToWorkers).not.toHaveBeenCalled()
+  })
+
+  it('updateClient: la propia fila del cliente y sus colaboradores NO cuentan como conflicto', async () => {
+    vi.mocked(listUserIdsByDriveFolder).mockResolvedValue(['c1', 'worker-1', 'worker-2'])
+    listWorkerGrantsForOwner.mockResolvedValue([
+      { worker_user_id: 'worker-1' },
+      { worker_user_id: 'worker-2' },
+    ])
+    createSupabaseAdminClient.mockReturnValue(
+      makeUpdateClient({ userRow: clientUser({ id: 'c1' }), profileRow: profileRow('c1') })
+    )
+
+    await supabaseDirectoryRepository.updateClient(updateInput('folder-propia-1'))
+
+    expect(upsertClientIntegration).toHaveBeenCalledWith('c1', {
+      odoo_partner_id: 123,
+      drive_folder_id: 'folder-propia-1',
+    })
+  })
+
+  it('updateClient: un colaborador de OTRO titular con esa carpeta sí es conflicto, aunque el propio cliente tenga colaboradores', async () => {
+    vi.mocked(listUserIdsByDriveFolder).mockResolvedValue(['worker-1', 'worker-de-otro'])
+    listWorkerGrantsForOwner.mockResolvedValue([{ worker_user_id: 'worker-1' }])
+    createSupabaseAdminClient.mockReturnValue(makeUpdateClient({ userRow: clientUser({ id: 'c1' }), profileRow: profileRow('c1') }))
+
+    await expect(
+      supabaseDirectoryRepository.updateClient(updateInput('folder-ajena-123'))
+    ).rejects.toThrow('DUPLICATE_DRIVE_FOLDER')
+    expect(upsertClientIntegration).not.toHaveBeenCalled()
+  })
+
+  it('createClient: carpeta ya usada → falla ANTES de crear cuenta alguna (ni usuario de Auth ni fila)', async () => {
+    vi.mocked(listUserIdsByDriveFolder).mockResolvedValue(['otro-cliente'])
+    const inviteUserByEmail = vi.fn()
+    const createUser = vi.fn()
+    const from = vi.fn()
+    createSupabaseAdminClient.mockReturnValue({
+      from,
+      auth: { admin: { inviteUserByEmail, createUser, deleteUser: vi.fn() } },
+    })
+
+    await expect(
+      supabaseDirectoryRepository.createClient({ ...baseInput, driveFolderId: 'folder-ajena-123' })
+    ).rejects.toThrow('DUPLICATE_DRIVE_FOLDER')
+
+    expect(inviteUserByEmail).not.toHaveBeenCalled()
+    expect(createUser).not.toHaveBeenCalled()
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, '', '   '])('sin carpeta (%j) no se consulta nada ni hay conflicto posible', async (value) => {
+    createSupabaseAdminClient.mockReturnValue(makeUpdateClient({ userRow: clientUser({ id: 'c1' }), profileRow: profileRow('c1') }))
+
+    await supabaseDirectoryRepository.updateClient(updateInput(value))
+
+    expect(listUserIdsByDriveFolder).not.toHaveBeenCalled()
   })
 })

@@ -12,6 +12,7 @@ import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types
 import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
+import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
@@ -19,6 +20,7 @@ import {
   PortalQuickInvoiceButton,
   PortalQuickInvoiceProvider,
 } from '@/src/modules/portal/ui/portal-quick-invoice-context'
+import { PortalInviteProvider } from '@/src/modules/invitations/ui/portal-invite-context'
 import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
 import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
 import {
@@ -44,6 +46,8 @@ type PortalShellProps = {
   user: PortalUser
   navItems?: NavItem[]
   workerWriteSections?: WorkerSectionHref[]
+  /** Staff viendo el portal como este cliente (solo lectura). */
+  viewingAs?: { clientName: string }
   children: React.ReactNode
 }
 
@@ -83,6 +87,7 @@ export function PortalShell({
   user,
   navItems: navItemsProp,
   workerWriteSections,
+  viewingAs,
   children,
 }: PortalShellProps) {
   const pathname = usePathname()
@@ -93,6 +98,9 @@ export function PortalShell({
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = navItemsProp ?? getNavForRole(user.role)
   const isClientOrWorker = user.role === 'client' || user.role === 'worker'
+  // Vista como cliente: sin sondeo de avisos ni accesos que escriben (consulta,
+  // factura rápida, invitar, problema, guía) — el proxy rechazaría todos igualmente.
+  const interactive = isClientOrWorker && !viewingAs
   /**
    * "Nueva consulta" crea un ticket/trámite — una mutación, no basta con
    * tener /tramites en lectura (eso solo decide si `navItems` lo incluye).
@@ -100,8 +108,9 @@ export function PortalShell({
    * `workerWriteSections` llega vacío igual que `navItems`.
    */
   const canCreateConsulta =
-    user.role === 'client' ||
-    (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites'))
+    !viewingAs &&
+    (user.role === 'client' ||
+      (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites')))
   const { bottomBarItems, moreNavItems } = getBottomBarSplit(navItems, user.role)
   const roleLabel = portal.roles[user.role]
 
@@ -139,16 +148,33 @@ export function PortalShell({
   return (
     <PortalShortcutOverlayProvider>
     <TooltipProvider>
-    <PortalNotificationsProvider enabled={isClientOrWorker}>
+    <PortalNotificationsProvider enabled={interactive}>
     {/* Por fuera de la guía: esta necesita saber si el botón de factura existe para listar su paso. */}
-    <PortalQuickInvoiceProvider enabled={isClientOrWorker}>
-    <OnboardingChecklistProvider enabled={user.role === 'client'}>
+    <PortalQuickInvoiceProvider enabled={interactive}>
+    <OnboardingChecklistProvider enabled={user.role === 'client' && !viewingAs}>
     <PortalCreateConsultaProvider enabled={canCreateConsulta}>
-    <PortalReportProblemProvider enabled={isClientOrWorker}>
+    <PortalReportProblemProvider enabled={interactive}>
+    <PortalInviteProvider enabled={user.role === 'client' && !viewingAs}>
     <PortalRouteLoadingProvider>
     <Suspense fallback={null}>
     <PortalEntryLoadingProvider>
-    <div className="flex h-dvh overflow-clip bg-background text-foreground">
+    <div className="flex h-dvh flex-col overflow-clip bg-background text-foreground">
+      {viewingAs ? (
+        <div
+          role="status"
+          className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-primary/25 bg-primary/10 px-4 py-2 text-sm text-foreground"
+        >
+          <span>{portal.viewAs.banner(viewingAs.clientName)}</span>
+          {/* Enlace normal (GET): el proxy bloquea cualquier otra petición durante la vista. */}
+          <a
+            href="/api/view-as/exit"
+            className="font-medium underline underline-offset-4"
+          >
+            {portal.viewAs.exit}
+          </a>
+        </div>
+      ) : null}
+    <div className="flex min-h-0 flex-1 overflow-clip">
       <aside
         className={cn(
           'hidden min-h-0 shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:flex',
@@ -164,12 +190,11 @@ export function PortalShell({
           <PortalBrandMark collapsed={sidebarCollapsed} priority />
         </div>
 
-        <nav
-          className={cn(
-            'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto py-2',
-            sidebarCollapsed ? 'px-2' : 'px-3'
-          )}
-          aria-label="Principal"
+        <PortalScrollFade
+          ariaLabel="Principal"
+          className="flex-1"
+          scrollClassName={cn('py-2', sidebarCollapsed ? 'px-2' : 'px-3')}
+          contentClassName="flex flex-col gap-1"
         >
           {/* «Perfil» ya está en el menú del pie del sidebar; en móvil (sin ese menú) se mantiene. */}
           {navItems
@@ -177,10 +202,12 @@ export function PortalShell({
             .map((item) =>
               renderNavItem(item, pathname, sidebarCollapsed, pendingHref, undefined, handleNavStart)
             )}
-          <div className="mt-auto pt-3">
-            <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
-          </div>
-        </nav>
+        </PortalScrollFade>
+
+        {/* Fuera de la zona con scroll: la subida rápida debe estar siempre a mano. */}
+        <div className={cn('shrink-0 pb-3 empty:hidden', sidebarCollapsed ? 'px-2' : 'px-3')}>
+          <PortalQuickInvoiceButton collapsed={sidebarCollapsed} />
+        </div>
 
         <div className={cn('border-t border-sidebar-border py-3', sidebarCollapsed ? 'px-2' : 'px-3')}>
           <PortalProfileMenu
@@ -188,6 +215,7 @@ export function PortalShell({
             roleLabel={roleLabel}
             collapsed={sidebarCollapsed}
             onNavigate={handleNavStart}
+            hideSignOut={Boolean(viewingAs)}
           />
         </div>
       </aside>
@@ -229,6 +257,7 @@ export function PortalShell({
                   roleLabel={roleLabel}
                   onNavigate={() => setMobileOpen(false)}
                   onNavStart={handleNavStart}
+                  hideSignOut={Boolean(viewingAs)}
                 />
               </m.div>
             ) : null}
@@ -251,9 +280,11 @@ export function PortalShell({
         />
       </div>
     </div>
+    </div>
     </PortalEntryLoadingProvider>
     </Suspense>
     </PortalRouteLoadingProvider>
+    </PortalInviteProvider>
     </PortalReportProblemProvider>
     </PortalCreateConsultaProvider>
     </OnboardingChecklistProvider>

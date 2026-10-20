@@ -36,6 +36,11 @@ async function PortalSessionShell({ children }: { children: React.ReactNode }) {
       user={session.user}
       navItems={navItems}
       workerWriteSections={workerWriteSections}
+      viewingAs={
+        session.viewingAs
+          ? { clientName: session.user.companyName || session.user.name }
+          : undefined
+      }
     >
       {children}
     </PortalShell>

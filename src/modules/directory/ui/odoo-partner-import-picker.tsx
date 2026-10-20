@@ -7,6 +7,7 @@ import { equipo } from '@/content/equipo'
 import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
 import { resolveOdooPartnerEmails, resolvePortalEmailFromOdooPartner } from '@/src/modules/directory/domain/odoo-partner-import'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type OdooPartnerImportPickerProps = {
   partners: OdooPartnerImportOption[]
@@ -43,6 +44,7 @@ export function OdooPartnerImportPicker({
       </div>
 
       <Input
+        {...NO_AUTOFILL}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder={copy.searchPlaceholder}

@@ -8,4 +8,6 @@ import { getSession } from '@/src/modules/auth/application/get-session'
  * de datos cada una. Solo vive durante esa petición; nada se retiene entre
  * peticiones, así que una cuenta archivada se nota igual de rápido que antes.
  */
-export const getDocumentsSession = cache(getSession)
+export const getDocumentsSession = cache((allowViewAsRead: boolean = false) =>
+  getSession({ allowViewAsRead })
+)

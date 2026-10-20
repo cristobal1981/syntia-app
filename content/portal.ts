@@ -1,6 +1,11 @@
 import type { PortalRole } from '@/src/modules/auth/domain/types'
 
 export const portal = {
+  viewAs: {
+    banner: (clientName: string) =>
+      `Estás viendo el portal de ${clientName} (solo lectura). No puedes hacer cambios.`,
+    exit: 'Salir de la vista',
+  },
   login: {
     title: 'Acceso a la plataforma',
     description:
@@ -231,6 +236,34 @@ export const portal = {
         create_failed:
           'No pudimos enviar tu reporte. Inténtalo de nuevo o contacta con tu asesor.',
         unknown: 'No pudimos enviar tu reporte. Inténtalo de nuevo.',
+      },
+    },
+    invite: {
+      label: 'Invitar a alguien',
+      title: 'Invita a alguien a conocer Syntia',
+      description:
+        'Le enviaremos un correo con el enlace a la web y le diremos que alguien le ha invitado. Si le interesa, nos escribirá para darse de alta con nosotros.',
+      emailLabel: 'Correo de la persona invitada',
+      emailPlaceholder: 'nombre@ejemplo.com',
+      quotaMany: 'Te quedan {remaining} de {max} invitaciones.',
+      quotaOne: 'Te queda 1 de {max} invitaciones.',
+      quotaNone: 'Has usado las {max} invitaciones disponibles.',
+      quotaLoading: 'Comprobando tus invitaciones…',
+      submit: 'Enviar invitación',
+      sending: 'Enviando…',
+      cancel: 'Cerrar',
+      successToast: 'Listo. Si esa persona aún no usa Syntia, recibirá tu invitación.',
+      errors: {
+        required: 'Escribe el correo de la persona a la que quieres invitar.',
+        invalid: 'Ese correo no parece válido.',
+        too_long: 'Ese correo es demasiado largo.',
+        own_email: 'No puedes invitarte a ti mismo.',
+        forbidden: 'No tienes permiso para enviar invitaciones.',
+        rate_limited: 'Has enviado varias invitaciones seguidas. Inténtalo de nuevo en un rato.',
+        limit_reached: 'Has usado todas tus invitaciones.',
+        already_invited: 'Ya has invitado a esa persona.',
+        send_failed: 'No pudimos enviar la invitación. Inténtalo de nuevo.',
+        unavailable: 'No pudimos enviar la invitación. Inténtalo de nuevo en unos minutos.',
       },
     },
   },

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { leads as leadsCopy } from '@/content/leads'
 import type { LeadMotivoEntry } from '@/src/modules/leads/domain/types'
 import { LeadEstadoBadge } from '@/src/modules/leads/ui/lead-estado-badge'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type LeadsMotivosListProps = {
   motivos: LeadMotivoEntry[]
@@ -43,6 +44,7 @@ export function LeadsMotivosList({ motivos }: LeadsMotivosListProps) {
               aria-hidden
             />
             <Input
+              {...NO_AUTOFILL}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={copy.searchPlaceholder}

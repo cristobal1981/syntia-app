@@ -53,7 +53,6 @@ export function AltaTrabajadorDatosPersonalesStepPage() {
             value={values.firstName}
             error={fieldErrors.firstName}
             required
-            autoComplete="given-name"
             onChange={(firstName) => setField('firstName', firstName)}
           />
           <TramiteDrawerField
@@ -64,7 +63,6 @@ export function AltaTrabajadorDatosPersonalesStepPage() {
             value={values.lastName}
             error={fieldErrors.lastName}
             required
-            autoComplete="family-name"
             onChange={(lastName) => setField('lastName', lastName)}
           />
         </div>
@@ -95,7 +93,6 @@ export function AltaTrabajadorDatosPersonalesStepPage() {
           placeholder={altaCopy.email.placeholder}
           value={values.email}
           error={fieldErrors.email}
-          autoComplete="email"
           onChange={(email) => setField('email', email)}
         />
         <TramiteDrawerField
@@ -106,7 +103,6 @@ export function AltaTrabajadorDatosPersonalesStepPage() {
           placeholder={altaCopy.phone.placeholder}
           value={values.phone}
           error={fieldErrors.phone}
-          autoComplete="tel"
           onChange={(phone) => setField('phone', phone)}
         />
         <TramiteDrawerField

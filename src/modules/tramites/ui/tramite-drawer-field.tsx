@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 /** Campos de formulario compartidos de los drawers de trámites (y del alta de trabajador). */
 export function TramiteFieldError({
@@ -60,7 +61,6 @@ export function TramiteDrawerField({
   value,
   type = 'text',
   error,
-  autoComplete,
   placeholder,
   disabled,
   required,
@@ -75,7 +75,6 @@ export function TramiteDrawerField({
   value: string
   type?: string
   error?: string
-  autoComplete?: string
   placeholder?: string
   disabled?: boolean
   required?: boolean
@@ -92,11 +91,11 @@ export function TramiteDrawerField({
         {label}
       </TramiteFieldLabel>
       <Input
+        {...NO_AUTOFILL}
         id={id}
         name={name}
         type={type}
         value={value}
-        autoComplete={autoComplete}
         placeholder={placeholder}
         disabled={disabled}
         min={min}

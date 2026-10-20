@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createSessionToken,
+  createViewAsToken,
   getSessionFromToken,
   getSessionSecret,
   parseSessionToken,
+  parseViewAsToken,
 } from '@/src/modules/auth/infrastructure/session-cookie'
 import type { PortalSession } from '@/src/modules/auth/domain/types'
 
@@ -285,5 +287,42 @@ describe('createSessionToken / parseSessionToken', () => {
     const token = await createSessionToken(sessionExpiringIn(60_000), secret)
     const parsed = await getSessionFromToken(token)
     expect(parsed?.user.id).toBe('user-1')
+  })
+})
+
+describe('view-as token', () => {
+  const secret = 'view-as-secret'
+  const payload = {
+    staffAuthId: 'staff-1',
+    clientUserId: 'client-1',
+    expiresAt: Date.now() + 60_000,
+  }
+
+  it('ida y vuelta conserva los datos', async () => {
+    const token = await createViewAsToken(payload, secret)
+    expect(await parseViewAsToken(token, secret)).toEqual(payload)
+  })
+
+  it('rechaza otra clave, un token manipulado y uno caducado', async () => {
+    const token = await createViewAsToken(payload, secret)
+    expect(await parseViewAsToken(token, 'otra')).toBeNull()
+    const [body, sig] = token.split('.')
+    const forged = btoa(JSON.stringify({ kind: 'view-as', ...payload, clientUserId: 'client-2' }))
+      .replace(/=+$/, '')
+    expect(await parseViewAsToken(`${forged}.${sig}`, secret)).toBeNull()
+    expect(body).toBeTruthy()
+    const expired = await createViewAsToken({ ...payload, expiresAt: Date.now() - 1 }, secret)
+    expect(await parseViewAsToken(expired, secret)).toBeNull()
+  })
+
+  it('una cookie de sesión no vale como token de vista', async () => {
+    const sessionToken = await createSessionToken(
+      {
+        user: { id: 'u', email: 'a@b.c', name: 'n', role: 'admin' },
+        expiresAt: Date.now() + 60_000,
+      },
+      secret
+    )
+    expect(await parseViewAsToken(sessionToken, secret)).toBeNull()
   })
 })

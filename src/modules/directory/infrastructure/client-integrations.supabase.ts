@@ -64,6 +64,21 @@ function invalidateClientDriveRoot(userId: string): void {
   }
 }
 
+/** Usuarios (titulares y colaboradores) cuya fila apunta a esa carpeta Pública. */
+export async function listUserIdsByDriveFolder(driveFolderId: string): Promise<string[]> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('client_integrations')
+    .select('user_id')
+    .eq('drive_folder_id', driveFolderId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((row) => row.user_id as string)
+}
+
 export async function upsertClientIntegration(
   userId: string,
   fields: Pick<ClientIntegrationRow, 'odoo_partner_id' | 'drive_folder_id'>

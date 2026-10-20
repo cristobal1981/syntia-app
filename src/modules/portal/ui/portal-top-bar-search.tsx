@@ -46,6 +46,7 @@ import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalShortcutHint } from '@/src/modules/portal/ui/portal-shortcut-hint'
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type PortalTopBarSearchProps = {
   role: PortalRole
@@ -92,6 +93,20 @@ const ALL_PROCEDURE_SEARCH_ACTIONS: Array<{
     label: tramiteSolicitudes.picker.cartaVacaciones.label,
     description: tramiteSolicitudes.picker.cartaVacaciones.description,
     keywords: ['vacaciones', 'carta', 'descanso', 'festivos'],
+  },
+  {
+    id: 'action:procedure:baja-autonomo',
+    procedure: 'baja-autonomo',
+    label: tramiteSolicitudes.picker.bajaAutonomo.label,
+    description: tramiteSolicitudes.picker.bajaAutonomo.description,
+    keywords: ['baja', 'autónomo', 'autonomo', 'cese', 'cese de actividad', 'darme de baja'],
+  },
+  {
+    id: 'action:procedure:baja-servicio',
+    procedure: 'baja-servicio',
+    label: tramiteSolicitudes.picker.bajaServicio.label,
+    description: tramiteSolicitudes.picker.bajaServicio.description,
+    keywords: ['baja', 'servicio', 'cancelar', 'dejar', 'contratado', 'contrato'],
   },
 ]
 
@@ -475,7 +490,7 @@ export function PortalTopBarSearch({
               aria-autocomplete="list"
               aria-expanded={visibleItems.length > 0}
               role="combobox"
-              autoComplete="off"
+              {...NO_AUTOFILL}
               className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground md:text-sm"
             />
           </div>

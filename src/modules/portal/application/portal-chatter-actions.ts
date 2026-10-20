@@ -64,7 +64,7 @@ async function resolveClientPartnerId(
   | { ok: true; partnerId: number; actorId: string }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
-  const session = await getSession()
+  const session = await getSession({ allowViewAsRead: requiredLevel === 'read' })
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }

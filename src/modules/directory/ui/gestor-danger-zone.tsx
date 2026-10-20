@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { equipo } from '@/content/equipo'
 import { deleteGestorAction } from '@/src/modules/directory/application/directory-mutations'
 import type { GestorRecord } from '@/src/modules/directory/domain/types'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type GestorDangerZoneProps = {
   gestor: GestorRecord
@@ -139,6 +140,7 @@ export function GestorDangerZone({ gestor, onDeleted }: GestorDangerZoneProps) {
             <p className="font-medium text-foreground">{gestor.name}</p>
             <div className="mt-2 flex items-center gap-2">
               <Input
+                {...NO_AUTOFILL}
                 ref={emailCopyRef}
                 readOnly
                 value={gestor.email}
@@ -171,12 +173,12 @@ export function GestorDangerZone({ gestor, onDeleted }: GestorDangerZoneProps) {
               {copy.confirmEmailLabel}
             </label>
             <Input
+              {...NO_AUTOFILL}
               id="gestor-delete-email-confirm"
               type="email"
               value={emailConfirm}
               onChange={(event) => setEmailConfirm(event.target.value)}
               placeholder={copy.confirmPlaceholder}
-              autoComplete="off"
               disabled={pending}
             />
           </div>

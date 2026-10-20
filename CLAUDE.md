@@ -6,11 +6,16 @@ Nunca añadas `Co-Authored-By: Claude ...` ni la línea `Claude-Session: ...` al
 
 Antes de cada commit, comprueba que `build`, `lint`, `tsc` y los tests pasan. Si algo falla, no preguntes: arréglalo o repórtalo, y no commitees en rojo.
 
+## Errores conocidos
+
+Al empezar una tarea nueva, lee antes la página de Notion `Syntia — Histórico de Errores` (https://app.notion.com/p/3dc96234e54981f995b9f0823e66ce24), sobre todo «Resumen de errores conocidos a evitar». Si encadenas varias tareas seguidas en la misma sesión, no hace falta releerla en cada una. Cuando aparezca un error nuevo o uno que ya se haya visto y no esté anotado, añádelo ahí con su causa, su solución y si está confirmada.
+
 ## Funcionalidad desactivada a propósito (NO es código muerto)
 
 Lo que sigue está apagado por decisión de producto y se conserva entero (rutas, formularios, validación, acciones y tests) para poder reactivarlo. No lo borres en limpiezas de código sin uso, barridos de knip ni tareas de higiene, aunque no tenga accesos visibles. Se apaga y se reactiva en un solo sitio.
 
-- **Alta de trabajador** (`/alta-trabajador` y el módulo `src/modules/alta-trabajador`), junto con **baja de trabajador** y **carta de vacaciones**: desactivadas en `UNAVAILABLE_PROCEDURE_TYPES` de `src/modules/tramites/domain/procedure-ticket-types.ts`. Con eso desaparecen del selector de «Nueva solicitud» y del buscador, la acción del servidor responde `forbidden` y la ruta `/alta-trabajador` da 404; en «Nueva solicitud» solo queda la consulta general. Para reactivar una, quítala de ese conjunto. Desde el 2026-10-15.
+- **Alta de trabajador** (`/alta-trabajador` y el módulo `src/modules/alta-trabajador`), junto con **baja de trabajador** y **carta de vacaciones**: desactivadas en `UNAVAILABLE_PROCEDURE_TYPES` de `src/modules/tramites/domain/procedure-ticket-types.ts`. Con eso desaparecen del selector de «Nueva solicitud» y del buscador, la acción del servidor responde `forbidden` y la ruta `/alta-trabajador` da 404; en «Nueva solicitud» quedan la consulta general y las bajas de autónomo y de servicio. Para reactivar una, quítala de ese conjunto. Desde el 2026-10-15.
+- **Facturación (mock local)** (`/facturacion` y el módulo `src/modules/facturacion`, copy en `content/facturacion.ts`): borrador solo para local, con datos en el `localStorage` del navegador y sin backend. Se apaga solo en Vercel (cualquier despliegue define `VERCEL`): la ruta da 404 y desaparece del menú; el único punto de control es `isInvoicingMockEnabled` en `src/modules/facturacion/domain/invoicing-availability.ts`. No es código muerto ni se publica todavía. Desde el 2026-10-16.
 
 ## Push y Notion
 

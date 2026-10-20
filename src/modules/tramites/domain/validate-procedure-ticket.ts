@@ -39,6 +39,7 @@ export type ProcedureFieldErrorKey =
   | 'dateRequired'
   | 'dateInvalid'
   | 'dateInPast'
+  | 'desiredDateInPast'
   | 'periodEndBeforeStart'
   | 'selectRequired'
   | 'requiredField'
@@ -319,10 +320,35 @@ function validateCombinedFullName(
   )
 }
 
+function validateDesiredDate(
+  value: string,
+  fieldErrors: Record<string, ProcedureFieldErrorKey>
+) {
+  validateRequiredDateField(value, 'desiredDate', fieldErrors)
+  if (!fieldErrors.desiredDate && isIsoDateBeforeToday(value)) {
+    fieldErrors.desiredDate = 'desiredDateInPast'
+  }
+}
+
 export function validateProcedureTicketPayload(
   payload: ProcedureTicketPayload
 ): Record<string, ProcedureFieldErrorKey> {
   const fieldErrors: Record<string, ProcedureFieldErrorKey> = {}
+
+  if (payload.type === 'baja-autonomo' || payload.type === 'baja-servicio') {
+    validateDesiredDate(payload.desiredDate, fieldErrors)
+    if (payload.type === 'baja-autonomo') {
+      validateRequiredSelectField(payload.reason, 'reason', fieldErrors)
+    } else {
+      validateRequiredSelectField(payload.service, 'service', fieldErrors)
+    }
+    applyFieldRule(
+      fieldErrors,
+      'observations',
+      requireMaxLength(payload.observations, OBSERVATIONS_MAX, 'observationsTooLong')
+    )
+    return fieldErrors
+  }
 
   if (payload.type !== 'alta-trabajador') {
     validateCombinedFullName(payload.fullName, fieldErrors)
@@ -460,6 +486,24 @@ export function normalizeProcedureTicketPayload<T extends ProcedureTicketPayload
 ): T {
   if (payload.type === 'alta-trabajador') {
     return normalizeAltaTrabajadorPayload(payload) as T
+  }
+
+  if (payload.type === 'baja-autonomo') {
+    return {
+      type: 'baja-autonomo',
+      desiredDate: trim(payload.desiredDate),
+      reason: trim(payload.reason),
+      observations: trim(payload.observations),
+    } as T
+  }
+
+  if (payload.type === 'baja-servicio') {
+    return {
+      type: 'baja-servicio',
+      service: trim(payload.service),
+      desiredDate: trim(payload.desiredDate),
+      observations: trim(payload.observations),
+    } as T
   }
 
   const base = {

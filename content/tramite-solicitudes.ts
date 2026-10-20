@@ -25,6 +25,16 @@ export const tramiteSolicitudes = {
       label: 'Carta de vacaciones',
       description: 'Solicitud de carta o comunicación de periodo de vacaciones.',
     },
+    bajaAutonomo: {
+      id: 'baja-autonomo' as const,
+      label: 'Baja de autónomo',
+      description: 'Solicita dejar de ser cliente de la asesoría como autónomo.',
+    },
+    bajaServicio: {
+      id: 'baja-servicio' as const,
+      label: 'Baja de un servicio',
+      description: 'Deja de contratar un servicio concreto que tenías con la asesoría.',
+    },
   },
   common: {
     creating: 'Creando…',
@@ -311,7 +321,71 @@ export const tramiteSolicitudes = {
       },
     },
   },
+  bajaAutonomo: {
+    title: 'Baja de autónomo',
+    description:
+      'Indica desde cuándo quieres que se tramite tu baja y el motivo. Tu asesoría te confirmará los siguientes pasos.',
+    subjectTemplate: 'Baja de autónomo',
+    successToast: 'Solicitud de baja de autónomo enviada. Tu asesoría te responderá en el trámite.',
+    notice: {
+      title: 'Antes de continuar',
+      body: 'Hasta que la baja sea efectiva, tus obligaciones fiscales y sus plazos siguen vigentes. Tu asesoría te indicará lo que quede pendiente.',
+    },
+    confirm: {
+      title: '¿Seguro que quieres darte de baja?',
+      description:
+        'Al causar baja perderás el acceso a la información que hay en esta plataforma (documentos, trámites, firmas y obligaciones). Te recomendamos descargarla antes del {fecha}, 5 días después de la fecha de baja que has indicado. Si ya la tienes guardada o quieres continuar, confirma el envío.',
+      confirm: 'Sí, solicitar la baja',
+      cancel: 'Volver',
+    },
+    sections: { request: 'Datos de la baja' },
+    fields: {
+      requestDate: { label: 'Fecha de la petición' },
+      desiredDate: {
+        label: 'Fecha en la que quieres la baja',
+        hint: 'Día desde el que quieres que se tramite la baja.',
+      },
+      reason: {
+        label: 'Motivo de la baja',
+        placeholder: 'Selecciona un motivo',
+        options: {
+          cese_actividad: 'Cese de actividad',
+          cambio_asesoria: 'Cambio de asesoría',
+          empleo_cuenta_ajena: 'Paso a trabajar por cuenta ajena',
+          jubilacion: 'Jubilación',
+          otros: 'Otros',
+        },
+      },
+    },
+  },
+  bajaServicio: {
+    title: 'Baja de un servicio',
+    description:
+      'Elige el servicio que quieres dejar de contratar y desde cuándo. Tu asesoría lo revisará y te responderá.',
+    subjectTemplate: 'Baja de servicio — {servicio}',
+    successToast: 'Solicitud de baja de servicio enviada. Tu asesoría te responderá en el trámite.',
+    sections: { request: 'Datos de la baja' },
+    fields: {
+      requestDate: { label: 'Fecha de la petición' },
+      service: {
+        label: 'Servicio',
+        placeholder: 'Selecciona un servicio',
+        options: {
+          fiscal: 'Asesoría fiscal',
+          contabilidad: 'Contabilidad',
+          laboral: 'Nóminas y gestión laboral',
+          mercantil: 'Gestión mercantil y societaria',
+          otros: 'Otro servicio',
+        },
+      },
+      desiredDate: {
+        label: 'Fecha en la que quieres la baja',
+        hint: 'Día desde el que quieres dejar de recibir el servicio.',
+      },
+    },
+  },
   errors: {
+    desiredDateInPast: 'La fecha no puede ser anterior a hoy.',
     fullNameRequired: 'El nombre es obligatorio.',
     fullNameTooLong: 'El nombre no puede superar 120 caracteres.',
     firstNameRequired: 'El nombre es obligatorio.',

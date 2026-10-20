@@ -244,15 +244,13 @@ describe('mapOdooPartnerRowToImportOption', () => {
     }
   }
 
-  it('reads the contact email and drive URL from the given dynamic field names', () => {
+  it('reads the contact email from the given dynamic field name', () => {
     const row = partnerRow({
       x_studio_email_contacto: 'contacto@example.com',
-      x_studio_drive: 'https://drive.google.com/drive/folders/xyz',
     })
 
     const option = mapOdooPartnerRowToImportOption(
       row,
-      'x_studio_drive',
       'x_studio_email_contacto'
     )
 
@@ -260,55 +258,11 @@ describe('mapOdooPartnerRowToImportOption', () => {
     expect(option.corporateEmail).toBe('corp@example.com')
   })
 
-  it('sets driveFolderParseFailed=true only when a folder id WAS parsed from the URL but no publicDriveFolderId was resolved', () => {
-    const row = partnerRow({
-      x_studio_drive: 'https://drive.google.com/drive/folders/xyz',
-    })
-
-    const option = mapOdooPartnerRowToImportOption(
-      row,
-      'x_studio_drive',
-      'x_studio_email_contacto'
-      // no publicDriveFolderId passed
-    )
-
-    expect(option.driveFolderParseFailed).toBe(true)
-    expect(option.driveFolderId).toBeUndefined()
-  })
-
-  it('sets driveFolderParseFailed=false when a publicDriveFolderId IS resolved', () => {
-    const row = partnerRow({
-      x_studio_drive: 'https://drive.google.com/drive/folders/xyz',
-    })
-
-    const option = mapOdooPartnerRowToImportOption(
-      row,
-      'x_studio_drive',
-      'x_studio_email_contacto',
-      'resolved-folder-id'
-    )
-
-    expect(option.driveFolderParseFailed).toBe(false)
-    expect(option.driveFolderId).toBe('resolved-folder-id')
-  })
-
-  it('sets driveFolderParseFailed=false when there was no drive URL to parse in the first place', () => {
-    const row = partnerRow({ x_studio_drive: undefined })
-
-    const option = mapOdooPartnerRowToImportOption(
-      row,
-      'x_studio_drive',
-      'x_studio_email_contacto'
-    )
-
-    expect(option.driveFolderParseFailed).toBe(false)
-  })
-
   it('falls back to "Sin nombre" for a blank/false name', () => {
     const row = partnerRow({ name: false as unknown as string })
 
     expect(
-      mapOdooPartnerRowToImportOption(row, 'drive', 'contact').label
+      mapOdooPartnerRowToImportOption(row, 'contact').label
     ).toBe('Sin nombre')
   })
 })

@@ -34,6 +34,7 @@ import {
 import type { NavIconId } from '@/src/modules/portal/domain/types'
 import { PortalNavIcon } from '@/src/modules/portal/ui/portal-nav-icon'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const copy = colaboradores.form
 const FORM_ID = 'worker-form-drawer-form'
@@ -203,6 +204,7 @@ export function WorkerFormDrawer({
                   <div className="grid grid-cols-2 gap-3">
                     <DrawerField id="worker-first-name" label={copy.firstName}>
                       <Input
+                        {...NO_AUTOFILL}
                         id="worker-first-name"
                         required
                         value={firstName}
@@ -212,6 +214,7 @@ export function WorkerFormDrawer({
                     </DrawerField>
                     <DrawerField id="worker-first-surname" label={copy.firstSurname}>
                       <Input
+                        {...NO_AUTOFILL}
                         id="worker-first-surname"
                         required
                         value={firstSurname}
@@ -222,6 +225,7 @@ export function WorkerFormDrawer({
                   </div>
                   <DrawerField id="worker-second-surname" label={copy.secondSurname}>
                     <Input
+                      {...NO_AUTOFILL}
                       id="worker-second-surname"
                       value={secondSurname}
                       onChange={(event) => setSecondSurname(event.target.value)}
@@ -230,6 +234,7 @@ export function WorkerFormDrawer({
                   </DrawerField>
                   <DrawerField id="worker-email" label={copy.email}>
                     <Input
+                      {...NO_AUTOFILL}
                       id="worker-email"
                       type="email"
                       required

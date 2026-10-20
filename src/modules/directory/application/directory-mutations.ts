@@ -22,6 +22,7 @@ import type {
 import { getDirectoryRepository } from '@/src/modules/directory/infrastructure/get-directory-repository'
 import { mapDirectoryEmailError } from '@/src/modules/directory/application/map-directory-email-error'
 import { listOdooPartnersForImport } from '@/src/modules/directory/application/list-odoo-partners-for-import'
+import { resolveOdooPartnerDriveFolder } from '@/src/modules/directory/application/resolve-odoo-partner-drive-folder'
 import { listOdooGestoresForImport } from '@/src/modules/directory/application/list-odoo-gestores-for-import'
 import type { OdooPartnerImportOption } from '@/src/modules/directory/domain/odoo-partner-import'
 import type { OdooUserImportOption } from '@/src/modules/directory/domain/odoo-user-import'
@@ -36,6 +37,12 @@ export type DirectoryUpdateResult =
       fieldErrors?: Record<string, string>
       message?: string
     }
+
+const DUPLICATE_DRIVE_FOLDER_RESULT: DirectoryUpdateResult = {
+  ok: false,
+  error: 'validation',
+  fieldErrors: { driveFolderId: 'Esa carpeta ya está asignada a otro cliente.' },
+}
 
 type DirectoryDeleteResult =
   | { ok: true }
@@ -59,6 +66,10 @@ type ListOdooPartnersForImportActionResult =
       ok: false
       error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' | 'odoo_request_failed'
     }
+
+type ResolveOdooPartnerDriveFolderActionResult =
+  | { ok: true; driveFolderId: string | null }
+  | { ok: false; error: 'unauthorized' | 'forbidden' | 'odoo_unavailable' }
 
 type ListOdooGestoresForImportActionResult =
   | { ok: true; users: OdooUserImportOption[] }
@@ -206,6 +217,9 @@ export async function createClientCore(
     updateTag(ODOO_PARTNER_CATALOG_CACHE_TAG)
     return { ok: true, inviteSent: result.inviteSent }
   } catch (error) {
+    if (error instanceof Error && error.message === 'DUPLICATE_DRIVE_FOLDER') {
+      return DUPLICATE_DRIVE_FOLDER_RESULT
+    }
     if (error instanceof Error && error.message === 'DUPLICATE_EMAIL') {
       return {
         ok: false,
@@ -327,6 +341,9 @@ export async function updateClientAction(
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }
+    }
+    if (error instanceof Error && error.message === 'DUPLICATE_DRIVE_FOLDER') {
+      return DUPLICATE_DRIVE_FOLDER_RESULT
     }
     return {
       ok: false,
@@ -549,6 +566,30 @@ export async function listOdooPartnersForImportAction(options?: {
     }
 
     return { ok: true, partners: result.partners }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    throw error
+  }
+}
+
+/** ID de la carpeta Pública de Drive guardado en Odoo para el contacto elegido en el alta; solo staff. */
+export async function resolveOdooPartnerDriveFolderAction(
+  odooPartnerId: number
+): Promise<ResolveOdooPartnerDriveFolderActionResult> {
+  try {
+    const session = await requireDirectorySession()
+    if (session.user.role === 'client') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const result = await resolveOdooPartnerDriveFolder(odooPartnerId)
+    if (!result.ok) {
+      return { ok: false, error: 'odoo_unavailable' }
+    }
+
+    return { ok: true, driveFolderId: result.driveFolderId }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
       return { ok: false, error: 'unauthorized' }

@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { equipo } from '@/content/equipo'
-import { listOdooPartnersForImportAction } from '@/src/modules/directory/application/directory-mutations'
+import {
+  listOdooPartnersForImportAction,
+  resolveOdooPartnerDriveFolderAction,
+} from '@/src/modules/directory/application/directory-mutations'
 import {
   buildImportDraftFromOdooPartner,
   detectDefaultClientKind,
@@ -12,7 +15,7 @@ import {
   type OdooPartnerImportOption,
 } from '@/src/modules/directory/domain/odoo-partner-import'
 import type { ClientKind } from '@/src/modules/directory/domain/types'
-import { ClientForm } from '@/src/modules/directory/ui/client-form'
+import { ClientForm, type DriveFolderAutofill } from '@/src/modules/directory/ui/client-form'
 import { DirectoryPanel } from '@/src/modules/directory/ui/directory-panel'
 
 type ClientCreateDialogProps = {
@@ -39,6 +42,11 @@ export function ClientCreateDialog({
   const [selectedOdooPartnerId, setSelectedOdooPartnerId] = useState<
     number | null
   >(null)
+  // Resultado de Drive del último contacto elegido; `folderId` null = sin subcarpeta, undefined = fallo.
+  const [driveResult, setDriveResult] = useState<{
+    partnerId: number
+    folderId: string | null | undefined
+  } | null>(null)
   const [clientKind, setClientKind] = useState<ClientKind>('person')
   const [nameSplitMode, setNameSplitMode] =
     useState<OdooNameSplitMode>('given-first')
@@ -52,6 +60,7 @@ export function ClientCreateDialog({
       setOdooImportLoadState('idle')
       setOdooPartners([])
       setSelectedOdooPartnerId(null)
+      setDriveResult(null)
       setClientKind('person')
       setNameSplitMode('given-first')
       return
@@ -80,6 +89,36 @@ export function ClientCreateDialog({
       cancelled = true
     }
   }, [open])
+
+  // El ID de la carpeta pública se pide al elegir el contacto, no al listar: no hace falta para los demás.
+  useEffect(() => {
+    if (selectedOdooPartnerId === null) return
+
+    let cancelled = false
+    void resolveOdooPartnerDriveFolderAction(selectedOdooPartnerId).then(
+      (result) => {
+        if (cancelled) return
+        setDriveResult({
+          partnerId: selectedOdooPartnerId,
+          folderId: result.ok ? result.driveFolderId : undefined,
+        })
+      }
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedOdooPartnerId])
+
+  const driveAutofill: DriveFolderAutofill = (() => {
+    if (selectedOdooPartnerId === null) return { status: 'idle' }
+    if (driveResult?.partnerId !== selectedOdooPartnerId) {
+      return { status: 'loading' }
+    }
+    if (driveResult.folderId === undefined) return { status: 'error' }
+    if (driveResult.folderId === null) return { status: 'notFound' }
+    return { status: 'found', folderId: driveResult.folderId }
+  })()
 
   const selectedPartner = useMemo(
     () =>
@@ -135,6 +174,7 @@ export function ClientCreateDialog({
           onSuccess={handleSuccess}
           formInstanceKey={formInstanceKey}
           importDraft={importDraft}
+          driveAutofill={driveAutofill}
           odooPartners={odooPartners}
           odooImportLoadState={odooImportLoadState}
           selectedOdooPartnerId={selectedOdooPartnerId}

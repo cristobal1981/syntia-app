@@ -12,6 +12,7 @@ import {
   TramiteRequiredMark,
 } from '@/src/modules/tramites/ui/tramite-drawer-field'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const MAX_RESULTS = 50
 
@@ -116,6 +117,7 @@ export function AltaTrabajadorOccupationCombobox({
         >
           <div className="border-b border-border p-2">
             <Input
+              {...NO_AUTOFILL}
               autoFocus
               value={query}
               placeholder={copy.searchPlaceholder}

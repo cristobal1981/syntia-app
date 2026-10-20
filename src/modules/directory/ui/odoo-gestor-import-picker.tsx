@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { equipo } from '@/content/equipo'
 import type { OdooUserImportOption } from '@/src/modules/directory/domain/odoo-user-import'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type OdooGestorImportPickerProps = {
   users: OdooUserImportOption[]
@@ -38,6 +39,7 @@ export function OdooGestorImportPicker({
       </div>
 
       <Input
+        {...NO_AUTOFILL}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder={copy.searchPlaceholder}

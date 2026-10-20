@@ -6,6 +6,7 @@ import {
   type ChatterComposerHandle,
 } from '@/src/modules/portal/ui/chatter-composer'
 import { GENERAL_FORM_ID, generalCopy } from '@/src/modules/tramites/ui/tramite-create-consulta-helpers'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 type TramiteGeneralConsultaFormProps = {
   subjectId: string
@@ -46,11 +47,11 @@ export function TramiteGeneralConsultaForm({
           {generalCopy.drawer.subjectLabel}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id={subjectId}
           name="subject"
           value={subject}
           maxLength={120}
-          autoComplete="off"
           spellCheck
           placeholder={generalCopy.drawer.subjectPlaceholder}
           disabled={pending}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
+import { TriangleAlertIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -34,11 +35,13 @@ import type {
   PersonStatus,
 } from '@/src/modules/directory/domain/types'
 import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
+import { ClientViewAsSection } from '@/src/modules/directory/ui/client-view-as-section'
 import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
 import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selector'
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
 import { OdooPartnerImportPicker } from '@/src/modules/directory/ui/odoo-partner-import-picker'
 import { RequiredFieldLabel } from '@/src/modules/directory/ui/required-field-label'
+import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 function parseClientFormData(formData: FormData) {
   return {
@@ -67,8 +70,12 @@ type ClientImportDraft = {
   companyName?: string
   corporateEmail?: string
   odooPartnerId?: string
-  driveFolderId?: string
 }
+
+/** Estado de la carga del ID de carpeta pública guardado en Odoo para el contacto elegido. */
+export type DriveFolderAutofill =
+  | { status: 'idle' | 'loading' | 'notFound' | 'error' }
+  | { status: 'found'; folderId: string }
 
 type ClientFormProps = {
   mode: 'create' | 'edit'
@@ -82,6 +89,7 @@ type ClientFormProps = {
   onDeleted?: () => void
   formInstanceKey?: string
   importDraft?: ClientImportDraft | null
+  driveAutofill?: DriveFolderAutofill
   odooPartners?: OdooPartnerImportOption[]
   odooImportLoadState?: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
   selectedOdooPartnerId?: number | null
@@ -111,6 +119,7 @@ export function ClientForm({
   onDeleted,
   formInstanceKey,
   importDraft,
+  driveAutofill = { status: 'idle' },
   odooPartners = [],
   odooImportLoadState = 'idle',
   selectedOdooPartnerId = null,
@@ -148,7 +157,7 @@ export function ClientForm({
         phone: importDraft?.phone ?? '',
         companyName: importDraft?.companyName ?? '',
         odooPartnerId: importDraft?.odooPartnerId ?? '',
-        driveFolderId: importDraft?.driveFolderId ?? '',
+        driveFolderId: '',
         advisorId: '',
       }
     : {
@@ -162,6 +171,20 @@ export function ClientForm({
         driveFolderId: client?.driveFolderId ?? '',
         advisorId: client?.advisorId ?? '',
       }
+
+  // Controlado para poder rellenarlo cuando llegue Drive sin pisar lo que el usuario ya haya escrito.
+  const [driveValue, setDriveValue] = useState(defaults.driveFolderId)
+  const [driveEdited, setDriveEdited] = useState(false)
+  const autofillFolderId =
+    driveAutofill.status === 'found' ? driveAutofill.folderId : undefined
+  const [prevAutofillFolderId, setPrevAutofillFolderId] =
+    useState(autofillFolderId)
+  if (autofillFolderId !== prevAutofillFolderId) {
+    setPrevAutofillFolderId(autofillFolderId)
+    if (autofillFolderId && !driveEdited) {
+      setDriveValue(autofillFolderId)
+    }
+  }
 
   const [advisorIdValue, setAdvisorIdValue] = useState(defaults.advisorId)
   const [prevDefaultsAdvisorId, setPrevDefaultsAdvisorId] = useState(
@@ -338,6 +361,7 @@ export function ClientForm({
             {copy.fields.companyLegalName}
           </RequiredFieldLabel>
           <Input
+            {...NO_AUTOFILL}
             id="client-company-legal"
             name="companyName"
             defaultValue={defaults.companyName}
@@ -354,10 +378,10 @@ export function ClientForm({
               {copy.fields.firstName}
             </RequiredFieldLabel>
             <Input
+              {...NO_AUTOFILL}
               id="client-first-name"
               name="firstName"
               defaultValue={defaults.firstName}
-              autoComplete="given-name"
               required
               aria-required="true"
               aria-invalid={Boolean(getFieldError('firstName'))}
@@ -370,10 +394,10 @@ export function ClientForm({
               {copy.fields.firstSurname}
             </RequiredFieldLabel>
             <Input
+              {...NO_AUTOFILL}
               id="client-first-surname"
               name="firstSurname"
               defaultValue={defaults.firstSurname}
-              autoComplete="family-name"
               required
               aria-required="true"
               aria-invalid={Boolean(getFieldError('firstSurname'))}
@@ -389,10 +413,10 @@ export function ClientForm({
               {copy.fields.secondSurname}
             </label>
             <Input
+              {...NO_AUTOFILL}
               id="client-second-surname"
               name="secondSurname"
               defaultValue={defaults.secondSurname}
-              autoComplete="additional-name"
               aria-invalid={Boolean(getFieldError('secondSurname'))}
             />
             <FieldError message={getFieldError('secondSurname')} />
@@ -405,11 +429,11 @@ export function ClientForm({
           {isCompany ? copy.fields.contactEmail : copy.fields.email}
         </RequiredFieldLabel>
         <Input
+          {...NO_AUTOFILL}
           id="client-email"
           name="email"
           type="email"
           defaultValue={defaults.email}
-          autoComplete="email"
           required
           aria-required="true"
           aria-describedby={isCompany ? 'client-email-hint' : undefined}
@@ -431,11 +455,11 @@ export function ClientForm({
           {copy.fields.phone}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="client-phone"
           name="phone"
           type="tel"
           defaultValue={defaults.phone}
-          autoComplete="tel"
         />
       </div>
 
@@ -448,6 +472,7 @@ export function ClientForm({
             {copy.fields.companyCommercialName}
           </label>
           <Input
+            {...NO_AUTOFILL}
             id="client-company"
             name="companyName"
             defaultValue={defaults.companyName}
@@ -464,6 +489,7 @@ export function ClientForm({
           {copy.fields.odooPartnerId}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="client-odoo"
           name="odooPartnerId"
           inputMode="numeric"
@@ -485,15 +511,41 @@ export function ClientForm({
           {copy.fields.driveFolderId}
         </label>
         <Input
+          {...NO_AUTOFILL}
           id="client-drive"
           name="driveFolderId"
-          defaultValue={defaults.driveFolderId}
+          value={driveValue}
+          onChange={(event) => {
+            setDriveValue(event.target.value)
+            setDriveEdited(true)
+          }}
           aria-describedby="client-drive-hint"
           aria-invalid={Boolean(getFieldError('driveFolderId'))}
         />
         <p id="client-drive-hint" className="text-xs text-muted-foreground">
           {copy.fields.driveFolderIdHint}
         </p>
+        {isCreate && driveAutofill.status === 'loading' ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            {copy.fields.driveFolderIdAutofill.loading}
+          </p>
+        ) : null}
+        {isCreate && driveAutofill.status === 'found' && !driveEdited ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            {copy.fields.driveFolderIdAutofill.found}
+          </p>
+        ) : null}
+        {isCreate &&
+        (driveAutofill.status === 'notFound' ||
+          driveAutofill.status === 'error') ? (
+          <p
+            className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>{copy.fields.driveFolderIdAutofill[driveAutofill.status]}</span>
+          </p>
+        ) : null}
         <FieldError message={getFieldError('driveFolderId')} />
       </div>
 
@@ -568,6 +620,7 @@ export function ClientForm({
         </Button>
       </div>
 
+      {!isCreate && client ? <ClientViewAsSection client={client} /> : null}
       {!isCreate && client ? <ClientAccessSection client={client} /> : null}
 
       {!isCreate && client && onDeleted ? (

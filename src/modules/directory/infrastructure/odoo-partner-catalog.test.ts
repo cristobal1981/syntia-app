@@ -5,7 +5,7 @@ import {
   listLinkedOdooPartnerIds,
 } from '@/src/modules/directory/infrastructure/odoo-partner-catalog'
 
-const { createSupabaseAdminClient, odooSearchRead, unstable_cache, resolvePublicDriveFolderMap } =
+const { createSupabaseAdminClient, odooSearchRead, unstable_cache } =
   vi.hoisted(() => ({
     createSupabaseAdminClient: vi.fn(),
     odooSearchRead: vi.fn(),
@@ -15,7 +15,6 @@ const { createSupabaseAdminClient, odooSearchRead, unstable_cache, resolvePublic
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (fn: (...args: unknown[]) => unknown, _key: string[], _opts: unknown) => fn
     ),
-    resolvePublicDriveFolderMap: vi.fn(),
   }))
 
 vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
@@ -23,9 +22,6 @@ vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
 }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({ odooSearchRead }))
 vi.mock('next/cache', () => ({ unstable_cache }))
-vi.mock('@/src/modules/portal/infrastructure/google-drive-public-folder', () => ({
-  resolvePublicDriveFolderMap,
-}))
 
 function chainFor(result: { data?: unknown; error?: { message: string } | null }) {
   const resolved = Promise.resolve(result)
@@ -45,8 +41,6 @@ beforeEach(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (fn: (...args: unknown[]) => unknown, _key: string[], _opts: unknown) => fn
   )
-  resolvePublicDriveFolderMap.mockResolvedValue(new Map())
-  delete process.env.ODOO_PARTNER_DRIVE_FIELD
   delete process.env.ODOO_PARTNER_CONTACT_EMAIL_FIELD
 })
 
@@ -97,7 +91,7 @@ describe('getOdooPartnerCatalog (full pipeline)', () => {
     expect(domain).toEqual([])
   })
 
-  it('resolves a Drive folder link from the configured Drive field into a public folder id', async () => {
+  it('does not touch Drive nor request the Drive field when listing (resolved later, per selected partner)', async () => {
     createSupabaseAdminClient.mockReturnValue({
       from: () => chainFor({ data: [], error: null }),
     })
@@ -111,26 +105,12 @@ describe('getOdooPartnerCatalog (full pipeline)', () => {
         x_studio_google_drive: 'https://drive.google.com/drive/folders/FOLDER123',
       },
     ])
-    resolvePublicDriveFolderMap.mockResolvedValue(new Map([['FOLDER123', 'public-id-xyz']]))
 
     const result = await getOdooPartnerCatalog()
 
-    expect(resolvePublicDriveFolderMap).toHaveBeenCalledWith(['FOLDER123'])
-    expect(result[0].driveFolderId).toBe('public-id-xyz')
-  })
-
-  it('skips partners with no parseable Drive URL without crashing', async () => {
-    createSupabaseAdminClient.mockReturnValue({
-      from: () => chainFor({ data: [], error: null }),
-    })
-    odooSearchRead.mockResolvedValue([
-      { id: 2, name: 'Bob', email: false, phone: false, is_company: false },
-    ])
-
-    const result = await getOdooPartnerCatalog()
-
-    expect(resolvePublicDriveFolderMap).toHaveBeenCalledWith([])
-    expect(result[0].driveFolderId).toBeUndefined()
+    const fields = odooSearchRead.mock.calls[0][1].fields as string[]
+    expect(fields).not.toContain('x_studio_google_drive')
+    expect(result[0]).not.toHaveProperty('driveFolderId')
   })
 
   it('caches separately by includeLinked (the cache key must differ, or a staff member toggling the filter would see stale results)', async () => {

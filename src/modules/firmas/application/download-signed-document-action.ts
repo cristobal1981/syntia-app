@@ -61,7 +61,7 @@ export async function downloadSignedDocumentAction(input: {
   requestId: number
   attachmentId: number
 }): Promise<PortalAttachmentDownloadResult> {
-  const session = await getSession()
+  const session = await getSession({ allowViewAsRead: true })
   if (!session || !isClientOrWorkerRole(session.user.role)) {
     return { ok: false, error: 'forbidden' }
   }
