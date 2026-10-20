@@ -15,6 +15,7 @@ import {
   updateWorkerGrantAction,
 } from '@/src/modules/colaboradores/application/actions'
 import type { WorkerRecord } from '@/src/modules/colaboradores/domain/types'
+import { PersonStatusBadge } from '@/src/modules/directory/ui/person-status-badge'
 import { WorkerFormDrawer } from '@/src/modules/colaboradores/ui/worker-form-drawer'
 import { useRetainedValue } from '@/src/modules/portal/ui/use-retained-value'
 
@@ -26,27 +27,8 @@ type ColaboradoresSectionProps = {
 }
 
 export function WorkerStatusBadge({ worker }: { worker: WorkerRecord }) {
-  if (!worker.isEnabled) {
-    return (
-      <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-        {colaboradores.status.disabled}
-      </span>
-    )
-  }
-
-  if (worker.status === 'active') {
-    return (
-      <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-accent-on-light dark:text-primary">
-        {colaboradores.status.active}
-      </span>
-    )
-  }
-
-  return (
-    <span className="inline-flex items-center rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-300/30 dark:bg-amber-500/10 dark:text-amber-400">
-      {colaboradores.status.invited}
-    </span>
-  )
+  // Mismo chip que en clientes y asesores; «Desactivado» manda sobre el estado de la cuenta.
+  return <PersonStatusBadge status={worker.isEnabled ? worker.status : 'disabled'} />
 }
 
 export function ColaboradoresSection({
