@@ -18,6 +18,7 @@ import type { OdooCompanyOption } from '@/src/modules/automatizaciones/domain/od
 import type { AutomationInputField } from '@/src/modules/automatizaciones/domain/types'
 import { MAX_AUTOMATION_INPUT_TEXT_LENGTH } from '@/src/modules/automatizaciones/domain/types'
 import { OdooCompaniesMultiPicker } from '@/src/modules/automatizaciones/ui/odoo-companies-multi-picker'
+import { cn } from '@/lib/utils'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
@@ -304,8 +305,11 @@ export function AutomationLaunchDrawer({
   return (
     <PortalSideDrawer open={open} onOpenChange={handleOpenChange}>
       <DialogHeader className="border-b border-border px-6 py-5 pr-14 dark:border-border/50">
-        <DialogTitle className="font-sans text-lg font-semibold">
-          {copy.launchParamsTitle} · {automationTitle}
+        <DialogTitle className="font-sans text-lg font-semibold leading-snug">
+          <span className="mb-0.5 block text-xs font-medium tracking-wide text-muted-foreground">
+            {copy.launchParamsTitle}
+          </span>
+          {automationTitle}
         </DialogTitle>
       </DialogHeader>
 
@@ -316,7 +320,14 @@ export function AutomationLaunchDrawer({
       >
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
           {fields.map((field) => (
-            <div key={field.key} className="flex flex-col gap-1.5">
+            <div
+              key={field.key}
+              className={cn(
+                'flex flex-col gap-1.5',
+                // El selector de clientes aprovecha el alto libre del drawer en vez de quedarse en una lista corta.
+                field.type === 'odoo_companies_multi' && 'flex-1'
+              )}
+            >
               {renderField(field)}
             </div>
           ))}
