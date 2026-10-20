@@ -324,8 +324,9 @@ export function AutomationLaunchDrawer({
               key={field.key}
               className={cn(
                 'flex flex-col gap-1.5',
-                // El selector de clientes aprovecha el alto libre del drawer en vez de quedarse en una lista corta.
-                field.type === 'odoo_companies_multi' && 'flex-1'
+                // El selector de clientes ocupa el alto libre del drawer; el suelo evita que se aplaste y
+                // `min-h-0` en el selector hace que la lista tenga su propio scroll, no el del drawer entero.
+                field.type === 'odoo_companies_multi' && 'min-h-[26rem] flex-1'
               )}
             >
               {renderField(field)}

@@ -71,7 +71,7 @@ export function OdooCompaniesMultiPicker({
     )
 
   return (
-    <div className="flex flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <label className="text-sm font-medium text-foreground">
           {label}
@@ -88,7 +88,7 @@ export function OdooCompaniesMultiPicker({
       </div>
 
       {selectedCompanies.length > 0 ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-muted-foreground">
               {copy.selectedHeading}
@@ -111,12 +111,12 @@ export function OdooCompaniesMultiPicker({
               return (
                 <span
                   key={id}
-                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-background py-0.5 pl-2.5 pr-1 text-xs text-foreground"
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-primary/15 py-0.5 pl-2.5 pr-1 text-xs font-medium text-foreground"
                 >
                   <span className="truncate">{displayName}</span>
                   <button
                     type="button"
-                    className="flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex size-4 shrink-0 items-center justify-center rounded-full text-foreground/60 transition-colors hover:bg-primary/30 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     aria-label={copy.removeCompany.replace('{name}', displayName)}
                     onClick={() => toggleCompany(id)}
                   >
