@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronRight, ClipboardList, Paperclip, SearchX } from 'lucide-react'
+import { ChevronRight, ClipboardList, Eye, Paperclip, SearchX } from 'lucide-react'
 
 import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 
@@ -27,6 +27,15 @@ import {
   type TramitesListSeenState,
 } from '@/src/modules/tramites/domain/tramites-list-seen-state'
 import {
+  buildTramiteTree,
+  collectVisibleDescendants,
+  findRootContaining,
+  flattenTramiteTree,
+  getVisualDepth,
+  type TramiteTreeNode,
+  type TramiteTreeRow,
+} from '@/src/modules/tramites/domain/tramites-tree'
+import {
   paginateItems,
   PORTAL_LIST_PAGE_SIZE,
 } from '@/src/modules/portal/ui/list-pagination'
@@ -45,7 +54,12 @@ import {
 import { useTramitesListNewKeys } from '@/src/modules/tramites/ui/use-tramites-list-new-keys'
 
 type TramitesListSectionProps = {
+  /** Visibles (filtrados y ordenados por actividad). */
   items: TramiteListItem[]
+  /** Todos, sin filtrar: dan el resumen de subtareas y la navegación del drawer. */
+  allItems: TramiteListItem[]
+  /** Hay una búsqueda activa: los trámites con subtareas visibles se despliegan. */
+  searchActive: boolean
   newItemKeys: readonly string[]
   filteredEmpty: boolean
   selectedItem: TramiteListItem | null
@@ -55,8 +69,12 @@ type TramitesListSectionProps = {
   canWriteTramites: boolean
 }
 
+const INDENT_CLASS = ['', '', 'ml-3'] as const
+
 function TramitesListSection({
   items,
+  allItems,
+  searchActive,
   newItemKeys,
   filteredEmpty,
   selectedItem,
@@ -66,9 +84,55 @@ function TramitesListSection({
   canWriteTramites,
 }: TramitesListSectionProps) {
   const copy = tramites.list
+  const subtasksCopy = tramites.subtasks
   const notifications = usePortalNotificationsOptional()
+  const notificationsUnread = notifications?.unread
+  const unread = useMemo(() => notificationsUnread ?? [], [notificationsUnread])
   const [page, setPage] = useState(1)
+  // Lo que el usuario ha plegado/desplegado a mano manda sobre el auto-despliegue.
+  const [expandedOverride, setExpandedOverride] = useState<Record<string, boolean>>({})
   const paginationId = 'tramites-pagination-label'
+
+  // La paginación cuenta raíces: las subtareas viajan con su trámite.
+  const roots = useMemo(() => buildTramiteTree(items, allItems), [items, allItems])
+
+  const hasNews = useCallback(
+    (item: TramiteListItem) =>
+      getTramiteActivitySignal(item, unread, newItemKeys) !== null,
+    [unread, newItemKeys]
+  )
+
+  const selectedKey = selectedItem ? getTramiteListItemKey(selectedItem) : null
+  const isAutoExpanded = useCallback(
+    (node: TramiteTreeNode) => {
+      if (!node.children.length) return false
+      if (searchActive) return true
+      const below = collectVisibleDescendants(node)
+      return (
+        below.some(hasNews) ||
+        (selectedKey !== null &&
+          below.some((entry) => getTramiteListItemKey(entry) === selectedKey))
+      )
+    },
+    [hasNews, searchActive, selectedKey]
+  )
+
+  const isExpanded = useCallback(
+    (node: TramiteTreeNode) =>
+      expandedOverride[getTramiteListItemKey(node.item)] ?? isAutoExpanded(node),
+    [expandedOverride, isAutoExpanded]
+  )
+
+  const toggleNode = useCallback(
+    (node: TramiteTreeNode) => {
+      const key = getTramiteListItemKey(node.item)
+      setExpandedOverride((current) => ({
+        ...current,
+        [key]: !(current[key] ?? isAutoExpanded(node)),
+      }))
+    },
+    [isAutoExpanded]
+  )
 
   // Dos efectos coordinados a propósito (orden de declaración importa: el
   // reset a página 1 corre primero, luego el salto a la página del
@@ -82,20 +146,23 @@ function TramitesListSection({
 
   useEffect(() => {
     if (!selectedItem) return
-    const index = items.findIndex(
-      (entry) =>
-        entry.id === selectedItem.id && entry.kind === selectedItem.kind
-    )
-    if (index < 0) return
-    const itemPage = Math.floor(index / PORTAL_LIST_PAGE_SIZE) + 1
+    const root = findRootContaining(roots, selectedItem)
+    if (!root) return
+    const itemPage = Math.floor(roots.indexOf(root) / PORTAL_LIST_PAGE_SIZE) + 1
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage((current) => (current === itemPage ? current : itemPage))
-  }, [items, selectedItem])
+  }, [roots, selectedItem])
 
-  const pageItems = useMemo(
-    () => paginateItems(items, page, PORTAL_LIST_PAGE_SIZE),
-    [items, page]
+  const rows = useMemo(
+    () =>
+      flattenTramiteTree(
+        paginateItems(roots, page, PORTAL_LIST_PAGE_SIZE),
+        isExpanded
+      ),
+    [roots, page, isExpanded]
   )
+
+  const pageItems = useMemo(() => rows.map((row) => row.node.item), [rows])
 
   const pageNavIndex = selectedItem
     ? pageItems.findIndex(
@@ -110,40 +177,101 @@ function TramitesListSection({
         id: 'name',
         header: copy.columns.name,
         cellClassName: 'max-w-[360px] text-foreground',
-        render: (item: TramiteListItem) => (
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-            <span className="line-clamp-2 min-w-0 font-semibold" title={item.name}>
-              {item.name}
-            </span>
-            <TramiteActivityBadge
-              signal={getTramiteActivitySignal(
-                item,
-                notifications?.unread ?? [],
-                newItemKeys
-              )}
-            />
-            {item.attachmentCount > 0 ? (
-              <span
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-                aria-label={`${item.attachmentCount} ${copy.columns.documents}`}
-              >
-                <Paperclip className="size-3.5" aria-hidden />
-                <span className="tabular-nums">{item.attachmentCount}</span>
-              </span>
-            ) : null}
-          </div>
-        ),
+        render: ({ node, depth }: TramiteTreeRow) => {
+          const { item } = node
+          const expanded = node.children.length > 0 && isExpanded(node)
+          const hiddenNews = expanded
+            ? 0
+            : collectVisibleDescendants(node).filter(hasNews).length
+          return (
+            <div
+              className="flex min-w-0 items-center gap-2 sm:pl-(--tramite-indent)"
+              style={
+                {
+                  '--tramite-indent': `${getVisualDepth(depth) * 1.25}rem`,
+                } as React.CSSProperties
+              }
+            >
+              {depth > 0 ? (
+                <span
+                  className="-mt-2 hidden h-3 w-3 shrink-0 rounded-bl-md border-b-2 border-l-2 border-border sm:block"
+                  aria-hidden
+                />
+              ) : null}
+              {node.children.length > 0 ? (
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-label={(expanded ? subtasksCopy.hide : subtasksCopy.show).replace(
+                    '{name}',
+                    item.name
+                  )}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    toggleNode(node)
+                  }}
+                  className="-m-2.5 flex size-11 shrink-0 cursor-pointer sm:-ml-2 sm:m-0 sm:size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  <ChevronRight
+                    className={cn(
+                      'size-4 transition-transform sm:size-5 motion-reduce:transition-none',
+                      expanded && 'rotate-90'
+                    )}
+                    aria-hidden
+                  />
+                </button>
+              ) : null}
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                <span
+                  className={cn(
+                    'line-clamp-2 min-w-0',
+                    depth === 0 ? 'font-semibold' : 'font-medium'
+                  )}
+                  title={item.name}
+                >
+                  {item.name}
+                </span>
+                <TramiteActivityBadge
+                  signal={getTramiteActivitySignal(item, unread, newItemKeys)}
+                />
+                {node.descendantTotal > 0 ? (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {subtasksCopy.summary
+                      .replace('{closed}', String(node.descendantClosed))
+                      .replace('{total}', String(node.descendantTotal))}
+                  </span>
+                ) : null}
+                {hiddenNews > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground dark:bg-background">
+                    <span className="size-1.5 rounded-full bg-primary" aria-hidden />
+                    {subtasksCopy.news.replace('{count}', String(hiddenNews))}
+                  </span>
+                ) : null}
+                {item.attachmentCount > 0 ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                    aria-label={`${item.attachmentCount} ${copy.columns.documents}`}
+                  >
+                    <Paperclip className="size-3.5" aria-hidden />
+                    <span className="tabular-nums">{item.attachmentCount}</span>
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          )
+        },
       },
       {
         id: 'tags',
         header: copy.columns.tags,
         cellClassName: 'whitespace-nowrap',
         hideLabelInCard: true,
-        render: (item: TramiteListItem) => {
-          const stateBadge = getTramiteListItemStateBadge(item)
+        render: ({ node, depth }: TramiteTreeRow) => {
+          const stateBadge = getTramiteListItemStateBadge(node.item)
           return (
             <div className="flex flex-wrap items-center gap-1.5">
-              <TramiteTypeBadge kind={item.kind} />
+              {/* Un subtrámite es siempre un trámite: el chip de tipo solo suma ruido. */}
+              {depth === 0 ? <TramiteTypeBadge kind={node.item.kind} /> : null}
               <TaskStateBadge label={stateBadge.label} variant={stateBadge.variant} />
             </div>
           )
@@ -153,16 +281,26 @@ function TramitesListSection({
         id: 'actions',
         header: '',
         headerClassName: 'w-px px-4',
+        hideInCard: true,
         cellClassName: 'w-px whitespace-nowrap px-4 text-right',
+        // Abre el panel de detalle: icono distinto al del chevron que despliega subtrámites.
         render: () => (
-          <ChevronRight
+          <Eye
             className="ml-auto size-4 text-muted-foreground"
             aria-hidden
           />
         ),
       },
     ],
-    [copy, newItemKeys, notifications?.unread]
+    [
+      copy,
+      subtasksCopy,
+      hasNews,
+      isExpanded,
+      newItemKeys,
+      toggleNode,
+      unread,
+    ]
   )
 
   if (!items.length) {
@@ -183,9 +321,27 @@ function TramitesListSection({
     <section className="flex flex-col gap-4">
       <PortalRecordTable
         columns={columns}
-        rows={items}
-        rowKey={getTramiteListItemKey}
-        onRowClick={onSelectedItemChange}
+        rows={rows}
+        rowKey={(row) => getTramiteListItemKey(row.node.item)}
+        onRowClick={(row) => onSelectedItemChange(row.node.item)}
+        // Hover marcado: el de los subtrámites se perdía contra su fondo tenue.
+        rowClassName={(row) =>
+          row.depth > 0
+            ? 'bg-muted/20 hover:bg-muted/70 dark:bg-background/50 dark:hover:bg-primary/15'
+            : 'hover:bg-muted/60 dark:hover:bg-primary/10'
+        }
+        cardClassName={(row) =>
+          row.depth > 0
+            ? cn(
+                'gap-2 rounded-l-none border-l-2 border-l-primary/40 bg-muted/20 p-3 hover:bg-muted/70 dark:bg-background/50 dark:hover:bg-primary/15',
+                INDENT_CLASS[getVisualDepth(row.depth)]
+              )
+            : undefined
+        }
+        cardLinkedToPrevious={(row) => row.depth > 0}
+        flatOnMobile
+        rowsArePaged
+        totalItems={roots.length}
         page={page}
         pageSize={PORTAL_LIST_PAGE_SIZE}
         onPageChange={setPage}
@@ -199,6 +355,7 @@ function TramitesListSection({
         onAttachmentCountChange={onAttachmentCountChange}
         pageItems={pageItems}
         pageItemIndex={pageNavIndex}
+        allItems={allItems}
         onNavigateItem={(item) => onSelectedItemChange(item)}
         onOpenChange={(open) => {
           if (!open) onSelectedItemChange(null)
@@ -446,6 +603,8 @@ export function TramitesPageView({
 
       <TramitesListSection
         items={sortedItems}
+        allItems={allItems}
+        searchActive={filters.query.trim().length > 0}
         newItemKeys={displayNewItemKeys}
         filteredEmpty={filtersActive && filteredItems.length === 0}
         selectedItem={selectedItem}

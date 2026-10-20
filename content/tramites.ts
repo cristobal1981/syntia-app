@@ -45,6 +45,13 @@ export const tramites = {
   activity: {
     extraCount: '+{count} más',
   },
+  subtasks: {
+    summary: '{closed}/{total} subtrámites',
+    show: 'Mostrar subtrámites de {name}',
+    hide: 'Ocultar subtrámites de {name}',
+    news: '{count} con novedades',
+    partOf: 'Subtrámite de',
+  },
   filters: {
     searchLabel: 'Buscar trámites',
     searchPlaceholder: 'Buscar por nombre…',

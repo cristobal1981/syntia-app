@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import {
   Archive,
   ChevronLeft,
+  CornerLeftUp,
   ChevronRight,
   Loader2,
   MessageSquare,
@@ -51,6 +52,7 @@ import {
 } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
+import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 
@@ -65,6 +67,8 @@ type TramiteDetailDrawerProps = {
   pageItems?: TramiteListItem[]
   pageItemIndex?: number
   onNavigateItem?: (item: TramiteListItem) => void
+  /** Todos los trámites (sin filtrar): de ahí salen el padre y las subtareas. */
+  allItems?: TramiteListItem[]
   canWriteTramites: boolean
 }
 
@@ -82,6 +86,7 @@ export function TramiteDetailDrawer({
   pageItems = [],
   pageItemIndex = -1,
   onNavigateItem,
+  allItems = [],
   canWriteTramites,
 }: TramiteDetailDrawerProps) {
   // Al cerrar, `item` llega a null: se conserva para que el contenido siga
@@ -263,6 +268,8 @@ export function TramiteDetailDrawer({
 
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
+  const subtasksCopy = tramites.subtasks
+  const parentTramite = getParentTramite(allItems, tramite)
   const showZipButton = liveAttachmentCount > 1
   const canReply = canWriteTramites && !(tramite.kind === 'consulta' && tramite.isClosed)
   const conversationUnread =
@@ -349,6 +356,19 @@ export function TramiteDetailDrawer({
     <PortalSideDrawer open={open} onOpenChange={onOpenChange} size="wide">
         <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border/50">
           <DialogTitle className="text-pretty pr-8">{tramite.name}</DialogTitle>
+          {parentTramite ? (
+            <button
+              type="button"
+              onClick={() => onNavigateItem?.(parentTramite)}
+              className="mt-1.5 flex max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <CornerLeftUp className="size-4 shrink-0" aria-hidden />
+              <span className="shrink-0">{subtasksCopy.partOf}</span>
+              <span className="min-w-0 truncate font-medium text-foreground underline-offset-4">
+                {parentTramite.name}
+              </span>
+            </button>
+          ) : null}
           <DialogDescription asChild>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">

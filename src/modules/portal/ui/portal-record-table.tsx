@@ -23,6 +23,8 @@ export type PortalRecordTableColumn<T> = {
   cellClassName?: string
   /** En la tarjeta móvil, omite la etiqueta muda y pinta el valor solo. */
   hideLabelInCard?: boolean
+  /** En la tarjeta móvil la columna no se pinta (la tarjeta entera ya es pulsable). */
+  hideInCard?: boolean
   render: (row: T) => ReactNode
 }
 
@@ -39,6 +41,17 @@ export type PortalRecordTableProps<T> = {
   paginationId?: string
   minWidth?: string
   embedded?: boolean
+  /** `rows` ya es la página visible (p. ej. filas anidadas): no se vuelve a paginar. */
+  rowsArePaged?: boolean
+  /** Total que cuenta la paginación cuando `rowsArePaged`. */
+  totalItems?: number
+  rowClassName?: (row: T) => string | undefined
+  /** Igual que `rowClassName`, para la tarjeta móvil. */
+  cardClassName?: (row: T) => string | undefined
+  /** En móvil, la tarjeta se pega a la anterior formando un solo bloque (p. ej. subtrámites). */
+  cardLinkedToPrevious?: (row: T) => boolean
+  /** En móvil quita la tarjeta que envuelve la lista: las tarjetas van sueltas sobre el fondo. */
+  flatOnMobile?: boolean
 }
 
 function SortIndicator({
@@ -72,9 +85,17 @@ export function PortalRecordTable<T>({
   paginationId = 'portal-record-table-pagination',
   minWidth = '560px',
   embedded = false,
+  rowsArePaged = false,
+  totalItems,
+  rowClassName,
+  cardClassName,
+  cardLinkedToPrevious,
+  flatOnMobile = false,
 }: PortalRecordTableProps<T>) {
   const paginatedRows =
-    onPageChange !== undefined ? paginateItems(rows, page, pageSize) : rows
+    onPageChange !== undefined && !rowsArePaged
+      ? paginateItems(rows, page, pageSize)
+      : rows
 
   const chromeClassName = embedded
     ? undefined
@@ -96,6 +117,8 @@ export function PortalRecordTable<T>({
 
   function handleRowKeyDown(event: React.KeyboardEvent, row: T) {
     if (!onRowClick) return
+    // Un botón dentro de la fila (p. ej. desplegar) no debe abrir la fila.
+    if (event.target !== event.currentTarget) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     onRowClick(row)
@@ -109,12 +132,19 @@ export function PortalRecordTable<T>({
   })
 
   const titleColumn = columns[0]
-  const secondaryColumns = columns.slice(1)
+  const secondaryColumns = columns.slice(1).filter((column) => !column.hideInCard)
 
   return (
     <div
       className={cn(
-        embedded ? undefined : 'portal-home-card overflow-hidden rounded-xl'
+        embedded
+          ? undefined
+          : flatOnMobile
+            ? // Sin tarjeta envolvente en móvil: `portal-home-card` no se puede anular desde
+              // utilidades (misma capa y mayor especificidad en oscuro), así que su aspecto
+              // se aplica solo desde `sm`.
+              'sm:overflow-hidden sm:rounded-xl sm:border sm:border-border sm:bg-card sm:shadow-xs dark:sm:border-transparent dark:sm:shadow-none [html.dark.hc_&]:sm:border-border'
+            : 'portal-home-card overflow-hidden rounded-xl'
       )}
     >
       <div className={cn('overflow-x-auto', !embedded && 'hidden sm:block')}>
@@ -167,7 +197,8 @@ export function PortalRecordTable<T>({
                 className={cn(
                   'border-b border-border transition-colors last:border-b-0 dark:border-border/50',
                   onRowClick &&
-                    'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-muted/20'
+                    'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset dark:hover:bg-muted/20',
+                  rowClassName?.(row)
                 )}
                 {...rowInteractionProps(row)}
               >
@@ -186,14 +217,23 @@ export function PortalRecordTable<T>({
       </div>
 
       {!embedded ? (
-        <ul className="flex flex-col gap-3 p-3 sm:hidden">
-          {paginatedRows.map((row) => (
-            <li key={rowKey(row)}>
+        <ul className={cn('flex flex-col gap-3 p-3 sm:hidden', flatOnMobile && 'p-0')}>
+          {paginatedRows.map((row, rowIndex) => {
+            const linkedToPrevious = cardLinkedToPrevious?.(row) ?? false
+            const nextLinked =
+              rowIndex + 1 < paginatedRows.length &&
+              (cardLinkedToPrevious?.(paginatedRows[rowIndex + 1]!) ?? false)
+            return (
+            <li key={rowKey(row)} className={cn(linkedToPrevious && '-mt-3')}>
               <article
                 className={cn(
                   'flex flex-col gap-2.5 rounded-lg border border-border bg-card p-4',
+                  linkedToPrevious &&
+                    'rounded-t-none border-t-0 shadow-[inset_0_1px_0_0_var(--border)]',
+                  nextLinked && 'rounded-b-none',
                   onRowClick &&
-                    'cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
+                    'cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                  cardClassName?.(row)
                 )}
                 {...rowInteractionProps(row)}
               >
@@ -229,7 +269,8 @@ export function PortalRecordTable<T>({
                 )}
               </article>
             </li>
-          ))}
+            )
+          })}
         </ul>
       ) : null}
 
@@ -238,7 +279,7 @@ export function PortalRecordTable<T>({
           id={paginationId}
           page={page}
           pageSize={pageSize}
-          totalItems={rows.length}
+          totalItems={totalItems ?? rows.length}
           onPageChange={onPageChange}
           className={chromeClassName}
         />

@@ -11,6 +11,8 @@ export type TramiteListItem = {
   isClosed: boolean
   attachmentCount: number
   modifiedAt: string
+  /** Solo trámites (tareas): la tarea de la que es subtarea. */
+  parentId?: number
   assignedNotifyPartnerIds: number[]
 }
 
@@ -26,6 +28,7 @@ export function mergeTramitesList(
     isClosed: task.isClosed,
     attachmentCount: task.attachmentCount,
     modifiedAt: task.modifiedAt,
+    parentId: task.parentId,
     assignedNotifyPartnerIds: task.assignedNotifyPartnerIds,
   }))
 

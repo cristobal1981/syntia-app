@@ -170,7 +170,8 @@ export function Sappo({ mood, className }: SappoProps) {
 
               {eyesShowPupil ? (
                 <g
-                  data-pupil
+                  // En «incógnito» las pupilas se quedan quietas: sin seguimiento del puntero.
+                  data-pupil={mood === 'incognito' ? undefined : ''}
                   data-cx={eye.cx}
                   data-cy={eye.cy}
                   className="sappo-pupil"
@@ -182,7 +183,13 @@ export function Sappo({ mood, className }: SappoProps) {
 
               <g clipPath={`url(#${uid}-eye-${eye.id})`}>
                 <rect
-                  className={resting === 0 ? 'sappo-lid' : undefined}
+                  className={
+                    resting !== 0
+                      ? undefined
+                      : mood === 'incognito' && eye.id === 'r'
+                        ? 'sappo-wink-lid'
+                        : 'sappo-lid'
+                  }
                   data-eye={eye.id}
                   x={eye.cx - EYE_R - 1}
                   y={eye.cy - EYE_R - 1}
@@ -224,7 +231,10 @@ export function Sappo({ mood, className }: SappoProps) {
           )
         })}
 
-        {mood === 'guard' ? <Sunglasses /> : null}
+        {mood === 'guard' || mood === 'incognito' ? (
+          <Sunglasses glintId={mood === 'incognito' ? uid : undefined} />
+        ) : null}
+        {mood === 'incognito' ? <Fedora /> : null}
         {mood === 'builder' ? <HardHat /> : null}
         {mood === 'lawyer' ? <LawyerGear /> : null}
         {mood === 'conductor' ? <Glasses frame={INK} /> : null}
@@ -275,10 +285,20 @@ export function Sappo({ mood, className }: SappoProps) {
   )
 }
 
-function Sunglasses() {
+function Sunglasses({ glintId }: { glintId?: string }) {
   const lens = 'var(--surface-dark)'
   return (
-    <g>
+    // En «incógnito» se levantan por la derecha para dejar ver el guiño del ojo derecho.
+    <g className={glintId ? 'sappo-shades' : undefined}>
+      {glintId ? (
+        <defs>
+          {EYES.map((eye) => (
+            <clipPath key={eye.id} id={`${glintId}-lens-${eye.id}`}>
+              <rect x={eye.cx - 58} y={eye.cy - 32} width={116} height={68} rx={26} />
+            </clipPath>
+          ))}
+        </defs>
+      ) : null}
       {EYES.map((eye) => (
         <g key={eye.id}>
           <rect
@@ -298,9 +318,31 @@ function Sunglasses() {
             strokeWidth={5}
             strokeLinecap="round"
           />
+          {glintId ? (
+            <g clipPath={`url(#${glintId}-lens-${eye.id})`}>
+              {/* Destello que cruza la lente de vez en cuando (se ve muy pequeño: va grueso). */}
+              <path
+                className="sappo-glint"
+                d={`M ${eye.cx - 6} ${eye.cy - 34} L ${eye.cx + 16} ${eye.cy - 34} L ${eye.cx + 4} ${eye.cy + 38} L ${eye.cx - 18} ${eye.cy + 38} Z`}
+                fill="var(--brisa)"
+              />
+            </g>
+          ) : null}
         </g>
       ))}
       <rect x={218} y={EYES[0].cy - 14} width={54} height={9} rx={4} fill={lens} />
+    </g>
+  )
+}
+
+/** Sombrero de ala corta, calado sobre las gafas oscuras: el Sappo «incógnito». */
+function Fedora() {
+  const felt = 'var(--surface-dark)'
+  return (
+    <g>
+      <path d="M 150 84 C 146 34, 196 20, 245 30 C 294 20, 344 34, 340 84 Z" fill={felt} />
+      <path d="M 149 70 L 341 70 L 340 86 L 150 86 Z" fill="var(--service-fiscal)" />
+      <ellipse cx={245} cy={86} rx={150} ry={13} fill={felt} />
     </g>
   )
 }
