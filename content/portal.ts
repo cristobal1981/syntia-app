@@ -2,9 +2,9 @@ import type { PortalRole } from '@/src/modules/auth/domain/types'
 
 export const portal = {
   viewAs: {
-    banner: (clientName: string) =>
-      `Estás viendo el portal de ${clientName} (solo lectura). No puedes hacer cambios.`,
+    bannerPrefix: 'Estás viendo el portal de',
     exit: 'Salir de la vista',
+    exitShort: 'Salir',
   },
   login: {
     title: 'Acceso a la plataforma',

@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowUpRight } from 'lucide-react'
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
@@ -13,6 +14,7 @@ import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-b
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
+import { Sappo } from '@/components/errors/sappo'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalCreateConsultaProvider } from '@/src/modules/portal/ui/portal-create-consulta-context'
@@ -162,15 +164,32 @@ export function PortalShell({
       {viewingAs ? (
         <div
           role="status"
-          className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-primary/25 bg-primary/10 px-4 py-2 text-sm text-foreground"
+          // Los márgenes laterales son iguales a ambos lados (Sappo a la izquierda, «Salir»
+          // a la derecha, flotando fuera del flujo): el texto queda centrado en el banner.
+          className="relative flex min-h-11 shrink-0 items-center justify-center overflow-hidden border-b border-primary/25 bg-primary/10 px-[4.5rem] py-2 text-center text-sm text-foreground sm:px-44"
         >
-          <span>{portal.viewAs.banner(viewingAs.clientName)}</span>
+          {/* Sappo asoma en diagonal por la esquina inferior izquierda; el banner lo recorta. Quieto: se anima el sombrero y las gafas. */}
+          <Sappo
+            mood="incognito"
+            className="pointer-events-none absolute -bottom-3 -left-1 block h-11 w-auto rotate-[32deg]"
+          />
+          <span>
+            {portal.viewAs.bannerPrefix}{' '}
+            <strong className="font-semibold">{viewingAs.clientName}</strong>
+          </span>
           {/* Enlace normal (GET): el proxy bloquea cualquier otra petición durante la vista. */}
           <a
             href="/api/view-as/exit"
-            className="font-medium underline underline-offset-4"
+            aria-label={portal.viewAs.exit}
+            className="absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-sm font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:right-4"
           >
-            {portal.viewAs.exit}
+            <span className="sm:hidden" aria-hidden>
+              {portal.viewAs.exitShort}
+            </span>
+            <span className="hidden sm:inline" aria-hidden>
+              {portal.viewAs.exit}
+            </span>
+            <ArrowUpRight className="size-4 shrink-0" aria-hidden />
           </a>
         </div>
       ) : null}

@@ -11,6 +11,8 @@ export type SappoMood =
   | "carrier"
   | "cheer"
   | "oops"
+  // Staff viendo el portal de un cliente (banner de «vista como cliente»).
+  | "incognito"
 
 type ErrorAction = { label: string; href: string }
 

@@ -242,7 +242,77 @@
   }
 }
 
+/* «Incógnito»: las gafas se levantan por la derecha, el ojo derecho guiña y un destello cruza
+   las lentes. Se ve muy pequeño, así que los recorridos son grandes (unidades del viewBox). */
+.sappo-shades {
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+  animation: sappo-shades 3.6s ease-in-out infinite;
+}
+
+@keyframes sappo-shades {
+  0%,
+  60%,
+  90%,
+  100% {
+    transform: rotate(0deg);
+  }
+  68%,
+  82% {
+    transform: rotate(-19deg);
+  }
+}
+
+.sappo-wink-lid {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  transform: scaleY(0);
+  animation: sappo-wink 3.6s ease-in-out infinite;
+}
+
+@keyframes sappo-wink {
+  0%,
+  70%,
+  80%,
+  100% {
+    transform: scaleY(0);
+  }
+  73%,
+  77% {
+    transform: scaleY(1);
+  }
+}
+
+.sappo-glint {
+  opacity: 0;
+  transform: translateX(-90px);
+  animation: sappo-glint 3.6s ease-in-out infinite;
+}
+
+@keyframes sappo-glint {
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateX(-90px);
+  }
+  14% {
+    opacity: 0.9;
+  }
+  34% {
+    opacity: 0.9;
+    transform: translateX(90px);
+  }
+  40%,
+  100% {
+    opacity: 0;
+    transform: translateX(90px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .sappo-shades,
+  .sappo-wink-lid,
+  .sappo-glint,
   .sappo-pupil,
   .sappo-lid,
   .sappo-spiral,
