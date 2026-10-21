@@ -36,6 +36,10 @@ export const tramites = {
       unknown: 'No pudimos crear la consulta. Inténtalo de nuevo.',
     },
   },
+  taskDescription: {
+    show: 'Ver descripción',
+    hide: 'Ocultar descripción',
+  },
   pagination: {
     previous: 'Anterior',
     next: 'Siguiente',
@@ -67,6 +71,7 @@ export const tramites = {
       done: 'Hecho',
       canceled: 'Cancelado',
       withDocuments: 'Con documentos',
+      needsAttention: 'Pendientes de ti',
     },
     noResultsTitle: 'Sin resultados',
     noResultsDescription:

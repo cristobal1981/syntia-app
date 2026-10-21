@@ -12,6 +12,7 @@ export type TramitesFilterChip =
   | 'done'
   | 'canceled'
   | 'withDocuments'
+  | 'needsAttention'
 
 const TYPE_CHIPS = new Set<TramitesFilterChip>(['tramite', 'consulta'])
 const STATE_CHIPS = new Set<TramitesFilterChip>([
@@ -20,6 +21,9 @@ const STATE_CHIPS = new Set<TramitesFilterChip>([
   'canceled',
 ])
 const DOCUMENTS_CHIP: TramitesFilterChip = 'withDocuments'
+// «Pendientes de ti»: lo que está en «Cambios solicitados», es decir, lo que el
+// cliente tiene que atender. Es una dimensión propia, no un estado más.
+const ATTENTION_CHIP: TramitesFilterChip = 'needsAttention'
 
 export type TramitesListFilters = {
   query: string
@@ -89,6 +93,10 @@ function matchesChip(item: TramiteListItem, chip: TramitesFilterChip): boolean {
     return item.attachmentCount > 0
   }
 
+  if (chip === ATTENTION_CHIP) {
+    return getTramiteListItemStateBadge(item).variant === 'changesRequested'
+  }
+
   if (chip === 'tramite' || chip === 'consulta') {
     return item.kind === chip
   }
@@ -120,6 +128,13 @@ function matchesFilters(
     return false
   }
 
+  if (
+    filters.chips.includes(ATTENTION_CHIP) &&
+    !matchesChip(item, ATTENTION_CHIP)
+  ) {
+    return false
+  }
+
   if (stateChips.length > 0) {
     return true
   }
@@ -140,8 +155,9 @@ export function filterTramitesList(
 
 function getChipDimension(
   chip: TramitesFilterChip
-): 'type' | 'state' | 'documents' {
+): 'type' | 'state' | 'documents' | 'attention' {
   if (chip === DOCUMENTS_CHIP) return 'documents'
+  if (chip === ATTENTION_CHIP) return 'attention'
   return TYPE_CHIPS.has(chip) ? 'type' : 'state'
 }
 
@@ -153,13 +169,15 @@ function buildFacetedCountFilters(
     const typeChips = current.chips.filter((chip) => TYPE_CHIPS.has(chip))
     const stateChips = current.chips.filter((chip) => STATE_CHIPS.has(chip))
     const hasDocuments = current.chips.includes(DOCUMENTS_CHIP)
+    const hasAttention = current.chips.includes(ATTENTION_CHIP)
 
     // Varios estados a la vez (p. ej. En curso + Hecho): el total es la unión,
     // no el modo «Todos» por defecto que oculta cerrados sin chip de estado.
     if (
       stateChips.length > 1 &&
       typeChips.length === 0 &&
-      !hasDocuments
+      !hasDocuments &&
+      !hasAttention
     ) {
       return current
     }
