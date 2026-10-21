@@ -1,19 +1,78 @@
 {
+  "id": "/dashboard",
   "name": "Syntia",
   "short_name": "Syntia",
+  "description": "Plataforma digital de asesoría. Digitaliza. Innova. Crece.",
+  "lang": "es",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#041d23",
+  "background_color": "#041d23",
   "icons": [
     {
       "src": "/brand/android-chrome-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/brand/android-chrome-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "theme_color": "#041d23",
-  "background_color": "#041d23",
-  "display": "standalone"
+  "shortcuts": [
+    {
+      "name": "Trámites",
+      "url": "/tramites",
+      "icons": [
+        {
+          "src": "/brand/android-chrome-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Documentos",
+      "url": "/documentos",
+      "icons": [
+        {
+          "src": "/brand/android-chrome-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/brand/screenshots/inicio-escritorio.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Inicio del portal con novedades y accesos rápidos"
+    },
+    {
+      "src": "/brand/screenshots/inicio-movil.png",
+      "sizes": "565x997",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Inicio del portal en el móvil"
+    }
+  ]
 }
