@@ -1,4 +1,5 @@
 import { pushNotifications } from '@/content/push-notifications'
+import { tramites } from '@/content/tramites'
 import {
   openParamFromListKind,
   type PortalNotification,
@@ -88,8 +89,6 @@ export type PushPayload = {
   tag: string
 }
 
-const MAX_BODY_NAMES = 3
-
 /** Ruta a la que lleva un aviso, la misma que al abrirlo dentro de la app. */
 export function pushUrlForNotification(notification: PortalNotification): string {
   if (notification.scope === 'firma') return '/firmas'
@@ -103,42 +102,101 @@ export function pushUrlForNotification(notification: PortalNotification): string
   return '/dashboard'
 }
 
-function titleForReason(reason: PortalNotificationReason): string {
+function plainPreviewFor(
+  notification: PortalNotification,
+  previews: ReadonlyMap<number, string>
+): string | undefined {
+  return notification.latestMessageId !== undefined
+    ? previews.get(notification.latestMessageId)
+    : undefined
+}
+
+function buildSinglePayload(
+  notification: PortalNotification,
+  previews: ReadonlyMap<number, string>
+): PushPayload {
   const copy = pushNotifications.payload
-  switch (reason) {
+  const base = {
+    url: pushUrlForNotification(notification),
+    tag: pushKeyForNotification(notification),
+  }
+
+  switch (notification.reason) {
     case 'unread_chatter':
-      return copy.chatterTitle
+      return {
+        ...base,
+        title: copy.chatterTitle(notification.name),
+        body: plainPreviewFor(notification, previews) ?? copy.chatterBodyFallback,
+      }
     case 'new_tramite':
-      return copy.newTramiteTitle
+      return {
+        ...base,
+        title: copy.newTramiteTitle(notification.name),
+        body: copy.newTramiteBody,
+      }
     case 'new_firma':
-      return copy.firmaTitle
+      return { ...base, title: copy.firmaTitle, body: notification.name }
     case 'firma_due_soon':
-      return copy.firmaDueTitle
-    default:
-      return copy.statusTitle
+      return { ...base, title: copy.firmaDueTitle, body: notification.name }
+    default: {
+      const newState = notification.newStateLabel
+      return {
+        ...base,
+        title: copy.statusTitle(notification.name, newState),
+        body:
+          newState === tramites.taskStates.changesRequested
+            ? copy.statusBodyChangesRequested
+            : notification.previousStateLabel
+              ? copy.statusBodyFrom(notification.previousStateLabel)
+              : copy.statusBodyFallback,
+      }
+    }
   }
 }
 
-/** Un aviso suelto lleva a su registro; varios se resumen en uno que lleva al inicio. */
-export function buildPushPayload(notifications: PortalNotification[]): PushPayload | null {
-  if (notifications.length === 0) return null
-
-  if (notifications.length === 1) {
-    const [only] = notifications
-    return {
-      title: titleForReason(only.reason),
-      body: only.name,
-      url: pushUrlForNotification(only),
-      tag: pushKeyForNotification(only),
+function summaryBody(notifications: PortalNotification[]): string {
+  const parts = pushNotifications.payload.summaryParts
+  const counts = { messages: 0, statuses: 0, newTramites: 0, firmas: 0 }
+  for (const notification of notifications) {
+    switch (pushCategoryForReason(notification.reason)) {
+      case 'chatter':
+        counts.messages += 1
+        break
+      case 'firmas':
+        counts.firmas += 1
+        break
+      default:
+        if (notification.reason === 'new_tramite') counts.newTramites += 1
+        else counts.statuses += 1
     }
   }
 
-  const names = [...new Set(notifications.map((n) => n.name))]
-  const shown = names.slice(0, MAX_BODY_NAMES).join(', ')
-  const rest = names.length - MAX_BODY_NAMES
+  const pieces: string[] = []
+  if (counts.messages) pieces.push(parts.messages(counts.messages))
+  if (counts.statuses) pieces.push(parts.statuses(counts.statuses))
+  if (counts.newTramites) pieces.push(parts.newTramites(counts.newTramites))
+  if (counts.firmas) pieces.push(parts.firmas(counts.firmas))
+  return pieces.join(' · ')
+}
+
+/**
+ * Un aviso suelto dice qué ha pasado y en qué trámite (con el extracto del
+ * mensaje si lo hay); varios se resumen con el recuento por tipo y llevan al
+ * inicio. `previews` es el texto de cada mensaje por id; sin él se usa un
+ * texto genérico.
+ */
+export function buildPushPayload(
+  notifications: PortalNotification[],
+  previews: ReadonlyMap<number, string> = new Map()
+): PushPayload | null {
+  if (notifications.length === 0) return null
+  if (notifications.length === 1) {
+    return buildSinglePayload(notifications[0]!, previews)
+  }
+
   return {
     title: pushNotifications.payload.summaryTitle(notifications.length),
-    body: rest > 0 ? `${shown} y ${rest} más` : shown,
+    body: summaryBody(notifications),
     url: '/dashboard',
     tag: 'syntia-summary',
   }

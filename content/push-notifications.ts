@@ -26,11 +26,25 @@ export const pushNotifications = {
     rate_limited: 'Demasiados intentos. Espera un poco e inténtalo de nuevo.',
   },
   payload: {
-    chatterTitle: 'Nuevo mensaje de tu asesoría',
-    statusTitle: 'Novedad en tu trámite',
-    newTramiteTitle: 'Nuevo trámite',
+    chatterTitle: (name: string) => `Nuevo mensaje en «${name}»`,
+    chatterBodyFallback: 'Tu asesoría te ha escrito.',
+    statusTitle: (name: string, newState?: string) =>
+      newState ? `«${name}»: ${newState}` : `Novedad en «${name}»`,
+    statusBodyChangesRequested: 'Tu asesoría te pide cambios. Entra para verlos.',
+    statusBodyFrom: (previous: string) => `Antes: ${previous}`,
+    statusBodyFallback: 'El estado ha cambiado.',
+    newTramiteTitle: (name: string) => `Nuevo trámite: «${name}»`,
+    newTramiteBody: 'Tu asesoría ha abierto un trámite para ti.',
     firmaTitle: 'Tienes una firma pendiente',
     firmaDueTitle: 'Una firma está a punto de vencer',
     summaryTitle: (count: number) => `Tienes ${count} novedades en Syntia`,
+    summaryParts: {
+      messages: (n: number) => `${n} ${n === 1 ? 'mensaje' : 'mensajes'}`,
+      statuses: (n: number) =>
+        `${n} ${n === 1 ? 'cambio de estado' : 'cambios de estado'}`,
+      newTramites: (n: number) =>
+        `${n} ${n === 1 ? 'trámite nuevo' : 'trámites nuevos'}`,
+      firmas: (n: number) => `${n} ${n === 1 ? 'firma' : 'firmas'}`,
+    },
   },
 } as const

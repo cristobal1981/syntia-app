@@ -22,6 +22,8 @@ export type PushDispatchDeps = {
     subscription: DispatchSubscription,
     payload: PushPayload
   ) => Promise<PushSendResult>
+  /** Extracto del mensaje del chatter, o `null` si no se pudo leer. */
+  loadMessagePreview: (messageId: number) => Promise<string | null>
   saveState: (subscriptionId: string, sentKeys: string[]) => Promise<void>
   deleteByIds: (ids: string[]) => Promise<void>
   now: () => number
@@ -57,6 +59,21 @@ export async function runPushDispatch(
     removed: 0,
     skipped: 0,
     truncated: false,
+  }
+
+  // Un mensaje se lee de Odoo una sola vez por ejecución aunque lo reciban
+  // varios dispositivos.
+  const previewCache = new Map<number, Promise<string | null>>()
+  function previewFor(messageId: number): Promise<string | null> {
+    let cached = previewCache.get(messageId)
+    if (!cached) {
+      cached = deps.loadMessagePreview(messageId).catch((error) => {
+        console.error('[push] leer el mensaje falló', { messageId, error })
+        return null
+      })
+      previewCache.set(messageId, cached)
+    }
+    return cached
   }
 
   const subscriptions = await deps.listSubscriptions()
@@ -103,7 +120,15 @@ export async function runPushDispatch(
         baselined: subscription.baselined,
       })
 
-      const payload = buildPushPayload(selection.toSend)
+      // Solo un aviso suelto de chatter muestra el texto del mensaje.
+      const previews = new Map<number, string>()
+      const only = selection.toSend.length === 1 ? selection.toSend[0]! : null
+      if (only?.reason === 'unread_chatter' && only.latestMessageId !== undefined) {
+        const preview = await previewFor(only.latestMessageId)
+        if (preview) previews.set(only.latestMessageId, preview)
+      }
+
+      const payload = buildPushPayload(selection.toSend, previews)
       if (payload) {
         const result = await deps.send(subscription, payload)
         if (result === 'gone') {

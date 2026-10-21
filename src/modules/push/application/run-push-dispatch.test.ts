@@ -53,6 +53,7 @@ function setup(overrides: Partial<PushDispatchDeps> = {}, subs = [sub()], rec = 
     fetchRecipients: vi.fn().mockResolvedValue(new Map([[rec.id, rec]])),
     loadNotifications: vi.fn().mockResolvedValue([notification]),
     send: vi.fn().mockResolvedValue('ok'),
+    loadMessagePreview: vi.fn().mockResolvedValue('Hola, ¿puedes subir el modelo 303?'),
     saveState: vi.fn().mockResolvedValue(undefined),
     deleteByIds: vi.fn().mockResolvedValue(undefined),
     now: () => 0,
@@ -204,5 +205,69 @@ describe('runPushDispatch', () => {
     const summary = await runPushDispatch(deps, options)
     expect(summary).toEqual({ users: 0, sent: 0, removed: 0, skipped: 0, truncated: false })
     expect(deps.deleteByIds).not.toHaveBeenCalled()
+  })
+
+  it('el aviso de un mensaje lleva el extracto leído de Odoo', async () => {
+    const deps = setup()
+    await runPushDispatch(deps, options)
+
+    expect(deps.loadMessagePreview).toHaveBeenCalledWith(10)
+    expect(deps.send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ body: 'Hola, ¿puedes subir el modelo 303?' })
+    )
+  })
+
+  it('el mismo mensaje para varios dispositivos se lee de Odoo una sola vez', async () => {
+    const deps = setup({}, [sub({ id: 's1' }), sub({ id: 's2' })])
+    await runPushDispatch(deps, options)
+
+    expect(deps.send).toHaveBeenCalledTimes(2)
+    expect(deps.loadMessagePreview).toHaveBeenCalledTimes(1)
+  })
+
+  it('si no se puede leer el mensaje, el aviso sale con el texto genérico', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const deps = setup({ loadMessagePreview: vi.fn().mockRejectedValue(new Error('odoo')) })
+    await runPushDispatch(deps, options)
+
+    expect(deps.send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ body: 'Tu asesoría te ha escrito.' })
+    )
+  })
+
+  it('con varios avisos no se leen mensajes: es un resumen', async () => {
+    const deps = setup({
+      loadNotifications: vi.fn().mockResolvedValue([
+        notification,
+        { ...notification, recordId: 2, latestMessageId: 20 },
+      ]),
+    })
+    await runPushDispatch(deps, options)
+
+    expect(deps.loadMessagePreview).not.toHaveBeenCalled()
+  })
+
+  it('un aviso de estado con id de mensaje tampoco lee el mensaje', async () => {
+    const deps = setup({
+      loadNotifications: vi.fn().mockResolvedValue([
+        { ...notification, reason: 'status_change', latestMessageId: 77 },
+      ]),
+    })
+    await runPushDispatch(deps, options)
+
+    expect(deps.loadMessagePreview).not.toHaveBeenCalled()
+  })
+
+  it('un aviso que no es de chatter no lee ningún mensaje', async () => {
+    const deps = setup({
+      loadNotifications: vi.fn().mockResolvedValue([
+        { ...notification, reason: 'status_change', latestMessageId: undefined },
+      ]),
+    })
+    await runPushDispatch(deps, options)
+
+    expect(deps.loadMessagePreview).not.toHaveBeenCalled()
   })
 })
