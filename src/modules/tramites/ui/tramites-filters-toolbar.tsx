@@ -82,6 +82,8 @@ export function TramitesFiltersToolbar({
   const hasActive = hasActiveTramitesFilters(filters)
   const documentsCount = countTramitesForChip(items, 'withDocuments', filters)
   const documentsActive = isTramitesFilterChipActive(filters, 'withDocuments')
+  const attentionCount = countTramitesForChip(items, 'needsAttention', filters)
+  const attentionActive = isTramitesFilterChipActive(filters, 'needsAttention')
 
   return (
     <PortalSearchToolbar
@@ -119,6 +121,15 @@ export function TramitesFiltersToolbar({
         // En móvil los chips fluyen en una sola tanda (sin separadores ni grupos
         // en filas propias); desde `sm` vuelven los tres grupos con su divisor.
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-x-4 sm:gap-y-2 sm:divide-x sm:divide-border">
+          <div className="contents sm:block sm:pr-4">
+            <PortalFilterChip
+              label={tramites.filters.views.needsAttention}
+              count={attentionCount}
+              active={attentionActive}
+              onClick={() => onChange(toggleTramitesFilterChip(filters, 'needsAttention'))}
+            />
+          </div>
+
           <div className="contents sm:block sm:pr-4">
             <ChipGroup
               label={tramites.filters.typeLabel}

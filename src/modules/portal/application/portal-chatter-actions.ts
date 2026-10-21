@@ -57,6 +57,7 @@ import {
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
+import { fetchTramiteDescription } from '@/src/modules/tramites/infrastructure/odoo-tramite-description-repository'
 
 async function resolveClientPartnerId(
   requiredLevel: WorkerAccessLevel = 'read'
@@ -229,6 +230,36 @@ export async function listRecordMessagesAction(
       messages: await applyTrustedReplyLinks(page.messages),
       hasMore: page.hasMore,
     }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
+  }
+}
+
+export type TramiteDescriptionResult =
+  | { ok: true; html: string | null }
+  | { ok: false; error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable' | 'odoo_rate_limited' }
+
+/** Descripción (HTML ya saneado) de un trámite del cliente; `html: null` si no tiene. */
+export async function getTramiteDescriptionAction(
+  taskId: number
+): Promise<TramiteDescriptionResult> {
+  const access = await resolveClientPartnerId()
+  if (!access.ok) {
+    return { ok: false, error: access.error }
+  }
+
+  const recordId = parseRecordId(taskId)
+  if (!recordId) {
+    return { ok: false, error: 'not_found' }
+  }
+
+  try {
+    const allowed = await verifyClientRecordAccess('task', recordId, access.partnerId)
+    if (!allowed) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    return { ok: true, html: await fetchTramiteDescription(recordId) }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }
   }

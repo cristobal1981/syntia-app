@@ -54,6 +54,7 @@ import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
+import { TramiteDescription } from '@/src/modules/tramites/ui/tramite-description'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 
 type TramiteDetailTab = 'conversation' | 'documents'
@@ -368,6 +369,9 @@ export function TramiteDetailDrawer({
                 {parentTramite.name}
               </span>
             </button>
+          ) : null}
+          {tramite.kind === 'tramite' ? (
+            <TramiteDescription key={tramite.id} taskId={tramite.id} />
           ) : null}
           <DialogDescription asChild>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

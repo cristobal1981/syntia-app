@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
+import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
+import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
 import { checkPortalNotificationsAction } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
   mergeAccumulatedPortalNotifications,
@@ -193,6 +195,8 @@ export function usePortalNotificationsSync({
 
       try {
         const result = await checkPortalNotificationsAction()
+        // Llegó respuesta del servidor (aunque sea un error): hay red.
+        portalConnectivityStore.reportPollSuccess()
         if (!result.ok) {
           if (result.error === 'odoo_rate_limited') {
             rateLimitedRef.current = true
@@ -212,6 +216,9 @@ export function usePortalNotificationsSync({
           stats: result.stats,
           polledAt: Date.now(),
         })
+      } catch (error) {
+        if (!isNetworkFailure(error)) throw error
+        portalConnectivityStore.reportPollFailure()
       } finally {
         pollingRef.current = false
         setNotificationsLoading(false)

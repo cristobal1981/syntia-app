@@ -5,6 +5,7 @@ import type {
   ClientProfile,
 } from '@/src/modules/profile/domain/types'
 import { ProfileSummaryView } from '@/src/modules/profile/ui/profile-summary-view'
+import { PushNotificationsSection } from '@/src/modules/push/ui/push-notifications-section'
 import { ColaboradoresSection } from '@/src/modules/colaboradores/ui/colaboradores-section'
 import type { WorkerRecord } from '@/src/modules/colaboradores/domain/types'
 
@@ -31,6 +32,7 @@ export function ClientProfilePage({
         initialProfile={initialProfile}
         assignedAdvisor={assignedAdvisor}
       />
+      <PushNotificationsSection />
       <ColaboradoresSection
         ownerEmail={ownerEmail}
         workersEnabled={workersEnabled}

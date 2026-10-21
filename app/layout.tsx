@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Archivo, Host_Grotesk } from 'next/font/google'
 
 import { AccessibilityProvider } from '@/components/providers/accessibility-provider'
@@ -39,6 +39,20 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/brand/site.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Syntia',
+    statusBarStyle: 'default',
+  },
+}
+
+// Colores de --background de globals.css (claro y oscuro) para la barra del
+// navegador y la de estado al instalar.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafcfc' },
+    { media: '(prefers-color-scheme: dark)', color: '#001f20' },
+  ],
 }
 
 export default function RootLayout({
