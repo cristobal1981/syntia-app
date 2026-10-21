@@ -28,6 +28,7 @@ vi.mock('@/src/modules/push/infrastructure/push-subscriptions.supabase', () => (
 
 import {
   getPushPreferencesAction,
+  reconcilePushSubscriptionAction,
   subscribePushAction,
   unsubscribePushAction,
   updatePushPreferencesAction,
@@ -187,5 +188,56 @@ describe('updatePushPreferencesAction', () => {
       await updatePushPreferencesAction(validInput.endpoint, { chatter: 'si' })
     ).toEqual({ ok: false, error: 'invalid' })
     expect(mocks.updatePushPreferences).not.toHaveBeenCalled()
+  })
+})
+
+describe('reconcilePushSubscriptionAction', () => {
+  it('owned: true si el dispositivo es de la sesión actual', async () => {
+    mocks.fetchPushPreferences.mockResolvedValue(prefs)
+    expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
+      ok: true,
+      owned: true,
+    })
+    expect(mocks.fetchPushPreferences).toHaveBeenCalledWith(
+      'actor-1',
+      validInput.endpoint
+    )
+  })
+
+  it('owned: false si la suscripción es de otro usuario', async () => {
+    mocks.fetchPushPreferences.mockResolvedValue(null)
+    expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
+      ok: true,
+      owned: false,
+    })
+  })
+
+  it.each([['sin sesión', null], ['asesor', 'advisor'], ['admin', 'admin']])(
+    '%s: owned false sin consultar la BD',
+    async (_name, role) => {
+      if (role) session(role)
+      else mocks.getSession.mockResolvedValue(null)
+      expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
+        ok: true,
+        owned: false,
+      })
+      expect(mocks.fetchPushPreferences).not.toHaveBeenCalled()
+    }
+  )
+
+  it('un fallo de BD no se interpreta como «no es tuyo»', async () => {
+    mocks.fetchPushPreferences.mockRejectedValue(new Error('boom'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
+      ok: false,
+      error: 'unavailable',
+    })
+  })
+
+  it('un endpoint vacío es inválido', async () => {
+    expect(await reconcilePushSubscriptionAction('')).toEqual({
+      ok: false,
+      error: 'invalid',
+    })
   })
 })

@@ -14,6 +14,7 @@ import {
   listPushSubscriptions,
   savePushDispatchState,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
+import { fetchMessagePreview } from '@/src/modules/push/infrastructure/odoo-message-preview'
 import { sendWebPush } from '@/src/modules/push/infrastructure/web-push-sender'
 
 function shuffled<T>(items: T[]): T[] {
@@ -56,6 +57,7 @@ const productionDeps: PushDispatchDeps = {
     return filterNotificationsForWorker(result.unread, sections)
   },
   send: (subscription, payload) => sendWebPush(subscription, payload),
+  loadMessagePreview: fetchMessagePreview,
   saveState: savePushDispatchState,
   deleteByIds: deletePushSubscriptionsByIds,
   now: () => Date.now(),

@@ -162,47 +162,93 @@ describe('buildPushPayload', () => {
     expect(buildPushPayload([])).toBeNull()
   })
 
-  it('un aviso: título por motivo, nombre del trámite y su ruta', () => {
-    const payload = buildPushPayload([n({ recordId: 5 })])
-    expect(payload).toEqual({
-      title: 'Nuevo mensaje de tu asesoría',
-      body: 'IRPF 2025',
+  it('mensaje: título con el trámite y cuerpo con el extracto', () => {
+    const previews = new Map([[10, 'Sube el modelo 303, por favor']])
+    expect(buildPushPayload([n({ recordId: 5 })], previews)).toEqual({
+      title: 'Nuevo mensaje en «IRPF 2025»',
+      body: 'Sube el modelo 303, por favor',
       url: '/tramites?open=tramite-5&tab=conversation',
       tag: pushKeyForNotification(n({ recordId: 5 })),
     })
   })
 
-  it('el título depende del motivo', () => {
-    expect(buildPushPayload([n({ reason: 'status_change' })])?.title).toBe(
-      'Novedad en tu trámite'
-    )
-    expect(buildPushPayload([n({ reason: 'new_tramite' })])?.title).toBe('Nuevo trámite')
+  it('mensaje sin extracto usa un texto genérico', () => {
+    expect(buildPushPayload([n({})])?.body).toBe('Tu asesoría te ha escrito.')
     expect(
-      buildPushPayload([n({ reason: 'new_firma', scope: 'firma' })])?.title
-    ).toBe('Tienes una firma pendiente')
-    expect(
-      buildPushPayload([n({ reason: 'firma_due_soon', scope: 'firma' })])?.title
-    ).toBe('Una firma está a punto de vencer')
+      buildPushPayload([n({})], new Map([[999, 'de otro mensaje']]))?.body
+    ).toBe('Tu asesoría te ha escrito.')
   })
 
-  it('varios avisos: resumen que lleva al inicio, con nombres sin repetir', () => {
+  it('cambios solicitados: lo dice en el cuerpo', () => {
     const payload = buildPushPayload([
-      n({ recordId: 1, name: 'A' }),
-      n({ recordId: 2, name: 'B' }),
-      n({ recordId: 3, name: 'A', latestMessageId: 99 }),
+      n({
+        reason: 'status_change',
+        latestMessageId: undefined,
+        newStateLabel: 'Cambios solicitados',
+        previousStateLabel: 'En curso',
+      }),
+    ])
+    expect(payload?.title).toBe('«IRPF 2025»: Cambios solicitados')
+    expect(payload?.body).toBe('Tu asesoría te pide cambios. Entra para verlos.')
+  })
+
+  it('otro cambio de estado: dice el nuevo y el anterior', () => {
+    const payload = buildPushPayload([
+      n({
+        reason: 'status_change',
+        latestMessageId: undefined,
+        newStateLabel: 'Hecho',
+        previousStateLabel: 'En curso',
+      }),
+    ])
+    expect(payload?.title).toBe('«IRPF 2025»: Hecho')
+    expect(payload?.body).toBe('Antes: En curso')
+  })
+
+  it('cambio de estado sin etiquetas: texto genérico', () => {
+    const payload = buildPushPayload([
+      n({ reason: 'status_change', latestMessageId: undefined }),
+    ])
+    expect(payload?.title).toBe('Novedad en «IRPF 2025»')
+    expect(payload?.body).toBe('El estado ha cambiado.')
+  })
+
+  it('trámite nuevo y firmas', () => {
+    const nuevo = buildPushPayload([n({ reason: 'new_tramite', latestMessageId: undefined })])
+    expect(nuevo?.title).toBe('Nuevo trámite: «IRPF 2025»')
+    expect(nuevo?.body).toBe('Tu asesoría ha abierto un trámite para ti.')
+
+    const firma = buildPushPayload([n({ reason: 'new_firma', scope: 'firma' })])
+    expect(firma).toMatchObject({ title: 'Tienes una firma pendiente', body: 'IRPF 2025' })
+    const due = buildPushPayload([n({ reason: 'firma_due_soon', scope: 'firma' })])
+    expect(due?.title).toBe('Una firma está a punto de vencer')
+  })
+
+  it('varios avisos: resumen con el recuento por tipo que lleva al inicio', () => {
+    const payload = buildPushPayload([
+      n({ recordId: 1 }),
+      n({ recordId: 2 }),
+      n({ recordId: 3, reason: 'status_change', latestMessageId: undefined }),
+      n({ recordId: 4, reason: 'new_tramite', latestMessageId: undefined }),
+      n({ recordId: 5, reason: 'new_firma', scope: 'firma', latestMessageId: undefined }),
     ])
     expect(payload).toEqual({
-      title: 'Tienes 3 novedades en Syntia',
-      body: 'A, B',
+      title: 'Tienes 5 novedades en Syntia',
+      body: '2 mensajes · 1 cambio de estado · 1 trámite nuevo · 1 firma',
       url: '/dashboard',
       tag: 'syntia-summary',
     })
   })
 
-  it('con más de tres nombres añade «y N más»', () => {
-    const payload = buildPushPayload(
-      ['A', 'B', 'C', 'D', 'E'].map((name, i) => n({ recordId: i, name }))
-    )
-    expect(payload?.body).toBe('A, B, C y 2 más')
+  it('el resumen solo nombra los tipos presentes, en singular y plural', () => {
+    expect(
+      buildPushPayload([n({ recordId: 1 }), n({ recordId: 2, latestMessageId: 11 })])?.body
+    ).toBe('2 mensajes')
+    expect(
+      buildPushPayload([
+        n({ recordId: 1, reason: 'status_change', latestMessageId: undefined }),
+        n({ recordId: 2, reason: 'status_change', latestMessageId: undefined }),
+      ])?.body
+    ).toBe('2 cambios de estado')
   })
 })

@@ -23,6 +23,7 @@ import {
   PortalQuickInvoiceProvider,
 } from '@/src/modules/portal/ui/portal-quick-invoice-context'
 import { PortalInviteProvider } from '@/src/modules/invitations/ui/portal-invite-context'
+import { PushSubscriptionGuard } from '@/src/modules/push/ui/push-subscription-guard'
 import { PortalOfflineBanner } from '@/src/modules/portal/ui/portal-offline-banner'
 import { PortalReportProblemProvider } from '@/src/modules/portal/ui/portal-report-problem-context'
 import { OnboardingChecklistProvider } from '@/src/modules/portal/ui/onboarding-checklist-context'
@@ -163,6 +164,7 @@ export function PortalShell({
     <PortalEntryLoadingProvider>
     <div className="flex h-dvh flex-col overflow-clip bg-background text-foreground">
       <PortalOfflineBanner />
+      <PushSubscriptionGuard />
       {viewingAs ? (
         <div
           role="status"

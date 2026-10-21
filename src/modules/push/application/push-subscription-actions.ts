@@ -115,3 +115,29 @@ export async function updatePushPreferencesAction(
     return { ok: false, error: 'unavailable' }
   }
 }
+
+/**
+ * ¿Es esta suscripción del navegador de la sesión actual? Sin sesión de
+ * cliente o colaborador (otro usuario, asesor o admin, vista como cliente) la
+ * respuesta es «no»: el navegador debe darla de baja para no seguir recibiendo
+ * avisos de quien lo usó antes. Un fallo de BD NO es un «no» (`ok: false`): no
+ * se borra nada por no haber podido comprobar.
+ */
+export async function reconcilePushSubscriptionAction(
+  endpoint: unknown
+): Promise<PushActionResult<{ owned: boolean }>> {
+  if (typeof endpoint !== 'string' || !endpoint) {
+    return { ok: false, error: 'invalid' }
+  }
+
+  const actorId = await resolveActor()
+  if (!actorId) return { ok: true, owned: false }
+
+  try {
+    const preferences = await fetchPushPreferences(actorId, endpoint)
+    return { ok: true, owned: preferences !== null }
+  } catch (error) {
+    console.error('[push] comprobar suscripción falló', error)
+    return { ok: false, error: 'unavailable' }
+  }
+}

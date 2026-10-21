@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from 'react'
 
 import { portal } from '@/content/portal'
 import { waitRemainingMinDuration } from '@/lib/wait-min-display'
+import { removePushFromThisDevice } from '@/src/modules/push/ui/push-device'
 import { signOutAction } from '@/src/modules/auth/application/sign-out'
 
 /**
@@ -30,6 +31,12 @@ export function useSignOut() {
 
     startTransition(async () => {
       try {
+        // Con la sesión aún válida: el push del dispositivo no debe pasar a la
+        // siguiente persona. Con tope de tiempo para no retrasar la salida.
+        await Promise.race([
+          removePushFromThisDevice(),
+          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+        ])
         await signOutAction()
         await waitRemainingMinDuration(startedAt, portal.authLoading.signOutMinDisplayMs)
         router.push('/login')
