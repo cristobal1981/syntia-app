@@ -1,6 +1,9 @@
 import type { PortalRole } from '@/src/modules/auth/domain/types'
 
 export const portal = {
+  offline: {
+    message: 'Sin conexión. Lo que envíes ahora puede no llegar: revisa tu red.',
+  },
   viewAs: {
     bannerPrefix: 'Estás viendo el portal de',
     exit: 'Salir de la vista',
