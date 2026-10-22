@@ -3,7 +3,9 @@
 # versionada del código que vive en Odoo. Va en dos reglas de automatización:
 #   - «Syntia eventos: cambio de estado de tarea»: on_write, campo disparador `state`,
 #     con KIND = 'status'.
-#   - «Syntia eventos: tarea nueva»: on_create, con KIND = 'new_record'.
+#   - «Syntia eventos: tarea nueva»: on_create_or_write, campo disparador
+#     `x_studio_mostrar_en_syntia` (una tarea es «nueva» para el cliente cuando se
+#     marca como visible, no cuando se crea), con KIND = 'new_record'.
 # Parámetros del sistema (Ajustes > Técnico > Parámetros del sistema):
 #   syntia.odoo_events_url      https://app.syntia.es/api/webhooks/odoo-events
 #   syntia.odoo_events_secret   el valor de ODOO_EVENTS_SECRET en Vercel
