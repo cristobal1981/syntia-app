@@ -4,3 +4,12 @@ allowBuilds:
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+# Transitivas con avisos de seguridad (`pnpm audit --prod`) cuyo padre aún no
+# las sube: mammoth (xmldom) y next (browserslist, source-map-js,
+# baseline-browser-mapping). Quitar cada una cuando el padre ya traiga la
+# versión corregida. sprintf-js (vía mammoth) no tiene aún versión corregida.
+overrides:
+  '@xmldom/xmldom': ^0.8.15
+  browserslist: ^4.28.7
+  source-map-js: ^1.2.2
+  baseline-browser-mapping: ^2.11.0
