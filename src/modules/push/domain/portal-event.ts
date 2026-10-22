@@ -185,6 +185,22 @@ export function parsePortalEventPayload(
   }
 }
 
+/**
+ * Un cambio de estado sin estado anterior (Odoo no lo manda en todas las
+ * versiones) se completa con el último estado visible que ya conocemos de ese
+ * registro; si es el mismo que el nuevo, no hay cambio que avisar (`null`).
+ */
+export function resolveStatusChange(
+  event: PortalEventInput,
+  lastKnownLabel: string | null
+): PortalEventInput | null {
+  if (event.kind !== 'status' || !lastKnownLabel) return event
+  if (lastKnownLabel === event.stateLabel) return null
+  return event.previousStateLabel === null
+    ? { ...event, previousStateLabel: lastKnownLabel }
+    : event
+}
+
 const REASON_BY_KIND: Record<PortalEventKind, PortalNotificationReason> = {
   message: 'unread_chatter',
   status: 'status_change',

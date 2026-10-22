@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { insertPortalEvent } = vi.hoisted(() => ({ insertPortalEvent: vi.fn() }))
-vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({ insertPortalEvent }))
+const { insertPortalEvent, getLastStatusLabel } = vi.hoisted(() => ({
+  insertPortalEvent: vi.fn(),
+  getLastStatusLabel: vi.fn(),
+}))
+vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({
+  insertPortalEvent,
+  getLastStatusLabel,
+}))
 
 import { POST } from '@/app/api/webhooks/odoo-events/route'
 
@@ -32,6 +38,7 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
   process.env.ODOO_EVENTS_SECRET = 'test-secret'
   insertPortalEvent.mockResolvedValue('created')
+  getLastStatusLabel.mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -77,6 +84,39 @@ describe('POST /api/webhooks/odoo-events', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, status: 'ignored' })
     expect(insertPortalEvent).not.toHaveBeenCalled()
+  })
+
+  describe('cambios de estado', () => {
+    const status = { ...valid, kind: 'status', message_id: undefined, state: '1_done' }
+
+    it('completa el estado anterior con el último conocido', async () => {
+      getLastStatusLabel.mockResolvedValue('En curso')
+      await POST(req(status))
+
+      expect(getLastStatusLabel).toHaveBeenCalledWith('tramite', 9)
+      expect(insertPortalEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ stateLabel: 'Hecho', previousStateLabel: 'En curso' })
+      )
+    })
+
+    it('si el estado visible no cambia, no guarda nada y responde ignored', async () => {
+      getLastStatusLabel.mockResolvedValue('Hecho')
+      const response = await POST(req(status))
+
+      expect(await response.json()).toEqual({ ok: true, status: 'ignored' })
+      expect(insertPortalEvent).not.toHaveBeenCalled()
+    })
+
+    it('un mensaje no consulta el último estado', async () => {
+      await POST(req(valid))
+      expect(getLastStatusLabel).not.toHaveBeenCalled()
+    })
+
+    it('500 si no se puede consultar el último estado, para que Odoo reintente', async () => {
+      getLastStatusLabel.mockRejectedValue(new Error('bd'))
+      expect((await POST(req(status))).status).toBe(500)
+      expect(insertPortalEvent).not.toHaveBeenCalled()
+    })
   })
 
   it('413 si el cuerpo es enorme, sin intentar interpretarlo', async () => {

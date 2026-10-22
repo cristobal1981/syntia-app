@@ -5,6 +5,7 @@ import {
   eventToNotification,
   parsePortalEventPayload,
   previewsFromEvents,
+  resolveStatusChange,
   type PortalEventInput,
   type PortalEventRow,
 } from '@/src/modules/push/domain/portal-event'
@@ -375,5 +376,117 @@ describe('previewsFromEvents', () => {
       row({ messageId: null, excerpt: 'suelto' }),
     ])
     expect([...previews]).toEqual([[10, 'Hola']])
+  })
+})
+
+describe('payloads reales capturados del Odoo de pruebas', () => {
+  const real = {
+    newTask: {
+      event_id: 'task-new:20393',
+      model: 'project.task',
+      kind: 'new_record',
+      record_id: 20393,
+      record_name: 'T20393 · PRUEBA eventos Syntia (borrar)',
+      ancestor_names: [],
+      partner_id: 251,
+      state: '01_in_progress',
+      previous_state: '',
+      occurred_at: '2026-10-22T12:03:10Z',
+    },
+    status: {
+      event_id: 'task-state:20393:2026-10-22T12:03:11Z',
+      model: 'project.task',
+      kind: 'status',
+      record_id: 20393,
+      record_name: 'T20393 · PRUEBA eventos Syntia (borrar)',
+      ancestor_names: [],
+      partner_id: 251,
+      state: '1_done',
+      previous_state: '',
+      occurred_at: '2026-10-22T12:03:11Z',
+    },
+    staffMessage: {
+      event_id: 'msg:248323',
+      model: 'project.task',
+      kind: 'message',
+      record_id: 20393,
+      record_name: 'T20393 · PRUEBA eventos Syntia (borrar)',
+      ancestor_names: [],
+      partner_id: 251,
+      message_id: 248323,
+      message_body: '<p>Hola, <b>sube</b> el modelo 303 cuando puedas</p>',
+      by_client: false,
+      occurred_at: '2026-10-22T12:03:12Z',
+    },
+    clientMessage: {
+      event_id: 'msg:248324',
+      model: 'project.task',
+      kind: 'message',
+      record_id: 20393,
+      record_name: 'T20393 · PRUEBA eventos Syntia (borrar)',
+      ancestor_names: [],
+      partner_id: 251,
+      message_id: 248324,
+      message_body: '<p>Ya lo he subido</p>',
+      by_client: true,
+      occurred_at: '2026-10-22T12:03:13Z',
+    },
+  }
+
+  it('una tarea nueva con estado anterior vacío es válida', () => {
+    expect(parsed(real.newTask)).toMatchObject({ kind: 'new_record', scope: 'tramite', partnerId: 251 })
+  })
+
+  it('un cambio de estado con estado anterior vacío queda sin estado anterior', () => {
+    expect(parsed(real.status)).toMatchObject({
+      kind: 'status',
+      stateLabel: 'Hecho',
+      previousStateLabel: null,
+    })
+  })
+
+  it('el mensaje del asesor lleva extracto y no es del cliente; el del cliente sí', () => {
+    expect(parsed(real.staffMessage)).toMatchObject({
+      excerpt: 'Hola, sube el modelo 303 cuando puedas',
+      byClient: false,
+    })
+    expect(parsed(real.clientMessage)).toMatchObject({ excerpt: 'Ya lo he subido', byClient: true })
+  })
+})
+
+describe('resolveStatusChange', () => {
+  const status = parsed({
+    event_id: 's1',
+    partner_id: 1,
+    kind: 'status',
+    record_id: 9,
+    record_name: 'IRPF',
+    state: '1_done',
+    occurred_at: '2026-10-22T10:00:00Z',
+  })!
+
+  it('un evento que no es de estado pasa tal cual', () => {
+    const message = parsed(valid)!
+    expect(resolveStatusChange(message, 'Hecho')).toBe(message)
+  })
+
+  it('sin estado conocido de antes pasa tal cual (puede ser el primero)', () => {
+    expect(resolveStatusChange(status, null)).toBe(status)
+  })
+
+  it('el mismo estado visible que el último conocido no es un cambio', () => {
+    expect(resolveStatusChange(status, 'Hecho')).toBeNull()
+  })
+
+  it('completa el estado anterior con el último conocido', () => {
+    expect(resolveStatusChange(status, 'En curso')).toMatchObject({
+      stateLabel: 'Hecho',
+      previousStateLabel: 'En curso',
+    })
+  })
+
+  it('si Odoo ya mandó el estado anterior, lo respeta', () => {
+    const withPrevious = { ...status, previousStateLabel: 'Cancelado' }
+    expect(resolveStatusChange(withPrevious, 'En curso')).toBe(withPrevious)
   })
 })

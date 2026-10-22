@@ -75,6 +75,25 @@ export async function insertPortalEvent(
   return (data?.length ?? 0) > 0 ? 'created' : 'duplicate'
 }
 
+/** Último estado visible guardado de ese registro, o `null` si no hay (los eventos se conservan 2 días). */
+export async function getLastStatusLabel(
+  scope: PortalRecordScope,
+  recordId: number
+): Promise<string | null> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('portal_events')
+    .select('state_label')
+    .eq('kind', 'status')
+    .eq('scope', scope)
+    .eq('record_id', recordId)
+    .order('seq', { ascending: false })
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  return (data?.[0] as { state_label: string | null } | undefined)?.state_label ?? null
+}
+
 /** Último `seq` guardado (0 si no hay eventos). */
 export async function getMaxPortalEventSeq(): Promise<number> {
   const supabase = createSupabaseAdminClient()

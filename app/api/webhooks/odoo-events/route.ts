@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server'
 
 import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
 import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
-import { parsePortalEventPayload } from '@/src/modules/push/domain/portal-event'
-import { insertPortalEvent } from '@/src/modules/push/infrastructure/portal-events.supabase'
+import {
+  parsePortalEventPayload,
+  resolveStatusChange,
+} from '@/src/modules/push/domain/portal-event'
+import {
+  getLastStatusLabel,
+  insertPortalEvent,
+} from '@/src/modules/push/infrastructure/portal-events.supabase'
 
 /** Un evento real pesa unos cientos de bytes; el cuerpo del mensaje es lo mayor. */
 const MAX_BODY_BYTES = 100_000
@@ -56,12 +62,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status: 'ignored' })
   }
 
-  const event = parsed.event
   try {
+    const event =
+      parsed.event.kind === 'status'
+        ? resolveStatusChange(
+            parsed.event,
+            await getLastStatusLabel(parsed.event.scope, parsed.event.recordId)
+          )
+        : parsed.event
+    // Mismo estado visible que el último que ya conocíamos: no hay cambio que avisar.
+    if (!event) return NextResponse.json({ ok: true, status: 'ignored' })
+
     const status = await insertPortalEvent(event)
     return NextResponse.json({ ok: true, status })
   } catch (error) {
-    console.error('[odoo events] guardar falló', { eventId: event.eventId, error })
+    console.error('[odoo events] guardar falló', { eventId: parsed.event.eventId, error })
     return NextResponse.json({ ok: false, error: 'failed' }, { status: 500 })
   }
 }

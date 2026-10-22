@@ -6,6 +6,7 @@ vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
 }))
 
 import {
+  getLastStatusLabel,
   getMaxPortalEventSeq,
   insertPortalEvent,
   listMaturePortalEvents,
@@ -30,7 +31,7 @@ const event: PortalEventInput = {
 function chain(result: { data?: unknown; error?: { message: string } | null }) {
   const resolved = { data: result.data ?? null, error: result.error ?? null }
   const c: Record<string, ReturnType<typeof vi.fn>> = {}
-  for (const name of ['select', 'upsert', 'order', 'gt', 'lte']) c[name] = vi.fn(() => c)
+  for (const name of ['select', 'upsert', 'order', 'gt', 'lte', 'eq']) c[name] = vi.fn(() => c)
   c.limit = vi.fn(() => Promise.resolve(resolved))
   ;(c as { then?: unknown }).then = (resolve: (value: unknown) => unknown) =>
     Promise.resolve(resolved).then(resolve)
@@ -160,5 +161,32 @@ describe('listMaturePortalEvents', () => {
   it('propaga el error de BD', async () => {
     use(chain({ error: { message: 'boom' } }))
     await expect(listMaturePortalEvents(0, new Date(), 10)).rejects.toThrow('boom')
+  })
+})
+
+describe('getLastStatusLabel', () => {
+  it('pide el último evento de estado de ese registro y ámbito', async () => {
+    const c = chain({ data: [{ state_label: 'En curso' }] })
+    use(c)
+
+    expect(await getLastStatusLabel('obligacion', 77)).toBe('En curso')
+    expect(c.eq).toHaveBeenCalledWith('kind', 'status')
+    expect(c.eq).toHaveBeenCalledWith('scope', 'obligacion')
+    expect(c.eq).toHaveBeenCalledWith('record_id', 77)
+    expect(c.order).toHaveBeenCalledWith('seq', { ascending: false })
+    expect(c.limit).toHaveBeenCalledWith(1)
+  })
+
+  it('null si no hay evento previo o no tenía etiqueta', async () => {
+    use(chain({ data: [] }))
+    expect(await getLastStatusLabel('tramite', 1)).toBeNull()
+
+    use(chain({ data: [{ state_label: null }] }))
+    expect(await getLastStatusLabel('tramite', 1)).toBeNull()
+  })
+
+  it('propaga el error de BD', async () => {
+    use(chain({ error: { message: 'boom' } }))
+    await expect(getLastStatusLabel('tramite', 1)).rejects.toThrow('boom')
   })
 })
