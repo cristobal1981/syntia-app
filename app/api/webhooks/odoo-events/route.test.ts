@@ -11,7 +11,7 @@ const valid = {
   event_id: 'msg:1',
   partner_id: 5,
   kind: 'message',
-  scope: 'tramite',
+  model: 'project.task',
   record_id: 9,
   record_name: 'IRPF',
   message_id: 1,
@@ -66,6 +66,16 @@ describe('POST /api/webhooks/odoo-events', () => {
     const response = await POST(req({ ...valid, partner_id: 0 }))
     expect(response.status).toBe(422)
     expect(await response.json()).toEqual({ ok: false, error: 'invalid_event' })
+    expect(insertPortalEvent).not.toHaveBeenCalled()
+  })
+
+  it('un periodo de obligaciones es válido pero no se guarda (200 ignored)', async () => {
+    const response = await POST(
+      req({ ...valid, kind: 'status', state: '1_done', ancestor_names: ['Obligaciones Fiscales 2026'] })
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, status: 'ignored' })
     expect(insertPortalEvent).not.toHaveBeenCalled()
   })
 

@@ -3,6 +3,9 @@ import type {
   PortalNotificationReason,
   PortalRecordScope,
 } from '@/src/modules/portal/domain/portal-notifications-types'
+import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
+import { formatObligacionPeriodLabel } from '@/src/modules/obligaciones/domain/format-obligacion-period-label'
+import { mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { htmlToPushPreview } from '@/src/modules/push/domain/push-text'
 
 export type PortalEventKind = 'message' | 'status' | 'new_record' | 'new_firma'
@@ -32,11 +35,15 @@ export type PortalEventRow = PortalEventInput & {
 }
 
 const KINDS: ReadonlySet<string> = new Set(['message', 'status', 'new_record', 'new_firma'])
-const SCOPES: ReadonlySet<string> = new Set(['tramite', 'consulta', 'obligacion', 'firma'])
+
+const MODEL_TASK = 'project.task'
+const MODEL_TICKET = 'helpdesk.ticket'
+const MODEL_SIGN = 'sign.request'
 
 const MAX_EVENT_ID_LENGTH = 200
 const MAX_NAME_LENGTH = 200
-const MAX_LABEL_LENGTH = 100
+const MAX_STATE_LENGTH = 60
+const MAX_ANCESTORS = 10
 /** Se ignora lo que pase de aquí antes de sanear, para no gastar CPU con cuerpos enormes. */
 const MAX_BODY_LENGTH = 50_000
 
@@ -50,56 +57,131 @@ function boundedText(value: unknown, max: number): string | null {
   return text ? text.slice(0, max) : null
 }
 
+export type ParsedPortalEvent =
+  | { status: 'ok'; event: PortalEventInput }
+  /** Válido pero no debe avisar (p. ej. un periodo de obligaciones o una tarea creada en bloque). */
+  | { status: 'ignored' }
+  | { status: 'invalid' }
+
+const INVALID: ParsedPortalEvent = { status: 'invalid' }
+const IGNORED: ParsedPortalEvent = { status: 'ignored' }
+
 /**
- * Valida el cuerpo que manda la acción automatizada de Odoo. Devuelve el
- * evento limpio o `null` si algo no cuadra. El HTML del mensaje
- * (`message_body`) se sanea y se reduce a un extracto: lo demás no se guarda.
+ * Valida el cuerpo que manda la acción automatizada de Odoo y lo traduce a lo
+ * que ve el cliente. Odoo manda hechos en bruto (modelo, nombre, estado, nombres
+ * de los ancestros de la tarea) y es el portal quien decide el ámbito, el título
+ * y la etiqueta del estado con las mismas reglas que ya usa para mostrarlos.
+ *
+ * - `project.task`: trámite; si su raíz empieza por `obligacionesPrefix` es una
+ *   obligación (solo cuentan las hojas, raíz > periodo > hoja, y no avisan de
+ *   altas: se crean en bloque cada año).
+ * - `helpdesk.ticket`: consulta (mensaje o alta).
+ * - `sign.request`: firma nueva.
+ *
+ * El HTML del mensaje (`message_body`) se sanea y se reduce a un extracto: lo
+ * demás no se guarda.
  */
-export function parsePortalEventInput(input: unknown): PortalEventInput | null {
-  if (typeof input !== 'object' || input === null) return null
+export function parsePortalEventPayload(
+  input: unknown,
+  options: { obligacionesPrefix: string }
+): ParsedPortalEvent {
+  if (typeof input !== 'object' || input === null) return INVALID
   const raw = input as Record<string, unknown>
 
   const eventId = boundedText(raw.event_id, MAX_EVENT_ID_LENGTH)
   const partnerId = positiveInteger(raw.partner_id)
   const recordId = positiveInteger(raw.record_id)
   const recordName = boundedText(raw.record_name, MAX_NAME_LENGTH)
-  if (!eventId || !partnerId || !recordId || !recordName) return null
+  if (!eventId || !partnerId || !recordId || !recordName) return INVALID
 
-  if (typeof raw.kind !== 'string' || !KINDS.has(raw.kind)) return null
-  if (typeof raw.scope !== 'string' || !SCOPES.has(raw.scope)) return null
+  if (typeof raw.kind !== 'string' || !KINDS.has(raw.kind)) return INVALID
   const kind = raw.kind as PortalEventKind
-  const scope = raw.scope as PortalRecordScope
 
-  // Una firma solo genera «nueva firma»; el resto de tipos son de tareas.
-  if ((kind === 'new_firma') !== (scope === 'firma')) return null
+  const model = raw.model === undefined ? MODEL_TASK : raw.model
+  if (model !== MODEL_TASK && model !== MODEL_TICKET && model !== MODEL_SIGN) return INVALID
+  // Una firma solo genera «nueva firma»; el resto de tipos son de tareas y tickets.
+  if ((kind === 'new_firma') !== (model === MODEL_SIGN)) return INVALID
 
-  const messageId = raw.message_id === undefined || raw.message_id === null
-    ? null
-    : positiveInteger(raw.message_id)
-  if (raw.message_id !== undefined && raw.message_id !== null && messageId === null) return null
-  if (kind === 'message' && messageId === null) return null
+  const messageId =
+    raw.message_id === undefined || raw.message_id === null
+      ? null
+      : positiveInteger(raw.message_id)
+  if (raw.message_id !== undefined && raw.message_id !== null && messageId === null) {
+    return INVALID
+  }
+  if (kind === 'message' && messageId === null) return INVALID
 
-  if (typeof raw.occurred_at !== 'string') return null
+  if (typeof raw.occurred_at !== 'string') return INVALID
   const occurred = new Date(raw.occurred_at)
-  if (Number.isNaN(occurred.getTime())) return null
+  if (Number.isNaN(occurred.getTime())) return INVALID
 
-  if (raw.by_client !== undefined && typeof raw.by_client !== 'boolean') return null
+  if (raw.by_client !== undefined && typeof raw.by_client !== 'boolean') return INVALID
 
-  const body = typeof raw.message_body === 'string' ? raw.message_body.slice(0, MAX_BODY_LENGTH) : null
+  let ancestors: string[] = []
+  if (raw.ancestor_names !== undefined) {
+    if (!Array.isArray(raw.ancestor_names) || raw.ancestor_names.length > MAX_ANCESTORS) {
+      return INVALID
+    }
+    const names = raw.ancestor_names.map((name) => boundedText(name, MAX_NAME_LENGTH))
+    if (names.some((name) => name === null)) return INVALID
+    ancestors = names as string[]
+  }
+
+  let scope: PortalRecordScope
+  let title = recordName
+  let stateLabel: string | null = null
+  let previousStateLabel: string | null = null
+
+  if (model === MODEL_SIGN) {
+    scope = 'firma'
+  } else if (model === MODEL_TICKET) {
+    scope = 'consulta'
+    // Los tickets avisan de mensajes y altas; su estado no se publica.
+    if (kind === 'status') return IGNORED
+  } else if (
+    ancestors[0]?.startsWith(options.obligacionesPrefix) ||
+    (ancestors.length === 0 && recordName.startsWith(options.obligacionesPrefix))
+  ) {
+    scope = 'obligacion'
+    if (kind === 'new_record') return IGNORED
+    // Raíz y periodos no avisan: solo la hoja raíz > periodo > hoja.
+    if (ancestors.length !== 2) return IGNORED
+    const modelLabel = formatObligacionModelLabel(recordName)
+    const periodLabel = formatObligacionPeriodLabel(ancestors[1]!, recordName).label
+    title = periodLabel ? `${modelLabel} · ${periodLabel}` : modelLabel
+  } else {
+    scope = 'tramite'
+  }
+
+  if (kind === 'status') {
+    const state = boundedText(raw.state, MAX_STATE_LENGTH)
+    stateLabel = state ? (mapTaskStateLabel(state) ?? null) : null
+    if (!stateLabel) return INVALID
+    const previous = boundedText(raw.previous_state, MAX_STATE_LENGTH)
+    previousStateLabel = previous ? (mapTaskStateLabel(previous) ?? null) : null
+    // Mismo estado visible antes y después (p. ej. 03_approved y 01_in_progress): no es un cambio.
+    if (previousStateLabel === stateLabel) return IGNORED
+  }
+
+  const body =
+    typeof raw.message_body === 'string' ? raw.message_body.slice(0, MAX_BODY_LENGTH) : null
 
   return {
-    eventId,
-    partnerId,
-    kind,
-    scope,
-    recordId,
-    recordName,
-    stateLabel: boundedText(raw.state_label, MAX_LABEL_LENGTH),
-    previousStateLabel: boundedText(raw.previous_state_label, MAX_LABEL_LENGTH),
-    messageId,
-    excerpt: kind === 'message' ? htmlToPushPreview(body) : null,
-    byClient: raw.by_client === true,
-    occurredAt: occurred.toISOString(),
+    status: 'ok',
+    event: {
+      eventId,
+      partnerId,
+      kind,
+      scope,
+      recordId,
+      recordName: title,
+      stateLabel,
+      previousStateLabel,
+      messageId,
+      excerpt: kind === 'message' ? htmlToPushPreview(body) : null,
+      byClient: raw.by_client === true,
+      occurredAt: occurred.toISOString(),
+    },
   }
 }
 

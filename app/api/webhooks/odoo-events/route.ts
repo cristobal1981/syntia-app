@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
-import { parsePortalEventInput } from '@/src/modules/push/domain/portal-event'
+import { getObligacionesParentPrefix } from '@/src/modules/obligaciones/infrastructure/obligaciones-env'
+import { parsePortalEventPayload } from '@/src/modules/push/domain/portal-event'
 import { insertPortalEvent } from '@/src/modules/push/infrastructure/portal-events.supabase'
 
 /** Un evento real pesa unos cientos de bytes; el cuerpo del mensaje es lo mayor. */
@@ -20,7 +21,8 @@ function isAuthorized(request: Request): boolean {
 
 /**
  * Lo llama una acción automatizada de Odoo en cada cambio visible en Syntia
- * (mensaje, estado, tarea o firma nueva). Guarda el evento; el dispatcher de
+ * (mensaje, estado, tarea, ticket o firma nueva). Odoo manda hechos en bruto y
+ * el portal decide ámbito, título y estado visible. Guarda el evento; el dispatcher de
  * push lo envía después, sin volver a consultar Odoo. Idempotente por
  * `event_id`: un reintento de Odoo responde 200 sin duplicar.
  *
@@ -43,11 +45,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
   }
 
-  const event = parsePortalEventInput(json)
-  if (!event) {
+  const parsed = parsePortalEventPayload(json, {
+    obligacionesPrefix: getObligacionesParentPrefix(),
+  })
+  if (parsed.status === 'invalid') {
     return NextResponse.json({ ok: false, error: 'invalid_event' }, { status: 422 })
   }
+  // Válido pero sin aviso (periodos de obligaciones, altas en bloque…): Odoo no reintenta.
+  if (parsed.status === 'ignored') {
+    return NextResponse.json({ ok: true, status: 'ignored' })
+  }
 
+  const event = parsed.event
   try {
     const status = await insertPortalEvent(event)
     return NextResponse.json({ ok: true, status })

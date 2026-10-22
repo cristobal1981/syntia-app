@@ -3,21 +3,32 @@ import { describe, expect, it } from 'vitest'
 import {
   collapseEvents,
   eventToNotification,
-  parsePortalEventInput,
+  parsePortalEventPayload,
   previewsFromEvents,
+  type PortalEventInput,
   type PortalEventRow,
 } from '@/src/modules/push/domain/portal-event'
 
+const PREFIX = 'Obligaciones Fiscales'
 const valid = {
   event_id: 'msg:456',
   partner_id: 12,
   kind: 'message',
-  scope: 'tramite',
+  model: 'project.task',
   record_id: 99,
   record_name: 'Alta de autónomo',
   message_id: 456,
   message_body: '<p>Hola, <b>sube</b> el modelo 303</p>',
   occurred_at: '2026-10-22T10:00:00Z',
+}
+
+function parse(input: unknown) {
+  return parsePortalEventPayload(input, { obligacionesPrefix: PREFIX })
+}
+
+function parsed(input: unknown): PortalEventInput | null {
+  const result = parse(input)
+  return result.status === 'ok' ? result.event : null
 }
 
 function row(partial: Partial<PortalEventRow> = {}): PortalEventRow {
@@ -40,80 +51,210 @@ function row(partial: Partial<PortalEventRow> = {}): PortalEventRow {
   }
 }
 
-describe('parsePortalEventInput', () => {
+describe('parsePortalEventPayload', () => {
   it('acepta un mensaje y reduce el HTML a un extracto en texto plano', () => {
-    expect(parsePortalEventInput(valid)).toEqual({
-      eventId: 'msg:456',
-      partnerId: 12,
-      kind: 'message',
-      scope: 'tramite',
-      recordId: 99,
-      recordName: 'Alta de autónomo',
-      stateLabel: null,
-      previousStateLabel: null,
-      messageId: 456,
-      excerpt: 'Hola, sube el modelo 303',
-      byClient: false,
-      occurredAt: '2026-10-22T10:00:00.000Z',
+    expect(parse(valid)).toEqual({
+      status: 'ok',
+      event: {
+        eventId: 'msg:456',
+        partnerId: 12,
+        kind: 'message',
+        scope: 'tramite',
+        recordId: 99,
+        recordName: 'Alta de autónomo',
+        stateLabel: null,
+        previousStateLabel: null,
+        messageId: 456,
+        excerpt: 'Hola, sube el modelo 303',
+        byClient: false,
+        occurredAt: '2026-10-22T10:00:00.000Z',
+      },
     })
   })
 
+  it('sin modelo se entiende que es una tarea', () => {
+    expect(parsed({ ...valid, model: undefined })?.scope).toBe('tramite')
+  })
+
   it('no guarda HTML ni scripts en el extracto', () => {
-    const parsed = parsePortalEventInput({
+    const event = parsed({
       ...valid,
       message_body: '<p>Texto</p><script>alert(1)</script><img src=x onerror=alert(1)>',
     })
-    expect(parsed?.excerpt).toBe('Texto')
+    expect(event?.excerpt).toBe('Texto')
   })
 
   it('solo lee los primeros 50.000 caracteres del cuerpo', () => {
     const body = `<p>hola</p>${' '.repeat(50_000)}<p>oculto</p>`
-    expect(parsePortalEventInput({ ...valid, message_body: body })?.excerpt).toBe('hola')
+    expect(parsed({ ...valid, message_body: body })?.excerpt).toBe('hola')
   })
 
   it('un mensaje sin texto aprovechable queda sin extracto', () => {
-    expect(parsePortalEventInput({ ...valid, message_body: '<p> </p>' })?.excerpt).toBeNull()
-    expect(parsePortalEventInput({ ...valid, message_body: undefined })?.excerpt).toBeNull()
+    expect(parsed({ ...valid, message_body: '<p> </p>' })?.excerpt).toBeNull()
+    expect(parsed({ ...valid, message_body: undefined })?.excerpt).toBeNull()
   })
 
-  it('un cambio de estado guarda las etiquetas y no el cuerpo', () => {
-    const parsed = parsePortalEventInput({
+  describe('estado de una tarea', () => {
+    const status = {
       event_id: 'task:99:1',
       partner_id: 12,
       kind: 'status',
-      scope: 'consulta',
+      model: 'project.task',
       record_id: 99,
-      record_name: 'Consulta IVA',
-      state_label: 'En curso',
-      previous_state_label: 'Pendiente',
+      record_name: 'IRPF',
+      state: '1_done',
+      previous_state: '01_in_progress',
       message_body: '<p>no debe guardarse</p>',
       occurred_at: '2026-10-22T10:00:00Z',
+    }
+
+    it('se traduce a la etiqueta que ve el cliente, no el código de Odoo', () => {
+      expect(parsed(status)).toMatchObject({
+        kind: 'status',
+        stateLabel: 'Hecho',
+        previousStateLabel: 'En curso',
+        excerpt: null,
+        messageId: null,
+      })
     })
-    expect(parsed).toMatchObject({
+
+    it('sin estado anterior solo lleva el nuevo', () => {
+      expect(parsed({ ...status, previous_state: undefined })).toMatchObject({
+        stateLabel: 'Hecho',
+        previousStateLabel: null,
+      })
+    })
+
+    it('un cambio entre dos códigos que el cliente ve igual no avisa', () => {
+      expect(parse({ ...status, state: '03_approved', previous_state: '01_in_progress' })).toEqual({
+        status: 'ignored',
+      })
+    })
+
+    it('«cambios solicitados» conserva su etiqueta propia', () => {
+      expect(parsed({ ...status, state: '02_changes_requested' })?.stateLabel).toBe(
+        'Cambios solicitados'
+      )
+    })
+
+    it.each([undefined, '', '   ', 7])('rechaza un estado inválido (%s)', (state) => {
+      expect(parse({ ...status, state })).toEqual({ status: 'invalid' })
+    })
+  })
+
+  describe('ámbito', () => {
+    it('un ticket de ayuda es una consulta y avisa de mensajes y altas', () => {
+      expect(parsed({ ...valid, model: 'helpdesk.ticket' })?.scope).toBe('consulta')
+      expect(
+        parsed({
+          event_id: 'new:5',
+          partner_id: 12,
+          kind: 'new_record',
+          model: 'helpdesk.ticket',
+          record_id: 5,
+          record_name: 'Duda IVA',
+          occurred_at: '2026-10-22T10:00:00Z',
+        })
+      ).toMatchObject({ scope: 'consulta', kind: 'new_record' })
+    })
+
+    it('el estado de un ticket no se publica', () => {
+      expect(
+        parse({ ...valid, model: 'helpdesk.ticket', kind: 'status', state: '1_done', message_id: undefined })
+      ).toEqual({ status: 'ignored' })
+    })
+
+    it('una firma solo es válida con kind new_firma y modelo sign.request, y al revés', () => {
+      const firma = {
+        event_id: 'firma:7',
+        partner_id: 12,
+        kind: 'new_firma',
+        model: 'sign.request',
+        record_id: 7,
+        record_name: 'Mandato SEPA',
+        occurred_at: '2026-10-22T10:00:00Z',
+      }
+      expect(parsed(firma)).toMatchObject({ kind: 'new_firma', scope: 'firma' })
+      expect(parse({ ...firma, kind: 'status' })).toEqual({ status: 'invalid' })
+      expect(parse({ ...valid, kind: 'new_firma' })).toEqual({ status: 'invalid' })
+    })
+
+    it('un modelo desconocido se rechaza', () => {
+      expect(parse({ ...valid, model: 'res.partner' })).toEqual({ status: 'invalid' })
+    })
+  })
+
+  describe('obligaciones', () => {
+    const leaf = {
+      event_id: 'task:300:1',
+      partner_id: 12,
       kind: 'status',
-      stateLabel: 'En curso',
-      previousStateLabel: 'Pendiente',
-      excerpt: null,
-      messageId: null,
+      model: 'project.task',
+      record_id: 300,
+      record_name: 'Modelo 111 - Retenciones IRPF - ACME SL',
+      ancestor_names: ['Obligaciones Fiscales 2026', 'Trimestrales'],
+      state: '1_done',
+      previous_state: '01_in_progress',
+      occurred_at: '2026-10-22T10:00:00Z',
+    }
+
+    it('una hoja raíz > periodo > hoja es de obligaciones, con el título «Modelo · periodo»', () => {
+      expect(parsed(leaf)).toMatchObject({
+        scope: 'obligacion',
+        recordName: 'Modelo 111 · Trimestrales',
+        stateLabel: 'Hecho',
+      })
+    })
+
+    it('en periodos mensuales el periodo sale del mes del nombre', () => {
+      const event = parsed({
+        ...leaf,
+        record_name: 'Modelo 303 - Enero - ACME SL',
+        ancestor_names: ['Obligaciones Fiscales 2026', 'Mensuales'],
+      })
+      expect(event?.recordName).toBe('Modelo 303 · Enero')
+    })
+
+    it('un mensaje en una hoja de obligaciones también avisa', () => {
+      expect(
+        parsed({ ...leaf, kind: 'message', message_id: 5, message_body: '<p>Hola</p>', state: undefined })
+      ).toMatchObject({ scope: 'obligacion', kind: 'message', excerpt: 'Hola' })
+    })
+
+    it('la raíz y los periodos no avisan', () => {
+      expect(parse({ ...leaf, ancestor_names: [], record_name: 'Obligaciones Fiscales 2026' })).toEqual({
+        status: 'ignored',
+      })
+      expect(parse({ ...leaf, ancestor_names: undefined, record_name: 'Obligaciones Fiscales 2026' })).toEqual({
+        status: 'ignored',
+      })
+      expect(parse({ ...leaf, ancestor_names: ['Obligaciones Fiscales 2026'] })).toEqual({
+        status: 'ignored',
+      })
+      expect(parse({ ...leaf, ancestor_names: ['Obligaciones Fiscales 2026', 'Trimestrales', 'Extra'] })).toEqual({
+        status: 'ignored',
+      })
+    })
+
+    it('las altas en bloque de cada año no avisan', () => {
+      expect(parse({ ...leaf, kind: 'new_record', state: undefined })).toEqual({ status: 'ignored' })
+    })
+
+    it('el prefijo es el configurado, no uno fijo', () => {
+      const other = parsePortalEventPayload(leaf, { obligacionesPrefix: 'Otro prefijo' })
+      expect(other.status === 'ok' && other.event.scope).toBe('tramite')
     })
   })
 
   it('by_client es opcional y solo cuenta si es true', () => {
-    expect(parsePortalEventInput(valid)?.byClient).toBe(false)
-    expect(parsePortalEventInput({ ...valid, by_client: true })?.byClient).toBe(true)
-    expect(parsePortalEventInput({ ...valid, by_client: 'sí' })).toBeNull()
-  })
-
-  it('una firma solo es válida con tipo new_firma, y al revés', () => {
-    const firma = { ...valid, kind: 'new_firma', scope: 'firma', message_id: undefined }
-    expect(parsePortalEventInput(firma)).toMatchObject({ kind: 'new_firma', scope: 'firma' })
-    expect(parsePortalEventInput({ ...firma, kind: 'status' })).toBeNull()
-    expect(parsePortalEventInput({ ...valid, kind: 'new_firma' })).toBeNull()
+    expect(parsed(valid)?.byClient).toBe(false)
+    expect(parsed({ ...valid, by_client: true })?.byClient).toBe(true)
+    expect(parse({ ...valid, by_client: 'sí' })).toEqual({ status: 'invalid' })
   })
 
   it('un mensaje exige id de mensaje', () => {
-    expect(parsePortalEventInput({ ...valid, message_id: undefined })).toBeNull()
-    expect(parsePortalEventInput({ ...valid, message_id: null })).toBeNull()
+    expect(parse({ ...valid, message_id: undefined })).toEqual({ status: 'invalid' })
+    expect(parse({ ...valid, message_id: null })).toEqual({ status: 'invalid' })
   })
 
   it.each([
@@ -126,32 +267,28 @@ describe('parsePortalEventInput', () => {
     ['record_id inválido', { record_id: 'x' }],
     ['sin nombre', { record_name: '   ' }],
     ['tipo desconocido', { kind: 'delete' }],
-    ['ámbito desconocido', { scope: 'admin' }],
     ['message_id inválido', { message_id: -4 }],
     ['fecha inválida', { occurred_at: 'ayer' }],
     ['fecha ausente', { occurred_at: undefined }],
+    ['ancestros que no son lista', { ancestor_names: 'Obligaciones' }],
+    ['ancestro que no es texto', { ancestor_names: [5] }],
+    ['demasiados ancestros', { ancestor_names: Array.from({ length: 11 }, () => 'x') }],
   ])('rechaza %s', (_name, override) => {
-    expect(parsePortalEventInput({ ...valid, ...override })).toBeNull()
+    expect(parse({ ...valid, ...override })).toEqual({ status: 'invalid' })
   })
 
   it.each([null, undefined, 'x', 7, []])('rechaza un cuerpo que no es objeto (%s)', (input) => {
-    expect(parsePortalEventInput(input)).toBeNull()
+    expect(parse(input)).toEqual({ status: 'invalid' })
   })
 
-  it('acota nombre, etiquetas e identificador', () => {
-    const parsed = parsePortalEventInput({
-      ...valid,
-      event_id: 'e'.repeat(500),
-      record_name: 'n'.repeat(500),
-      state_label: 's'.repeat(500),
-    })
-    expect(parsed?.eventId).toHaveLength(200)
-    expect(parsed?.recordName).toHaveLength(200)
-    expect(parsed?.stateLabel).toHaveLength(100)
+  it('acota nombre e identificador', () => {
+    const event = parsed({ ...valid, event_id: 'e'.repeat(500), record_name: 'n'.repeat(500) })
+    expect(event?.eventId).toHaveLength(200)
+    expect(event?.recordName).toHaveLength(200)
   })
 
   it('normaliza la fecha a ISO UTC', () => {
-    expect(parsePortalEventInput({ ...valid, occurred_at: '2026-10-22T12:00:00+02:00' })?.occurredAt).toBe(
+    expect(parsed({ ...valid, occurred_at: '2026-10-22T12:00:00+02:00' })?.occurredAt).toBe(
       '2026-10-22T10:00:00.000Z'
     )
   })
