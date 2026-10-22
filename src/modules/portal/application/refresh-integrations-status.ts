@@ -20,6 +20,6 @@ export async function refreshIntegrationsStatusAction(): Promise<RefreshIntegrat
     return { ok: false, error: 'unauthorized' }
   }
 
-  const integrations = await getIntegrationsStatusForRole(role)
+  const integrations = await getIntegrationsStatusForRole(role, { fresh: true })
   return { ok: true, integrations }
 }

@@ -4,15 +4,28 @@ import { filterNotificationsForWorker } from '@/src/modules/colaboradores/applic
 import { loadClientPortalNotifications } from '@/src/modules/portal/application/load-client-portal-notifications'
 import { getCachedClientOdooPartnerId } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
+  runEventPushDispatch,
+  type EventPushDispatchDeps,
+} from '@/src/modules/push/application/run-event-push-dispatch'
+import {
   runPushDispatch,
   type PushDispatchDeps,
   type PushDispatchSummary,
 } from '@/src/modules/push/application/run-push-dispatch'
 import {
+  getMaxPortalEventSeq,
+  listMaturePortalEvents,
+} from '@/src/modules/push/infrastructure/portal-events.supabase'
+import {
+  acquirePushDispatchLock,
+  advancePushCursors,
   deletePushSubscriptionsByIds,
+  fetchPartnerIdsByUserIds,
   fetchPushRecipients,
   listPushSubscriptions,
+  releasePushDispatchLock,
   savePushDispatchState,
+  savePushFailureCount,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
 import { fetchMessagePreview } from '@/src/modules/push/infrastructure/odoo-message-preview'
 import { sendWebPush } from '@/src/modules/push/infrastructure/web-push-sender'
@@ -25,6 +38,9 @@ function shuffled<T>(items: T[]): T[] {
   }
   return copy
 }
+
+/** Caduca solo si la ejecución muere sin soltarlo; algo por encima de `maxDuration`. */
+const LOCK_TTL_SECONDS = 90
 
 const productionDeps: PushDispatchDeps = {
   listSubscriptions: listPushSubscriptions,
@@ -59,7 +75,10 @@ const productionDeps: PushDispatchDeps = {
   send: (subscription, payload) => sendWebPush(subscription, payload),
   loadMessagePreview: fetchMessagePreview,
   saveState: savePushDispatchState,
+  saveFailureCount: savePushFailureCount,
   deleteByIds: deletePushSubscriptionsByIds,
+  acquireLock: () => acquirePushDispatchLock(LOCK_TTL_SECONDS),
+  releaseLock: releasePushDispatchLock,
   now: () => Date.now(),
   order: shuffled,
 }
@@ -69,6 +88,39 @@ const RUN_BUDGET_MS = 45_000
 
 export function dispatchPushNotifications(): Promise<PushDispatchSummary> {
   return runPushDispatch(productionDeps, {
+    deadlineAt: Date.now() + RUN_BUDGET_MS,
+  })
+}
+
+const eventDeps: EventPushDispatchDeps = {
+  acquireLock: () => acquirePushDispatchLock(LOCK_TTL_SECONDS),
+  releaseLock: releasePushDispatchLock,
+  listSubscriptions: listPushSubscriptions,
+  fetchRecipients: fetchPushRecipients,
+  fetchPartnerIds: fetchPartnerIdsByUserIds,
+  getMaxEventSeq: getMaxPortalEventSeq,
+  listMatureEvents: listMaturePortalEvents,
+  async loadAllowedSections(recipient) {
+    if (!recipient.authUserId) return null
+    const user: PortalUser = {
+      id: recipient.authUserId,
+      email: recipient.email,
+      name: '',
+      role: 'worker',
+    }
+    return getAllowedSectionsForWorker(user)
+  },
+  send: (subscription, payload) => sendWebPush(subscription, payload),
+  saveFailureCount: savePushFailureCount,
+  advanceCursors: advancePushCursors,
+  deleteByIds: deletePushSubscriptionsByIds,
+  now: () => Date.now(),
+  order: shuffled,
+}
+
+/** Variante con eventos de Odoo: no hace ninguna petición a Odoo. */
+export function dispatchPushEvents(): Promise<PushDispatchSummary> {
+  return runEventPushDispatch(eventDeps, {
     deadlineAt: Date.now() + RUN_BUDGET_MS,
   })
 }

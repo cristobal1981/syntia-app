@@ -1,0 +1,149 @@
+export type PushHealthRun = {
+  source: 'events' | 'snapshots' | 'sweep'
+  startedAt: number
+  hadError: boolean
+  locked: boolean
+  truncated: boolean
+  /** En un barrido, eventos que faltaban y se han recuperado. */
+  created: number
+}
+
+export type PushHealthInput = {
+  now: number
+  /** De dónde salen los avisos ahora (`PUSH_SOURCE`). */
+  source: 'events' | 'snapshots'
+  /** Ejecuciones recientes de `push_runs`, de más nueva a más antigua. */
+  runs: PushHealthRun[]
+  /** Último evento recibido de Odoo, o `null` si no hay. */
+  lastEventAt: number | null
+}
+
+export type PushHealthProblem = {
+  code:
+    | 'pulse_stalled'
+    | 'run_errors'
+    | 'stuck_lock'
+    | 'backlog'
+    | 'events_silent'
+    | 'sweep_stalled'
+    | 'events_lost'
+  severity: 'error' | 'warning'
+  message: string
+}
+
+export type PushHealth = { ok: boolean; problems: PushHealthProblem[] }
+
+const MINUTE = 60_000
+const HOUR = 60 * MINUTE
+
+/** Sin ninguna ejecución del dispatcher en este tiempo, el pulso se ha parado. */
+export const PULSE_STALLED_MS = 15 * MINUTE
+/** Sin ningún barrido en este tiempo, el barrido se ha parado (pasa cada 30 min). */
+export const SWEEP_STALLED_MS = 2 * HOUR
+/** En horario laboral, sin eventos en este tiempo se avisa de silencio. */
+export const EVENTS_SILENT_MS = 4 * HOUR
+export const RECENT_RUNS_WINDOW = 10
+
+const BUSINESS_DAYS = new Set(['lun', 'mar', 'mié', 'jue', 'vie'])
+const BUSINESS_START_HOUR = 8
+const BUSINESS_END_HOUR = 20
+
+/** Lunes a viernes, de 8:00 a 20:00 en Madrid. */
+export function isBusinessHours(now: number): boolean {
+  const parts = new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid',
+    weekday: 'short',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(now))
+  const weekday = parts.find((part) => part.type === 'weekday')?.value.replace('.', '')
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value)
+  return (
+    weekday !== undefined &&
+    BUSINESS_DAYS.has(weekday) &&
+    hour >= BUSINESS_START_HOUR &&
+    hour < BUSINESS_END_HOUR
+  )
+}
+
+/**
+ * Estado de salud del envío de push a partir de lo que dejan las ejecuciones:
+ * pulso parado, errores repetidos, cerrojo atascado, atasco de eventos, silencio
+ * de Odoo en horario laboral, barrido parado o eventos que tuvo que recuperar
+ * el barrido (señal de que algún evento se perdió).
+ */
+export function evaluatePushHealth(input: PushHealthInput): PushHealth {
+  const problems: PushHealthProblem[] = []
+  const dispatches = input.runs.filter((run) => run.source !== 'sweep')
+  const sweeps = input.runs.filter((run) => run.source === 'sweep')
+  const recent = dispatches.slice(0, RECENT_RUNS_WINDOW)
+
+  const lastDispatch = dispatches[0]
+  if (!lastDispatch || input.now - lastDispatch.startedAt > PULSE_STALLED_MS) {
+    problems.push({
+      code: 'pulse_stalled',
+      severity: 'error',
+      message: lastDispatch
+        ? 'El dispatcher de push no se ejecuta desde hace más de 15 minutos.'
+        : 'El dispatcher de push no ha registrado ninguna ejecución.',
+    })
+  }
+
+  const errors = recent.filter((run) => run.hadError).length
+  if (recent[0]?.hadError || errors >= 3) {
+    problems.push({
+      code: 'run_errors',
+      severity: 'error',
+      message: `El dispatcher falla (${errors} de las últimas ${recent.length} ejecuciones con error).`,
+    })
+  }
+
+  if (recent.length >= 5 && recent.slice(0, 5).every((run) => run.locked)) {
+    problems.push({
+      code: 'stuck_lock',
+      severity: 'error',
+      message: 'Las últimas 5 ejecuciones se han saltado por el cerrojo: puede estar atascado.',
+    })
+  }
+
+  if (recent.length >= 5 && recent.slice(0, 5).filter((run) => run.truncated).length >= 3) {
+    problems.push({
+      code: 'backlog',
+      severity: 'warning',
+      message: 'El dispatcher llega al límite de tiempo o de eventos de forma repetida.',
+    })
+  }
+
+  if (
+    input.source === 'events' &&
+    isBusinessHours(input.now) &&
+    (input.lastEventAt === null || input.now - input.lastEventAt > EVENTS_SILENT_MS)
+  ) {
+    problems.push({
+      code: 'events_silent',
+      severity: 'warning',
+      message:
+        'Odoo no envía eventos desde hace más de 4 horas en horario laboral: puede haber dejado de enviar.',
+    })
+  }
+
+  const lastSweep = sweeps[0]
+  if (lastSweep && input.now - lastSweep.startedAt > SWEEP_STALLED_MS) {
+    problems.push({
+      code: 'sweep_stalled',
+      severity: 'warning',
+      message: 'El barrido de reconciliación no se ejecuta desde hace más de 2 horas.',
+    })
+  }
+
+  const recovered = sweeps.reduce((total, run) => total + run.created, 0)
+  if (recovered > 0) {
+    problems.push({
+      code: 'events_lost',
+      severity: 'warning',
+      message: `El barrido ha tenido que recuperar ${recovered} mensajes cuyo evento no llegó.`,
+    })
+  }
+
+  return { ok: problems.every((problem) => problem.severity !== 'error'), problems }
+}

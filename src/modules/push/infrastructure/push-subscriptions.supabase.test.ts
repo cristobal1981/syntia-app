@@ -8,9 +8,21 @@ vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
   createSupabaseAdminClient,
 }))
 
+const { getMaxPortalEventSeq } = vi.hoisted(() => ({ getMaxPortalEventSeq: vi.fn() }))
+vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({
+  getMaxPortalEventSeq,
+}))
+
 import {
+  acquirePushDispatchLock,
+  advancePushCursors,
+  fetchPartnerIdsByUserIds,
   deletePushSubscription,
   fetchPushPreferences,
+  listPushSubscriptions,
+  releasePushDispatchLock,
+  savePushDispatchState,
+  savePushFailureCount,
   updatePushPreferences,
   upsertPushSubscription,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
@@ -43,6 +55,7 @@ const input = {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  getMaxPortalEventSeq.mockResolvedValue(0)
 })
 
 describe('upsertPushSubscription', () => {
@@ -64,6 +77,38 @@ describe('upsertPushSubscription', () => {
         notify_firmas: true,
         sent_keys: [],
       }),
+      { onConflict: 'endpoint' }
+    )
+  })
+
+  it('parte de la foto inicial de eventos: solo se avisa de lo que llegue después', async () => {
+    getMaxPortalEventSeq.mockResolvedValue(42)
+    const chain = chainFor({})
+    useClient(chain)
+    await upsertPushSubscription('user-1', input, prefs)
+
+    expect(chain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ last_event_seq: 42 }),
+      { onConflict: 'endpoint' }
+    )
+  })
+
+  it('si no se puede leer el último evento no guarda la suscripción', async () => {
+    getMaxPortalEventSeq.mockRejectedValue(new Error('bd'))
+    const chain = chainFor({})
+    useClient(chain)
+
+    await expect(upsertPushSubscription('user-1', input, prefs)).rejects.toThrow('bd')
+    expect(chain.upsert).not.toHaveBeenCalled()
+  })
+
+  it('reasignar un endpoint reinicia la foto inicial y los fallos del dueño anterior', async () => {
+    const chain = chainFor({})
+    useClient(chain)
+    await upsertPushSubscription('user-2', input, prefs)
+
+    expect(chain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ baselined_at: null, failure_count: 0 }),
       { onConflict: 'endpoint' }
     )
   })
@@ -130,5 +175,245 @@ describe('updatePushPreferences', () => {
   it('false si no hay fila de ese usuario', async () => {
     useClient(chainFor({ data: [] }))
     expect(await updatePushPreferences('user-1', 'e', prefs)).toBe(false)
+  })
+})
+
+function row(id: string, partial: Record<string, unknown> = {}) {
+  return {
+    id,
+    user_id: 'u',
+    endpoint: `https://push.example/${id}`,
+    p256dh: 'k',
+    auth: 'a',
+    notify_chatter: true,
+    notify_status: true,
+    notify_firmas: true,
+    sent_keys: [],
+    baselined_at: null,
+    failure_count: null,
+    ...partial,
+  }
+}
+
+function pagedClient(pages: unknown[][]) {
+  const range = vi.fn()
+  for (const page of pages) {
+    range.mockResolvedValueOnce({ data: page, error: null })
+  }
+  const chain = { select: vi.fn(() => chain), order: vi.fn(() => chain), range }
+  createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+  return { chain, range }
+}
+
+describe('listPushSubscriptions', () => {
+  it('pide páginas de 1000 hasta que una viene incompleta, con orden estable', async () => {
+    const full = Array.from({ length: 1000 }, (_, i) => row(`a${i}`))
+    const { chain, range } = pagedClient([full, [row('b1'), row('b2')]])
+
+    const subs = await listPushSubscriptions()
+
+    expect(subs).toHaveLength(1002)
+    expect(range).toHaveBeenNthCalledWith(1, 0, 999)
+    expect(range).toHaveBeenNthCalledWith(2, 1000, 1999)
+    expect(range).toHaveBeenCalledTimes(2)
+    expect(chain.order).toHaveBeenCalledWith('id')
+  })
+
+  it('mapea baselined, claves enviadas y fallos', async () => {
+    pagedClient([
+      [
+        row('s1', {
+          baselined_at: '2026-10-20T10:00:00Z',
+          sent_keys: ['k1', 7, 'k2'],
+          failure_count: 3,
+          last_event_seq: 9,
+        }),
+        row('s2'),
+      ],
+    ])
+
+    const [first, second] = await listPushSubscriptions()
+
+    expect(first).toMatchObject({
+      lastEventSeq: 9,
+      id: 's1',
+      baselined: true,
+      sentKeys: ['k1', 'k2'],
+      failureCount: 3,
+    })
+    expect(second).toMatchObject({
+      baselined: false,
+      sentKeys: [],
+      failureCount: 0,
+      lastEventSeq: null,
+    })
+  })
+
+  it('propaga el error de BD', async () => {
+    const range = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
+    const chain = { select: vi.fn(() => chain), order: vi.fn(() => chain), range }
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await expect(listPushSubscriptions()).rejects.toThrow('boom')
+  })
+})
+
+describe('savePushDispatchState / savePushFailureCount', () => {
+  it('guardar lo enviado pone a cero los fallos y marca la foto inicial', async () => {
+    const chain = chainFor({})
+    useClient(chain)
+    await savePushDispatchState('s1', ['k'])
+
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sent_keys: ['k'],
+        failure_count: 0,
+        baselined_at: expect.any(String),
+      })
+    )
+    expect(chain.eq).toHaveBeenCalledWith('id', 's1')
+  })
+
+  it('guarda el recuento de fallos de la suscripción indicada', async () => {
+    const chain = chainFor({})
+    useClient(chain)
+    await savePushFailureCount('s1', 4)
+
+    expect(chain.update).toHaveBeenCalledWith({ failure_count: 4 })
+    expect(chain.eq).toHaveBeenCalledWith('id', 's1')
+  })
+
+  it('propaga el error de BD', async () => {
+    useClient(chainFor({ error: { message: 'boom' } }))
+    await expect(savePushFailureCount('s1', 1)).rejects.toThrow('boom')
+  })
+})
+
+describe('cerrojo del dispatcher', () => {
+  function useRpc(result: unknown) {
+    const rpc = vi.fn().mockResolvedValue(result)
+    createSupabaseAdminClient.mockReturnValue({ rpc })
+    return rpc
+  }
+
+  it('devuelve lo que diga el RPC y le pasa el TTL', async () => {
+    const rpc = useRpc({ data: true, error: null })
+    expect(await acquirePushDispatchLock(90)).toBe(true)
+    expect(rpc).toHaveBeenCalledWith('acquire_push_dispatch_lock', { p_ttl_seconds: 90 })
+
+    useRpc({ data: false, error: null })
+    expect(await acquirePushDispatchLock(90)).toBe(false)
+  })
+
+  it('una respuesta sin valor ni error no se toma como cerrojo concedido', async () => {
+    useRpc({ data: null, error: null })
+    expect(await acquirePushDispatchLock(90)).toBe(false)
+  })
+
+  it('si el RPC falla se ejecuta sin cerrojo (fail-open) y se loguea', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    useRpc({ data: null, error: { message: 'no existe' } })
+
+    expect(await acquirePushDispatchLock(90)).toBe(true)
+    expect(log).toHaveBeenCalled()
+  })
+
+  it('si el cliente lanza se ejecuta sin cerrojo', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    createSupabaseAdminClient.mockImplementation(() => {
+      throw new Error('sin config')
+    })
+
+    expect(await acquirePushDispatchLock(90)).toBe(true)
+  })
+
+  it('soltar el cerrojo llama al RPC y nunca lanza', async () => {
+    const rpc = useRpc({ error: null })
+    await releasePushDispatchLock()
+    expect(rpc).toHaveBeenCalledWith('release_push_dispatch_lock')
+
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    createSupabaseAdminClient.mockImplementation(() => {
+      throw new Error('x')
+    })
+    await expect(releasePushDispatchLock()).resolves.toBeUndefined()
+  })
+})
+
+describe('advancePushCursors', () => {
+  it('marca los dispositivos indicados hasta ese evento', async () => {
+    const chain = { update: vi.fn(() => chain), in: vi.fn().mockResolvedValue({ error: null }) }
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await advancePushCursors(['a', 'b'], 12)
+
+    expect(chain.update).toHaveBeenCalledWith({ last_event_seq: 12 })
+    expect(chain.in).toHaveBeenCalledWith('id', ['a', 'b'])
+  })
+
+  it('no llama a la BD sin dispositivos', async () => {
+    await advancePushCursors([], 12)
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled()
+  })
+
+  it('parte la lista en bloques de 100', async () => {
+    const chain = { update: vi.fn(() => chain), in: vi.fn().mockResolvedValue({ error: null }) }
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+    const ids = Array.from({ length: 250 }, (_, i) => `s${i}`)
+
+    await advancePushCursors(ids, 1)
+
+    expect(chain.in).toHaveBeenCalledTimes(3)
+    expect((chain.in.mock.calls[0]![1] as string[]).length).toBe(100)
+    expect((chain.in.mock.calls[2]![1] as string[]).length).toBe(50)
+  })
+
+  it('propaga el error de BD', async () => {
+    const chain = {
+      update: vi.fn(() => chain),
+      in: vi.fn().mockResolvedValue({ error: { message: 'boom' } }),
+    }
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await expect(advancePushCursors(['a'], 1)).rejects.toThrow('boom')
+  })
+})
+
+describe('fetchPartnerIdsByUserIds', () => {
+  it('mapea usuario a cliente de Odoo y descarta filas sin vínculo', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      in: vi.fn().mockResolvedValue({
+        data: [
+          { user_id: 'u1', odoo_partner_id: 5 },
+          { user_id: 'u2', odoo_partner_id: null },
+          { user_id: 'u3', odoo_partner_id: 0 },
+        ],
+        error: null,
+      }),
+    }
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    const result = await fetchPartnerIdsByUserIds(['u1', 'u2', 'u3'])
+
+    expect(from).toHaveBeenCalledWith('client_integrations')
+    expect(chain.in).toHaveBeenCalledWith('user_id', ['u1', 'u2', 'u3'])
+    expect([...result]).toEqual([['u1', 5]])
+  })
+
+  it('sin usuarios no consulta', async () => {
+    expect((await fetchPartnerIdsByUserIds([])).size).toBe(0)
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled()
+  })
+
+  it('propaga el error de BD', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      in: vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } }),
+    }
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await expect(fetchPartnerIdsByUserIds(['u1'])).rejects.toThrow('boom')
   })
 })

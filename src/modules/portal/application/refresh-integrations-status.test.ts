@@ -56,7 +56,8 @@ describe('refreshIntegrationsStatusAction', () => {
 
       const result = await refreshIntegrationsStatusAction()
 
-      expect(getIntegrationsStatusForRole).toHaveBeenCalledWith(role)
+      // El botón «Actualizar» salta el caché de salud.
+      expect(getIntegrationsStatusForRole).toHaveBeenCalledWith(role, { fresh: true })
       expect(result).toEqual({
         ok: true,
         integrations: [{ id: 'odoo', name: 'Odoo', status: 'connected', liveCheck: true }],
