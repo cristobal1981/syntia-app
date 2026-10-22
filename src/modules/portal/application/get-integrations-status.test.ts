@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
+const { unstableCache } = vi.hoisted(() => ({ unstableCache: vi.fn() }))
+vi.mock('next/cache', () => ({ unstable_cache: unstableCache }))
+
 import { getIntegrationsStatusForRole } from '@/src/modules/portal/application/get-integrations-status'
 
 const { checkGoogleIntegration, checkN8nHealth, checkOdooHealth } = vi.hoisted(() => ({
@@ -16,6 +19,7 @@ vi.mock('@/src/modules/portal/infrastructure/check-odoo-health', () => ({ checkO
 
 beforeEach(() => {
   vi.resetAllMocks()
+  unstableCache.mockImplementation((fn: () => unknown) => fn)
   checkGoogleIntegration.mockResolvedValue('connected')
   checkN8nHealth.mockResolvedValue('connected')
   checkOdooHealth.mockResolvedValue('connected')
@@ -80,5 +84,34 @@ describe('getIntegrationsStatusForRole', () => {
     expect(byId.odoo).toMatchObject({ name: 'Odoo', status: 'error' })
     expect(byId.google).toMatchObject({ name: 'Google Drive', status: 'pending' })
     expect(byId.n8n).toMatchObject({ name: 'n8n', status: 'connected' })
+  })
+
+  it('por defecto pasa por el caché de un minuto, con clave propia de cada integración', async () => {
+    await getIntegrationsStatusForRole('admin')
+
+    const keys = unstableCache.mock.calls.map(([, key]) => key)
+    expect(keys).toEqual([
+      ['integration-health', 'odoo'],
+      ['integration-health', 'google'],
+      ['integration-health', 'n8n'],
+    ])
+    for (const [, , options] of unstableCache.mock.calls) {
+      expect(options).toEqual({ revalidate: 60 })
+    }
+  })
+
+  it('con fresh=true no usa el caché y comprueba cada integración', async () => {
+    const result = await getIntegrationsStatusForRole('admin', { fresh: true })
+
+    expect(unstableCache).not.toHaveBeenCalled()
+    expect(result).toHaveLength(3)
+    expect(checkOdooHealth).toHaveBeenCalledTimes(1)
+    expect(checkN8nHealth).toHaveBeenCalledTimes(1)
+    expect(checkGoogleIntegration).toHaveBeenCalledTimes(1)
+  })
+
+  it('sin integraciones (cliente) no toca el caché', async () => {
+    await getIntegrationsStatusForRole('client')
+    expect(unstableCache).not.toHaveBeenCalled()
   })
 })

@@ -4,7 +4,7 @@ import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import type { AdvisorPresenceStatus } from '@/src/modules/profile/domain/advisor-presence'
 import { isCachedAdvisorPartner } from '@/src/modules/portal/infrastructure/cached-partner-avatar'
-import { fetchAdvisorPresenceFromOdoo } from '@/src/modules/portal/infrastructure/odoo-advisor-presence'
+import { getCachedAdvisorPresence } from '@/src/modules/portal/infrastructure/cached-advisor-presence'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
 function parsePartnerId(value: string): number | null {
@@ -39,7 +39,7 @@ export async function GET(
     }
 
     const presence: AdvisorPresenceStatus =
-      (await fetchAdvisorPresenceFromOdoo(partnerId)) ?? 'offline'
+      (await getCachedAdvisorPresence(partnerId)) ?? 'offline'
 
     return NextResponse.json(
       { presence },

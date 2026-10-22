@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { AdvisorPresenceStatus } from '@/src/modules/profile/domain/advisor-presence'
+import { shouldRefreshPresenceOnVisible } from '@/src/modules/profile/domain/advisor-presence-refresh'
 import { getAdvisorPresenceUrl } from '@/src/modules/portal/lib/advisor-presence-url'
 
 type AdvisorPresenceResponse = {
@@ -10,12 +11,13 @@ type AdvisorPresenceResponse = {
 }
 
 /**
- * Consulta la presencia del asesor y la refresca al volver a la pestaña.
- * Cualquier fallo deja `presence` en null (no se muestra indicador).
+ * Consulta la presencia del asesor y la refresca al volver a la pestaña, como
+ * mucho una vez cada 30 s. Cualquier fallo deja `presence` en null (no se muestra indicador).
  */
 export function useAdvisorPresence(partnerId?: number) {
   const [presence, setPresence] = useState<AdvisorPresenceStatus | null>(null)
   const [loading, setLoading] = useState(Boolean(partnerId))
+  const lastRefreshAtRef = useRef<number | null>(null)
 
   const refresh = useCallback(async () => {
     if (!partnerId) {
@@ -25,6 +27,7 @@ export function useAdvisorPresence(partnerId?: number) {
     }
 
     setLoading(true)
+    lastRefreshAtRef.current = Date.now()
 
     try {
       const response = await fetch(getAdvisorPresenceUrl(partnerId), {
@@ -54,7 +57,10 @@ export function useAdvisorPresence(partnerId?: number) {
 
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (
+        document.visibilityState === 'visible' &&
+        shouldRefreshPresenceOnVisible(lastRefreshAtRef.current, Date.now())
+      ) {
         void refresh()
       }
     }

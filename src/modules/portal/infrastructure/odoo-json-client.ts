@@ -2,6 +2,15 @@ const REQUEST_TIMEOUT_MS = 8_000
 const MAX_CONCURRENT_ODOO_REQUESTS = 5
 const RATE_LIMIT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000]
 
+/**
+ * `ODOO_REQUEST_LOG=1` deja una línea `[odoo-req]` por cada petición correcta
+ * (modelo, método, intentos y ms) para medir cuántas se hacen por minuto desde
+ * los logs. Desactivado por defecto: son muchas líneas.
+ */
+function isRequestLogEnabled(): boolean {
+  return process.env.ODOO_REQUEST_LOG === '1'
+}
+
 export const ODOO_ERROR = {
   NOT_CONFIGURED: 'ODOO_NOT_CONFIGURED',
   REQUEST_FAILED: 'ODOO_REQUEST_FAILED',
@@ -175,12 +184,18 @@ async function odooJsonRequest<T>(
   body: Record<string, unknown>
 ): Promise<T> {
   await acquireOdooRequestSlot()
+  const startedAt = Date.now()
 
   try {
     for (let attempt = 0; attempt <= RATE_LIMIT_RETRY_DELAYS_MS.length; attempt += 1) {
       const result = await odooJsonRequestOnce<T>(model, method, body)
 
       if (result.ok) {
+        if (isRequestLogEnabled()) {
+          console.info(
+            `[odoo-req] ${model}/${method} ok attempts=${attempt + 1} ${Date.now() - startedAt}ms`
+          )
+        }
         return result.data
       }
 
@@ -195,6 +210,9 @@ async function odooJsonRequest<T>(
 
         const delayMs =
           result.retryAfterMs ?? RATE_LIMIT_RETRY_DELAYS_MS[attempt] ?? 1_000
+        console.warn(
+          `[odoo] ${model}/${method} 429, reintento ${attempt + 1}/${RATE_LIMIT_RETRY_DELAYS_MS.length} en ${delayMs}ms`
+        )
         await sleep(delayMs)
         continue
       }
