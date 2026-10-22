@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  MAX_CONSECUTIVE_REJECTIONS,
   runPushDispatch,
   type PushDispatchDeps,
 } from '@/src/modules/push/application/run-push-dispatch'
@@ -31,6 +32,7 @@ function sub(partial: Partial<DispatchSubscription> = {}): DispatchSubscription 
     preferences: { chatter: true, status: true, firmas: true },
     sentKeys: [],
     baselined: true,
+    failureCount: 0,
     ...partial,
   }
 }
@@ -55,7 +57,10 @@ function setup(overrides: Partial<PushDispatchDeps> = {}, subs = [sub()], rec = 
     send: vi.fn().mockResolvedValue('ok'),
     loadMessagePreview: vi.fn().mockResolvedValue('Hola, ¿puedes subir el modelo 303?'),
     saveState: vi.fn().mockResolvedValue(undefined),
+    saveFailureCount: vi.fn().mockResolvedValue(undefined),
     deleteByIds: vi.fn().mockResolvedValue(undefined),
+    acquireLock: vi.fn().mockResolvedValue(true),
+    releaseLock: vi.fn().mockResolvedValue(undefined),
     now: () => 0,
     order: (items) => items,
     ...overrides,
@@ -203,7 +208,14 @@ describe('runPushDispatch', () => {
   it('sin suscripciones no hace nada', async () => {
     const deps = setup({}, [])
     const summary = await runPushDispatch(deps, options)
-    expect(summary).toEqual({ users: 0, sent: 0, removed: 0, skipped: 0, truncated: false })
+    expect(summary).toEqual({
+      users: 0,
+      sent: 0,
+      removed: 0,
+      skipped: 0,
+      truncated: false,
+      locked: false,
+    })
     expect(deps.deleteByIds).not.toHaveBeenCalled()
   })
 
@@ -269,5 +281,148 @@ describe('runPushDispatch', () => {
     await runPushDispatch(deps, options)
 
     expect(deps.loadMessagePreview).not.toHaveBeenCalled()
+  })
+})
+
+function twoUsers(overrides: Partial<PushDispatchDeps> = {}, subs: DispatchSubscription[] = []) {
+  return setup(
+    {
+      fetchRecipients: vi.fn().mockResolvedValue(
+        new Map([
+          ['u1', recipient({ id: 'u1' })],
+          ['u2', recipient({ id: 'u2' })],
+        ])
+      ),
+      ...overrides,
+    },
+    subs.length
+      ? subs
+      : [sub({ id: 's1', userId: 'u1' }), sub({ id: 's2', userId: 'u2' })]
+  )
+}
+
+describe('runPushDispatch: cerrojo de ejecución', () => {
+  it('si otra ejecución tiene el cerrojo no hace nada y no lo suelta', async () => {
+    const deps = setup({ acquireLock: vi.fn().mockResolvedValue(false) })
+    const summary = await runPushDispatch(deps, options)
+
+    expect(summary.locked).toBe(true)
+    expect(deps.listSubscriptions).not.toHaveBeenCalled()
+    expect(deps.send).not.toHaveBeenCalled()
+    expect(deps.releaseLock).not.toHaveBeenCalled()
+  })
+
+  it('suelta el cerrojo al terminar', async () => {
+    const deps = setup()
+    const summary = await runPushDispatch(deps, options)
+
+    expect(summary.locked).toBe(false)
+    expect(deps.releaseLock).toHaveBeenCalledTimes(1)
+  })
+
+  it('suelta el cerrojo aunque la ejecución falle', async () => {
+    const deps = setup({ listSubscriptions: vi.fn().mockRejectedValue(new Error('bd')) })
+
+    await expect(runPushDispatch(deps, options)).rejects.toThrow('bd')
+    expect(deps.releaseLock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('runPushDispatch: aislamiento de fallos', () => {
+  it('si falla guardar el estado de un dispositivo, los demás se procesan igual', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const deps = twoUsers({
+      saveState: vi.fn().mockRejectedValueOnce(new Error('bd')).mockResolvedValue(undefined),
+    })
+    const summary = await runPushDispatch(deps, options)
+
+    expect(deps.send).toHaveBeenCalledTimes(2)
+    expect(deps.saveState).toHaveBeenCalledTimes(2)
+    expect(summary.skipped).toBe(1)
+  })
+
+  it('un dispositivo que falla no impide borrar los caducados', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const deps = twoUsers({
+      send: vi.fn().mockResolvedValueOnce('gone').mockResolvedValue('ok'),
+      saveState: vi.fn().mockRejectedValue(new Error('bd')),
+    })
+    const summary = await runPushDispatch(deps, options)
+
+    expect(deps.deleteByIds).toHaveBeenCalledWith(['s1'])
+    expect(summary.removed).toBe(1)
+  })
+
+  it('si falla el borrado final devuelve igualmente el resumen', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const deps = setup({
+      send: vi.fn().mockResolvedValue('gone'),
+      deleteByIds: vi.fn().mockRejectedValue(new Error('bd')),
+    })
+    const summary = await runPushDispatch(deps, options)
+
+    expect(summary.removed).toBe(0)
+    expect(deps.releaseLock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('runPushDispatch: envíos rechazados', () => {
+  it('un rechazo cuenta el fallo, no guarda lo enviado y no borra', async () => {
+    const deps = setup(
+      { send: vi.fn().mockResolvedValue('rejected') },
+      [sub({ failureCount: 2 })]
+    )
+    const summary = await runPushDispatch(deps, options)
+
+    expect(deps.saveFailureCount).toHaveBeenCalledWith('s1', 3)
+    expect(deps.saveState).not.toHaveBeenCalled()
+    expect(deps.deleteByIds).not.toHaveBeenCalled()
+    expect(summary).toMatchObject({ sent: 0, skipped: 1, removed: 0 })
+  })
+
+  it('un error transitorio no cuenta como rechazo', async () => {
+    const deps = setup({ send: vi.fn().mockResolvedValue('error') })
+    await runPushDispatch(deps, options)
+
+    expect(deps.saveFailureCount).not.toHaveBeenCalled()
+  })
+
+  it('al llegar al máximo de rechazos seguidos se da de baja si otros envíos funcionan', async () => {
+    const deps = twoUsers(
+      { send: vi.fn().mockResolvedValueOnce('rejected').mockResolvedValue('ok') },
+      [
+        sub({ id: 's1', userId: 'u1', failureCount: MAX_CONSECUTIVE_REJECTIONS - 1 }),
+        sub({ id: 's2', userId: 'u2' }),
+      ]
+    )
+    const summary = await runPushDispatch(deps, options)
+
+    expect(deps.deleteByIds).toHaveBeenCalledWith(['s1'])
+    expect(summary).toMatchObject({ sent: 1, removed: 1 })
+  })
+
+  it('un rechazo por debajo del máximo no se da de baja aunque otros funcionen', async () => {
+    const deps = twoUsers(
+      { send: vi.fn().mockResolvedValueOnce('rejected').mockResolvedValue('ok') },
+      [
+        sub({ id: 's1', userId: 'u1', failureCount: MAX_CONSECUTIVE_REJECTIONS - 2 }),
+        sub({ id: 's2', userId: 'u2' }),
+      ]
+    )
+    await runPushDispatch(deps, options)
+
+    expect(deps.deleteByIds).not.toHaveBeenCalled()
+  })
+
+  it('si ningún envío sale bien (fallo del servidor) no se da de baja a nadie', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const deps = setup(
+      { send: vi.fn().mockResolvedValue('rejected') },
+      [sub({ failureCount: MAX_CONSECUTIVE_REJECTIONS })]
+    )
+    const summary = await runPushDispatch(deps, options)
+
+    expect(deps.deleteByIds).not.toHaveBeenCalled()
+    expect(summary.removed).toBe(0)
   })
 })

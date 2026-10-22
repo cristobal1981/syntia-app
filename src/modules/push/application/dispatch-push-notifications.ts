@@ -9,10 +9,13 @@ import {
   type PushDispatchSummary,
 } from '@/src/modules/push/application/run-push-dispatch'
 import {
+  acquirePushDispatchLock,
   deletePushSubscriptionsByIds,
   fetchPushRecipients,
   listPushSubscriptions,
+  releasePushDispatchLock,
   savePushDispatchState,
+  savePushFailureCount,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
 import { fetchMessagePreview } from '@/src/modules/push/infrastructure/odoo-message-preview'
 import { sendWebPush } from '@/src/modules/push/infrastructure/web-push-sender'
@@ -25,6 +28,9 @@ function shuffled<T>(items: T[]): T[] {
   }
   return copy
 }
+
+/** Caduca solo si la ejecución muere sin soltarlo; algo por encima de `maxDuration`. */
+const LOCK_TTL_SECONDS = 90
 
 const productionDeps: PushDispatchDeps = {
   listSubscriptions: listPushSubscriptions,
@@ -59,7 +65,10 @@ const productionDeps: PushDispatchDeps = {
   send: (subscription, payload) => sendWebPush(subscription, payload),
   loadMessagePreview: fetchMessagePreview,
   saveState: savePushDispatchState,
+  saveFailureCount: savePushFailureCount,
   deleteByIds: deletePushSubscriptionsByIds,
+  acquireLock: () => acquirePushDispatchLock(LOCK_TTL_SECONDS),
+  releaseLock: releasePushDispatchLock,
   now: () => Date.now(),
   order: shuffled,
 }

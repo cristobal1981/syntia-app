@@ -25,7 +25,11 @@ export type PushDispatchDeps = {
   /** Extracto del mensaje del chatter, o `null` si no se pudo leer. */
   loadMessagePreview: (messageId: number) => Promise<string | null>
   saveState: (subscriptionId: string, sentKeys: string[]) => Promise<void>
+  saveFailureCount: (subscriptionId: string, failureCount: number) => Promise<void>
   deleteByIds: (ids: string[]) => Promise<void>
+  /** `false` si ya hay otra ejecución en marcha. */
+  acquireLock: () => Promise<boolean>
+  releaseLock: () => Promise<void>
   now: () => number
   /** Orden de proceso; aleatorio en producción para que, si no cabe todo en una ejecución, nadie se quede siempre al final. */
   order: <T>(items: T[]) => T[]
@@ -37,9 +41,14 @@ export type PushDispatchSummary = {
   removed: number
   skipped: number
   truncated: boolean
+  /** Otra ejecución tenía el cerrojo: esta no ha hecho nada. */
+  locked: boolean
 }
 
 const CONCURRENCY = 4
+
+/** Envíos seguidos rechazados tras los que se da de baja el dispositivo. */
+export const MAX_CONSECUTIVE_REJECTIONS = 10
 
 /** Un usuario archivado, desactivado o sin rol válido no debe seguir recibiendo avisos. */
 function isRecipientActive(recipient: PushRecipient | undefined): recipient is PushRecipient {
@@ -59,8 +68,27 @@ export async function runPushDispatch(
     removed: 0,
     skipped: 0,
     truncated: false,
+    locked: false,
   }
 
+  if (!(await deps.acquireLock())) {
+    summary.locked = true
+    return summary
+  }
+
+  try {
+    await runLocked(deps, options, summary)
+  } finally {
+    await deps.releaseLock()
+  }
+  return summary
+}
+
+async function runLocked(
+  deps: PushDispatchDeps,
+  options: { deadlineAt: number },
+  summary: PushDispatchSummary
+): Promise<void> {
   // Un mensaje se lee de Odoo una sola vez por ejecución aunque lo reciban
   // varios dispositivos.
   const previewCache = new Map<number, Promise<string | null>>()
@@ -86,6 +114,7 @@ export async function runPushDispatch(
 
   const recipients = await deps.fetchRecipients([...byUser.keys()])
   const toDelete: string[] = []
+  const rejectedForGood: string[] = []
   const queue: [string, DispatchSubscription[]][] = []
 
   for (const [userId, userSubscriptions] of byUser) {
@@ -113,43 +142,67 @@ export async function runPushDispatch(
     }
 
     for (const subscription of userSubscriptions) {
-      const selection = selectNotificationsToPush({
-        notifications,
-        preferences: subscription.preferences,
-        sentKeys: subscription.sentKeys,
-        baselined: subscription.baselined,
-      })
-
-      // Solo un aviso suelto de chatter muestra el texto del mensaje.
-      const previews = new Map<number, string>()
-      const only = selection.toSend.length === 1 ? selection.toSend[0]! : null
-      if (only?.reason === 'unread_chatter' && only.latestMessageId !== undefined) {
-        const preview = await previewFor(only.latestMessageId)
-        if (preview) previews.set(only.latestMessageId, preview)
+      // Un fallo en un dispositivo (p. ej. al guardar el estado) no debe
+      // tumbar la ejecución entera ni a los demás usuarios.
+      try {
+        await processSubscription(subscription, notifications)
+      } catch (error) {
+        console.error('[push] procesar dispositivo falló', {
+          subscriptionId: subscription.id,
+          error,
+        })
+        summary.skipped += 1
       }
+    }
+  }
 
-      const payload = buildPushPayload(selection.toSend, previews)
-      if (payload) {
-        const result = await deps.send(subscription, payload)
-        if (result === 'gone') {
-          toDelete.push(subscription.id)
-          continue
-        }
-        if (result === 'error') {
-          // Sin guardar lo enviado: se reintenta en la siguiente ejecución.
-          summary.skipped += 1
-          continue
-        }
-        summary.sent += 1
-      }
+  async function processSubscription(
+    subscription: DispatchSubscription,
+    notifications: PortalNotification[]
+  ) {
+    const selection = selectNotificationsToPush({
+      notifications,
+      preferences: subscription.preferences,
+      sentKeys: subscription.sentKeys,
+      baselined: subscription.baselined,
+    })
 
-      const unchanged =
-        subscription.baselined &&
-        selection.nextSentKeys.length === subscription.sentKeys.length &&
-        selection.nextSentKeys.every((key, i) => key === subscription.sentKeys[i])
-      if (!unchanged) {
-        await deps.saveState(subscription.id, selection.nextSentKeys)
+    // Solo un aviso suelto de chatter muestra el texto del mensaje.
+    const previews = new Map<number, string>()
+    const only = selection.toSend.length === 1 ? selection.toSend[0]! : null
+    if (only?.reason === 'unread_chatter' && only.latestMessageId !== undefined) {
+      const preview = await previewFor(only.latestMessageId)
+      if (preview) previews.set(only.latestMessageId, preview)
+    }
+
+    const payload = buildPushPayload(selection.toSend, previews)
+    if (payload) {
+      const result = await deps.send(subscription, payload)
+      if (result === 'gone') {
+        toDelete.push(subscription.id)
+        return
       }
+      if (result === 'rejected') {
+        const failures = subscription.failureCount + 1
+        summary.skipped += 1
+        await deps.saveFailureCount(subscription.id, failures)
+        if (failures >= MAX_CONSECUTIVE_REJECTIONS) rejectedForGood.push(subscription.id)
+        return
+      }
+      if (result === 'error') {
+        // Sin guardar lo enviado: se reintenta en la siguiente ejecución.
+        summary.skipped += 1
+        return
+      }
+      summary.sent += 1
+    }
+
+    const unchanged =
+      subscription.baselined &&
+      selection.nextSentKeys.length === subscription.sentKeys.length &&
+      selection.nextSentKeys.every((key, i) => key === subscription.sentKeys[i])
+    if (!unchanged) {
+      await deps.saveState(subscription.id, selection.nextSentKeys)
     }
   }
 
@@ -168,10 +221,25 @@ export async function runPushDispatch(
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
 
-  if (toDelete.length > 0) {
-    await deps.deleteByIds(toDelete)
-    summary.removed = toDelete.length
+  if (rejectedForGood.length > 0) {
+    if (summary.sent > 0) {
+      toDelete.push(...rejectedForGood)
+    } else {
+      // Si ningún envío de esta ejecución ha salido bien, lo más probable es un
+      // fallo del servidor (p. ej. clave VAPID mal puesta) y no de los
+      // dispositivos: no se da de baja a nadie.
+      console.error('[push] todos los envíos rechazados: revisar las claves VAPID', {
+        devices: rejectedForGood.length,
+      })
+    }
   }
 
-  return summary
+  if (toDelete.length > 0) {
+    try {
+      await deps.deleteByIds(toDelete)
+      summary.removed = toDelete.length
+    } catch (error) {
+      console.error('[push] borrar suscripciones falló', error)
+    }
+  }
 }
