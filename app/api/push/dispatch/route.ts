@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { timingSafeEqualStrings } from '@/lib/security/timing-safe-equal'
+import { hasBearerSecret } from '@/lib/security/bearer-secret'
 import {
   dispatchPushEvents,
   dispatchPushNotifications,
@@ -12,24 +12,13 @@ import { isWebPushConfigured } from '@/src/modules/push/infrastructure/web-push-
 // Margen sobre los 45 s de trabajo de `dispatchPushNotifications`.
 export const maxDuration = 60
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.PUSH_DISPATCH_SECRET?.trim()
-  if (!secret) {
-    console.error('[push dispatch] PUSH_DISPATCH_SECRET missing.')
-    return false
-  }
-
-  const header = request.headers.get('authorization') ?? ''
-  return timingSafeEqualStrings(header, `Bearer ${secret}`)
-}
-
 /**
  * Lo llama un pulso periódico (pg_cron + pg_net, o n8n): manda los push
  * pendientes de cada dispositivo, desde los eventos de Odoo (`PUSH_SOURCE=events`)
  * o desde el cálculo por snapshots (por defecto).
  */
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!hasBearerSecret(request, 'PUSH_DISPATCH_SECRET', 'push dispatch')) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 

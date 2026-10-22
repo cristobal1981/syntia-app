@@ -1,14 +1,15 @@
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import type { PushDispatchSummary } from '@/src/modules/push/application/run-push-dispatch'
-import type { PushSource } from '@/src/modules/push/domain/push-source'
+import type { PushRunSource } from '@/src/modules/push/domain/push-source'
 
 /**
- * Deja constancia de una ejecución del dispatcher para vigilarlas desde
+ * Deja constancia de una ejecución del dispatcher o del barrido (en un barrido,
+ * `sent` son los eventos recuperados) para vigilarlas desde
  * Supabase (errores, truncados, ejecuciones saltadas). Nunca lanza: registrar
  * no debe romper el envío.
  */
 export async function recordPushRun(input: {
-  source: PushSource
+  source: PushRunSource
   startedAt: Date
   summary?: PushDispatchSummary
   error?: string
