@@ -51,7 +51,7 @@ const CONCURRENCY = 4
 export const MAX_CONSECUTIVE_REJECTIONS = 10
 
 /** Un usuario archivado, desactivado o sin rol válido no debe seguir recibiendo avisos. */
-function isRecipientActive(recipient: PushRecipient | undefined): recipient is PushRecipient {
+export function isRecipientActive(recipient: PushRecipient | undefined): recipient is PushRecipient {
   if (!recipient) return false
   if (recipient.isActive === false) return false
   if (recipient.status?.toLowerCase() === 'archived') return false

@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
+import { getMaxPortalEventSeq } from '@/src/modules/push/infrastructure/portal-events.supabase'
 import type {
   PushPreferences,
   PushSubscriptionInput,
@@ -29,6 +30,8 @@ export async function upsertPushSubscription(
   preferences: PushPreferences
 ): Promise<void> {
   const supabase = createSupabaseAdminClient()
+  // Foto inicial de los eventos: solo se avisa de lo que llegue desde ahora.
+  const lastEventSeq = await getMaxPortalEventSeq()
   const { error } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: userId,
@@ -44,6 +47,7 @@ export async function upsertPushSubscription(
       // cambia de cuenta, el nuevo usuario no recibe de golpe lo pendiente.
       baselined_at: null,
       failure_count: 0,
+      last_event_seq: lastEventSeq,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'endpoint' }
@@ -116,6 +120,8 @@ export type DispatchSubscription = {
   baselined: boolean
   /** Envíos seguidos rechazados por el servicio de push. */
   failureCount: number
+  /** Último evento de Odoo procesado; `null` = aún sin foto inicial. */
+  lastEventSeq: number | null
 }
 
 type DispatchRow = PushSubscriptionRow & {
@@ -127,6 +133,7 @@ type DispatchRow = PushSubscriptionRow & {
   sent_keys: unknown
   baselined_at: string | null
   failure_count: number | null
+  last_event_seq: number | null
 }
 
 /** Filas por petición: PostgREST corta en 1000 sin avisar. */
@@ -141,7 +148,7 @@ export async function listPushSubscriptions(): Promise<DispatchSubscription[]> {
     const { data, error } = await supabase
       .from('push_subscriptions')
       .select(
-        'id, user_id, endpoint, p256dh, auth, notify_chatter, notify_status, notify_firmas, sent_keys, baselined_at, failure_count'
+        'id, user_id, endpoint, p256dh, auth, notify_chatter, notify_status, notify_firmas, sent_keys, baselined_at, failure_count, last_event_seq'
       )
       .order('id')
       .range(from, from + LIST_PAGE_SIZE - 1)
@@ -165,6 +172,7 @@ export async function listPushSubscriptions(): Promise<DispatchSubscription[]> {
       : [],
     baselined: row.baselined_at !== null,
     failureCount: row.failure_count ?? 0,
+    lastEventSeq: row.last_event_seq ?? null,
   }))
 }
 
@@ -279,4 +287,44 @@ export async function deletePushSubscriptionsByIds(ids: string[]): Promise<void>
   const { error } = await supabase.from('push_subscriptions').delete().in('id', ids)
 
   if (error) throw new Error(error.message)
+}
+
+const CURSOR_UPDATE_CHUNK = 100
+
+/** Marca a varios dispositivos como procesados hasta el evento `seq`. */
+export async function advancePushCursors(ids: string[], seq: number): Promise<void> {
+  if (ids.length === 0) return
+  const supabase = createSupabaseAdminClient()
+
+  for (let from = 0; from < ids.length; from += CURSOR_UPDATE_CHUNK) {
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .update({ last_event_seq: seq })
+      .in('id', ids.slice(from, from + CURSOR_UPDATE_CHUNK))
+
+    if (error) throw new Error(error.message)
+  }
+}
+
+/** Cliente de Odoo de cada usuario (los colaboradores comparten el del titular). */
+export async function fetchPartnerIdsByUserIds(
+  userIds: string[]
+): Promise<Map<string, number>> {
+  const partners = new Map<string, number>()
+  if (userIds.length === 0) return partners
+
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('client_integrations')
+    .select('user_id, odoo_partner_id')
+    .in('user_id', userIds)
+
+  if (error) throw new Error(error.message)
+
+  for (const row of (data ?? []) as { user_id: string; odoo_partner_id: number | null }[]) {
+    if (typeof row.odoo_partner_id === 'number' && row.odoo_partner_id > 0) {
+      partners.set(row.user_id, row.odoo_partner_id)
+    }
+  }
+  return partners
 }

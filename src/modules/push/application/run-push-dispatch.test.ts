@@ -33,6 +33,7 @@ function sub(partial: Partial<DispatchSubscription> = {}): DispatchSubscription 
     sentKeys: [],
     baselined: true,
     failureCount: 0,
+    lastEventSeq: null,
     ...partial,
   }
 }
