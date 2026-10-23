@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFERRED_POLL_MS,
   initialPollDelayMs,
+  SERVER_SEED_GRACE_MS,
   shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
 
@@ -43,5 +44,16 @@ describe('initialPollDelayMs', () => {
   it('sin sembrar, sondea ya; con ?open= espera un poco para dejar abrir el drawer', () => {
     expect(initialPollDelayMs(base)).toBe(0)
     expect(initialPollDelayMs({ ...base, deferForOpenParam: true })).toBe(DEFERRED_POLL_MS)
+  })
+
+  it('en el inicio, si el servidor aún va a sembrar, espera un margen corto (no los 30 s) por si la carga falla', () => {
+    expect(initialPollDelayMs({ ...base, serverWillSeed: true })).toBe(SERVER_SEED_GRACE_MS)
+    expect(SERVER_SEED_GRACE_MS).toBeLessThan(base.intervalMs)
+  })
+
+  it('ya sembrado manda sobre todo lo demás', () => {
+    expect(
+      initialPollDelayMs({ ...base, seededFromServer: true, serverWillSeed: true })
+    ).toBe(30_000)
   })
 })

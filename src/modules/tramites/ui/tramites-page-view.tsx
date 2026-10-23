@@ -582,19 +582,6 @@ export function TramitesPageView({
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-            {tramites.title}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">{tramites.description}</p>
-        </div>
-        <PortalRefreshButton
-          label={tramites.refreshButton}
-          refreshingLabel={tramites.refreshing}
-        />
-      </header>
-
       <TramitesFiltersToolbar
         filters={filters}
         onChange={setFilters}
@@ -617,6 +604,24 @@ export function TramitesPageView({
   )
 }
 
+/** Cabecera de la pantalla: no depende de los datos, así que se pinta antes que ellos. */
+export function TramitesPageHeader() {
+  return (
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
+          {tramites.title}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">{tramites.description}</p>
+      </div>
+      <PortalRefreshButton
+        label={tramites.refreshButton}
+        refreshingLabel={tramites.refreshing}
+      />
+    </header>
+  )
+}
+
 type TramitesStateViewProps = {
   title: string
   description: string
@@ -629,21 +634,14 @@ export function TramitesStateView({
   variant = 'default',
 }: TramitesStateViewProps) {
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-          {tramites.title}
-        </h1>
-      </header>
-      <div
-        className={cn(
-          'portal-home-card rounded-xl px-6 py-10 text-center',
-          variant === 'destructive' && 'border-destructive/30'
-        )}
-      >
-        <h2 className="font-sans text-lg font-semibold text-foreground">{title}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      </div>
+    <div
+      className={cn(
+        'portal-home-card rounded-xl px-6 py-10 text-center',
+        variant === 'destructive' && 'border-destructive/30'
+      )}
+    >
+      <h2 className="font-sans text-lg font-semibold text-foreground">{title}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </div>
   )
 }

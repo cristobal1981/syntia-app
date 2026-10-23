@@ -364,13 +364,21 @@ export function usePortalNotificationsSync({
       void refreshNotifications({ force: true })
     })
 
+    const serverWillSeed = pathnameRef.current === '/dashboard' && !wasSeededFromServer()
     const initialDelay = initialPollDelayMs({
       seededFromServer: wasSeededFromServer(),
+      serverWillSeed,
       deferForOpenParam: shouldDeferInitialPoll(),
       intervalMs: getInitialPollIntervalMs(),
     })
 
     const initialTimer = window.setTimeout(() => {
+      // El servidor sembró las novedades durante el margen: repetir la carga
+      // ahora sería trabajo doble, el siguiente sondeo es el programado.
+      if (serverWillSeed && wasSeededFromServer()) {
+        scheduleNextPoll()
+        return
+      }
       void refreshNotifications().finally(() => {
         scheduleNextPoll()
       })

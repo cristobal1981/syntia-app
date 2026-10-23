@@ -1,16 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { PortalRouteLoadingMarker } from '@/src/modules/portal/ui/portal-route-loading-context'
 
-export function TramitesSkeleton() {
+/** Filtros y listas: lo que espera a los datos en la pantalla de trámites. */
+export function TramitesBodySkeleton() {
   return (
-    <>
-      <PortalRouteLoadingMarker />
-      <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando trámites">
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-40 md:h-9" />
-        <Skeleton className="h-4 w-full max-w-xl" />
-      </div>
-
+    <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando trámites">
       {Array.from({ length: 2 }).map((_, sectionIndex) => (
         <section key={sectionIndex} className="flex flex-col gap-4">
           <Skeleton className="h-6 w-48" />
@@ -36,6 +30,20 @@ export function TramitesSkeleton() {
           </div>
         </section>
       ))}
+    </div>
+  )
+}
+
+export function TramitesSkeleton() {
+  return (
+    <>
+      <PortalRouteLoadingMarker />
+      <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando trámites">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-40 md:h-9" />
+          <Skeleton className="h-4 w-full max-w-xl" />
+        </div>
+        <TramitesBodySkeleton />
       </div>
     </>
   )

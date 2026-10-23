@@ -14,12 +14,22 @@ export function shouldRefreshPortalPageOnNotificationPoll(pathname: string): boo
  */
 export function initialPollDelayMs(input: {
   seededFromServer: boolean
+  /** La pantalla siembra las novedades por streaming y aún no ha llegado (el inicio). */
+  serverWillSeed?: boolean
   deferForOpenParam: boolean
   intervalMs: number
 }): number {
   if (input.seededFromServer) return input.intervalMs
+  if (input.serverWillSeed) return SERVER_SEED_GRACE_MS
   return input.deferForOpenParam ? DEFERRED_POLL_MS : 0
 }
+
+/**
+ * Margen del inicio para que lleguen las novedades por streaming antes de
+ * sondear por su cuenta: si no llegan (la carga del servidor falló), el
+ * sondeo las trae tras este margen y no a los 30 s.
+ */
+export const SERVER_SEED_GRACE_MS = 2_500
 
 export function shouldDeferInitialPoll(): boolean {
   if (typeof window === 'undefined') return false
