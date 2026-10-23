@@ -344,6 +344,7 @@ describe('eventToNotification', () => {
     ['status', 'status_change'],
     ['new_record', 'new_tramite'],
     ['new_firma', 'new_firma'],
+    ['firma_due_soon', 'firma_due_soon'],
   ] as const)('el tipo %s es el aviso %s', (kind, reason) => {
     expect(eventToNotification(row({ kind })).reason).toBe(reason)
   })

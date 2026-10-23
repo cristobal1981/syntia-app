@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { sweepPushMessages, isOdooApiConfigured, recordPushRun } = vi.hoisted(() => ({
+const { sweepPushMessages, sweepPushFirmaDueSoon, isOdooApiConfigured, recordPushRun } = vi.hoisted(() => ({
   sweepPushMessages: vi.fn(),
+  sweepPushFirmaDueSoon: vi.fn(),
   isOdooApiConfigured: vi.fn(),
   recordPushRun: vi.fn(),
 }))
 
-vi.mock('@/src/modules/push/application/sweep-push-messages', () => ({ sweepPushMessages }))
+vi.mock('@/src/modules/push/application/sweep-push-messages', () => ({
+  sweepPushMessages,
+  sweepPushFirmaDueSoon,
+}))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({ isOdooApiConfigured }))
 vi.mock('@/src/modules/push/infrastructure/push-runs.supabase', () => ({ recordPushRun }))
 
@@ -21,6 +25,7 @@ function req(header?: string): Request {
   })
 }
 
+const dueSummary = { scanned: 4, created: 2, existing: 1, outsideHours: false }
 const summary = { scanned: 3, created: 1, existing: 1, skipped: 1, baselined: false, more: true }
 
 beforeEach(() => {
@@ -29,6 +34,7 @@ beforeEach(() => {
   process.env.PUSH_DISPATCH_SECRET = 'test-secret'
   isOdooApiConfigured.mockReturnValue(true)
   sweepPushMessages.mockResolvedValue(summary)
+  sweepPushFirmaDueSoon.mockResolvedValue(dueSummary)
   recordPushRun.mockResolvedValue(undefined)
 })
 
@@ -41,6 +47,7 @@ describe('POST /api/push/reconcile', () => {
     expect((await POST(req())).status).toBe(401)
     expect((await POST(req('Bearer otro'))).status).toBe(401)
     expect(sweepPushMessages).not.toHaveBeenCalled()
+    expect(sweepPushFirmaDueSoon).not.toHaveBeenCalled()
     expect(recordPushRun).not.toHaveBeenCalled()
   })
 
@@ -54,7 +61,7 @@ describe('POST /api/push/reconcile', () => {
     const response = await POST(req('Bearer test-secret'))
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true, ...summary })
+    expect(await response.json()).toEqual({ ok: true, ...summary, firmaDueSoon: dueSummary })
   })
 
   it('registra el barrido: recuperados como enviados, pendiente como truncado', async () => {
@@ -63,7 +70,7 @@ describe('POST /api/push/reconcile', () => {
     expect(recordPushRun).toHaveBeenCalledWith({
       source: 'sweep',
       startedAt: expect.any(Date),
-      summary: { users: 0, sent: 1, removed: 0, skipped: 1, truncated: true, locked: false },
+      summary: { users: 0, sent: 3, removed: 0, skipped: 1, truncated: true, locked: false },
     })
   })
 
@@ -78,5 +85,21 @@ describe('POST /api/push/reconcile', () => {
       startedAt: expect.any(Date),
       error: 'secreto interno',
     })
+  })
+
+  it('si fallan las firmas que vencen pronto, los mensajes se reconcilian igual y el fallo queda registrado', async () => {
+    sweepPushFirmaDueSoon.mockRejectedValue(new Error('odoo caído'))
+    const response = await POST(req('Bearer test-secret'))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, ...summary, firmaDueSoon: { ok: false } })
+    expect(recordPushRun).toHaveBeenCalledWith({
+      source: 'sweep',
+      startedAt: expect.any(Date),
+      error: 'firma_due_soon: odoo caído',
+    })
+    expect(recordPushRun).toHaveBeenCalledWith(
+      expect.objectContaining({ summary: expect.objectContaining({ sent: 1 }) })
+    )
   })
 })

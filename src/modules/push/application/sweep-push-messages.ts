@@ -4,6 +4,11 @@ import {
   type MessageSweepDeps,
   type MessageSweepSummary,
 } from '@/src/modules/push/application/run-message-sweep'
+import {
+  runFirmaDueSweep,
+  type FirmaDueSweepSummary,
+} from '@/src/modules/push/application/run-firma-due-sweep'
+import { fetchDueSoonSignItems } from '@/src/modules/push/infrastructure/odoo-firma-due-sweep'
 import { insertPortalEvent } from '@/src/modules/push/infrastructure/portal-events.supabase'
 import {
   fetchMaxMessageId,
@@ -32,4 +37,14 @@ function productionDeps(): MessageSweepDeps {
 /** Reconciliación de mensajes con Odoo: crea el evento de los que no llegaron. */
 export function sweepPushMessages(): Promise<MessageSweepSummary> {
   return runMessageSweep(productionDeps())
+}
+
+/** «Una firma vence pronto» por eventos: es por fecha, así que lo crea el barrido. */
+export function sweepPushFirmaDueSoon(): Promise<FirmaDueSweepSummary> {
+  return runFirmaDueSweep({
+    fetchDueSoonItems: () => fetchDueSoonSignItems(),
+    insertEvent: insertPortalEvent,
+    now: () => Date.now(),
+    obligacionesPrefix: getObligacionesParentPrefix(),
+  })
 }
