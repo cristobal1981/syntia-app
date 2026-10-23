@@ -30,7 +30,7 @@ const chatter = (recordId: number): PortalNotification =>
 const ids = (list: TramiteListItem[]) => list.map((i) => i.id)
 
 describe('sortTramiteListByActivity', () => {
-  it('«Cambios solicitados» va primero, por delante de los que tienen novedades', () => {
+  it('«Requiere tu atención» va primero, por delante de los que tienen novedades', () => {
     const items = [
       item(1),
       item(2, { state: '01_in_progress' }),

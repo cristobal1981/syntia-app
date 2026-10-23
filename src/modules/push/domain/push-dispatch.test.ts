@@ -172,12 +172,12 @@ describe('buildPushPayload', () => {
       n({
         reason: 'status_change',
         latestMessageId: undefined,
-        newStateLabel: 'Cambios solicitados',
+        newStateLabel: 'Requiere tu atención',
         previousStateLabel: 'En curso',
       }),
     ])
-    expect(payload?.title).toBe('«IRPF 2025»: Cambios solicitados')
-    expect(payload?.body).toBe('Tu asesoría te pide cambios. Entra para verlos.')
+    expect(payload?.title).toBe('«IRPF 2025»: Requiere tu atención')
+    expect(payload?.body).toBe('Tu asesoría necesita algo de ti. Entra para verlo.')
   })
 
   it('otro cambio de estado: dice el nuevo y el anterior', () => {

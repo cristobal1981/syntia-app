@@ -105,7 +105,7 @@ export const tramites = {
   },
   taskStates: {
     inProgress: 'En curso',
-    changesRequested: 'Cambios solicitados',
+    changesRequested: 'Requiere tu atención',
     approved: 'Aprobado',
     waiting: 'En espera',
     done: 'Hecho',

@@ -92,7 +92,7 @@ export function getTramiteActivitySignal(
 }
 
 /**
- * Orden de la lista: primero los trámites en «Cambios solicitados» (los que el
+ * Orden de la lista: primero los trámites en «Requiere tu atención» (los que el
  * cliente tiene que atender, más recientes primero), luego los que tienen
  * alguna señal activa (más reciente primero) y al final el resto en su orden
  * habitual (más modificado primero). Así lo que necesita atención se ve sin

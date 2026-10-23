@@ -134,7 +134,7 @@ describe('parsePortalEventPayload', () => {
 
     it('«cambios solicitados» conserva su etiqueta propia', () => {
       expect(parsed({ ...status, state: '02_changes_requested' })?.stateLabel).toBe(
-        'Cambios solicitados'
+        'Requiere tu atención'
       )
     })
 

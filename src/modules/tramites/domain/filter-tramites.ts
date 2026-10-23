@@ -21,7 +21,7 @@ const STATE_CHIPS = new Set<TramitesFilterChip>([
   'canceled',
 ])
 const DOCUMENTS_CHIP: TramitesFilterChip = 'withDocuments'
-// «Pendientes de ti»: lo que está en «Cambios solicitados», es decir, lo que el
+// «Pendientes de ti»: lo que está en «Requiere tu atención», es decir, lo que el
 // cliente tiene que atender. Es una dimensión propia, no un estado más.
 const ATTENTION_CHIP: TramitesFilterChip = 'needsAttention'
 

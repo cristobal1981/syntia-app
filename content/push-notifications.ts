@@ -5,7 +5,7 @@ export const pushNotifications = {
   enable: 'Activar notificaciones',
   types: {
     chatter: 'Mensajes de tu asesoría',
-    status: 'Cambios solicitados y estados de trámites',
+    status: 'Estados de trámites y avisos que requieren tu atención',
     firmas: 'Firmas pendientes',
   },
   states: {
@@ -30,7 +30,7 @@ export const pushNotifications = {
     chatterBodyFallback: 'Tu asesoría te ha escrito.',
     statusTitle: (name: string, newState?: string) =>
       newState ? `«${name}»: ${newState}` : `Novedad en «${name}»`,
-    statusBodyChangesRequested: 'Tu asesoría te pide cambios. Entra para verlos.',
+    statusBodyChangesRequested: 'Tu asesoría necesita algo de ti. Entra para verlo.',
     statusBodyFrom: (previous: string) => `Antes: ${previous}`,
     statusBodyFallback: 'El estado ha cambiado.',
     newTramiteTitle: (name: string) => `Nuevo trámite: «${name}»`,
