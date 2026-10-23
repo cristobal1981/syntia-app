@@ -10,7 +10,13 @@ import {
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 
 type CacheEvent = {
-  kind: 'message' | 'status' | 'new_record' | 'new_firma' | 'firma_due_soon'
+  kind:
+    | 'message'
+    | 'status'
+    | 'new_record'
+    | 'new_firma'
+    | 'firma_due_soon'
+    | 'assignee_change'
   scope: 'tramite' | 'consulta' | 'obligacion' | 'firma'
   partnerId: number
 }
@@ -34,6 +40,7 @@ export function portalCacheTagsForEvent(event: CacheEvent): string[] {
           ]
         : [tramitesSnapshotCacheTag(partnerId)]
     case 'new_record':
+    case 'assignee_change':
       return [tramitesSnapshotCacheTag(partnerId)]
     case 'new_firma':
       return [pendingSignaturesSnapshotCacheTag(partnerId)]

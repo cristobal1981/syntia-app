@@ -1,4 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import type { PortalUser } from '@/src/modules/auth/domain/types'
+import {
+  ClientHomeGreeting,
+  ClientHomeQuickLinksSection,
+  QUICK_LINKS,
+} from '@/src/modules/portal/ui/client-home-static'
 import { PortalRouteLoadingMarker } from '@/src/modules/portal/ui/portal-route-loading-context'
 
 /** Resumen y novedades: lo que depende de Odoo y entra por streaming en el inicio. */
@@ -49,18 +55,25 @@ export function ClientHomeQuickLinksSkeleton() {
   )
 }
 
-export function ClientHomeSkeleton() {
+/**
+ * Pantalla de carga del inicio de un cliente: el saludo y los accesos rápidos
+ * reales (el nombre ya viene en la cookie de sesión firmada, sin consultar nada)
+ * y solo el resumen y las novedades en esqueleto. Es lo mismo que pinta la página,
+ * así que al llegar los datos no hay saltos. Un colaborador no sabe aún qué
+ * accesos tiene y ve su esqueleto.
+ */
+export function ClientHomeLoading({ user }: { user: PortalUser }) {
   return (
     <>
       <PortalRouteLoadingMarker />
-      <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando inicio">
-        <header className="flex flex-col gap-2">
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-8 w-56 md:h-9 md:w-72" />
-        </header>
-
+      <div className="flex flex-col gap-8">
+        <ClientHomeGreeting name={user.name} companyName={user.companyName} />
         <ClientHomeDashboardSkeleton />
-        <ClientHomeQuickLinksSkeleton />
+        {user.role === 'worker' ? (
+          <ClientHomeQuickLinksSkeleton />
+        ) : (
+          <ClientHomeQuickLinksSection links={QUICK_LINKS} />
+        )}
       </div>
     </>
   )

@@ -5,6 +5,7 @@ import type {
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import { formatObligacionModelLabel } from '@/src/modules/obligaciones/domain/format-obligacion-model-label'
 import { formatObligacionPeriodLabel } from '@/src/modules/obligaciones/domain/format-obligacion-period-label'
+import { formatAssigneesLabel } from '@/src/modules/tramites/domain/format-assignees'
 import { mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { htmlToPushPreview } from '@/src/modules/push/domain/push-text'
 
@@ -14,6 +15,7 @@ export type PortalEventKind =
   | 'new_record'
   | 'new_firma'
   | 'firma_due_soon'
+  | 'assignee_change'
 
 /** Lo que se guarda de un evento de Odoo (sin `seq` ni fecha de llegada). */
 export type PortalEventInput = {
@@ -45,6 +47,7 @@ const KINDS: ReadonlySet<string> = new Set([
   'new_record',
   'new_firma',
   'firma_due_soon',
+  'assignee_change',
 ])
 
 const MODEL_TASK = 'project.task'
@@ -54,6 +57,8 @@ const MODEL_SIGN = 'sign.request'
 const MAX_EVENT_ID_LENGTH = 200
 const MAX_NAME_LENGTH = 200
 const MAX_STATE_LENGTH = 60
+/** Personas asignadas que se aceptan en un evento (más son un error del origen). */
+const MAX_ASSIGNEES = 10
 const MAX_ANCESTORS = 10
 /** Se ignora lo que pase de aquí antes de sanear, para no gastar CPU con cuerpos enormes. */
 const MAX_BODY_LENGTH = 50_000
@@ -156,7 +161,8 @@ export function parsePortalEventPayload(
     (ancestors.length === 0 && recordName.startsWith(options.obligacionesPrefix))
   ) {
     scope = 'obligacion'
-    if (kind === 'new_record') return IGNORED
+    // Las obligaciones no enseñan quién las lleva ni avisan de altas en bloque.
+    if (kind === 'new_record' || kind === 'assignee_change') return IGNORED
     // Raíz y periodos no avisan: solo la hoja raíz > periodo > hoja.
     if (ancestors.length !== 2) return IGNORED
     const modelLabel = formatObligacionModelLabel(recordName)
@@ -174,6 +180,25 @@ export function parsePortalEventPayload(
     previousStateLabel = previous ? (mapTaskStateLabel(previous) ?? null) : null
     // Mismo estado visible antes y después (p. ej. 03_approved y 01_in_progress): no es un cambio.
     if (previousStateLabel === stateLabel) return IGNORED
+  }
+
+  if (kind === 'assignee_change') {
+    // Quién lo lleva ahora (nombres tal cual los da Odoo). Sin nadie (se quitó la
+    // asignación) no hay nada útil que decir: Odoo no debe reintentar.
+    if (
+      !Array.isArray(raw.assignee_names) ||
+      raw.assignee_names.length > MAX_ASSIGNEES ||
+      raw.assignee_names.some((name) => typeof name !== 'string')
+    ) {
+      return INVALID
+    }
+    stateLabel = formatAssigneesLabel(
+      (raw.assignee_names as string[]).map((name) => ({
+        userId: 0,
+        name: name.slice(0, MAX_NAME_LENGTH),
+      }))
+    )
+    if (!stateLabel) return IGNORED
   }
 
   const body =
@@ -220,6 +245,7 @@ const REASON_BY_KIND: Record<PortalEventKind, PortalNotificationReason> = {
   new_record: 'new_tramite',
   new_firma: 'new_firma',
   firma_due_soon: 'firma_due_soon',
+  assignee_change: 'assignee_change',
 }
 
 /** Un evento como el aviso que ya sabe convertir en push (`buildPushPayload`). */
@@ -233,6 +259,7 @@ export function eventToNotification(event: PortalEventRow): PortalNotification {
     listKind:
       event.scope === 'tramite' || event.scope === 'consulta' ? event.scope : undefined,
     latestMessageId: event.messageId ?? undefined,
+    assigneeLabel: event.kind === 'assignee_change' ? (event.stateLabel ?? undefined) : undefined,
     previousStateLabel: event.previousStateLabel ?? undefined,
     newStateLabel: event.stateLabel ?? undefined,
   }

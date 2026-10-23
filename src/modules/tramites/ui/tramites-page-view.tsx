@@ -42,6 +42,8 @@ import {
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
 import { TramiteActivityBadge } from '@/src/modules/tramites/ui/tramite-activity-badge'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
+import { formatTramiteDate } from '@/src/modules/tramites/domain/format-tramite-date'
+import { TramitePriorityIndicator } from '@/src/modules/tramites/ui/tramite-priority-indicator'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 import { TramitesFiltersToolbar } from '@/src/modules/tramites/ui/tramites-filters-toolbar'
@@ -261,6 +263,14 @@ function TramitesListSection({
         },
       },
       {
+        id: 'priority',
+        header: copy.columns.priority,
+        cellClassName: 'w-px whitespace-nowrap',
+        render: ({ node }: TramiteTreeRow) => (
+          <TramitePriorityIndicator priority={node.item.priority} />
+        ),
+      },
+      {
         id: 'tags',
         header: copy.columns.tags,
         cellClassName: 'whitespace-nowrap',
@@ -275,6 +285,12 @@ function TramitesListSection({
             </div>
           )
         },
+      },
+      {
+        id: 'updated',
+        header: copy.columns.updated,
+        cellClassName: 'w-px whitespace-nowrap tabular-nums text-muted-foreground',
+        render: ({ node }: TramiteTreeRow) => formatTramiteDate(node.item.modifiedAt) || '—',
       },
       {
         id: 'actions',

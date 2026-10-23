@@ -5,7 +5,7 @@ export const pushNotifications = {
   enable: 'Activar notificaciones',
   types: {
     chatter: 'Mensajes de tu asesoría',
-    status: 'Cambios solicitados y estados de trámites',
+    status: 'Estados de trámites y avisos que requieren tu atención',
     firmas: 'Firmas pendientes',
   },
   states: {
@@ -30,13 +30,15 @@ export const pushNotifications = {
     chatterBodyFallback: 'Tu asesoría te ha escrito.',
     statusTitle: (name: string, newState?: string) =>
       newState ? `«${name}»: ${newState}` : `Novedad en «${name}»`,
-    statusBodyChangesRequested: 'Tu asesoría te pide cambios. Entra para verlos.',
+    statusBodyChangesRequested: 'Tu asesoría necesita algo de ti. Entra para verlo.',
     statusBodyFrom: (previous: string) => `Antes: ${previous}`,
     statusBodyFallback: 'El estado ha cambiado.',
     newTramiteTitle: (name: string) => `Nuevo trámite: «${name}»`,
     newTramiteBody: 'Tu asesoría ha abierto un trámite para ti.',
     firmaTitle: 'Tienes una firma pendiente',
     firmaDueTitle: 'Una firma está a punto de vencer',
+    assigneeTitle: (name: string) => `Nuevo responsable en «${name}»`,
+    assigneeBody: (assignee: string) => `Ahora te atiende ${assignee}.`,
     summaryTitle: (count: number) => `Tienes ${count} novedades en Syntia`,
     summaryParts: {
       messages: (n: number) => `${n} ${n === 1 ? 'mensaje' : 'mensajes'}`,
@@ -45,6 +47,8 @@ export const pushNotifications = {
       newTramites: (n: number) =>
         `${n} ${n === 1 ? 'trámite nuevo' : 'trámites nuevos'}`,
       firmas: (n: number) => `${n} ${n === 1 ? 'firma' : 'firmas'}`,
+      assignees: (n: number) =>
+        `${n} ${n === 1 ? 'cambio de responsable' : 'cambios de responsable'}`,
     },
   },
 } as const

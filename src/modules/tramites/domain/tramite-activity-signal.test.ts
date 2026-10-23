@@ -13,6 +13,9 @@ function item(id: number, over: Partial<TramiteListItem> = {}): TramiteListItem 
     attachmentCount: 0,
     modifiedAt: `2026-10-${String(10 + id).padStart(2, '0')} 10:00:00`,
     assignedNotifyPartnerIds: [],
+    createdAt: '',
+    priority: 0,
+    assignees: [],
     ...over,
   }
 }
@@ -30,7 +33,7 @@ const chatter = (recordId: number): PortalNotification =>
 const ids = (list: TramiteListItem[]) => list.map((i) => i.id)
 
 describe('sortTramiteListByActivity', () => {
-  it('«Cambios solicitados» va primero, por delante de los que tienen novedades', () => {
+  it('«Requiere tu atención» va primero, por delante de los que tienen novedades', () => {
     const items = [
       item(1),
       item(2, { state: '01_in_progress' }),

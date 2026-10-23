@@ -11,13 +11,14 @@ type ChatterAuthorAvatarProps = {
   name: string
   partnerId: number
   className?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   priority?: boolean
 }
 
 type AvatarLoadStatus = 'loading' | 'loaded' | 'failed'
 
 const AVATAR_SIZE = {
+  xs: { box: 'size-5', text: 'text-[0.6rem]', px: 20 },
   sm: { box: 'size-8', text: 'text-xs', px: 32 },
   md: { box: 'size-10', text: 'text-sm', px: 40 },
   lg: { box: 'size-12', text: 'text-base', px: 48 },

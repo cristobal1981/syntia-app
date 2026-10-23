@@ -46,6 +46,12 @@ describe('portalCacheTagsForEvent', () => {
     ])
   })
 
+  it('un cambio de responsable deja viejo el snapshot de trámites (es donde viven los asignados)', () => {
+    expect(portalCacheTagsForEvent({ kind: 'assignee_change', scope: 'tramite', partnerId: P })).toEqual([
+      `tramites-snapshot:${P}`,
+    ])
+  })
+
   it('una firma nueva deja vieja la de firmas pendientes', () => {
     expect(portalCacheTagsForEvent({ kind: 'new_firma', scope: 'firma', partnerId: P })).toEqual([
       `pending-signatures-snapshot:${P}`,

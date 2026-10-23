@@ -194,6 +194,9 @@ export function TramiteCreateConsultaDrawer({
       isClosed: false,
       attachmentCount: 0,
       modifiedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      priority: 0,
+      assignees: [],
       assignedNotifyPartnerIds: [],
     })
     onOpenChange(false)

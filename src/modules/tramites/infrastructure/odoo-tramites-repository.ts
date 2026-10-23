@@ -1,8 +1,11 @@
 import type {
+  TramiteAssignee,
+  TramitePriority,
   TramiteTask,
   TramiteTicket,
   TramitesSnapshot,
 } from '@/src/modules/tramites/domain/types'
+import { inheritAssignees } from '@/src/modules/tramites/domain/inherit-assignees'
 import { isTaskClosed, mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 import {
@@ -16,7 +19,10 @@ import {
   TRAMITES_SHOW_IN_SYNTIA_FIELD,
 } from '@/src/modules/tramites/infrastructure/tramites-env'
 import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
-import { resolveOdooPartnerIdsByUserIds } from '@/src/modules/portal/infrastructure/odoo-advisor-partner'
+import {
+  resolveOdooUsersByIds,
+  type OdooUserSummary,
+} from '@/src/modules/portal/infrastructure/odoo-advisor-partner'
 import {
   isOdooApiConfigured,
   mapOdooMany2OneId,
@@ -28,6 +34,8 @@ type OdooTaskRow = {
   name: string
   state?: string | false | null
   write_date?: string | false | null
+  create_date?: string | false | null
+  priority?: string | false | null
   user_ids?: number[] | false | null
   parent_id?: [number, string] | false | null
 }
@@ -42,6 +50,7 @@ type OdooTicketRow = {
   close_date?: string | false | null
   write_date?: string | false | null
   create_date?: string | false | null
+  priority?: string | false | null
   user_id?: [number, string] | false | null
   [key: string]: unknown
 }
@@ -53,20 +62,44 @@ function mapOdooUserIds(value: unknown): number[] {
 
 function mapAssignedNotifyPartnerIds(
   odooUserIds: number[],
-  partnerByUserId: Map<number, number>
+  users: Map<number, OdooUserSummary>
 ): number[] {
   const partnerIds = new Set<number>()
   for (const userId of odooUserIds) {
-    const partnerId = partnerByUserId.get(userId)
+    const partnerId = users.get(userId)?.partnerId
     if (partnerId && partnerId > 0) partnerIds.add(partnerId)
   }
   return [...partnerIds]
 }
 
+/** Quién lo lleva: solo usuarios que existen y tienen nombre; sin duplicados y por orden estable. */
+export function mapAssignees(
+  odooUserIds: number[],
+  users: Map<number, OdooUserSummary>
+): TramiteAssignee[] {
+  const assignees: TramiteAssignee[] = []
+  for (const userId of [...new Set(odooUserIds)].sort((a, b) => a - b)) {
+    const user = users.get(userId)
+    if (user?.name) {
+      assignees.push({
+        userId,
+        name: user.name,
+        ...(user.partnerId ? { partnerId: user.partnerId } : {}),
+      })
+    }
+  }
+  return assignees
+}
+
+/** Prioridad de Odoo (`'0'`..`'3'`): cualquier otro valor cuenta como baja. */
+export function mapPriority(value: unknown): TramitePriority {
+  return value === '1' ? 1 : value === '2' ? 2 : value === '3' ? 3 : 0
+}
+
 function mapTask(
   row: OdooTaskRow,
   attachmentCounts: Map<number, number>,
-  partnerByUserId: Map<number, number>
+  users: Map<number, OdooUserSummary>
 ): TramiteTask {
   const state =
     typeof row.state === 'string' && row.state ? row.state : undefined
@@ -79,10 +112,13 @@ function mapTask(
     attachmentCount: attachmentCounts.get(row.id) ?? 0,
     isClosed: isTaskClosed(state),
     modifiedAt: parseOdooDateTime(row.write_date),
+    createdAt: parseOdooDateTime(row.create_date),
+    priority: mapPriority(row.priority),
+    assignees: mapAssignees(mapOdooUserIds(row.user_ids), users),
     parentId: mapOdooMany2OneId(row.parent_id) ?? undefined,
     assignedNotifyPartnerIds: mapAssignedNotifyPartnerIds(
       mapOdooUserIds(row.user_ids),
-      partnerByUserId
+      users
     ),
   }
 }
@@ -97,7 +133,7 @@ function mapTicket(
   row: OdooTicketRow,
   attachmentCounts: Map<number, number>,
   closedField: string,
-  partnerByUserId: Map<number, number>
+  users: Map<number, OdooUserSummary>
 ): TramiteTicket {
   const closedValue = row[closedField]
   const isClosed =
@@ -112,9 +148,12 @@ function mapTicket(
     attachmentCount: attachmentCounts.get(row.id) ?? 0,
     isClosed,
     modifiedAt: ticketModifiedAt(row),
+    createdAt: parseOdooDateTime(row.create_date),
+    priority: mapPriority(row.priority),
+    assignees: mapAssignees(assigneeUserId ? [assigneeUserId] : [], users),
     assignedNotifyPartnerIds: mapAssignedNotifyPartnerIds(
       assigneeUserId ? [assigneeUserId] : [],
-      partnerByUserId
+      users
     ),
   }
 }
@@ -161,7 +200,7 @@ async function listProjectTaskRows(
       ['project_id', 'in', projectIds],
       ['id', 'child_of', flaggedIds],
     ],
-    fields: ['name', 'state', 'write_date', 'user_ids', 'parent_id'],
+    fields: ['name', 'state', 'write_date', 'create_date', 'priority', 'user_ids', 'parent_id'],
     order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })
@@ -175,13 +214,14 @@ async function listProjectTasks(
 ): Promise<TramiteTask[]> {
   const filteredRows = await listProjectTaskRows(projectIds, excludedTaskIds)
   const assigneeUserIds = filteredRows.flatMap((row) => mapOdooUserIds(row.user_ids))
-  const partnerByUserId = await resolveOdooPartnerIdsByUserIds(assigneeUserIds)
+  const users = await resolveOdooUsersByIds(assigneeUserIds)
   const attachmentCounts = await countAttachmentsByRecordIds(
     'project.task',
     filteredRows.map((row) => row.id)
   )
 
-  return filteredRows.map((row) => mapTask(row, attachmentCounts, partnerByUserId))
+  // La herencia se calcula con las propias asignaciones de todas las tareas, antes de heredar.
+  return inheritAssignees(filteredRows.map((row) => mapTask(row, attachmentCounts, users)))
 }
 
 async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]> {
@@ -189,7 +229,7 @@ async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]
   const closedField = getTicketClosedField()
   return odooSearchRead<OdooTicketRow>(model, {
     domain: [['partner_id', '=', partnerId]],
-    fields: ['name', closedField, 'write_date', 'create_date', 'user_id'],
+    fields: ['name', closedField, 'write_date', 'create_date', 'priority', 'user_id'],
     order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })
@@ -202,14 +242,14 @@ async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
   const assigneeUserIds = rows
     .map((row) => mapOdooMany2OneId(row.user_id))
     .filter((id): id is number => typeof id === 'number' && id > 0)
-  const partnerByUserId = await resolveOdooPartnerIdsByUserIds(assigneeUserIds)
+  const users = await resolveOdooUsersByIds(assigneeUserIds)
 
   const attachmentCounts = await countAttachmentsByRecordIds(
     model,
     rows.map((row) => row.id)
   )
 
-  return rows.map((row) => mapTicket(row, attachmentCounts, closedField, partnerByUserId))
+  return rows.map((row) => mapTicket(row, attachmentCounts, closedField, users))
 }
 
 /** Foto de trámites (tareas + tickets) del cliente en Odoo; la cachea el portal. */

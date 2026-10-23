@@ -53,7 +53,12 @@ import {
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
+import { buildTramiteDatesLine } from '@/src/modules/tramites/domain/format-tramite-date'
+import { ChatterSkeleton } from '@/src/modules/portal/ui/chatter-skeleton'
+import { useSettledValue } from '@/lib/use-settled-value'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
+import { TramitePriorityIndicator } from '@/src/modules/tramites/ui/tramite-priority-indicator'
+import { TramiteAssignees } from '@/src/modules/tramites/ui/tramite-assignees'
 import { TramiteDescription } from '@/src/modules/tramites/ui/tramite-description'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
 
@@ -78,6 +83,9 @@ type TramiteDetailDrawerProps = {
  * documentos. Marca como visto chatter, cambios de estado y documentos al
  * abrir; ver los comentarios inline para el porqué del orden de los acks.
  */
+/** Lo que tiene que quedarse quieto un elemento para cargar su chat al navegar rápido con las flechas. */
+const ITEM_SETTLE_MS = 250
+
 export function TramiteDetailDrawer({
   item: itemProp,
   open,
@@ -144,10 +152,16 @@ export function TramiteDetailDrawer({
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0
+  // Navegando rápido con las flechas, lo pesado (chat, descripción, adjuntos y marcar como
+  // visto) espera a que el elemento se quede quieto: las Server Actions salen en cola y cada
+  // paso lanzaba la suya, así que la del elemento final esperaba a todas las anteriores. La
+  // cabecera sí cambia al instante, y la primera apertura no espera.
+  const { isSettling } = useSettledValue(item?.id, ITEM_SETTLE_MS, open)
   const markConversationSeen = notifications?.markConversationSeen
   const dismissNewTramiteNotification =
     notifications?.dismissNewTramiteNotification
   const ackStatusChangeSeen = notifications?.ackStatusChangeSeen
+  const ackAssigneeChangeSeen = notifications?.ackAssigneeChangeSeen
 
   // Calculado en el render (no solo dentro del efecto) para que el valor
   // llegue a RecordChatterPanel como prop antes de que el ack de abajo lo
@@ -173,7 +187,7 @@ export function TramiteDetailDrawer({
   }, [item?.id, item?.kind])
 
   useEffect(() => {
-    if (!open || !item) return
+    if (!open || !item || isSettling) return
 
     if (chatterNotification?.latestMessageId) {
       void markConversationSeen?.(
@@ -186,9 +200,16 @@ export function TramiteDetailDrawer({
     if (notifications?.hasTramiteNotification(item, 'status_change')) {
       void ackStatusChangeSeen?.(item.kind, item.id)
     }
+
+    // El drawer enseña quién lo lleva: abrirlo da por visto el cambio de responsable.
+    if (notifications?.hasTramiteNotification(item, 'assignee_change')) {
+      void ackAssigneeChangeSeen?.(item.kind, item.id)
+    }
   }, [
+    ackAssigneeChangeSeen,
     ackStatusChangeSeen,
     chatterNotification,
+    isSettling,
     item,
     markConversationSeen,
     notifications,
@@ -206,9 +227,9 @@ export function TramiteDetailDrawer({
 
   useEffect(() => {
     const itemId = item?.id
-    if (!open || item?.kind !== 'tramite' || itemId === undefined) return
+    if (!open || isSettling || item?.kind !== 'tramite' || itemId === undefined) return
     dismissNewTramiteNotification?.(recordKind, itemId)
-  }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
+  }, [dismissNewTramiteNotification, isSettling, item?.id, item?.kind, open, recordKind])
 
   const pageTotal = pageItems.length
   const showPageNav =
@@ -242,6 +263,7 @@ export function TramiteDetailDrawer({
 
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
+  const datesLine = buildTramiteDatesLine(tramite)
   const subtasksCopy = tramites.subtasks
   const parentTramite = getParentTramite(allItems, tramite)
   const showZipButton = liveAttachmentCount > 1
@@ -324,8 +346,74 @@ export function TramiteDetailDrawer({
 
   return (
     <PortalSideDrawer open={open} onOpenChange={onOpenChange} size="wide">
-        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border/50">
-          <DialogTitle className="text-pretty pr-8">{tramite.name}</DialogTitle>
+        <DialogHeader className="shrink-0 gap-0 border-b border-border px-6 pt-3 pb-5 text-left dark:border-border/50">
+          {/* Fila de arriba: la navegación entre trámites y, a la derecha, el botón de cerrar del
+              marco (absoluto, a la altura de esta fila). El hueco es fijo aunque no haya
+              navegación, para que nada se mueva entre un trámite y el siguiente. */}
+          <div className="flex h-8 items-center pr-9">
+            {showPageNav ? (
+              <div
+                className="flex items-center gap-1"
+                role="navigation"
+                aria-label={navCopy.positionLabel
+                  .replace('{current}', String(pageItemIndex + 1))
+                  .replace('{total}', String(pageTotal))}
+              >
+                <PortalActionTooltip content={prevTooltip} disabled={!canGoPrevious}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canGoPrevious}
+                    onClick={handleGoPrevious}
+                    aria-label={navCopy.previous}
+                    aria-keyshortcuts={prevShortcutLabel}
+                    className={cn(
+                      'relative',
+                      overlayActive &&
+                        canGoPrevious &&
+                        'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                    )}
+                  >
+                    <ChevronLeft className="size-4" aria-hidden />
+                  </Button>
+                </PortalActionTooltip>
+                <span
+                  className="min-w-[4.75rem] text-center text-xs tabular-nums text-muted-foreground"
+                  aria-hidden
+                >
+                  {pageItemIndex + 1}/{pageTotal}
+                </span>
+                <PortalActionTooltip content={nextTooltip} disabled={!canGoNext}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canGoNext}
+                    onClick={handleGoNext}
+                    aria-label={navCopy.next}
+                    aria-keyshortcuts={nextShortcutLabel}
+                    className={cn(
+                      'relative',
+                      overlayActive &&
+                        canGoNext &&
+                        'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                    )}
+                  >
+                    <ChevronRight className="size-4" aria-hidden />
+                  </Button>
+                </PortalActionTooltip>
+              </div>
+            ) : null}
+          </div>
+          {/* Dos líneas como máximo; ocupa lo que necesite. La navegación va en la fila de
+              arriba, así que no se mueve aunque cambie la altura del título. */}
+          <DialogTitle
+            className="mt-2 line-clamp-2 text-pretty"
+            title={tramite.name}
+          >
+            {tramite.name}
+          </DialogTitle>
           {parentTramite ? (
             <button
               type="button"
@@ -339,73 +427,25 @@ export function TramiteDetailDrawer({
               </span>
             </button>
           ) : null}
-          {tramite.kind === 'tramite' ? (
+          {tramite.kind === 'tramite' && !isSettling ? (
             <TramiteDescription key={tramite.id} taskId={tramite.id} />
           ) : null}
+          {datesLine ? (
+            <p className="mt-2 text-xs text-muted-foreground">{datesLine}</p>
+          ) : null}
           <DialogDescription asChild>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <TramiteTypeBadge kind={tramite.kind} />
-                <TaskStateBadge
-                  label={stateBadge.label}
-                  variant={stateBadge.variant}
-                />
-              </div>
-
-              {showPageNav ? (
-                <div
-                  className="flex items-center gap-1"
-                  role="navigation"
-                  aria-label={navCopy.positionLabel
-                    .replace('{current}', String(pageItemIndex + 1))
-                    .replace('{total}', String(pageTotal))}
-                >
-                  <PortalActionTooltip content={prevTooltip} disabled={!canGoPrevious}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      disabled={!canGoPrevious}
-                      onClick={handleGoPrevious}
-                      aria-label={navCopy.previous}
-                      aria-keyshortcuts={prevShortcutLabel}
-                      className={cn(
-                        'relative',
-                        overlayActive &&
-                          canGoPrevious &&
-                          'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
-                      )}
-                    >
-                      <ChevronLeft className="size-4" aria-hidden />
-                    </Button>
-                  </PortalActionTooltip>
-                  <span
-                    className="min-w-[3.25rem] text-center text-xs tabular-nums text-muted-foreground"
-                    aria-hidden
-                  >
-                    {pageItemIndex + 1}/{pageTotal}
-                  </span>
-                  <PortalActionTooltip content={nextTooltip} disabled={!canGoNext}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      disabled={!canGoNext}
-                      onClick={handleGoNext}
-                      aria-label={navCopy.next}
-                      aria-keyshortcuts={nextShortcutLabel}
-                      className={cn(
-                        'relative',
-                        overlayActive &&
-                          canGoNext &&
-                          'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
-                      )}
-                    >
-                      <ChevronRight className="size-4" aria-hidden />
-                    </Button>
-                  </PortalActionTooltip>
+            <div className="mt-3 flex flex-col items-start gap-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <TramiteTypeBadge kind={tramite.kind} />
+                  <TaskStateBadge
+                    label={stateBadge.label}
+                    variant={stateBadge.variant}
+                  />
                 </div>
-              ) : null}
+                <TramitePriorityIndicator priority={tramite.priority} showLabel />
+              </div>
+              <TramiteAssignees assignees={tramite.assignees} />
             </div>
           </DialogDescription>
         </DialogHeader>
@@ -428,7 +468,9 @@ export function TramiteDetailDrawer({
           value={activeTab}
           onChange={handleTabChange}
         >
-          {activeTab === 'conversation' ? (
+          {activeTab === 'conversation' && isSettling ? (
+            <ChatterSkeleton />
+          ) : activeTab === 'conversation' ? (
             <RecordChatterPanel
               kind={recordKind}
               recordId={tramite.id}
@@ -477,14 +519,16 @@ export function TramiteDetailDrawer({
                 </p>
               ) : null}
 
-              <RecordAttachmentsPanel
-                kind={recordKind}
-                recordId={tramite.id}
-                active={open && activeTab === 'documents'}
-                knownAttachmentCount={liveAttachmentCount}
-                refreshToken={attachmentsRefreshToken}
-                highlightAttachmentId={highlightAttachmentId}
-              />
+              {isSettling ? null : (
+                <RecordAttachmentsPanel
+                  kind={recordKind}
+                  recordId={tramite.id}
+                  active={open && activeTab === 'documents'}
+                  knownAttachmentCount={liveAttachmentCount}
+                  refreshToken={attachmentsRefreshToken}
+                  highlightAttachmentId={highlightAttachmentId}
+                />
+              )}
             </section>
           )}
         </RecordDetailTabs>

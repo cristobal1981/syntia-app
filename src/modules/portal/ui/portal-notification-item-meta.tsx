@@ -4,6 +4,7 @@ import {
   Flame,
   MessageCircleWarning,
   RefreshCw,
+  UserRound,
 } from 'lucide-react'
 
 import { firmas } from '@/content/firmas'
@@ -27,6 +28,8 @@ export function portalNotificationTypeLabel(
       return copy.typeUnreadMessage
     case 'status_change':
       return item.isCloseEvent ? copy.typeStatusClosed : copy.typeStatusChange
+    case 'assignee_change':
+      return copy.typeAssigneeChange
     case 'new_firma':
       return copy.typeNewFirma
     case 'firma_due_soon':
@@ -44,6 +47,8 @@ function notificationIcon(item: PortalNotification) {
       return MessageCircleWarning
     case 'status_change':
       return RefreshCw
+    case 'assignee_change':
+      return UserRound
     case 'new_firma':
       return FileSignature
     case 'firma_due_soon':
@@ -75,6 +80,9 @@ export function PortalNotificationItemMeta({
         <span className="text-muted-foreground">
           {item.previousStateLabel} → {item.newStateLabel}
         </span>
+      ) : null}
+      {item.reason === 'assignee_change' && item.assigneeLabel ? (
+        <span className="text-muted-foreground">{item.assigneeLabel}</span>
       ) : null}
     </span>
   )

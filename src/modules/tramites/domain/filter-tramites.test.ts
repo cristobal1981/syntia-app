@@ -19,6 +19,9 @@ function task(id: number, state: string, isClosed = false): TramiteListItem {
     attachmentCount: 0,
     modifiedAt: '2026-10-20 10:00:00',
     assignedNotifyPartnerIds: [],
+    createdAt: '',
+    priority: 0,
+    assignees: [],
   }
 }
 
@@ -33,6 +36,9 @@ const consulta: TramiteListItem = {
   attachmentCount: 0,
   modifiedAt: '2026-10-20 10:00:00',
   assignedNotifyPartnerIds: [],
+  createdAt: '',
+  priority: 0,
+  assignees: [],
 }
 const items = [changes, progress, done, consulta]
 

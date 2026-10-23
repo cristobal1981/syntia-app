@@ -1,4 +1,9 @@
-import type { TramiteTask, TramiteTicket } from '@/src/modules/tramites/domain/types'
+import type {
+  TramiteAssignee,
+  TramitePriority,
+  TramiteTask,
+  TramiteTicket,
+} from '@/src/modules/tramites/domain/types'
 import { compareTramiteModifiedAtDesc } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 
 export type TramiteListKind = 'tramite' | 'consulta'
@@ -11,6 +16,10 @@ export type TramiteListItem = {
   isClosed: boolean
   attachmentCount: number
   modifiedAt: string
+  createdAt: string
+  priority: TramitePriority
+  assignees: TramiteAssignee[]
+  assigneesInherited?: boolean
   /** Solo trámites (tareas): la tarea de la que es subtarea. */
   parentId?: number
   assignedNotifyPartnerIds: number[]
@@ -28,6 +37,10 @@ export function mergeTramitesList(
     isClosed: task.isClosed,
     attachmentCount: task.attachmentCount,
     modifiedAt: task.modifiedAt,
+    createdAt: task.createdAt,
+    priority: task.priority,
+    assignees: task.assignees,
+    assigneesInherited: task.assigneesInherited,
     parentId: task.parentId,
     assignedNotifyPartnerIds: task.assignedNotifyPartnerIds,
   }))
@@ -39,6 +52,9 @@ export function mergeTramitesList(
     isClosed: ticket.isClosed,
     attachmentCount: ticket.attachmentCount,
     modifiedAt: ticket.modifiedAt,
+    createdAt: ticket.createdAt,
+    priority: ticket.priority,
+    assignees: ticket.assignees,
     assignedNotifyPartnerIds: ticket.assignedNotifyPartnerIds,
   }))
 

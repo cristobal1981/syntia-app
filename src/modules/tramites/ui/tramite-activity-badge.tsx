@@ -1,4 +1,4 @@
-import { Flame, MessageCircleWarning, RefreshCw } from 'lucide-react'
+import { Flame, MessageCircleWarning, RefreshCw, UserRound } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { tramites } from '@/content/tramites'
@@ -8,6 +8,7 @@ const REASON_ICON: Record<TramiteActivitySignal['reason'], typeof Flame> = {
   new_tramite: Flame,
   unread_chatter: MessageCircleWarning,
   status_change: RefreshCw,
+  assignee_change: UserRound,
   new_firma: RefreshCw,
   firma_due_soon: RefreshCw,
 }

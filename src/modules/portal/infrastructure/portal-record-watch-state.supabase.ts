@@ -12,6 +12,7 @@ type PortalRecordWatchStateRow = {
   last_attachment_count: number
   firma_due_soon_notified: boolean
   initialized: boolean
+  last_assignee_key: string | null
   updated_at: string
 }
 
@@ -21,6 +22,8 @@ export type PortalRecordWatchStateEntry = {
   lastAttachmentCount: number
   firmaDueSoonNotified: boolean
   initialized: boolean
+  /** Huella de los responsables vistos (ver `assigneeKeyFor`); `undefined` = fila anterior a la columna. */
+  lastAssigneeKey?: string
 }
 
 export type PortalRecordWatchStateMap = Map<string, PortalRecordWatchStateEntry>
@@ -33,6 +36,8 @@ export type PortalRecordWatchStateUpsert = {
   lastAttachmentCount: number
   firmaDueSoonNotified: boolean
   initialized: boolean
+  /** Quien escriba el seguimiento debe pasar aquí el valor anterior si no lo cambia: omitirlo lo borraría. */
+  lastAssigneeKey?: string
 }
 
 export async function fetchWatchStateForUser(
@@ -42,7 +47,7 @@ export async function fetchWatchStateForUser(
   const { data, error } = await supabase
     .from('portal_record_watch_state')
     .select(
-      'record_scope, record_id, last_state, last_is_closed, last_attachment_count, firma_due_soon_notified, initialized'
+      'record_scope, record_id, last_state, last_is_closed, last_attachment_count, firma_due_soon_notified, initialized, last_assignee_key'
     )
     .eq('user_id', userId)
 
@@ -60,6 +65,7 @@ export async function fetchWatchStateForUser(
     | 'last_attachment_count'
     | 'firma_due_soon_notified'
     | 'initialized'
+    | 'last_assignee_key'
   >[]) {
     map.set(portalWatchStateKey(row.record_scope, row.record_id), {
       lastState: row.last_state ?? undefined,
@@ -67,6 +73,7 @@ export async function fetchWatchStateForUser(
       lastAttachmentCount: row.last_attachment_count,
       firmaDueSoonNotified: row.firma_due_soon_notified,
       initialized: row.initialized,
+      lastAssigneeKey: row.last_assignee_key ?? undefined,
     })
   }
   return map
@@ -81,7 +88,7 @@ export async function cloneWatchStateForUser(
   const { data, error } = await supabase
     .from('portal_record_watch_state')
     .select(
-      'record_scope, record_id, last_state, last_is_closed, last_attachment_count, firma_due_soon_notified, initialized'
+      'record_scope, record_id, last_state, last_is_closed, last_attachment_count, firma_due_soon_notified, initialized, last_assignee_key'
     )
     .eq('user_id', fromUserId)
 
@@ -101,6 +108,7 @@ export async function cloneWatchStateForUser(
       | 'last_attachment_count'
       | 'firma_due_soon_notified'
       | 'initialized'
+      | 'last_assignee_key'
     >[]).map((row) => ({
       user_id: toUserId,
       record_scope: row.record_scope,
@@ -110,6 +118,7 @@ export async function cloneWatchStateForUser(
       last_attachment_count: row.last_attachment_count,
       firma_due_soon_notified: row.firma_due_soon_notified,
       initialized: row.initialized,
+      last_assignee_key: row.last_assignee_key,
       updated_at: now,
     })),
     { onConflict: 'user_id,record_scope,record_id' }
@@ -144,6 +153,7 @@ export async function upsertWatchStateBatch(
       last_attachment_count: entry.lastAttachmentCount,
       firma_due_soon_notified: entry.firmaDueSoonNotified,
       initialized: entry.initialized,
+      last_assignee_key: entry.lastAssigneeKey ?? null,
       updated_at: now,
     }))
   )
