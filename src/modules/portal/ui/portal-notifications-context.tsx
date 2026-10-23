@@ -125,6 +125,9 @@ export function PortalNotificationsProvider({
     return pruned
   }, [])
 
+  // Identidad estable: el efecto del coordinador de pestañas depende de ella y no debe reiniciarse.
+  const wasSeededFromServer = useCallback(() => ssrHydratedRef.current, [])
+
   const { refreshPortalPages } = usePortalPageRefresh(router)
 
   const { readStateRef, applyReadState, hydrateFromStorage, loadFromStorage, getLastSeenMessageId } =
@@ -144,7 +147,7 @@ export function PortalNotificationsProvider({
       setStats,
       setLastRecordMessage,
       setNotificationsLoading,
-      wasSeededFromServer: () => ssrHydratedRef.current,
+      wasSeededFromServer,
     })
 
   const {

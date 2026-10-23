@@ -401,6 +401,7 @@ export function usePortalNotificationsSync({
   }, [
     applyPollResult,
     applyRemoteState,
+    wasSeededFromServer,
     enabled,
     loadReadStateFromStorage,
     pathnameRef,
