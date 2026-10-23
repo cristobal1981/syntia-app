@@ -12,7 +12,6 @@ import type {
   PendingSignaturesSnapshot,
   SignatureHistorySnapshot,
 } from '@/src/modules/firmas/domain/types'
-import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   resolveOdooErrorCode,
   type OdooServiceErrorCode,
@@ -189,27 +188,22 @@ export async function getCachedTramitesSnapshot(
   return cached()
 }
 
+/**
+ * Los documentos ya no generan avisos, así que el recuento de adjuntos de cada
+ * obligación no se pide a Odoo (era una consulta de ~400 ms por visita). El campo
+ * se conserva en 0 por el seguimiento guardado, que ya no lo lee para avisar.
+ */
+function withoutAttachmentCount<T extends object>(
+  leaves: T[]
+): Array<T & { attachmentCount: number }> {
+  return leaves.map((leaf) => ({ ...leaf, attachmentCount: 0 }))
+}
+
 async function loadObligacionNotificationSnapshot(
   partnerId: number
 ): Promise<ObligacionNotificationSnapshot> {
   const index = await getCachedObligacionTaskIndex(partnerId)
-  const leafIds = index.leaves.map((leaf) => leaf.id)
-
-  if (!leafIds.length) {
-    return { leaves: [] }
-  }
-
-  const attachmentCounts = await countAttachmentsByRecordIds(
-    'project.task',
-    leafIds
-  )
-
-  return {
-    leaves: index.leaves.map((leaf) => ({
-      ...leaf,
-      attachmentCount: attachmentCounts.get(leaf.id) ?? 0,
-    })),
-  }
+  return { leaves: withoutAttachmentCount(index.leaves) }
 }
 
 export async function getCachedObligacionNotificationSnapshot(
@@ -332,23 +326,7 @@ async function loadFreshObligacionNotificationSnapshot(
 ): Promise<ObligacionNotificationSnapshot> {
   const projectIds = await fetchClientProjectIds(partnerId)
   const index = await buildObligacionTaskIndex(projectIds)
-  const leafIds = index.leaves.map((leaf) => leaf.id)
-
-  if (!leafIds.length) {
-    return { leaves: [] }
-  }
-
-  const attachmentCounts = await countAttachmentsByRecordIds(
-    'project.task',
-    leafIds
-  )
-
-  return {
-    leaves: index.leaves.map((leaf) => ({
-      ...leaf,
-      attachmentCount: attachmentCounts.get(leaf.id) ?? 0,
-    })),
-  }
+  return { leaves: withoutAttachmentCount(index.leaves) }
 }
 
 export async function getFreshObligacionNotificationSnapshotSafe(
