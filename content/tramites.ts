@@ -103,6 +103,9 @@ export const tramites = {
   tasks: {
     downloadZip: 'Descargar todo',
   },
+  assignee: {
+    label: 'Te atiende',
+  },
   taskStates: {
     inProgress: 'En curso',
     changesRequested: 'Requiere tu atención',

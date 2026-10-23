@@ -9,6 +9,7 @@ import {
   Loader2,
   MessageSquare,
   Paperclip,
+  UserRound,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ import {
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
+import { formatAssigneesLabel } from '@/src/modules/tramites/domain/format-assignees'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramiteDescription } from '@/src/modules/tramites/ui/tramite-description'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
@@ -242,6 +244,7 @@ export function TramiteDetailDrawer({
 
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
+  const assigneesLabel = formatAssigneesLabel(tramite.assignees)
   const subtasksCopy = tramites.subtasks
   const parentTramite = getParentTramite(allItems, tramite)
   const showZipButton = liveAttachmentCount > 1
@@ -350,6 +353,15 @@ export function TramiteDetailDrawer({
                   label={stateBadge.label}
                   variant={stateBadge.variant}
                 />
+                {assigneesLabel ? (
+                  <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <UserRound className="size-3.5 shrink-0" aria-hidden />
+                    <span className="min-w-0 truncate">
+                      {tramites.assignee.label}{' '}
+                      <span className="font-medium text-foreground/80">{assigneesLabel}</span>
+                    </span>
+                  </span>
+                ) : null}
               </div>
 
               {showPageNav ? (
