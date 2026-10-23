@@ -54,6 +54,8 @@ import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
 import { buildTramiteDatesLine } from '@/src/modules/tramites/domain/format-tramite-date'
+import { ChatterSkeleton } from '@/src/modules/portal/ui/chatter-skeleton'
+import { useSettledValue } from '@/lib/use-settled-value'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramitePriorityIndicator } from '@/src/modules/tramites/ui/tramite-priority-indicator'
 import { TramiteAssignees } from '@/src/modules/tramites/ui/tramite-assignees'
@@ -81,6 +83,9 @@ type TramiteDetailDrawerProps = {
  * documentos. Marca como visto chatter, cambios de estado y documentos al
  * abrir; ver los comentarios inline para el porqué del orden de los acks.
  */
+/** Lo que tiene que quedarse quieto un elemento para cargar su chat al navegar rápido con las flechas. */
+const ITEM_SETTLE_MS = 250
+
 export function TramiteDetailDrawer({
   item: itemProp,
   open,
@@ -147,6 +152,11 @@ export function TramiteDetailDrawer({
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0
+  // Navegando rápido con las flechas, lo pesado (chat, descripción, adjuntos y marcar como
+  // visto) espera a que el elemento se quede quieto: las Server Actions salen en cola y cada
+  // paso lanzaba la suya, así que la del elemento final esperaba a todas las anteriores. La
+  // cabecera sí cambia al instante, y la primera apertura no espera.
+  const { isSettling } = useSettledValue(item?.id, ITEM_SETTLE_MS, open)
   const markConversationSeen = notifications?.markConversationSeen
   const dismissNewTramiteNotification =
     notifications?.dismissNewTramiteNotification
@@ -177,7 +187,7 @@ export function TramiteDetailDrawer({
   }, [item?.id, item?.kind])
 
   useEffect(() => {
-    if (!open || !item) return
+    if (!open || !item || isSettling) return
 
     if (chatterNotification?.latestMessageId) {
       void markConversationSeen?.(
@@ -199,6 +209,7 @@ export function TramiteDetailDrawer({
     ackAssigneeChangeSeen,
     ackStatusChangeSeen,
     chatterNotification,
+    isSettling,
     item,
     markConversationSeen,
     notifications,
@@ -216,9 +227,9 @@ export function TramiteDetailDrawer({
 
   useEffect(() => {
     const itemId = item?.id
-    if (!open || item?.kind !== 'tramite' || itemId === undefined) return
+    if (!open || isSettling || item?.kind !== 'tramite' || itemId === undefined) return
     dismissNewTramiteNotification?.(recordKind, itemId)
-  }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
+  }, [dismissNewTramiteNotification, isSettling, item?.id, item?.kind, open, recordKind])
 
   const pageTotal = pageItems.length
   const showPageNav =
@@ -416,7 +427,7 @@ export function TramiteDetailDrawer({
               </span>
             </button>
           ) : null}
-          {tramite.kind === 'tramite' ? (
+          {tramite.kind === 'tramite' && !isSettling ? (
             <TramiteDescription key={tramite.id} taskId={tramite.id} />
           ) : null}
           {datesLine ? (
@@ -457,7 +468,9 @@ export function TramiteDetailDrawer({
           value={activeTab}
           onChange={handleTabChange}
         >
-          {activeTab === 'conversation' ? (
+          {activeTab === 'conversation' && isSettling ? (
+            <ChatterSkeleton />
+          ) : activeTab === 'conversation' ? (
             <RecordChatterPanel
               kind={recordKind}
               recordId={tramite.id}
@@ -506,14 +519,16 @@ export function TramiteDetailDrawer({
                 </p>
               ) : null}
 
-              <RecordAttachmentsPanel
-                kind={recordKind}
-                recordId={tramite.id}
-                active={open && activeTab === 'documents'}
-                knownAttachmentCount={liveAttachmentCount}
-                refreshToken={attachmentsRefreshToken}
-                highlightAttachmentId={highlightAttachmentId}
-              />
+              {isSettling ? null : (
+                <RecordAttachmentsPanel
+                  kind={recordKind}
+                  recordId={tramite.id}
+                  active={open && activeTab === 'documents'}
+                  knownAttachmentCount={liveAttachmentCount}
+                  refreshToken={attachmentsRefreshToken}
+                  highlightAttachmentId={highlightAttachmentId}
+                />
+              )}
             </section>
           )}
         </RecordDetailTabs>
