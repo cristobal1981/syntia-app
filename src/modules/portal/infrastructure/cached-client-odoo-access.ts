@@ -65,7 +65,7 @@ function clientProjectIdsCacheTag(partnerId: number): string {
   return `client-project-ids:${partnerId}`
 }
 
-function obligacionTaskIndexCacheTag(partnerId: number): string {
+export function obligacionTaskIndexCacheTag(partnerId: number): string {
   return `obligacion-task-index:${partnerId}`
 }
 
@@ -73,11 +73,11 @@ export function obligacionTreeCacheTag(partnerId: number): string {
   return `obligacion-tree:${partnerId}`
 }
 
-function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
+export function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
   return `obligacion-notification-snapshot:${partnerId}`
 }
 
-function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
+export function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
   return `pending-signatures-snapshot:${partnerId}`
 }
 

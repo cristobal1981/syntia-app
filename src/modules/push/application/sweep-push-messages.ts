@@ -9,7 +9,7 @@ import {
   type FirmaDueSweepSummary,
 } from '@/src/modules/push/application/run-firma-due-sweep'
 import { fetchDueSoonSignItems } from '@/src/modules/push/infrastructure/odoo-firma-due-sweep'
-import { insertPortalEvent } from '@/src/modules/push/infrastructure/portal-events.supabase'
+import { insertPortalEventAndInvalidate } from '@/src/modules/push/application/insert-portal-event'
 import {
   fetchMaxMessageId,
   fetchSweepMessages,
@@ -28,7 +28,7 @@ function productionDeps(): MessageSweepDeps {
     fetchTasks: fetchSweepTasks,
     fetchTickets: fetchSweepTickets,
     fetchProjectPartners: fetchSweepProjectPartners,
-    insertEvent: insertPortalEvent,
+    insertEvent: insertPortalEventAndInvalidate,
     now: () => Date.now(),
     obligacionesPrefix: getObligacionesParentPrefix(),
   }
@@ -43,7 +43,7 @@ export function sweepPushMessages(): Promise<MessageSweepSummary> {
 export function sweepPushFirmaDueSoon(): Promise<FirmaDueSweepSummary> {
   return runFirmaDueSweep({
     fetchDueSoonItems: () => fetchDueSoonSignItems(),
-    insertEvent: insertPortalEvent,
+    insertEvent: insertPortalEventAndInvalidate,
     now: () => Date.now(),
     obligacionesPrefix: getObligacionesParentPrefix(),
   })

@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { insertPortalEvent, getLastStatusLabel } = vi.hoisted(() => ({
+const { insertPortalEvent, getLastStatusLabel, invalidatePortalCachesForEvent } = vi.hoisted(() => ({
   insertPortalEvent: vi.fn(),
   getLastStatusLabel: vi.fn(),
+  invalidatePortalCachesForEvent: vi.fn(),
+}))
+vi.mock('@/src/modules/portal/infrastructure/portal-cache-invalidation', () => ({
+  invalidatePortalCachesForEvent,
 }))
 vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({
   insertPortalEvent,
@@ -146,5 +150,20 @@ describe('POST /api/webhooks/odoo-events', () => {
   it('500 si no se puede guardar, para que Odoo lo reintente', async () => {
     insertPortalEvent.mockRejectedValue(new Error('bd'))
     expect((await POST(req(valid))).status).toBe(500)
+  })
+
+  it('un evento nuevo invalida las cachés de su cliente; un duplicado, uno ignorado o uno inválido no', async () => {
+    await POST(req(valid))
+    expect(invalidatePortalCachesForEvent).toHaveBeenCalledTimes(1)
+    expect(invalidatePortalCachesForEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'message', partnerId: 5 })
+    )
+
+    invalidatePortalCachesForEvent.mockClear()
+    insertPortalEvent.mockResolvedValue('duplicate')
+    await POST(req(valid))
+    await POST(req({ ...valid, kind: 'nope' }))
+    await POST(req({ ...valid, event_id: 'task:1:1', kind: 'new_record', message_id: undefined, ancestor_names: ['Obligaciones Fiscales'], record_name: 'Obligaciones Fiscales 2026' }))
+    expect(invalidatePortalCachesForEvent).not.toHaveBeenCalled()
   })
 })
