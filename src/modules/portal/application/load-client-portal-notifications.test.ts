@@ -150,6 +150,9 @@ function tramiteItem(overrides: Partial<TramiteListItem> = {}): TramiteListItem 
     attachmentCount: 0,
     modifiedAt: '2024-01-01T00:00:00Z',
     assignedNotifyPartnerIds: [],
+    createdAt: '',
+    priority: 0,
+    assignees: [],
     ...overrides,
   }
 }

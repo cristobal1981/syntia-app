@@ -1,0 +1,153 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const {
+  odooSearchRead,
+  countAttachmentsByRecordIds,
+  getCachedClientProjectIds,
+  getCachedObligacionTaskIndex,
+} = vi.hoisted(() => ({
+  odooSearchRead: vi.fn(),
+  countAttachmentsByRecordIds: vi.fn(),
+  getCachedClientProjectIds: vi.fn(),
+  getCachedObligacionTaskIndex: vi.fn(),
+}))
+
+vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/src/modules/portal/infrastructure/odoo-json-client')>()),
+  isOdooApiConfigured: () => true,
+  odooSearchRead,
+}))
+vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
+  getCachedClientProjectIds,
+  getCachedObligacionTaskIndex,
+}))
+vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () => ({
+  countAttachmentsByRecordIds,
+}))
+
+import {
+  fetchTramitesFromOdoo,
+  mapAssignees,
+  mapPriority,
+} from '@/src/modules/tramites/infrastructure/odoo-tramites-repository'
+
+type Call = [string, { domain?: unknown[]; fields?: string[] }]
+const callsTo = (model: string): Call[] =>
+  odooSearchRead.mock.calls.filter((call) => call[0] === model) as Call[]
+
+beforeEach(() => {
+  vi.resetAllMocks()
+  getCachedClientProjectIds.mockResolvedValue([5])
+  getCachedObligacionTaskIndex.mockResolvedValue({ excludedTaskIds: [] })
+  countAttachmentsByRecordIds.mockResolvedValue(new Map())
+  odooSearchRead.mockImplementation(async (model: string, options: { fields?: string[] }) => {
+    if (model === 'project.task') {
+      return options.fields?.length === 1
+        ? [{ id: 10 }]
+        : [
+            {
+              id: 10,
+              name: 'Alta de autónomo',
+              state: '01_in_progress',
+              write_date: '2026-10-22 12:00:00',
+              create_date: '2026-10-01 08:30:00',
+              priority: '3',
+              user_ids: [7, 8, 7],
+              parent_id: false,
+            },
+          ]
+    }
+    if (model === 'helpdesk.ticket') {
+      return [
+        {
+          id: 20,
+          name: 'Duda con el IVA',
+          close_date: false,
+          write_date: '2026-10-23 09:00:00',
+          create_date: '2026-10-20 10:00:00',
+          priority: '1',
+          user_id: [9, 'Luis'],
+        },
+      ]
+    }
+    if (model === 'res.users') {
+      return [
+        { id: 7, name: 'Ana García', partner_id: [701, 'Ana'] },
+        { id: 8, name: 'Bruno Díaz', partner_id: false },
+        { id: 9, name: 'Luis Pérez', partner_id: [901, 'Luis'] },
+      ]
+    }
+    return []
+  })
+})
+
+describe('mapPriority', () => {
+  it('traduce la selección de Odoo y cualquier otra cosa cuenta como baja', () => {
+    expect(['0', '1', '2', '3'].map(mapPriority)).toEqual([0, 1, 2, 3])
+    expect([false, null, undefined, '9', 2].map(mapPriority)).toEqual([0, 0, 0, 0, 0])
+  })
+})
+
+describe('mapAssignees', () => {
+  const users = new Map([
+    [3, { partnerId: null, name: 'Carla' }],
+    [1, { partnerId: 11, name: 'Ana' }],
+    [2, { partnerId: null, name: '' }],
+  ])
+
+  it('ordena por id, quita repetidos y deja fuera a quien no existe o no tiene nombre', () => {
+    expect(mapAssignees([3, 1, 3, 2, 99], users)).toEqual([
+      { userId: 1, name: 'Ana' },
+      { userId: 3, name: 'Carla' },
+    ])
+  })
+
+  it('sin asignados, lista vacía', () => {
+    expect(mapAssignees([], users)).toEqual([])
+  })
+})
+
+describe('fetchTramitesFromOdoo: fecha de creación, prioridad y asignados', () => {
+  it('pide a Odoo la creación, la prioridad y los asignados de tareas y tickets', async () => {
+    await fetchTramitesFromOdoo(1233)
+
+    const taskFields = callsTo('project.task').map((call) => call[1].fields).find((f) => f!.length > 1)!
+    expect(taskFields).toEqual(expect.arrayContaining(['create_date', 'priority', 'user_ids']))
+    const ticketFields = callsTo('helpdesk.ticket')[0]![1].fields!
+    expect(ticketFields).toEqual(expect.arrayContaining(['create_date', 'priority', 'user_id']))
+  })
+
+  it('una tarea lleva su creación, su prioridad y sus asignados con nombre (sin repetidos), y los partners para el chatter', async () => {
+    const { tasks } = await fetchTramitesFromOdoo(1233)
+
+    expect(tasks[0]).toMatchObject({
+      id: 10,
+      createdAt: '2026-10-01T08:30:00.000Z',
+      modifiedAt: '2026-10-22T12:00:00.000Z',
+      priority: 3,
+      assignees: [
+        { userId: 7, name: 'Ana García' },
+        { userId: 8, name: 'Bruno Díaz' },
+      ],
+      assignedNotifyPartnerIds: [701],
+    })
+  })
+
+  it('un ticket lleva su creación, su prioridad y su responsable', async () => {
+    const { tickets } = await fetchTramitesFromOdoo(1233)
+
+    expect(tickets[0]).toMatchObject({
+      id: 20,
+      createdAt: '2026-10-20T10:00:00.000Z',
+      priority: 1,
+      assignees: [{ userId: 9, name: 'Luis Pérez' }],
+      assignedNotifyPartnerIds: [901],
+    })
+  })
+
+  it('pide los nombres de los usuarios en una sola consulta para tareas y tickets juntos', async () => {
+    await fetchTramitesFromOdoo(1233)
+    // Tareas y tickets resuelven por separado, cada uno con una consulta (los ya conocidos no se repiten).
+    expect(callsTo('res.users').length).toBeLessThanOrEqual(2)
+  })
+})

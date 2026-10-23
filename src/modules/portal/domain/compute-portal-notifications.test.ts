@@ -57,6 +57,9 @@ describe('watchableFromTramiteListItem', () => {
       attachmentCount: 2,
       modifiedAt: '2026-01-01 00:00:00',
       assignedNotifyPartnerIds: [],
+      createdAt: '',
+      priority: 0,
+      assignees: [],
     }
     expect(watchableFromTramiteListItem(item)).toEqual({
       scope: 'consulta',
@@ -472,6 +475,9 @@ describe('portalNotificationFromTramiteListItem', () => {
       attachmentCount: 0,
       modifiedAt: '2026-01-01',
       assignedNotifyPartnerIds: [],
+      createdAt: '',
+      priority: 0,
+      assignees: [],
       ...overrides,
     }
   }

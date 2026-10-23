@@ -52,6 +52,9 @@ function getWatchableStateLabel(record: PortalWatchableRecord): string {
       isClosed: record.isClosed,
       attachmentCount: record.attachmentCount,
       modifiedAt: record.modifiedAt,
+      createdAt: '',
+      priority: 0,
+      assignees: [],
       assignedNotifyPartnerIds: [],
     }
     return getTramiteListItemStateBadge(item).label

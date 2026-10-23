@@ -20,6 +20,9 @@ function task(id: number, parentId?: number, over: Partial<TramiteListItem> = {}
     attachmentCount: 0,
     modifiedAt: '',
     assignedNotifyPartnerIds: [],
+    createdAt: '',
+    priority: 0,
+    assignees: [],
     parentId,
     ...over,
   }
