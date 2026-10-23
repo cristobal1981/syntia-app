@@ -15,6 +15,7 @@ import type { PortalRecordWatchStateUpsert } from '@/src/modules/portal/infrastr
 import { getTramiteListItemStateBadge } from '@/src/modules/tramites/domain/filter-tramites'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
 import { getTramiteListRecordKind } from '@/src/modules/tramites/domain/merge-tramites-list'
+import { assigneeKeyFor, formatAssigneesLabel } from '@/src/modules/tramites/domain/format-assignees'
 import { mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { compareTramiteModifiedAtDesc } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 
@@ -26,6 +27,10 @@ export type PortalWatchableRecord = {
   isClosed: boolean
   attachmentCount: number
   modifiedAt: string
+  /** Huella de quién lo lleva (`assigneeKeyFor`); solo trámites y consultas, no obligaciones. */
+  assigneeKey?: string
+  /** Texto de quién lo lleva ahora, para el aviso; `undefined` si no hay nadie. */
+  assigneeLabel?: string
 }
 
 function consultaStateKey(isClosed: boolean): string {
@@ -92,6 +97,8 @@ export function watchableFromTramiteListItem(
     isClosed: item.isClosed,
     attachmentCount: item.attachmentCount,
     modifiedAt: item.modifiedAt,
+    assigneeKey: assigneeKeyFor(item.assignees),
+    assigneeLabel: formatAssigneesLabel(item.assignees) ?? undefined,
   }
 }
 
@@ -120,6 +127,7 @@ export function computeRecordWatchDeltas(input: {
       lastAttachmentCount: record.attachmentCount,
       firmaDueSoonNotified: previous?.firmaDueSoonNotified ?? false,
       initialized: true,
+      lastAssigneeKey: record.assigneeKey,
     }
 
     if (!previous?.initialized) {
@@ -193,6 +201,33 @@ export function computeRecordWatchDeltas(input: {
         ? previous.lastIsClosed
         : record.isClosed
       currentUpsert.lastAttachmentCount = record.attachmentCount
+
+      // Cambio de responsable: solo si ya sabíamos quién lo llevaba (fila anterior
+      // a la huella = se rellena sin avisar) y ahora lo lleva alguien. Quitar la
+      // asignación no avisa. Mientras no se confirme, la huella vieja se conserva.
+      const assigneeChanged =
+        !record.isClosed &&
+        record.assigneeKey !== undefined &&
+        previous.lastAssigneeKey !== undefined &&
+        previous.lastAssigneeKey !== record.assigneeKey &&
+        Boolean(record.assigneeLabel)
+      if (assigneeChanged) {
+        notifications.push({
+          scope: record.scope,
+          recordId: record.recordId,
+          name: record.name,
+          reason: 'assignee_change',
+          latestDate: record.modifiedAt,
+          assigneeLabel: record.assigneeLabel,
+          ...(record.scope !== 'obligacion'
+            ? {
+                recordKind: record.scope === 'tramite' ? 'task' : 'ticket',
+                listKind: record.scope,
+              }
+            : {}),
+        })
+        currentUpsert.lastAssigneeKey = previous.lastAssigneeKey
+      }
     }
 
     watchUpdates.push(currentUpsert)

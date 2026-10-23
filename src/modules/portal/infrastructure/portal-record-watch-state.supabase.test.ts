@@ -217,3 +217,52 @@ describe('upsertWatchStateBatch — grupo titular + colaboradores', () => {
     )
   })
 })
+
+describe('huella de responsables (last_assignee_key)', () => {
+  it('la lee, y una fila anterior a la columna (null) queda como undefined', async () => {
+    const chain = chainFor({
+      data: [
+        { record_scope: 'tramite', record_id: 1, last_state: 'a', last_is_closed: false, last_attachment_count: 0, firma_due_soon_notified: false, initialized: true, last_assignee_key: '3,9' },
+        { record_scope: 'tramite', record_id: 2, last_state: 'a', last_is_closed: false, last_attachment_count: 0, firma_due_soon_notified: false, initialized: true, last_assignee_key: null },
+        { record_scope: 'tramite', record_id: 3, last_state: 'a', last_is_closed: false, last_attachment_count: 0, firma_due_soon_notified: false, initialized: true, last_assignee_key: '' },
+      ],
+      error: null,
+    })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    const map = await fetchWatchStateForUser('u1')
+
+    expect(map.get('tramite:1')?.lastAssigneeKey).toBe('3,9')
+    expect(map.get('tramite:2')?.lastAssigneeKey).toBeUndefined()
+    // «Nadie» (cadena vacía) es un valor propio, distinto de «aún sin huella».
+    expect(map.get('tramite:3')?.lastAssigneeKey).toBe('')
+  })
+
+  it('la escribe, y sin huella escribe null (no inventa una)', async () => {
+    const chain = chainFor({ error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: () => chain })
+
+    await upsertWatchStateBatch('u1', [
+      { scope: 'tramite', recordId: 1, lastIsClosed: false, lastAttachmentCount: 0, firmaDueSoonNotified: false, initialized: true, lastAssigneeKey: '3,9' },
+      { scope: 'consulta', recordId: 2, lastIsClosed: false, lastAttachmentCount: 0, firmaDueSoonNotified: false, initialized: true },
+    ])
+
+    const rows = (chain.upsert as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Array<Record<string, unknown>>
+    expect(rows.map((row) => row.last_assignee_key)).toEqual(['3,9', null])
+  })
+
+  it('al copiar el seguimiento del titular al colaborador copia también la huella', async () => {
+    const selectChain = chainFor({
+      data: [{ record_scope: 'tramite', record_id: 1, last_state: 'a', last_is_closed: false, last_attachment_count: 0, firma_due_soon_notified: false, initialized: true, last_assignee_key: '3,9' }],
+      error: null,
+    })
+    const upsertChain = chainFor({ error: null })
+    let calls = 0
+    createSupabaseAdminClient.mockReturnValue({ from: () => (calls++ === 0 ? selectChain : upsertChain) })
+
+    await cloneWatchStateForUser('owner', 'worker')
+
+    const rows = (upsertChain.upsert as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Array<Record<string, unknown>>
+    expect(rows[0]).toMatchObject({ user_id: 'worker', last_assignee_key: '3,9' })
+  })
+})

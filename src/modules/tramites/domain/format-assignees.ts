@@ -11,3 +11,12 @@ export function formatAssigneesLabel(assignees: readonly TramiteAssignee[]): str
   if (names.length === 2) return `${names[0]} y ${names[1]}`
   return `${names[0]}, ${names[1]} y ${names.length - 2} más`
 }
+
+/**
+ * Huella de quién lo lleva: los ids de usuario de Odoo, sin repetir, ordenados y
+ * unidos por comas («» = nadie). Dos listas con las mismas personas dan la misma
+ * huella aunque Odoo las devuelva en otro orden.
+ */
+export function assigneeKeyFor(assignees: readonly TramiteAssignee[]): string {
+  return [...new Set(assignees.map((assignee) => assignee.userId))].sort((a, b) => a - b).join(',')
+}

@@ -26,6 +26,8 @@ export type ResolvedWatchableAckState = {
   lastState: string
   lastIsClosed: boolean
   lastAttachmentCount: number
+  /** Quién lo lleva ahora; `undefined` en obligaciones, que no enseñan responsable. */
+  lastAssigneeKey?: string
 }
 
 export async function resolveWatchableAckStateFromSnapshots(
@@ -49,6 +51,7 @@ export async function resolveWatchableAckStateFromSnapshots(
       ),
       lastIsClosed: watchable.isClosed,
       lastAttachmentCount: watchable.attachmentCount,
+      lastAssigneeKey: watchable.assigneeKey,
     }
   }
 

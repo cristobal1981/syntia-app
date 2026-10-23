@@ -49,7 +49,7 @@ type PortalNotificationsContextValue = {
   getLastSeenMessageId: (recordKind: PortalRecordKind, recordId: number) => number
   hasTramiteNotification: (
     item: { kind: 'tramite' | 'consulta'; id: number },
-    reason: Extract<PortalNotificationReason, 'status_change'>
+    reason: Extract<PortalNotificationReason, 'status_change' | 'assignee_change'>
   ) => boolean
   dismissNewTramiteNotification: (
     recordKind: PortalRecordKind,
@@ -61,6 +61,10 @@ type PortalNotificationsContextValue = {
     lastSeenMessageId: number
   ) => Promise<void>
   ackStatusChangeSeen: (
+    scope: 'tramite' | 'consulta' | 'obligacion',
+    recordId: number
+  ) => Promise<void>
+  ackAssigneeChangeSeen: (
     scope: 'tramite' | 'consulta' | 'obligacion',
     recordId: number
   ) => Promise<void>
@@ -154,6 +158,7 @@ export function PortalNotificationsProvider({
     dismissNewTramiteNotification,
     markConversationSeen,
     ackStatusChangeSeen,
+    ackAssigneeChangeSeen,
     openNotification,
     dismissNotification,
     dismissAllNotifications,
@@ -199,7 +204,7 @@ export function PortalNotificationsProvider({
   const hasTramiteNotification = useCallback(
     (
       item: { kind: 'tramite' | 'consulta'; id: number },
-      reason: Extract<PortalNotificationReason, 'status_change'>
+      reason: Extract<PortalNotificationReason, 'status_change' | 'assignee_change'>
     ) =>
       unread.some(
         (notification) =>
@@ -223,6 +228,7 @@ export function PortalNotificationsProvider({
       dismissNewTramiteNotification,
       markConversationSeen,
         ackStatusChangeSeen,
+      ackAssigneeChangeSeen,
       notifyRecordMutated,
       openNotification,
       dismissNotification,
@@ -241,6 +247,7 @@ export function PortalNotificationsProvider({
       dismissNewTramiteNotification,
       markConversationSeen,
         ackStatusChangeSeen,
+      ackAssigneeChangeSeen,
       notifyRecordMutated,
       openNotification,
       dismissNotification,

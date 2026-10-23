@@ -69,6 +69,30 @@ describe('watchableFromTramiteListItem', () => {
       isClosed: false,
       attachmentCount: 2,
       modifiedAt: '2026-01-01 00:00:00',
+      assigneeKey: '',
+    })
+  })
+
+  it('lleva la huella y el texto de quién lo lleva, con la huella ordenada y sin repetidos', () => {
+    const item: TramiteListItem = {
+      id: 7,
+      name: 'Trámite X',
+      kind: 'tramite',
+      isClosed: false,
+      attachmentCount: 0,
+      modifiedAt: '2026-01-01',
+      assignedNotifyPartnerIds: [],
+      createdAt: '',
+      priority: 0,
+      assignees: [
+        { userId: 9, name: 'Luis' },
+        { userId: 3, name: 'Ana' },
+        { userId: 9, name: 'Luis' },
+      ],
+    }
+    expect(watchableFromTramiteListItem(item)).toMatchObject({
+      assigneeKey: '3,9',
+      assigneeLabel: 'Luis, Ana y 1 más',
     })
   })
 })
@@ -250,6 +274,90 @@ describe('computeRecordWatchDeltas', () => {
       lastIsClosed: false,
       lastAttachmentCount: 2,
     })
+  })
+})
+
+describe('computeRecordWatchDeltas: cambio de responsable', () => {
+  const watch = (lastAssigneeKey: string | undefined) =>
+    new Map([['tramite:1', entry({ lastAssigneeKey })]])
+  const run = (overrides: Partial<PortalWatchableRecord>, lastAssigneeKey: string | undefined) =>
+    computeRecordWatchDeltas({
+      records: [record({ assigneeKey: '8', assigneeLabel: 'Bruno Díaz', ...overrides })],
+      watchState: watch(lastAssigneeKey),
+      portalBaselineComplete: true,
+    })
+
+  it('avisa cuando lo lleva otra persona, con su nombre, y conserva la huella vieja hasta confirmar', () => {
+    const result = run({}, '7')
+    expect(result.notifications).toHaveLength(1)
+    expect(result.notifications[0]).toMatchObject({
+      reason: 'assignee_change',
+      scope: 'tramite',
+      recordId: 1,
+      assigneeLabel: 'Bruno Díaz',
+      recordKind: 'task',
+      listKind: 'tramite',
+    })
+    expect(result.watchUpdates[0]!.lastAssigneeKey).toBe('7')
+  })
+
+  it('una consulta también avisa, con su tipo de registro', () => {
+    const result = computeRecordWatchDeltas({
+      records: [record({ scope: 'consulta', state: undefined, assigneeKey: '8', assigneeLabel: 'Bruno' })],
+      watchState: new Map([['consulta:1', entry({ lastState: 'open', lastAssigneeKey: '7' })]]),
+      portalBaselineComplete: true,
+    })
+    expect(result.notifications[0]).toMatchObject({ reason: 'assignee_change', recordKind: 'ticket', listKind: 'consulta' })
+  })
+
+  it('misma huella: no avisa y el seguimiento sigue igual', () => {
+    const result = run({}, '8')
+    expect(result.notifications).toEqual([])
+    expect(result.watchUpdates[0]!.lastAssigneeKey).toBe('8')
+  })
+
+  it('una fila anterior a la columna (sin huella) se rellena sin avisar', () => {
+    const result = run({}, undefined)
+    expect(result.notifications).toEqual([])
+    expect(result.watchUpdates[0]!.lastAssigneeKey).toBe('8')
+  })
+
+  it('si se quitó la asignación (nadie) no avisa, y el seguimiento pasa a «nadie»', () => {
+    const result = run({ assigneeKey: '', assigneeLabel: undefined }, '7')
+    expect(result.notifications).toEqual([])
+    expect(result.watchUpdates[0]!.lastAssigneeKey).toBe('')
+  })
+
+  it('pasar de nadie a alguien sí avisa', () => {
+    expect(run({}, '').notifications).toHaveLength(1)
+  })
+
+  it('un registro cerrado no avisa de responsables', () => {
+    expect(run({ isClosed: true }, '7').notifications.filter((n) => n.reason === 'assignee_change')).toEqual([])
+  })
+
+  it('las obligaciones (sin huella) no avisan', () => {
+    const result = computeRecordWatchDeltas({
+      records: [record({ scope: 'obligacion', assigneeKey: undefined })],
+      watchState: new Map([['obligacion:1', entry({ lastAssigneeKey: '7' })]]),
+      portalBaselineComplete: true,
+    })
+    expect(result.notifications).toEqual([])
+  })
+
+  it('cambia el responsable y el estado a la vez: salen los dos avisos', () => {
+    const result = run({ state: '02_changes_requested' }, '7')
+    expect(result.notifications.map((n) => n.reason).sort()).toEqual(['assignee_change', 'status_change'])
+  })
+
+  it('la primera vez que se ve el registro, solo se toma la huella', () => {
+    const result = computeRecordWatchDeltas({
+      records: [record({ assigneeKey: '8', assigneeLabel: 'Bruno' })],
+      watchState: new Map(),
+      portalBaselineComplete: true,
+    })
+    expect(result.notifications).toEqual([])
+    expect(result.watchUpdates[0]!.lastAssigneeKey).toBe('8')
   })
 })
 

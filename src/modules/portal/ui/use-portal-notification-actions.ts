@@ -132,11 +132,16 @@ export function usePortalNotificationActions({
     [applyReadState, commitUnread, enabled, publishStateToOtherTabs, readStateRef, unreadRef]
   )
 
-  const ackStatusChangeSeen = useCallback(
-    async (scope: 'tramite' | 'consulta' | 'obligacion', recordId: number) => {
+  /** Quita el aviso del registro (estado o responsable) de la lista y lo confirma en el servidor. */
+  const ackRecordReasonSeen = useCallback(
+    async (
+      reason: 'status_change' | 'assignee_change',
+      scope: 'tramite' | 'consulta' | 'obligacion',
+      recordId: number
+    ) => {
       if (!enabled) return
 
-      const ackKey = `${scope}:${recordId}:status_change`
+      const ackKey = `${scope}:${recordId}:${reason}`
       if (documentsAckInFlightRef.current.has(ackKey)) return
       documentsAckInFlightRef.current.add(ackKey)
 
@@ -144,7 +149,7 @@ export function usePortalNotificationActions({
         unreadRef.current,
         scope,
         recordId,
-        'status_change'
+        reason
       )
       commitUnread(nextUnread)
       publishStateToOtherTabs(unreadRef.current)
@@ -153,17 +158,8 @@ export function usePortalNotificationActions({
 
       try {
         await dedupedServerAction(
-          serverActionDedupKey('ackPortalNotification', {
-            scope,
-            recordId,
-            reason: 'status_change',
-          }),
-          () =>
-            ackPortalNotificationAction({
-              scope,
-              recordId,
-              reason: 'status_change',
-            })
+          serverActionDedupKey('ackPortalNotification', { scope, recordId, reason }),
+          () => ackPortalNotificationAction({ scope, recordId, reason })
         )
       } catch {
         // UI already optimistically dismissed
@@ -172,6 +168,18 @@ export function usePortalNotificationActions({
       }
     },
     [commitUnread, enabled, publishStateToOtherTabs, resetPollInterval, unreadRef]
+  )
+
+  const ackStatusChangeSeen = useCallback(
+    (scope: 'tramite' | 'consulta' | 'obligacion', recordId: number) =>
+      ackRecordReasonSeen('status_change', scope, recordId),
+    [ackRecordReasonSeen]
+  )
+
+  const ackAssigneeChangeSeen = useCallback(
+    (scope: 'tramite' | 'consulta' | 'obligacion', recordId: number) =>
+      ackRecordReasonSeen('assignee_change', scope, recordId),
+    [ackRecordReasonSeen]
   )
 
   /** Quita la notificación de la lista y, si su motivo se acumula hasta ack, lo confirma en el servidor. */
@@ -183,6 +191,7 @@ export function usePortalNotificationActions({
 
       if (
         notification.reason === 'status_change' ||
+        notification.reason === 'assignee_change' ||
         notification.reason === 'new_firma' ||
         notification.reason === 'firma_due_soon'
       ) {
@@ -260,6 +269,7 @@ export function usePortalNotificationActions({
     dismissNewTramiteNotification,
     markConversationSeen,
     ackStatusChangeSeen,
+    ackAssigneeChangeSeen,
     openNotification,
     dismissNotification,
     dismissAllNotifications,

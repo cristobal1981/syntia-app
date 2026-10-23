@@ -17,8 +17,6 @@ import type {
   PortalChatterPostResult,
   PostRecordMessageInput,
 } from '@/src/modules/portal/domain/portal-chatter-types'
-import { portalWatchStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
-import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
@@ -35,10 +33,7 @@ import {
   getOdooModelForRecordKind,
   verifyClientRecordAccess,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
-import {
-  countAttachmentsByRecordIds,
-  createAttachmentsForRecord,
-} from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import { createAttachmentsForRecord } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
   listNewerPortalMessages,
@@ -50,10 +45,6 @@ import {
   fetchChatterReplyLinks,
   recordChatterReplyLink,
 } from '@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase'
-import {
-  fetchWatchStateForUser,
-  upsertWatchStateBatch,
-} from '@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
@@ -97,10 +88,6 @@ async function resolveClientPartnerId(
 
   const actorId = await resolveDirectoryActorId(session.user)
   return { ok: true, partnerId, actorId }
-}
-
-function recordScopeFromKind(kind: PortalRecordKind): 'tramite' | 'consulta' {
-  return kind === 'task' ? 'tramite' : 'consulta'
 }
 
 function parseRecordId(recordId: number): number | null {
@@ -168,30 +155,6 @@ async function applyTrustedReplyLinks(
       ? { ...message, parentId: parentMessageId }
       : stripUntrustedParentId(message)
   })
-}
-
-async function advanceAttachmentWatchState(input: {
-  actorId: string
-  kind: PortalRecordKind
-  recordId: number
-  attachmentCount: number
-}): Promise<void> {
-  const scope = recordScopeFromKind(input.kind)
-  const watchState = await fetchWatchStateForUser(input.actorId)
-  const key = portalWatchStateKey(scope, input.recordId)
-  const previous = watchState.get(key)
-
-  await upsertWatchStateBatch(input.actorId, [
-    {
-      scope,
-      recordId: input.recordId,
-      lastState: previous?.lastState,
-      lastIsClosed: previous?.lastIsClosed ?? false,
-      lastAttachmentCount: input.attachmentCount,
-      firmaDueSoonNotified: previous?.firmaDueSoonNotified ?? false,
-      initialized: true,
-    },
-  ])
 }
 
 export async function listRecordMessagesAction(
@@ -426,19 +389,8 @@ export async function postRecordMessageAction(
     after(() => {
       if (!hadAttachments) return
 
+      // El contador de documentos de la lista sale de este snapshot.
       revalidateTag(tramitesSnapshotCacheTag(access.partnerId), 'max')
-
-      void (async () => {
-        const counts = await countAttachmentsByRecordIds(resModel, [recordId])
-        const attachmentCount = counts.get(recordId) ?? files.length
-
-        await advanceAttachmentWatchState({
-          actorId: access.actorId,
-          kind: input.kind,
-          recordId,
-          attachmentCount,
-        })
-      })()
     })
 
     return {

@@ -230,6 +230,32 @@ export async function ackPortalNotificationAction(input: {
       return { ok: true }
     }
 
+    if (input.reason === 'assignee_change') {
+      const current = await resolveWatchableAckStateFromSnapshots(
+        input.scope,
+        recordId,
+        access.partnerId
+      )
+      if (!current) {
+        return { ok: false, error: 'not_found' }
+      }
+
+      // Solo se da por visto quién lo lleva: el estado y lo demás siguen como estaban.
+      await upsertWatchStateBatch(access.actorId, [
+        {
+          scope: input.scope,
+          recordId,
+          lastState: previous?.lastState,
+          lastIsClosed: previous?.lastIsClosed ?? current.lastIsClosed,
+          lastAttachmentCount: previous?.lastAttachmentCount ?? current.lastAttachmentCount,
+          firmaDueSoonNotified: previous?.firmaDueSoonNotified ?? false,
+          initialized: true,
+          lastAssigneeKey: current.lastAssigneeKey,
+        },
+      ])
+      return { ok: true }
+    }
+
     if (input.reason === 'status_change') {
       const current = await resolveWatchableAckStateFromSnapshots(
         input.scope,
@@ -249,6 +275,8 @@ export async function ackPortalNotificationAction(input: {
           lastAttachmentCount: current.lastAttachmentCount,
           firmaDueSoonNotified: previous?.firmaDueSoonNotified ?? false,
           initialized: true,
+          // Confirmar el estado no da por visto un cambio de responsable pendiente.
+          lastAssigneeKey: previous?.lastAssigneeKey,
         },
       ])
       return { ok: true }

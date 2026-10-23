@@ -505,6 +505,96 @@ describe('ackPortalNotificationAction', () => {
     expect(result).toEqual({ ok: true })
   })
 
+  it('confirmar un cambio de responsable guarda solo la huella actual y deja el estado y lo demás como estaban', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    fetchWatchStateForUser.mockResolvedValue(
+      new Map([
+        [
+          'tramite:7',
+          {
+            lastState: 'old',
+            lastIsClosed: false,
+            lastAttachmentCount: 4,
+            firmaDueSoonNotified: true,
+            initialized: true,
+            lastAssigneeKey: '3',
+          },
+        ],
+      ])
+    )
+    resolveWatchableAckStateFromSnapshots.mockResolvedValue({
+      lastState: 'new',
+      lastIsClosed: true,
+      lastAttachmentCount: 9,
+      lastAssigneeKey: '3,9',
+    })
+
+    const result = await ackPortalNotificationAction({
+      scope: 'tramite',
+      recordId: 7,
+      reason: 'assignee_change',
+    })
+
+    expect(upsertWatchStateBatch).toHaveBeenCalledWith('actor-1', [
+      {
+        scope: 'tramite',
+        recordId: 7,
+        lastState: 'old',
+        lastIsClosed: false,
+        lastAttachmentCount: 4,
+        firmaDueSoonNotified: true,
+        initialized: true,
+        lastAssigneeKey: '3,9',
+      },
+    ])
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('confirmar un cambio de responsable sin snapshot que lo respalde devuelve not_found', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    fetchWatchStateForUser.mockResolvedValue(new Map())
+    resolveWatchableAckStateFromSnapshots.mockResolvedValue(null)
+
+    expect(
+      await ackPortalNotificationAction({ scope: 'tramite', recordId: 7, reason: 'assignee_change' })
+    ).toMatchObject({ ok: false, error: 'not_found' })
+    expect(upsertWatchStateBatch).not.toHaveBeenCalled()
+  })
+
+  it('confirmar el estado no da por visto un cambio de responsable pendiente (conserva la huella)', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    fetchWatchStateForUser.mockResolvedValue(
+      new Map([
+        [
+          'tramite:7',
+          {
+            lastState: 'old',
+            lastIsClosed: false,
+            lastAttachmentCount: 0,
+            firmaDueSoonNotified: false,
+            initialized: true,
+            lastAssigneeKey: '3',
+          },
+        ],
+      ])
+    )
+    resolveWatchableAckStateFromSnapshots.mockResolvedValue({
+      lastState: 'new',
+      lastIsClosed: false,
+      lastAttachmentCount: 0,
+      lastAssigneeKey: '3,9',
+    })
+
+    await ackPortalNotificationAction({ scope: 'tramite', recordId: 7, reason: 'status_change' })
+
+    expect(upsertWatchStateBatch).toHaveBeenCalledWith('actor-1', [
+      expect.objectContaining({ lastState: 'new', lastAssigneeKey: '3' }),
+    ])
+  })
+
   it('does nothing and returns ok for an unhandled reason (e.g. unread_chatter)', async () => {
     getSession.mockResolvedValue(sessionFor('client'))
     verifyClientRecordAccess.mockResolvedValue(true)

@@ -150,6 +150,7 @@ export function TramiteDetailDrawer({
   const dismissNewTramiteNotification =
     notifications?.dismissNewTramiteNotification
   const ackStatusChangeSeen = notifications?.ackStatusChangeSeen
+  const ackAssigneeChangeSeen = notifications?.ackAssigneeChangeSeen
 
   // Calculado en el render (no solo dentro del efecto) para que el valor
   // llegue a RecordChatterPanel como prop antes de que el ack de abajo lo
@@ -188,7 +189,13 @@ export function TramiteDetailDrawer({
     if (notifications?.hasTramiteNotification(item, 'status_change')) {
       void ackStatusChangeSeen?.(item.kind, item.id)
     }
+
+    // El drawer enseña quién lo lleva: abrirlo da por visto el cambio de responsable.
+    if (notifications?.hasTramiteNotification(item, 'assignee_change')) {
+      void ackAssigneeChangeSeen?.(item.kind, item.id)
+    }
   }, [
+    ackAssigneeChangeSeen,
     ackStatusChangeSeen,
     chatterNotification,
     item,
