@@ -40,7 +40,6 @@ import {
   PORTAL_LIST_PAGE_SIZE,
 } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
-import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 import { TramiteActivityBadge } from '@/src/modules/tramites/ui/tramite-activity-badge'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
@@ -601,24 +600,6 @@ export function TramitesPageView({
         canWriteTramites={canWriteTramites}
       />
     </div>
-  )
-}
-
-/** Cabecera de la pantalla: no depende de los datos, así que se pinta antes que ellos. */
-export function TramitesPageHeader() {
-  return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-          {tramites.title}
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">{tramites.description}</p>
-      </div>
-      <PortalRefreshButton
-        label={tramites.refreshButton}
-        refreshingLabel={tramites.refreshing}
-      />
-    </header>
   )
 }
 

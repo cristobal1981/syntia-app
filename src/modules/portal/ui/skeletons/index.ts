@@ -9,7 +9,13 @@ export {
   PortalPageSkeleton,
   PortalPageSkeletonBody,
 } from '@/src/modules/portal/ui/skeletons/portal-page-skeleton'
-export { ObligacionesSkeleton } from '@/src/modules/portal/ui/skeletons/obligaciones-skeleton'
+export {
+  ObligacionesBodySkeleton,
+  ObligacionesSkeleton,
+} from '@/src/modules/portal/ui/skeletons/obligaciones-skeleton'
+export { FirmasSkeleton } from '@/src/modules/portal/ui/skeletons/firmas-skeleton'
+export { DocumentosSkeleton } from '@/src/modules/portal/ui/skeletons/documentos-skeleton'
+export { PerfilSkeleton } from '@/src/modules/portal/ui/skeletons/perfil-skeleton'
 export { SolicitudDetailSkeleton } from '@/src/modules/portal/ui/skeletons/solicitud-detail-skeleton'
 export {
   TramitesBodySkeleton,

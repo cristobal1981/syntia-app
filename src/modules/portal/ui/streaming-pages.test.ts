@@ -10,6 +10,9 @@ vi.mock('@/src/modules/tramites/application/get-tramites-list-seen-state', () =>
   getTramitesListSeenStateForUser: vi.fn(),
 }))
 vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({ resolveDirectoryActorId: vi.fn() }))
+vi.mock('@/src/modules/obligaciones/application/get-obligaciones-for-client', () => ({
+  getObligacionesForClient: vi.fn(),
+}))
 vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () => ({
   getWorkerWriteSections: vi.fn(),
 }))
@@ -17,11 +20,16 @@ vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () 
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { ClientHome } from '@/src/modules/portal/ui/client-home'
 import { TramitesPage } from '@/src/modules/tramites/ui/tramites-page'
-import { TramitesPageHeader } from '@/src/modules/tramites/ui/tramites-page-view'
+import { ObligacionesPage } from '@/src/modules/obligaciones/ui/obligaciones-page'
+import { ObligacionesPageHeader } from '@/src/modules/obligaciones/ui/obligaciones-page-header'
+import { TramitesPageHeader } from '@/src/modules/tramites/ui/tramites-page-header'
 import {
   ClientHomeDashboardSkeleton,
   ClientHomeQuickLinksSkeleton,
+  ObligacionesBodySkeleton,
+  ObligacionesSkeleton,
   TramitesBodySkeleton,
+  TramitesSkeleton,
 } from '@/src/modules/portal/ui/skeletons'
 
 const user: PortalUser = { id: 'u1', email: 'a@b.c', name: 'Guillermo', role: 'client' }
@@ -71,5 +79,40 @@ describe('trámites pinta la cabecera y deja la lista en streaming', () => {
   it('la lista va dentro de un Suspense con el esqueleto del cuerpo', () => {
     const tree = TramitesPage({ user }) as ReactElement
     expect(suspenseFallbacks(tree).map((fallback) => fallback.type)).toEqual([TramitesBodySkeleton])
+  })
+})
+
+describe('obligaciones pinta la cabecera y deja el contenido en streaming', () => {
+  it('ObligacionesPage no espera nada y lleva la cabecera fuera del Suspense', () => {
+    const result = ObligacionesPage({ user })
+    expect(result).not.toBeInstanceOf(Promise)
+    expect(childrenOf(result as ReactElement).some((child) => child.type === ObligacionesPageHeader)).toBe(true)
+  })
+
+  it('el contenido va dentro de un Suspense con el esqueleto del cuerpo', () => {
+    const tree = ObligacionesPage({ user }) as ReactElement
+    expect(suspenseFallbacks(tree).map((fallback) => fallback.type)).toEqual([ObligacionesBodySkeleton])
+  })
+})
+
+describe('el esqueleto de pantalla completa coincide con la página real', () => {
+  function skeletonChildTypes(skeleton: ReactElement): unknown[] {
+    // Fragment[marcador, div[cabecera real, cuerpo en esqueleto]]
+    const wrapper = childrenOf(skeleton).find((child) => child.type === 'div')!
+    return childrenOf(wrapper).map((child) => child.type)
+  }
+
+  it('trámites: la misma cabecera real y el mismo cuerpo que el Suspense de la página', () => {
+    expect(skeletonChildTypes(TramitesSkeleton() as ReactElement)).toEqual([
+      TramitesPageHeader,
+      TramitesBodySkeleton,
+    ])
+  })
+
+  it('obligaciones: la misma cabecera real y el mismo cuerpo que el Suspense de la página', () => {
+    expect(skeletonChildTypes(ObligacionesSkeleton() as ReactElement)).toEqual([
+      ObligacionesPageHeader,
+      ObligacionesBodySkeleton,
+    ])
   })
 })

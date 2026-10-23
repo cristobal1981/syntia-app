@@ -5,8 +5,8 @@ import { getTramitesListSeenStateForUser } from '@/src/modules/tramites/applicat
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { TramitesPageHeader } from '@/src/modules/tramites/ui/tramites-page-header'
 import {
-  TramitesPageHeader,
   TramitesPageView,
   TramitesStateView,
 } from '@/src/modules/tramites/ui/tramites-page-view'
