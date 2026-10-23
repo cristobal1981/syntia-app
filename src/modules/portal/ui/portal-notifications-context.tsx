@@ -49,7 +49,7 @@ type PortalNotificationsContextValue = {
   getLastSeenMessageId: (recordKind: PortalRecordKind, recordId: number) => number
   hasTramiteNotification: (
     item: { kind: 'tramite' | 'consulta'; id: number },
-    reason: Extract<PortalNotificationReason, 'new_document' | 'status_change'>
+    reason: Extract<PortalNotificationReason, 'status_change'>
   ) => boolean
   dismissNewTramiteNotification: (
     recordKind: PortalRecordKind,
@@ -59,11 +59,6 @@ type PortalNotificationsContextValue = {
     recordKind: PortalRecordKind,
     recordId: number,
     lastSeenMessageId: number
-  ) => Promise<void>
-  ackDocumentsSeen: (
-    scope: 'tramite' | 'consulta' | 'obligacion',
-    recordId: number,
-    attachmentCount: number
   ) => Promise<void>
   ackStatusChangeSeen: (
     scope: 'tramite' | 'consulta' | 'obligacion',
@@ -154,7 +149,6 @@ export function PortalNotificationsProvider({
   const {
     dismissNewTramiteNotification,
     markConversationSeen,
-    ackDocumentsSeen,
     ackStatusChangeSeen,
     openNotification,
     dismissNotification,
@@ -201,7 +195,7 @@ export function PortalNotificationsProvider({
   const hasTramiteNotification = useCallback(
     (
       item: { kind: 'tramite' | 'consulta'; id: number },
-      reason: Extract<PortalNotificationReason, 'new_document' | 'status_change'>
+      reason: Extract<PortalNotificationReason, 'status_change'>
     ) =>
       unread.some(
         (notification) =>
@@ -224,8 +218,7 @@ export function PortalNotificationsProvider({
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
-      ackDocumentsSeen,
-      ackStatusChangeSeen,
+        ackStatusChangeSeen,
       notifyRecordMutated,
       openNotification,
       dismissNotification,
@@ -243,8 +236,7 @@ export function PortalNotificationsProvider({
       hasTramiteNotification,
       dismissNewTramiteNotification,
       markConversationSeen,
-      ackDocumentsSeen,
-      ackStatusChangeSeen,
+        ackStatusChangeSeen,
       notifyRecordMutated,
       openNotification,
       dismissNotification,

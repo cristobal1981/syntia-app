@@ -173,7 +173,6 @@ export async function ackPortalNotificationAction(input: {
   scope: PortalRecordScope
   recordId: number
   reason: PortalNotificationReason
-  attachmentCount?: number
 }): Promise<PortalAckNotificationResult> {
   const access = await resolveClientAccess()
   if (!access.ok) {
@@ -212,26 +211,6 @@ export async function ackPortalNotificationAction(input: {
     const watchState = await fetchWatchStateForUser(access.actorId)
     const key = portalWatchStateKey(input.scope, recordId)
     const previous = watchState.get(key)
-
-    if (input.reason === 'new_document') {
-      const attachmentCount = Number(input.attachmentCount)
-      if (!Number.isInteger(attachmentCount) || attachmentCount < 0) {
-        return { ok: false, error: 'not_found' }
-      }
-
-      await upsertWatchStateBatch(access.actorId, [
-        {
-          scope: input.scope,
-          recordId,
-          lastState: previous?.lastState,
-          lastIsClosed: previous?.lastIsClosed ?? false,
-          lastAttachmentCount: attachmentCount,
-          firmaDueSoonNotified: previous?.firmaDueSoonNotified ?? false,
-          initialized: true,
-        },
-      ])
-      return { ok: true }
-    }
 
     if (input.reason === 'firma_due_soon' || input.reason === 'new_firma') {
       await upsertWatchStateBatch(access.actorId, [

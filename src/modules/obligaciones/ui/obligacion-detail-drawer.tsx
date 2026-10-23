@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Archive, Loader2, Paperclip } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,6 @@ import { portalDocuments } from '@/content/portal-documents'
 import { downloadAllAttachmentsZipAction } from '@/src/modules/portal/application/portal-document-actions'
 import { triggerBase64Download } from '@/src/modules/portal/lib/trigger-base64-download'
 import { RecordAttachmentsPanel } from '@/src/modules/portal/ui/record-attachments-panel'
-import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalSideDrawer } from '@/src/modules/portal/ui/portal-side-drawer'
 import type { ObligacionListRowWithDeadline } from '@/src/modules/obligaciones/domain/categorize-obligaciones'
 import {
@@ -37,31 +36,11 @@ export function ObligacionDetailDrawer({
   open,
   onOpenChange,
 }: ObligacionDetailDrawerProps) {
-  const notifications = usePortalNotificationsOptional()
   // Al cerrar, `task` llega a null: se conserva para que el contenido siga
   // pintado durante la animación de salida.
   const task = useRetainedValue(taskProp)
   const [zipError, setZipError] = useState<string | null>(null)
   const [zipPending, startZipTransition] = useTransition()
-  const documentsAckRef = useRef<number | null>(null)
-
-  // Marca los documentos como vistos una sola vez por tarea al abrir el
-  // drawer; el ref se reinicia al cambiar de tarea (efecto siguiente).
-  useEffect(() => {
-    if (!open || !task) return
-    if (documentsAckRef.current === task.id) return
-    documentsAckRef.current = task.id
-    void notifications?.ackDocumentsSeen?.(
-      'obligacion',
-      task.id,
-      task.attachmentCount
-    )
-  }, [notifications, open, task])
-
-  useEffect(() => {
-    documentsAckRef.current = null
-  }, [taskProp?.id])
-
   if (!task) {
     return null
   }

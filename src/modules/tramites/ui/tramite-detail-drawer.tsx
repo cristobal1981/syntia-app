@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import {
   Archive,
   ChevronLeft,
@@ -99,7 +99,6 @@ export function TramiteDetailDrawer({
   const [zipPending, startZipTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<TramiteDetailTab>(initialTab)
   const [scrollPin, setScrollPin] = useState(0)
-  const documentsAckRef = useRef<string | null>(null)
 
   const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(
     null
@@ -124,20 +123,6 @@ export function TramiteDetailDrawer({
     }
   }
 
-  const ackDocumentsIfNeeded = useCallback(
-    (item: TramiteListItem) => {
-      const ackKey = `${item.kind}:${item.id}`
-      if (documentsAckRef.current === ackKey) return
-      documentsAckRef.current = ackKey
-      void notifications?.ackDocumentsSeen?.(
-        item.kind,
-        item.id,
-        liveAttachmentCount
-      )
-    },
-    [liveAttachmentCount, notifications]
-  )
-
   // Ajuste durante el render (no en un efecto): reinicia el estado local del
   // drawer al cambiar de item.
   const [prevResetKey, setPrevResetKey] = useState([itemProp?.id, itemProp?.kind, initialTab])
@@ -156,13 +141,6 @@ export function TramiteDetailDrawer({
       setPreviewOpen(false)
     }
   }
-
-  // El ref (a diferencia del estado de arriba) solo puede escribirse fuera
-  // del render — un efecto aparte, mismo disparador.
-  useEffect(() => {
-    if (itemProp?.id === undefined) return
-    documentsAckRef.current = null
-  }, [itemProp?.id, itemProp?.kind, initialTab])
 
   const recordKind = item ? getTramiteListRecordKind(item) : 'task'
   const recordId = item?.id ?? 0
@@ -231,11 +209,6 @@ export function TramiteDetailDrawer({
     if (!open || item?.kind !== 'tramite' || itemId === undefined) return
     dismissNewTramiteNotification?.(recordKind, itemId)
   }, [dismissNewTramiteNotification, item?.id, item?.kind, open, recordKind])
-
-  useEffect(() => {
-    if (!open || !item || activeTab !== 'documents') return
-    ackDocumentsIfNeeded(item)
-  }, [ackDocumentsIfNeeded, activeTab, item, open])
 
   const pageTotal = pageItems.length
   const showPageNav =
@@ -310,16 +283,12 @@ export function TramiteDetailDrawer({
 
     setHighlightAttachmentId(attachment.id)
     setActiveTab('documents')
-    ackDocumentsIfNeeded(tramite)
   }
 
   function handleTabChange(tab: TramiteDetailTab) {
     setActiveTab(tab)
     if (tab === 'conversation') {
       setScrollPin((value) => value + 1)
-    }
-    if (tab === 'documents') {
-      ackDocumentsIfNeeded(tramite)
     }
   }
 

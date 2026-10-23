@@ -8,7 +8,6 @@ export type PortalNotificationReason =
   | 'unread_chatter'
   | 'new_tramite'
   | 'status_change'
-  | 'new_document'
   | 'new_firma'
   | 'firma_due_soon'
 

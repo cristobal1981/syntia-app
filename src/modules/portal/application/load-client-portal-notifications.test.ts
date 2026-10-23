@@ -926,7 +926,7 @@ describe('loadClientPortalNotifications — hasChanges', () => {
 
   it('is true when recordDeltas produced notifications', async () => {
     computeRecordWatchDeltas.mockReturnValue({
-      notifications: [{ scope: 'obligacion', recordId: 1, name: 'x', reason: 'new_document', latestDate: 'd' }],
+      notifications: [{ scope: 'obligacion', recordId: 1, name: 'x', reason: 'status_change', latestDate: 'd' }],
       watchUpdates: [],
     })
 
