@@ -392,10 +392,10 @@ export function TramiteDetailDrawer({
               </div>
             ) : null}
           </div>
-          {/* Dos líneas como máximo y el hueco de las dos siempre reservado: un título corto no
-              sube el contenido ni desplaza lo de debajo al navegar con las flechas. */}
+          {/* Dos líneas como máximo; ocupa lo que necesite. La navegación va en la fila de
+              arriba, así que no se mueve aunque cambie la altura del título. */}
           <DialogTitle
-            className="mt-2 line-clamp-2 min-h-[2lh] text-pretty"
+            className="mt-2 line-clamp-2 text-pretty"
             title={tramite.name}
           >
             {tramite.name}
