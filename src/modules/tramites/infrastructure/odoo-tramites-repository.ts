@@ -78,8 +78,14 @@ export function mapAssignees(
 ): TramiteAssignee[] {
   const assignees: TramiteAssignee[] = []
   for (const userId of [...new Set(odooUserIds)].sort((a, b) => a - b)) {
-    const name = users.get(userId)?.name
-    if (name) assignees.push({ userId, name })
+    const user = users.get(userId)
+    if (user?.name) {
+      assignees.push({
+        userId,
+        name: user.name,
+        ...(user.partnerId ? { partnerId: user.partnerId } : {}),
+      })
+    }
   }
   return assignees
 }

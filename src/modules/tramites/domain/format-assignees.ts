@@ -20,3 +20,13 @@ export function formatAssigneesLabel(assignees: readonly TramiteAssignee[]): str
 export function assigneeKeyFor(assignees: readonly TramiteAssignee[]): string {
   return [...new Set(assignees.map((assignee) => assignee.userId))].sort((a, b) => a - b).join(',')
 }
+
+/** Quiénes enseñan foto en la línea del drawer: los primeros con partner (de ahí sale la foto), hasta `max`. */
+export function assigneesWithPhoto(
+  assignees: readonly TramiteAssignee[],
+  max = 3
+): (TramiteAssignee & { partnerId: number })[] {
+  return assignees
+    .filter((assignee): assignee is TramiteAssignee & { partnerId: number } => Boolean(assignee.partnerId))
+    .slice(0, max)
+}

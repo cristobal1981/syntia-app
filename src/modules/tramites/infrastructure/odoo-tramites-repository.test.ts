@@ -97,7 +97,7 @@ describe('mapAssignees', () => {
 
   it('ordena por id, quita repetidos y deja fuera a quien no existe o no tiene nombre', () => {
     expect(mapAssignees([3, 1, 3, 2, 99], users)).toEqual([
-      { userId: 1, name: 'Ana' },
+      { userId: 1, name: 'Ana', partnerId: 11 },
       { userId: 3, name: 'Carla' },
     ])
   })
@@ -126,7 +126,7 @@ describe('fetchTramitesFromOdoo: fecha de creación, prioridad y asignados', () 
       modifiedAt: '2026-10-22T12:00:00.000Z',
       priority: 3,
       assignees: [
-        { userId: 7, name: 'Ana García' },
+        { userId: 7, name: 'Ana García', partnerId: 701 },
         { userId: 8, name: 'Bruno Díaz' },
       ],
       assignedNotifyPartnerIds: [701],
@@ -140,7 +140,7 @@ describe('fetchTramitesFromOdoo: fecha de creación, prioridad y asignados', () 
       id: 20,
       createdAt: '2026-10-20T10:00:00.000Z',
       priority: 1,
-      assignees: [{ userId: 9, name: 'Luis Pérez' }],
+      assignees: [{ userId: 9, name: 'Luis Pérez', partnerId: 901 }],
       assignedNotifyPartnerIds: [901],
     })
   })

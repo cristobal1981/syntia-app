@@ -6,6 +6,8 @@ export type TramiteAssignee = {
   /** `res.users` en Odoo. */
   userId: number
   name: string
+  /** `res.partner` del usuario: de ahí sale su foto (ruta compartida y cacheada). Sin él, solo el nombre. */
+  partnerId?: number
 }
 
 export type TramiteTask = {
