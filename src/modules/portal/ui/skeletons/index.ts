@@ -1,7 +1,7 @@
 export {
   ClientHomeDashboardSkeleton,
+  ClientHomeLoading,
   ClientHomeQuickLinksSkeleton,
-  ClientHomeSkeleton,
 } from '@/src/modules/portal/ui/skeletons/client-home-skeleton'
 export { StaffHomeBentoSkeleton } from '@/src/modules/portal/ui/skeletons/staff-home-bento-skeleton'
 export { DirectoryListPageSkeleton } from '@/src/modules/portal/ui/skeletons/directory-list-page-skeleton'

@@ -19,12 +19,17 @@ vi.mock('@/src/modules/colaboradores/application/get-worker-write-sections', () 
 
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import { ClientHome } from '@/src/modules/portal/ui/client-home'
+import {
+  ClientHomeGreeting,
+  ClientHomeQuickLinksSection,
+} from '@/src/modules/portal/ui/client-home-static'
 import { TramitesPage } from '@/src/modules/tramites/ui/tramites-page'
 import { ObligacionesPage } from '@/src/modules/obligaciones/ui/obligaciones-page'
 import { ObligacionesPageHeader } from '@/src/modules/obligaciones/ui/obligaciones-page-header'
 import { TramitesPageHeader } from '@/src/modules/tramites/ui/tramites-page-header'
 import {
   ClientHomeDashboardSkeleton,
+  ClientHomeLoading,
   ClientHomeQuickLinksSkeleton,
   ObligacionesBodySkeleton,
   ObligacionesSkeleton,
@@ -46,22 +51,58 @@ function suspenseFallbacks(element: ReactElement): ReactElement[] {
 }
 
 describe('el inicio pinta primero y deja los datos en streaming', () => {
+  const worker: PortalUser = { ...user, role: 'worker' }
+
   it('ClientHome no espera nada (devuelve el árbol al instante, no una promesa)', () => {
-    const result = ClientHome({ user })
-    expect(result).not.toBeInstanceOf(Promise)
+    expect(ClientHome({ user })).not.toBeInstanceOf(Promise)
   })
 
-  it('el saludo va fuera de cualquier Suspense, con el nombre del usuario', () => {
+  it('un cliente tiene el saludo y los accesos rápidos reales, sin Suspense; solo el resumen está en streaming', () => {
     const tree = ClientHome({ user }) as ReactElement
-    const header = childrenOf(tree).find((child) => child.type === 'header')
-    expect(header).toBeDefined()
-    expect(JSON.stringify(header!.props)).toContain('Guillermo')
+    expect(childrenOf(tree).map((child) => child.type)).toEqual([
+      ClientHomeGreeting,
+      Suspense,
+      ClientHomeQuickLinksSection,
+    ])
+    expect(suspenseFallbacks(tree).map((fallback) => fallback.type)).toEqual([
+      ClientHomeDashboardSkeleton,
+    ])
   })
 
-  it('el resumen/novedades y los accesos rápidos tienen cada uno su Suspense y su esqueleto', () => {
-    const tree = ClientHome({ user }) as ReactElement
-    const fallbacks = suspenseFallbacks(tree)
-    expect(fallbacks.map((fallback) => fallback.type)).toEqual([
+  it('el saludo lleva el nombre y la empresa del usuario', () => {
+    const tree = ClientHome({ user: { ...user, companyName: 'Acme' } }) as ReactElement
+    const greeting = childrenOf(tree).find((child) => child.type === ClientHomeGreeting)!
+    expect(greeting.props).toEqual({ name: 'Guillermo', companyName: 'Acme' })
+  })
+
+  it('un colaborador espera a sus permisos: sus accesos rápidos van en un Suspense con esqueleto', () => {
+    const tree = ClientHome({ user: worker }) as ReactElement
+    expect(childrenOf(tree).map((child) => child.type)).toEqual([
+      ClientHomeGreeting,
+      Suspense,
+      Suspense,
+    ])
+    expect(suspenseFallbacks(tree).map((fallback) => fallback.type)).toEqual([
+      ClientHomeDashboardSkeleton,
+      ClientHomeQuickLinksSkeleton,
+    ])
+  })
+
+  it('la pantalla de carga de un cliente pinta lo mismo que la página, solo con el resumen en esqueleto (sin saltos)', () => {
+    const loading = ClientHomeLoading({ user }) as ReactElement
+    const wrapper = childrenOf(loading).find((child) => child.type === 'div')!
+    expect(childrenOf(wrapper).map((child) => child.type)).toEqual([
+      ClientHomeGreeting,
+      ClientHomeDashboardSkeleton,
+      ClientHomeQuickLinksSection,
+    ])
+  })
+
+  it('la pantalla de carga de un colaborador no inventa accesos: esqueleto en su lugar', () => {
+    const loading = ClientHomeLoading({ user: worker }) as ReactElement
+    const wrapper = childrenOf(loading).find((child) => child.type === 'div')!
+    expect(childrenOf(wrapper).map((child) => child.type)).toEqual([
+      ClientHomeGreeting,
       ClientHomeDashboardSkeleton,
       ClientHomeQuickLinksSkeleton,
     ])
