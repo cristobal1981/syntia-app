@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
 import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
-import { checkPortalNotificationsAction } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
+import {
+  checkPortalNewsSignalAction,
+  checkPortalNotificationsAction,
+} from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
   mergeAccumulatedPortalNotifications,
   pruneResolvedFirmaNotifications,
@@ -23,6 +26,7 @@ import {
   DEFERRED_POLL_MS,
   shouldDeferInitialPoll,
   shouldRefreshPortalPageOnNotificationPoll,
+  shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
 import {
   PortalNotificationsTabCoordinator,
@@ -77,6 +81,11 @@ export function usePortalNotificationsSync({
   const pollTimerRef = useRef<number | null>(null)
   const coordinatorRef = useRef<PortalNotificationsTabCoordinator | null>(null)
   const rateLimitedRef = useRef(false)
+  // Señal de eventos (ver `shouldRunFullNotificationsCheck`): último `seq` con el que se hizo
+  // la comprobación completa y cuándo. `null` hasta la primera.
+  const lastSignalSeqRef = useRef<number | null>(null)
+  const lastFullCheckAtRef = useRef<number | null>(null)
+  const signalModeRef = useRef(false)
 
   const resetPollInterval = useCallback(() => {
     pollIntervalRef.current = getInitialPollIntervalMs()
@@ -194,6 +203,33 @@ export function usePortalNotificationsSync({
       pollingRef.current = true
 
       try {
+        // Con la señal activa, un sondeo programado primero mira (solo Supabase) si hay
+        // novedades; si no las hay, se salta la comprobación contra Odoo.
+        let signalSeq: number | null = null
+        signalModeRef.current = false
+        if (!options?.force) {
+          const signal = await checkPortalNewsSignalAction()
+          portalConnectivityStore.reportPollSuccess()
+          if (signal.ok && signal.mode === 'events') {
+            signalModeRef.current = true
+            signalSeq = signal.seq
+            const runFull = shouldRunFullNotificationsCheck({
+              signalSeq: signal.seq,
+              lastSignalSeq: lastSignalSeqRef.current,
+              lastFullCheckAt: lastFullCheckAtRef.current,
+              now: Date.now(),
+              maxAgeMs: signal.fullCheckMaxAgeMs,
+            })
+            if (!runFull) {
+              pollIntervalRef.current = rateLimitedRef.current
+                ? getMaxPollIntervalMs()
+                : getInitialPollIntervalMs()
+              setNotificationsLoading(false)
+              return
+            }
+          }
+        }
+
         const result = await checkPortalNotificationsAction()
         // Llegó respuesta del servidor (aunque sea un error): hay red.
         portalConnectivityStore.reportPollSuccess()
@@ -206,6 +242,12 @@ export function usePortalNotificationsSync({
         }
 
         applyPollResult(result, { refreshPages: true })
+        lastFullCheckAtRef.current = Date.now()
+        if (signalSeq !== null) lastSignalSeqRef.current = signalSeq
+        // Con la señal, el sondeo es barato: no se espacia por falta de cambios.
+        if (signalModeRef.current && !rateLimitedRef.current) {
+          pollIntervalRef.current = getInitialPollIntervalMs()
+        }
 
         coordinator?.broadcastPollResult({
           sourceTabId: coordinator.getTabId(),

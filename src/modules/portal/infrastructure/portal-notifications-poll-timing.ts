@@ -10,3 +10,21 @@ export function shouldDeferInitialPoll(): boolean {
   if (typeof window === 'undefined') return false
   return new URLSearchParams(window.location.search).has('open')
 }
+
+/**
+ * Con la señal de eventos activa, un sondeo programado solo hace la
+ * comprobación completa (Odoo) si hay eventos nuevos desde la última, si nunca
+ * se ha hecho o si ya pasó `maxAgeMs`: esa red de seguridad cubre lo que no
+ * llega por eventos (documentos nuevos, un evento perdido…).
+ */
+export function shouldRunFullNotificationsCheck(input: {
+  signalSeq: number
+  lastSignalSeq: number | null
+  lastFullCheckAt: number | null
+  now: number
+  maxAgeMs: number
+}): boolean {
+  if (input.lastSignalSeq === null || input.lastFullCheckAt === null) return true
+  if (input.signalSeq !== input.lastSignalSeq) return true
+  return input.now - input.lastFullCheckAt >= input.maxAgeMs
+}

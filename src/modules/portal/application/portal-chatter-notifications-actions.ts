@@ -28,6 +28,11 @@ import {
 } from '@/src/modules/portal/infrastructure/chatter-read-state.supabase'
 import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
+  getPortalNewsFullCheckMaxAgeMs,
+  isPortalNewsSignalEnabled,
+} from '@/src/modules/portal/infrastructure/portal-chatter-env'
+import { getMaxPortalEventSeqForPartner } from '@/src/modules/push/infrastructure/portal-events.supabase'
+import {
   fetchWatchStateForUser,
   upsertWatchStateBatch,
 } from '@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
@@ -84,6 +89,32 @@ export async function checkPortalNotificationsAction(): Promise<PortalNotificati
   }
 
   return result
+}
+
+export type PortalNewsSignalResult =
+  | { ok: true; mode: 'full' }
+  | { ok: true; mode: 'events'; seq: number; fullCheckMaxAgeMs: number }
+  | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
+
+/**
+ * Señal barata para el sondeo de la campana: último evento del cliente, solo
+ * Supabase (sin Odoo). Con `PORTAL_NEWS_SIGNAL` apagado responde `full` y el
+ * cliente hace la comprobación completa en cada sondeo; si la consulta falla,
+ * también (nunca se queda sin avisos por culpa de la señal).
+ */
+export async function checkPortalNewsSignalAction(): Promise<PortalNewsSignalResult> {
+  if (!isPortalNewsSignalEnabled()) return { ok: true, mode: 'full' }
+
+  const access = await resolveClientAccess()
+  if (!access.ok) return { ok: false, error: access.error }
+
+  try {
+    const seq = await getMaxPortalEventSeqForPartner(access.partnerId)
+    return { ok: true, mode: 'events', seq, fullCheckMaxAgeMs: getPortalNewsFullCheckMaxAgeMs() }
+  } catch (error) {
+    console.error('[portal news] señal de eventos falló', error)
+    return { ok: true, mode: 'full' }
+  }
 }
 
 /** @deprecated Use checkPortalNotificationsAction */
