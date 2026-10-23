@@ -332,8 +332,74 @@ export function TramiteDetailDrawer({
 
   return (
     <PortalSideDrawer open={open} onOpenChange={onOpenChange} size="wide">
-        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 text-left dark:border-border/50">
-          <DialogTitle className="text-pretty pr-8">{tramite.name}</DialogTitle>
+        <DialogHeader className="shrink-0 gap-0 border-b border-border px-6 pt-3 pb-5 text-left dark:border-border/50">
+          {/* Fila de arriba: la navegación entre trámites y, a la derecha, el botón de cerrar del
+              marco (absoluto, a la altura de esta fila). El hueco es fijo aunque no haya
+              navegación, para que nada se mueva entre un trámite y el siguiente. */}
+          <div className="flex h-8 items-center pr-9">
+            {showPageNav ? (
+              <div
+                className="flex items-center gap-1"
+                role="navigation"
+                aria-label={navCopy.positionLabel
+                  .replace('{current}', String(pageItemIndex + 1))
+                  .replace('{total}', String(pageTotal))}
+              >
+                <PortalActionTooltip content={prevTooltip} disabled={!canGoPrevious}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canGoPrevious}
+                    onClick={handleGoPrevious}
+                    aria-label={navCopy.previous}
+                    aria-keyshortcuts={prevShortcutLabel}
+                    className={cn(
+                      'relative',
+                      overlayActive &&
+                        canGoPrevious &&
+                        'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                    )}
+                  >
+                    <ChevronLeft className="size-4" aria-hidden />
+                  </Button>
+                </PortalActionTooltip>
+                <span
+                  className="min-w-[4.75rem] text-center text-xs tabular-nums text-muted-foreground"
+                  aria-hidden
+                >
+                  {pageItemIndex + 1}/{pageTotal}
+                </span>
+                <PortalActionTooltip content={nextTooltip} disabled={!canGoNext}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canGoNext}
+                    onClick={handleGoNext}
+                    aria-label={navCopy.next}
+                    aria-keyshortcuts={nextShortcutLabel}
+                    className={cn(
+                      'relative',
+                      overlayActive &&
+                        canGoNext &&
+                        'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                    )}
+                  >
+                    <ChevronRight className="size-4" aria-hidden />
+                  </Button>
+                </PortalActionTooltip>
+              </div>
+            ) : null}
+          </div>
+          {/* Dos líneas como máximo y el hueco de las dos siempre reservado: un título corto no
+              sube el contenido ni desplaza lo de debajo al navegar con las flechas. */}
+          <DialogTitle
+            className="mt-2 line-clamp-2 min-h-[2lh] text-pretty"
+            title={tramite.name}
+          >
+            {tramite.name}
+          </DialogTitle>
           {parentTramite ? (
             <button
               type="button"
@@ -351,70 +417,15 @@ export function TramiteDetailDrawer({
             <TramiteDescription key={tramite.id} taskId={tramite.id} />
           ) : null}
           <DialogDescription asChild>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-3 flex flex-col items-start gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <TramiteTypeBadge kind={tramite.kind} />
                 <TaskStateBadge
                   label={stateBadge.label}
                   variant={stateBadge.variant}
                 />
-                <TramiteAssignees assignees={tramite.assignees} />
               </div>
-
-              {showPageNav ? (
-                <div
-                  className="flex items-center gap-1"
-                  role="navigation"
-                  aria-label={navCopy.positionLabel
-                    .replace('{current}', String(pageItemIndex + 1))
-                    .replace('{total}', String(pageTotal))}
-                >
-                  <PortalActionTooltip content={prevTooltip} disabled={!canGoPrevious}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      disabled={!canGoPrevious}
-                      onClick={handleGoPrevious}
-                      aria-label={navCopy.previous}
-                      aria-keyshortcuts={prevShortcutLabel}
-                      className={cn(
-                        'relative',
-                        overlayActive &&
-                          canGoPrevious &&
-                          'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
-                      )}
-                    >
-                      <ChevronLeft className="size-4" aria-hidden />
-                    </Button>
-                  </PortalActionTooltip>
-                  <span
-                    className="min-w-[3.25rem] text-center text-xs tabular-nums text-muted-foreground"
-                    aria-hidden
-                  >
-                    {pageItemIndex + 1}/{pageTotal}
-                  </span>
-                  <PortalActionTooltip content={nextTooltip} disabled={!canGoNext}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      disabled={!canGoNext}
-                      onClick={handleGoNext}
-                      aria-label={navCopy.next}
-                      aria-keyshortcuts={nextShortcutLabel}
-                      className={cn(
-                        'relative',
-                        overlayActive &&
-                          canGoNext &&
-                          'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
-                      )}
-                    >
-                      <ChevronRight className="size-4" aria-hidden />
-                    </Button>
-                  </PortalActionTooltip>
-                </div>
-              ) : null}
+              <TramiteAssignees assignees={tramite.assignees} />
             </div>
           </DialogDescription>
         </DialogHeader>
