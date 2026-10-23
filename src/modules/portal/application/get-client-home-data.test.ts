@@ -108,7 +108,7 @@ describe('getClientHomeData', () => {
     expect(resolveDirectoryActorId).not.toHaveBeenCalled()
   })
 
-  it('passes through unmasked snapshot/notifications for a client, fetching fresh uncached non-persisted notifications', async () => {
+  it('passes through unmasked snapshot/notifications for a client, reading the shared cached snapshots without persisting', async () => {
     const notifications = okNotifications()
     loadClientPortalNotifications.mockResolvedValue(notifications)
 
@@ -122,7 +122,7 @@ describe('getClientHomeData', () => {
     expect(loadClientPortalNotifications).toHaveBeenCalledWith({
       partnerId: 123,
       actorId: 'actor-1',
-      cache: false,
+      cache: true,
       persist: false,
     })
     expect(getAllowedSectionsForWorker).not.toHaveBeenCalled()

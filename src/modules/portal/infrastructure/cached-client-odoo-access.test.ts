@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { buildObligacionTaskIndex, fetchClientProjectIds, odooSearchRead } = vi.hoisted(() => ({
+const { buildObligacionTaskIndex, fetchClientProjectIds, odooSearchRead, fetchObligacionesFromOdoo } = vi.hoisted(() => ({
   buildObligacionTaskIndex: vi.fn(),
+  fetchObligacionesFromOdoo: vi.fn(),
   fetchClientProjectIds: vi.fn(),
   odooSearchRead: vi.fn(),
 }))
@@ -9,6 +10,9 @@ const { buildObligacionTaskIndex, fetchClientProjectIds, odooSearchRead } = vi.h
 vi.mock('next/cache', () => ({ unstable_cache: (fn: () => unknown) => fn }))
 vi.mock('@/src/modules/obligaciones/infrastructure/odoo-obligacion-task-index', () => ({
   buildObligacionTaskIndex,
+}))
+vi.mock('@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository', () => ({
+  fetchObligacionesFromOdoo,
 }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-client-projects', () => ({ fetchClientProjectIds }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', async (importOriginal) => ({
@@ -18,6 +22,8 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', async (importOri
 
 import {
   getCachedObligacionNotificationSnapshot,
+  getCachedObligacionTree,
+  obligacionTreeCacheTag,
   getFreshObligacionNotificationSnapshotSafe,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 
@@ -48,5 +54,20 @@ describe('snapshot de obligaciones para avisos', () => {
   it('sin hojas devuelve la lista vacía', async () => {
     buildObligacionTaskIndex.mockResolvedValue({ leaves: [], years: [] })
     expect((await getFreshObligacionNotificationSnapshotSafe(7)).data.leaves).toEqual([])
+  })
+})
+
+describe('árbol de obligaciones de la pantalla', () => {
+  it('lo pide a Odoo para ese cliente y lo devuelve', async () => {
+    const tree = { years: [{ year: 2026, label: 'Obligaciones 2026', periods: [] }] }
+    fetchObligacionesFromOdoo.mockResolvedValue(tree)
+
+    expect(await getCachedObligacionTree(7)).toEqual(tree)
+    expect(fetchObligacionesFromOdoo).toHaveBeenCalledWith(7)
+  })
+
+  it('su etiqueta de caché es por cliente, para poder invalidar solo el suyo', () => {
+    expect(obligacionTreeCacheTag(7)).toBe('obligacion-tree:7')
+    expect(obligacionTreeCacheTag(8)).not.toBe(obligacionTreeCacheTag(7))
   })
 })

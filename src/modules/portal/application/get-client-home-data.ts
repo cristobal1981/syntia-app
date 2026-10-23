@@ -49,13 +49,15 @@ export async function getClientHomeData(user: PortalUser): Promise<ClientHomeDat
   const actorId = await resolveDirectoryActorId(user)
 
   try {
-    // Un único fetch (fresco, sin unstable_cache) alimenta tanto las
-    // novedades como el resumen del home: evita pedirle a Odoo dos veces
-    // los mismos trámites/obligaciones/firmas en cada render del home.
+    // Un único fetch alimenta tanto las novedades como el resumen del home y
+    // lee de los snapshots compartidos (los mismos que Trámites, Obligaciones y
+    // Firmas), así que una visita con la caché caliente no toca Odoo. El primer
+    // sondeo del cliente espera al intervalo normal (`initialPollDelayMs`) y
+    // trae lo fresco, de modo que un dato de hasta 90 s no se queda.
     const notifications = await loadClientPortalNotifications({
       partnerId,
       actorId,
-      cache: false,
+      cache: true,
       persist: false,
     })
 

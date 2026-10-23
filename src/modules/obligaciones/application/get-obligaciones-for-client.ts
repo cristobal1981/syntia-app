@@ -1,6 +1,6 @@
 import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
 import type { ObligacionesResult } from '@/src/modules/obligaciones/domain/types'
-import { fetchObligacionesFromOdoo } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
+import { getCachedObligacionTree } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
@@ -21,7 +21,7 @@ export async function getObligacionesForClient(
   }
 
   try {
-    const data = await fetchObligacionesFromOdoo(partnerId)
+    const data = await getCachedObligacionTree(partnerId)
     return { ok: true, data }
   } catch (error) {
     if (error instanceof Error && error.message === 'ODOO_NOT_CONFIGURED') {

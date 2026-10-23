@@ -16,6 +16,8 @@ import {
   resolveOdooErrorCode,
   type OdooServiceErrorCode,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { fetchObligacionesFromOdoo } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
+import type { ObligacionesSnapshot } from '@/src/modules/obligaciones/domain/types'
 import { fetchClientProjectIds } from '@/src/modules/portal/infrastructure/odoo-client-projects'
 import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
 import { fetchTramitesFromOdoo } from '@/src/modules/tramites/infrastructure/odoo-tramites-repository'
@@ -35,6 +37,7 @@ const OBLIGACION_NOTIFICATION_SNAPSHOT_REVALIDATE_SECONDS = 90
 const PENDING_SIGNATURES_SNAPSHOT_REVALIDATE_SECONDS = 90
 const SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS = 90
 const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
+const OBLIGACION_TREE_REVALIDATE_SECONDS = 90
 
 const EMPTY_TRAMITES_SNAPSHOT: TramitesSnapshot = {
   tasks: [],
@@ -64,6 +67,10 @@ function clientProjectIdsCacheTag(partnerId: number): string {
 
 function obligacionTaskIndexCacheTag(partnerId: number): string {
   return `obligacion-task-index:${partnerId}`
+}
+
+export function obligacionTreeCacheTag(partnerId: number): string {
+  return `obligacion-tree:${partnerId}`
 }
 
 function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
@@ -215,6 +222,24 @@ export async function getCachedObligacionNotificationSnapshot(
     {
       revalidate: OBLIGACION_NOTIFICATION_SNAPSHOT_REVALIDATE_SECONDS,
       tags: [obligacionNotificationSnapshotCacheTag(partnerId)],
+    }
+  )
+
+  return cached()
+}
+
+/**
+ * Árbol de obligaciones de la pantalla (años, periodos y hojas con su recuento
+ * de adjuntos): son 5 consultas en serie a Odoo, así que se comparte entre
+ * visitas con la misma caducidad que el resto de snapshots.
+ */
+export async function getCachedObligacionTree(partnerId: number): Promise<ObligacionesSnapshot> {
+  const cached = unstable_cache(
+    () => fetchObligacionesFromOdoo(partnerId),
+    ['obligacion-tree', String(partnerId)],
+    {
+      revalidate: OBLIGACION_TREE_REVALIDATE_SECONDS,
+      tags: [obligacionTreeCacheTag(partnerId)],
     }
   )
 

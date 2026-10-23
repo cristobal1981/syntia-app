@@ -3,11 +3,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 import type { ObligacionesSnapshot } from '@/src/modules/obligaciones/domain/types'
 
-const { resolveClientOdooPartnerId, isOdooApiConfigured, fetchObligacionesFromOdoo } = vi.hoisted(
+const { resolveClientOdooPartnerId, isOdooApiConfigured, getCachedObligacionTree } = vi.hoisted(
   () => ({
     resolveClientOdooPartnerId: vi.fn(),
     isOdooApiConfigured: vi.fn(),
-    fetchObligacionesFromOdoo: vi.fn(),
+    getCachedObligacionTree: vi.fn(),
   })
 )
 
@@ -20,8 +20,8 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', async () => {
   >('@/src/modules/portal/infrastructure/odoo-json-client')
   return { ...actual, isOdooApiConfigured }
 })
-vi.mock('@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository', () => ({
-  fetchObligacionesFromOdoo,
+vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
+  getCachedObligacionTree,
 }))
 
 import { getObligacionesForClient } from '@/src/modules/obligaciones/application/get-obligaciones-for-client'
@@ -36,13 +36,15 @@ beforeEach(() => {
   vi.resetAllMocks()
   isOdooApiConfigured.mockReturnValue(true)
   resolveClientOdooPartnerId.mockResolvedValue(42)
-  fetchObligacionesFromOdoo.mockResolvedValue(snapshot)
+  getCachedObligacionTree.mockResolvedValue(snapshot)
 })
 
 describe('getObligacionesForClient — authorization gate', () => {
   it.each(['client', 'worker'] as const)('allows role=%s through to the data fetch', async (role) => {
     const result = await getObligacionesForClient(userWithRole(role))
     expect(result).toEqual({ ok: true, data: snapshot })
+    // Solo el árbol del cliente de la sesión: el id sale de su vínculo con Odoo.
+    expect(getCachedObligacionTree).toHaveBeenCalledWith(42)
   })
 
   it.each(['advisor', 'admin'] as const)(
@@ -51,7 +53,7 @@ describe('getObligacionesForClient — authorization gate', () => {
       const result = await getObligacionesForClient(userWithRole(role))
       expect(result).toEqual({ ok: false, error: 'forbidden' })
       expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
-      expect(fetchObligacionesFromOdoo).not.toHaveBeenCalled()
+      expect(getCachedObligacionTree).not.toHaveBeenCalled()
     }
   )
 })
@@ -61,32 +63,32 @@ describe('getObligacionesForClient — partner linking', () => {
     resolveClientOdooPartnerId.mockResolvedValue(null)
     const result = await getObligacionesForClient(userWithRole('client'))
     expect(result).toEqual({ ok: false, error: 'not_linked' })
-    expect(fetchObligacionesFromOdoo).not.toHaveBeenCalled()
+    expect(getCachedObligacionTree).not.toHaveBeenCalled()
   })
 })
 
 describe('getObligacionesForClient — Odoo configuration/errors', () => {
-  it('returns "odoo_unavailable" when the Odoo API is not configured, without calling fetchObligacionesFromOdoo', async () => {
+  it('returns "odoo_unavailable" when the Odoo API is not configured, without calling getCachedObligacionTree', async () => {
     isOdooApiConfigured.mockReturnValue(false)
     const result = await getObligacionesForClient(userWithRole('client'))
     expect(result).toEqual({ ok: false, error: 'odoo_unavailable' })
-    expect(fetchObligacionesFromOdoo).not.toHaveBeenCalled()
+    expect(getCachedObligacionTree).not.toHaveBeenCalled()
   })
 
   it('maps a thrown ODOO_NOT_CONFIGURED error to "odoo_unavailable"', async () => {
-    fetchObligacionesFromOdoo.mockRejectedValue(new Error('ODOO_NOT_CONFIGURED'))
+    getCachedObligacionTree.mockRejectedValue(new Error('ODOO_NOT_CONFIGURED'))
     const result = await getObligacionesForClient(userWithRole('client'))
     expect(result).toEqual({ ok: false, error: 'odoo_unavailable' })
   })
 
   it('any other thrown error is resolved via resolveOdooErrorCode (rate-limit message -> odoo_rate_limited)', async () => {
-    fetchObligacionesFromOdoo.mockRejectedValue(new Error('ODOO_RATE_LIMITED'))
+    getCachedObligacionTree.mockRejectedValue(new Error('ODOO_RATE_LIMITED'))
     const result = await getObligacionesForClient(userWithRole('client'))
     expect(result).toEqual({ ok: false, error: 'odoo_rate_limited' })
   })
 
   it('a generic thrown error falls back to "odoo_unavailable"', async () => {
-    fetchObligacionesFromOdoo.mockRejectedValue(new Error('something else entirely'))
+    getCachedObligacionTree.mockRejectedValue(new Error('something else entirely'))
     const result = await getObligacionesForClient(userWithRole('client'))
     expect(result).toEqual({ ok: false, error: 'odoo_unavailable' })
   })

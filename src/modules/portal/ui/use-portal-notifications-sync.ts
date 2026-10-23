@@ -23,7 +23,7 @@ import {
   notificationsSignature,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-scheduler'
 import {
-  DEFERRED_POLL_MS,
+  initialPollDelayMs,
   shouldDeferInitialPoll,
   shouldRefreshPortalPageOnNotificationPoll,
   shouldRunFullNotificationsCheck,
@@ -52,6 +52,8 @@ type UsePortalNotificationsSyncArgs = {
   setStats: (stats: PortalNotificationsStats) => void
   setLastRecordMessage: (value: LastRecordMessage) => void
   setNotificationsLoading: (loading: boolean) => void
+  /** El servidor ya sembró las novedades de esta pantalla (el inicio). */
+  wasSeededFromServer: () => boolean
 }
 
 /**
@@ -75,6 +77,7 @@ export function usePortalNotificationsSync({
   setStats,
   setLastRecordMessage,
   setNotificationsLoading,
+  wasSeededFromServer,
 }: UsePortalNotificationsSyncArgs) {
   const pollingRef = useRef(false)
   const pollIntervalRef = useRef(getInitialPollIntervalMs())
@@ -361,7 +364,11 @@ export function usePortalNotificationsSync({
       void refreshNotifications({ force: true })
     })
 
-    const initialDelay = shouldDeferInitialPoll() ? DEFERRED_POLL_MS : 0
+    const initialDelay = initialPollDelayMs({
+      seededFromServer: wasSeededFromServer(),
+      deferForOpenParam: shouldDeferInitialPoll(),
+      intervalMs: getInitialPollIntervalMs(),
+    })
 
     const initialTimer = window.setTimeout(() => {
       void refreshNotifications().finally(() => {

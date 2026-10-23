@@ -6,6 +6,21 @@ export function shouldRefreshPortalPageOnNotificationPoll(pathname: string): boo
   return true
 }
 
+/**
+ * Cuándo hace el primer sondeo la pestaña líder. Si el servidor ya sembró las
+ * novedades (el inicio), repetir la misma carga a Odoo nada más hidratar es
+ * trabajo doble: el primer sondeo espera al intervalo normal. Con `?open=` se
+ * retrasa un poco para dejar abrir el drawer; en el resto de pantallas, ya.
+ */
+export function initialPollDelayMs(input: {
+  seededFromServer: boolean
+  deferForOpenParam: boolean
+  intervalMs: number
+}): number {
+  if (input.seededFromServer) return input.intervalMs
+  return input.deferForOpenParam ? DEFERRED_POLL_MS : 0
+}
+
 export function shouldDeferInitialPoll(): boolean {
   if (typeof window === 'undefined') return false
   return new URLSearchParams(window.location.search).has('open')

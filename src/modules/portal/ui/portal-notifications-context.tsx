@@ -144,6 +144,7 @@ export function PortalNotificationsProvider({
       setStats,
       setLastRecordMessage,
       setNotificationsLoading,
+      wasSeededFromServer: () => ssrHydratedRef.current,
     })
 
   const {
