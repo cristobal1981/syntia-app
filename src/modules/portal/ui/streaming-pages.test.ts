@@ -116,3 +116,13 @@ describe('el esqueleto de pantalla completa coincide con la página real', () =>
     ])
   })
 })
+
+describe('perfil: la cabecera real no depende de los datos', () => {
+  it('el esqueleto de pantalla completa usa la cabecera real y el cuerpo en esqueleto, como el Suspense de la página', async () => {
+    const { PerfilSkeleton, PerfilBodySkeleton } = await import('@/src/modules/portal/ui/skeletons')
+    const { ProfilePageHeader } = await import('@/src/modules/profile/ui/profile-page-header')
+    const tree = PerfilSkeleton() as ReactElement
+    const wrapper = childrenOf(tree).find((child) => child.type === 'div')!
+    expect(childrenOf(wrapper).map((child) => child.type)).toEqual([ProfilePageHeader, PerfilBodySkeleton])
+  })
+})
