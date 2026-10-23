@@ -23,8 +23,6 @@ export function pushCategoryForReason(
     case 'new_firma':
     case 'firma_due_soon':
       return 'firmas'
-    case 'new_document':
-      return 'documents'
     default:
       return null
   }
@@ -140,12 +138,6 @@ function buildSinglePayload(
       return { ...base, title: copy.firmaTitle, body: notification.name }
     case 'firma_due_soon':
       return { ...base, title: copy.firmaDueTitle, body: notification.name }
-    case 'new_document':
-      return {
-        ...base,
-        title: copy.documentTitle(notification.name, notification.groupedCount),
-        body: copy.documentBody,
-      }
     default: {
       const newState = notification.newStateLabel
       return {
@@ -164,7 +156,7 @@ function buildSinglePayload(
 
 function summaryBody(notifications: PortalNotification[]): string {
   const parts = pushNotifications.payload.summaryParts
-  const counts = { messages: 0, statuses: 0, newTramites: 0, firmas: 0, documents: 0 }
+  const counts = { messages: 0, statuses: 0, newTramites: 0, firmas: 0 }
   for (const notification of notifications) {
     switch (pushCategoryForReason(notification.reason)) {
       case 'chatter':
@@ -172,9 +164,6 @@ function summaryBody(notifications: PortalNotification[]): string {
         break
       case 'firmas':
         counts.firmas += 1
-        break
-      case 'documents':
-        counts.documents += notification.groupedCount ?? 1
         break
       default:
         if (notification.reason === 'new_tramite') counts.newTramites += 1
@@ -187,7 +176,6 @@ function summaryBody(notifications: PortalNotification[]): string {
   if (counts.statuses) pieces.push(parts.statuses(counts.statuses))
   if (counts.newTramites) pieces.push(parts.newTramites(counts.newTramites))
   if (counts.firmas) pieces.push(parts.firmas(counts.firmas))
-  if (counts.documents) pieces.push(parts.documents(counts.documents))
   return pieces.join(' · ')
 }
 

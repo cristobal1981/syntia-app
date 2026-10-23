@@ -9,7 +9,6 @@ type PushSubscriptionRow = {
   notify_chatter: boolean
   notify_status: boolean
   notify_firmas: boolean
-  notify_documents: boolean
 }
 
 function toPreferences(row: PushSubscriptionRow): PushPreferences {
@@ -17,7 +16,6 @@ function toPreferences(row: PushSubscriptionRow): PushPreferences {
     chatter: row.notify_chatter,
     status: row.notify_status,
     firmas: row.notify_firmas,
-    documents: row.notify_documents,
   }
 }
 
@@ -44,7 +42,6 @@ export async function upsertPushSubscription(
       notify_chatter: preferences.chatter,
       notify_status: preferences.status,
       notify_firmas: preferences.firmas,
-      notify_documents: preferences.documents,
       sent_keys: [],
       // Sin foto inicial ni fallos del dueño anterior: si el mismo navegador
       // cambia de cuenta, el nuevo usuario no recibe de golpe lo pendiente.
@@ -80,7 +77,7 @@ export async function fetchPushPreferences(
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
     .from('push_subscriptions')
-    .select('notify_chatter, notify_status, notify_firmas, notify_documents')
+    .select('notify_chatter, notify_status, notify_firmas')
     .eq('user_id', userId)
     .eq('endpoint', endpoint)
     .maybeSingle()
@@ -102,7 +99,6 @@ export async function updatePushPreferences(
       notify_chatter: preferences.chatter,
       notify_status: preferences.status,
       notify_firmas: preferences.firmas,
-      notify_documents: preferences.documents,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
@@ -152,7 +148,7 @@ export async function listPushSubscriptions(): Promise<DispatchSubscription[]> {
     const { data, error } = await supabase
       .from('push_subscriptions')
       .select(
-        'id, user_id, endpoint, p256dh, auth, notify_chatter, notify_status, notify_firmas, notify_documents, sent_keys, baselined_at, failure_count, last_event_seq'
+        'id, user_id, endpoint, p256dh, auth, notify_chatter, notify_status, notify_firmas, sent_keys, baselined_at, failure_count, last_event_seq'
       )
       .order('id')
       .range(from, from + LIST_PAGE_SIZE - 1)

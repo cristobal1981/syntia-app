@@ -60,25 +60,13 @@ describe('parsePushSubscriptionInput', () => {
 })
 
 describe('parsePushPreferences', () => {
-  it('acepta cuatro booleanos', () => {
+  it('acepta tres booleanos', () => {
     expect(
-      parsePushPreferences({ chatter: true, status: false, firmas: true, documents: false })
-    ).toEqual({ chatter: true, status: false, firmas: true, documents: false })
+      parsePushPreferences({ chatter: true, status: false, firmas: true })
+    ).toEqual({ chatter: true, status: false, firmas: true })
   })
 
-  it('una página anterior que no manda documents lo deja activado, pero un valor que no es booleano se rechaza', () => {
-    expect(parsePushPreferences({ chatter: true, status: false, firmas: true })).toEqual({
-      chatter: true,
-      status: false,
-      firmas: true,
-      documents: true,
-    })
-    expect(
-      parsePushPreferences({ chatter: true, status: true, firmas: true, documents: 'sí' })
-    ).toBeNull()
-  })
-
-  it('cada uno de los tres campos obligatorios se valida por separado', () => {
+  it('cada uno de los tres campos se valida por separado', () => {
     const ok = { chatter: true, status: true, firmas: true }
     for (const key of ['chatter', 'status', 'firmas'] as const) {
       expect(parsePushPreferences({ ...ok, [key]: 1 })).toBeNull()

@@ -14,7 +14,6 @@ export type PortalEventKind =
   | 'new_record'
   | 'new_firma'
   | 'firma_due_soon'
-  | 'new_document'
 
 /** Lo que se guarda de un evento de Odoo (sin `seq` ni fecha de llegada). */
 export type PortalEventInput = {
@@ -38,8 +37,6 @@ export type PortalEventInput = {
 export type PortalEventRow = PortalEventInput & {
   seq: number
   receivedAt: string
-  /** Lo rellena `collapseEvents`: cuántos eventos iguales se han juntado en este. */
-  groupedCount?: number
 }
 
 const KINDS: ReadonlySet<string> = new Set([
@@ -48,7 +45,6 @@ const KINDS: ReadonlySet<string> = new Set([
   'new_record',
   'new_firma',
   'firma_due_soon',
-  'new_document',
 ])
 
 const MODEL_TASK = 'project.task'
@@ -224,7 +220,6 @@ const REASON_BY_KIND: Record<PortalEventKind, PortalNotificationReason> = {
   new_record: 'new_tramite',
   new_firma: 'new_firma',
   firma_due_soon: 'firma_due_soon',
-  new_document: 'new_document',
 }
 
 /** Un evento como el aviso que ya sabe convertir en push (`buildPushPayload`). */
@@ -238,7 +233,6 @@ export function eventToNotification(event: PortalEventRow): PortalNotification {
     listKind:
       event.scope === 'tramite' || event.scope === 'consulta' ? event.scope : undefined,
     latestMessageId: event.messageId ?? undefined,
-    groupedCount: event.groupedCount && event.groupedCount > 1 ? event.groupedCount : undefined,
     previousStateLabel: event.previousStateLabel ?? undefined,
     newStateLabel: event.stateLabel ?? undefined,
   }
@@ -250,15 +244,10 @@ export function eventToNotification(event: PortalEventRow): PortalNotification {
  */
 export function collapseEvents(events: PortalEventRow[]): PortalEventRow[] {
   const latest = new Map<string, PortalEventRow>()
-  const counts = new Map<string, number>()
   for (const event of [...events].sort((a, b) => a.seq - b.seq)) {
-    const key = `${event.kind}:${event.scope}:${event.recordId}`
-    latest.set(key, event)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
+    latest.set(`${event.kind}:${event.scope}:${event.recordId}`, event)
   }
-  return [...latest.entries()]
-    .map(([key, event]) => ({ ...event, groupedCount: counts.get(key) ?? 1 }))
-    .sort((a, b) => a.seq - b.seq)
+  return [...latest.values()].sort((a, b) => a.seq - b.seq)
 }
 
 /** Extractos por id de mensaje, para el cuerpo del push de un aviso suelto. */

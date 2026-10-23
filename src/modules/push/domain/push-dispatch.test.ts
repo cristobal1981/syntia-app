@@ -23,16 +23,16 @@ function n(partial: Partial<PortalNotification>): PortalNotification {
   }
 }
 
-const all = { chatter: true, status: true, firmas: true, documents: true }
+const all = { chatter: true, status: true, firmas: true }
 
 describe('pushCategoryForReason', () => {
-  it('agrupa los motivos en los cuatro tipos', () => {
+  it('agrupa los motivos en los tres tipos y descarta documentos', () => {
     expect(pushCategoryForReason('unread_chatter')).toBe('chatter')
     expect(pushCategoryForReason('new_tramite')).toBe('status')
     expect(pushCategoryForReason('status_change')).toBe('status')
     expect(pushCategoryForReason('new_firma')).toBe('firmas')
     expect(pushCategoryForReason('firma_due_soon')).toBe('firmas')
-    expect(pushCategoryForReason('new_document')).toBe('documents')
+    expect(pushCategoryForReason('new_document')).toBeNull()
   })
 })
 
@@ -85,7 +85,7 @@ describe('selectNotificationsToPush', () => {
     const firma = n({ reason: 'new_firma', scope: 'firma', latestMessageId: undefined })
     const result = selectNotificationsToPush({
       notifications: [chatter, firma],
-      preferences: { chatter: false, status: true, firmas: true, documents: true },
+      preferences: { chatter: false, status: true, firmas: true },
       sentKeys: [],
       baselined: true,
     })
@@ -96,7 +96,7 @@ describe('selectNotificationsToPush', () => {
     const chatter = n({})
     const off = selectNotificationsToPush({
       notifications: [chatter],
-      preferences: { chatter: false, status: true, firmas: true, documents: true },
+      preferences: { chatter: false, status: true, firmas: true },
       sentKeys: [],
       baselined: true,
     })
@@ -110,12 +110,15 @@ describe('selectNotificationsToPush', () => {
     expect(on.toSend).toEqual([])
   })
 
-  it('manda los avisos de documentos solo si el dispositivo tiene «Documentos» activado', () => {
-    const base = { notifications: [n({ reason: 'new_document' })], sentKeys: [], baselined: true }
-    expect(selectNotificationsToPush({ ...base, preferences: all }).toSend).toHaveLength(1)
-    expect(
-      selectNotificationsToPush({ ...base, preferences: { ...all, documents: false } }).toSend
-    ).toEqual([])
+  it('ignora los avisos de documentos', () => {
+    const result = selectNotificationsToPush({
+      notifications: [n({ reason: 'new_document' })],
+      preferences: all,
+      sentKeys: [],
+      baselined: true,
+    })
+    expect(result.toSend).toEqual([])
+    expect(result.nextSentKeys).toEqual([])
   })
 
   it('recorta las claves a las últimas MAX_SENT_KEYS', () => {
@@ -151,29 +154,6 @@ describe('pushUrlForNotification', () => {
 
   it('sin destino conocido cae al inicio', () => {
     expect(pushUrlForNotification(n({ listKind: undefined }))).toBe('/dashboard')
-  })
-})
-
-describe('buildPushPayload: documentos', () => {
-  const doc = (partial: Partial<PortalNotification> = {}) =>
-    n({ reason: 'new_document', name: 'Alta de autónomo', latestMessageId: undefined, ...partial })
-
-  it('un documento suelto lo dice con el nombre del trámite', () => {
-    expect(buildPushPayload([doc()])).toMatchObject({
-      title: 'Documento nuevo en «Alta de autónomo»',
-    })
-  })
-
-  it('varios agrupados dicen cuántos son', () => {
-    expect(buildPushPayload([doc({ groupedCount: 3 })])).toMatchObject({
-      title: '3 documentos nuevos en «Alta de autónomo»',
-    })
-  })
-
-  it('en un resumen los documentos suman los agrupados, no los avisos', () => {
-    const payload = buildPushPayload([doc({ groupedCount: 3 }), n({ reason: 'unread_chatter' })])
-    expect(payload?.body).toContain('3 documentos nuevos')
-    expect(payload?.body).toContain('1 mensaje')
   })
 })
 

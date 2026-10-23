@@ -1,4 +1,3 @@
-import { SYNTIA_CLIENT_ATTACHMENT_MARK } from '@/src/modules/portal/domain/client-attachment-mark'
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 import {
   isOdooApiConfigured,
@@ -61,7 +60,6 @@ export async function createAttachmentsForRecord(input: {
       name: file.name,
       datas: file.dataBase64,
       mimetype: file.mimetype,
-      description: SYNTIA_CLIENT_ATTACHMENT_MARK,
       res_model: input.resModel,
       res_id: input.resId,
     })),
