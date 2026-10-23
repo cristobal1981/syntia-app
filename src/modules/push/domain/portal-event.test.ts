@@ -412,6 +412,56 @@ describe('collapseEvents', () => {
   })
 })
 
+describe('documentos nuevos', () => {
+  const doc = {
+    event_id: 'doc:880',
+    model: 'project.task',
+    kind: 'new_document',
+    record_id: 99,
+    record_name: 'Alta de autónomo',
+    partner_id: 12,
+    occurred_at: '2026-10-23T10:00:00Z',
+  }
+
+  it('un documento en una tarea o en un ticket es un aviso de su trámite o consulta', () => {
+    expect(parsed(doc)).toMatchObject({ kind: 'new_document', scope: 'tramite', recordId: 99, byClient: false })
+    expect(parsed({ ...doc, model: 'helpdesk.ticket', record_id: 7 })).toMatchObject({ scope: 'consulta' })
+  })
+
+  it('en una obligación solo avisa la hoja (raíz > periodo > hoja), no la raíz ni el periodo', () => {
+    const leaf = {
+      ...doc,
+      record_name: 'Modelo 420',
+      ancestor_names: ['Obligaciones Fiscales', 'Trimestre 2'],
+    }
+    expect(parsed(leaf)).toMatchObject({ scope: 'obligacion', recordName: expect.stringContaining('·') })
+    expect(parse({ ...leaf, ancestor_names: ['Obligaciones Fiscales'] })).toEqual({ status: 'ignored' })
+  })
+
+  it('no es un evento de firma: con el modelo sign.request se rechaza', () => {
+    expect(parse({ ...doc, model: 'sign.request' })).toEqual({ status: 'invalid' })
+  })
+
+  it('el motivo del aviso es documento nuevo', () => {
+    expect(eventToNotification(row({ kind: 'new_document' })).reason).toBe('new_document')
+  })
+
+  it('collapseEvents junta los documentos del mismo registro y cuenta cuántos eran', () => {
+    const result = collapseEvents([
+      row({ seq: 1, kind: 'new_document', recordId: 5 }),
+      row({ seq: 2, kind: 'new_document', recordId: 5 }),
+      row({ seq: 3, kind: 'new_document', recordId: 5 }),
+      row({ seq: 4, kind: 'new_document', recordId: 6 }),
+    ])
+    expect(result.map((event) => [event.seq, event.groupedCount])).toEqual([
+      [3, 3],
+      [4, 1],
+    ])
+    expect(eventToNotification(result[0]!).groupedCount).toBe(3)
+    expect(eventToNotification(result[1]!).groupedCount).toBeUndefined()
+  })
+})
+
 describe('previewsFromEvents', () => {
   it('mapea id de mensaje a extracto, solo cuando hay ambos', () => {
     const previews = previewsFromEvents([

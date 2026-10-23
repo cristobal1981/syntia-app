@@ -39,7 +39,7 @@ const validInput = {
   p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQ',
   auth: 'tBHItJI5svbpez7KI4CCXg',
 }
-const prefs = { chatter: true, status: false, firmas: true }
+const prefs = { chatter: true, status: false, firmas: true, documents: true }
 
 function session(role: string) {
   mocks.getSession.mockResolvedValue({
@@ -85,12 +85,12 @@ describe('subscribePushAction', () => {
     const result = await subscribePushAction(validInput)
     expect(result).toEqual({
       ok: true,
-      preferences: { chatter: true, status: true, firmas: true },
+      preferences: { chatter: true, status: true, firmas: true, documents: true },
     })
     expect(mocks.upsertPushSubscription).toHaveBeenCalledWith(
       'actor-1',
       expect.objectContaining({ endpoint: validInput.endpoint }),
-      { chatter: true, status: true, firmas: true }
+      { chatter: true, status: true, firmas: true, documents: true }
     )
   })
 

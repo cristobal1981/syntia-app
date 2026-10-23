@@ -1,17 +1,22 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-const { isOdooApiConfigured, odooSearchRead } = vi.hoisted(() => ({
+const { isOdooApiConfigured, odooSearchRead, odooCall } = vi.hoisted(() => ({
   isOdooApiConfigured: vi.fn(),
   odooSearchRead: vi.fn(),
+  odooCall: vi.fn(),
 }))
 
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   isOdooApiConfigured,
   odooSearchRead,
-  odooCall: vi.fn(),
+  odooCall,
 }))
 
-import { fetchAttachmentBinariesByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import { SYNTIA_CLIENT_ATTACHMENT_MARK } from '@/src/modules/portal/domain/client-attachment-mark'
+import {
+  createAttachmentsForRecord,
+  fetchAttachmentBinariesByIds,
+} from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 
 function rowFor(id: number, overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -110,5 +115,31 @@ describe('fetchAttachmentBinariesByIds', () => {
 
     await expect(fetchAttachmentBinariesByIds([1])).rejects.toThrow('ODOO_NOT_CONFIGURED')
     expect(odooSearchRead).not.toHaveBeenCalled()
+  })
+})
+
+describe('createAttachmentsForRecord', () => {
+  it('marca cada archivo como subido por el cliente desde Syntia, para que Odoo no avise de él como documento nuevo', async () => {
+    odooCall.mockResolvedValue([5, 6])
+
+    const ids = await createAttachmentsForRecord({
+      resModel: 'project.task',
+      resId: 9,
+      files: [
+        { name: 'a.pdf', mimetype: 'application/pdf', dataBase64: 'QQ==' },
+        { name: 'b.png', mimetype: 'image/png', dataBase64: 'Qg==' },
+      ],
+    })
+
+    expect(ids).toEqual([5, 6])
+    const vals = odooCall.mock.calls[0]![2].vals_list as Array<Record<string, unknown>>
+    expect(vals).toHaveLength(2)
+    for (const val of vals) {
+      expect(val).toMatchObject({ res_model: 'project.task', res_id: 9, description: SYNTIA_CLIENT_ATTACHMENT_MARK })
+    }
+  })
+
+  it('la marca es la que busca la acción de Odoo', () => {
+    expect(SYNTIA_CLIENT_ATTACHMENT_MARK).toBe('syntia:cliente')
   })
 })

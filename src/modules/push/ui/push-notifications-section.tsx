@@ -12,7 +12,7 @@ import {
   type PushActionError,
 } from '@/src/modules/push/ui/use-push-subscription'
 
-const TYPE_KEYS: (keyof PushPreferences)[] = ['chatter', 'status', 'firmas']
+const TYPE_KEYS: (keyof PushPreferences)[] = ['chatter', 'status', 'firmas', 'documents']
 
 function reportError(error: PushActionError | null) {
   if (!error || error === 'denied') return

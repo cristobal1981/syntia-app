@@ -29,7 +29,7 @@ function sub(partial: Partial<DispatchSubscription> = {}): DispatchSubscription 
     endpoint: 'https://push.example/1',
     p256dh: 'k',
     auth: 'a',
-    preferences: { chatter: true, status: true, firmas: true },
+    preferences: { chatter: true, status: true, firmas: true, documents: true },
     sentKeys: [],
     baselined: true,
     failureCount: 0,
@@ -95,7 +95,7 @@ describe('runPushDispatch', () => {
     const deps = setup({}, [
       sub({
         sentKeys: full,
-        preferences: { chatter: false, status: true, firmas: true },
+        preferences: { chatter: false, status: true, firmas: true, documents: true },
       }),
     ])
     await runPushDispatch(deps, options)
@@ -188,7 +188,7 @@ describe('runPushDispatch', () => {
   it('cada dispositivo del mismo usuario usa sus propias preferencias', async () => {
     const subs = [
       sub({ id: 's1' }),
-      sub({ id: 's2', preferences: { chatter: false, status: true, firmas: true } }),
+      sub({ id: 's2', preferences: { chatter: false, status: true, firmas: true, documents: true } }),
     ]
     const deps = setup({}, subs)
     const summary = await runPushDispatch(deps, options)

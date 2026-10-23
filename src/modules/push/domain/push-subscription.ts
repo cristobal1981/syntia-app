@@ -2,12 +2,14 @@ export type PushPreferences = {
   chatter: boolean
   status: boolean
   firmas: boolean
+  documents: boolean
 }
 
 export const defaultPushPreferences: PushPreferences = {
   chatter: true,
   status: true,
   firmas: true,
+  documents: true,
 }
 
 export type PushSubscriptionInput = {
@@ -66,7 +68,7 @@ export function parsePushSubscriptionInput(
 
 export function parsePushPreferences(input: unknown): PushPreferences | null {
   if (typeof input !== 'object' || input === null) return null
-  const { chatter, status, firmas } = input as Record<string, unknown>
+  const { chatter, status, firmas, documents } = input as Record<string, unknown>
   if (
     typeof chatter !== 'boolean' ||
     typeof status !== 'boolean' ||
@@ -74,5 +76,7 @@ export function parsePushPreferences(input: unknown): PushPreferences | null {
   ) {
     return null
   }
-  return { chatter, status, firmas }
+  // Un navegador con la versión anterior de la página no manda `documents`: se queda activado.
+  if (documents !== undefined && typeof documents !== 'boolean') return null
+  return { chatter, status, firmas, documents: documents ?? true }
 }

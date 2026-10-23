@@ -24,6 +24,8 @@ export type PortalNotification = {
   previousStateLabel?: string
   newStateLabel?: string
   isCloseEvent?: boolean
+  /** Avisos agrupados en uno solo (p. ej. varios documentos nuevos del mismo registro). */
+  groupedCount?: number
 }
 
 export type ChatterReadStateMap = Record<string, number>

@@ -43,7 +43,7 @@ function sub(partial: Partial<DispatchSubscription> = {}): DispatchSubscription 
     endpoint: 'https://push.example/1',
     p256dh: 'k',
     auth: 'a',
-    preferences: { chatter: true, status: true, firmas: true },
+    preferences: { chatter: true, status: true, firmas: true, documents: true },
     sentKeys: [],
     baselined: true,
     failureCount: 0,
@@ -262,7 +262,7 @@ describe('runEventPushDispatch: a quién no se avisa (y el cursor avanza igual)'
   it('un tipo de aviso que ese dispositivo tiene apagado', async () => {
     const deps = setup(
       {},
-      [sub({ preferences: { chatter: false, status: true, firmas: true } })],
+      [sub({ preferences: { chatter: false, status: true, firmas: true, documents: true } })],
       [event()]
     )
     await runEventPushDispatch(deps, options)

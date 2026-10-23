@@ -7,6 +7,7 @@ export const pushNotifications = {
     chatter: 'Mensajes de tu asesoría',
     status: 'Cambios solicitados y estados de trámites',
     firmas: 'Firmas pendientes',
+    documents: 'Documentos nuevos',
   },
   states: {
     loading: 'Comprobando…',
@@ -37,6 +38,9 @@ export const pushNotifications = {
     newTramiteBody: 'Tu asesoría ha abierto un trámite para ti.',
     firmaTitle: 'Tienes una firma pendiente',
     firmaDueTitle: 'Una firma está a punto de vencer',
+    documentTitle: (name: string, count = 1) =>
+      count > 1 ? `${count} documentos nuevos en «${name}»` : `Documento nuevo en «${name}»`,
+    documentBody: 'Tu asesoría ha subido documentación. Entra para verla.',
     summaryTitle: (count: number) => `Tienes ${count} novedades en Syntia`,
     summaryParts: {
       messages: (n: number) => `${n} ${n === 1 ? 'mensaje' : 'mensajes'}`,
@@ -45,6 +49,7 @@ export const pushNotifications = {
       newTramites: (n: number) =>
         `${n} ${n === 1 ? 'trámite nuevo' : 'trámites nuevos'}`,
       firmas: (n: number) => `${n} ${n === 1 ? 'firma' : 'firmas'}`,
+      documents: (n: number) => `${n} ${n === 1 ? 'documento nuevo' : 'documentos nuevos'}`,
     },
   },
 } as const

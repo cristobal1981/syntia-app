@@ -45,7 +45,7 @@ function useClient(chain: ReturnType<typeof chainFor>) {
   return from
 }
 
-const prefs = { chatter: true, status: false, firmas: true }
+const prefs = { chatter: true, status: false, firmas: true, documents: true }
 const input = {
   endpoint: 'https://push.example/abc',
   p256dh: 'key',
@@ -75,6 +75,7 @@ describe('upsertPushSubscription', () => {
         notify_chatter: true,
         notify_status: false,
         notify_firmas: true,
+        notify_documents: true,
         sent_keys: [],
       }),
       { onConflict: 'endpoint' }
@@ -153,6 +154,26 @@ describe('fetchPushPreferences', () => {
   it('null si no hay fila', async () => {
     useClient(chainFor({ data: null }))
     expect(await fetchPushPreferences('u', 'e')).toBeNull()
+  })
+})
+
+describe('preferencia de documentos', () => {
+  const off = { ...prefs, documents: false }
+
+  it('se guarda apagada al crear la suscripción y al actualizarla', async () => {
+    const created = chainFor({})
+    useClient(created)
+    await upsertPushSubscription('user-1', input, off)
+    expect(created.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ notify_documents: false }),
+      { onConflict: 'endpoint' }
+    )
+
+    const updated = chainFor({ data: [{ id: 'row' }] })
+    useClient(updated)
+    await updatePushPreferences('user-1', input.endpoint, off)
+    expect(updated.update).toHaveBeenCalledWith(expect.objectContaining({ notify_documents: false }))
+    expect(updated.update).not.toHaveBeenCalledWith(expect.objectContaining({ notify_documents: true }))
   })
 })
 
