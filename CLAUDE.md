@@ -10,6 +10,10 @@ Antes de cada commit, comprueba que `build`, `lint`, `tsc` y los tests pasan. Si
 
 Al empezar una tarea nueva, lee antes la página de Notion `Syntia — Histórico de Errores` (https://app.notion.com/p/3dc96234e54981f995b9f0823e66ce24), sobre todo «Resumen de errores conocidos a evitar». Si encadenas varias tareas seguidas en la misma sesión, no hace falta releerla en cada una. Cuando aparezca un error nuevo o uno que ya se haya visto y no esté anotado, añádelo ahí con su causa, su solución y si está confirmada.
 
+## Migraciones de Supabase
+
+La Data API no expone tablas nuevas por defecto («Automatically expose new tables» desactivado). Toda migración que cree una tabla en `public` debe añadir `grant select, insert, update, delete on public.<tabla> to service_role;`. No des grants a `anon` ni `authenticated` salvo que haya una política RLS de lectura que lo justifique.
+
 ## Funcionalidad desactivada a propósito (NO es código muerto)
 
 Lo que sigue está apagado por decisión de producto y se conserva entero (rutas, formularios, validación, acciones y tests) para poder reactivarlo. No lo borres en limpiezas de código sin uso, barridos de knip ni tareas de higiene, aunque no tenga accesos visibles. Se apaga y se reactiva en un solo sitio.

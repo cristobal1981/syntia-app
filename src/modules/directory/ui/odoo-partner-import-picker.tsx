@@ -37,7 +37,7 @@ export function OdooPartnerImportPicker({
   }, [partners, query])
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4">
       <div>
         <p className="text-sm font-medium text-foreground">{copy.title}</p>
         <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
@@ -92,12 +92,12 @@ export function OdooPartnerImportPicker({
                       {partner.label}
                     </span>
                     {displayEmail ? (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="break-all text-xs text-muted-foreground">
                         {displayEmail}
                       </span>
                     ) : null}
                     {secondaryEmail ? (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="break-all text-xs text-muted-foreground">
                         {copy.corporateEmailLabel}: {secondaryEmail}
                       </span>
                     ) : null}

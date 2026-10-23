@@ -38,11 +38,16 @@ export async function listLinkedOdooPartnerIds(): Promise<number[]> {
     .filter((id): id is number => typeof id === 'number' && id > 0)
 }
 
+/** Más que los contactos de Odoo (952 a 2026-10-23); un tope bajo deja fuera el final del alfabeto. */
+const ODOO_PARTNER_CATALOG_LIMIT = 3000
+
 async function fetchOdooPartnersForImport(
   linkedIds: number[]
 ): Promise<OdooPartnerImportOption[]> {
   const contactEmailField = getOdooContactEmailFieldName()
-  const domain: unknown[] = []
+  // Sin nombre no se puede elegir (Odoo crea contactos vacíos desde correos automáticos y,
+  // al ordenar por nombre, salen los primeros y se comen el límite).
+  const domain: unknown[] = [['name', '!=', false]]
   if (linkedIds.length > 0) {
     domain.push(['id', 'not in', linkedIds])
   }
@@ -51,7 +56,7 @@ async function fetchOdooPartnersForImport(
     domain,
     fields: ['name', 'email', 'phone', 'is_company', contactEmailField],
     order: 'name asc',
-    limit: 500,
+    limit: ODOO_PARTNER_CATALOG_LIMIT,
   })
 
   return rows.map((row) =>

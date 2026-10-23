@@ -88,7 +88,17 @@ describe('getOdooPartnerCatalog (full pipeline)', () => {
 
     expect(createSupabaseAdminClient).not.toHaveBeenCalled()
     const domain = odooSearchRead.mock.calls[0][1].domain
-    expect(domain).toEqual([])
+    expect(domain).toEqual([['name', '!=', false]])
+  })
+
+  it('never lists partners without a name and asks for more rows than Odoo has (952 on 2026-10-23), so the end of the alphabet is not cut off', async () => {
+    odooSearchRead.mockResolvedValue([])
+
+    await getOdooPartnerCatalog({ includeLinked: true })
+
+    const options = odooSearchRead.mock.calls[0][1]
+    expect(options.domain).toContainEqual(['name', '!=', false])
+    expect(options.limit).toBeGreaterThanOrEqual(2000)
   })
 
   it('does not touch Drive nor request the Drive field when listing (resolved later, per selected partner)', async () => {

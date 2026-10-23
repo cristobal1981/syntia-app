@@ -183,6 +183,49 @@ describe('parsePortalEventPayload', () => {
     it('un modelo desconocido se rechaza', () => {
       expect(parse({ ...valid, model: 'res.partner' })).toEqual({ status: 'invalid' })
     })
+
+    // Payloads tal como los arman scripts/odoo-actions/syntia-evento-ticket.py y -firma.py.
+    it('el ticket nuevo de la acción de Odoo es una consulta nueva y, si lo creó el cliente, no le avisa', () => {
+      const ticket = {
+        event_id: 'ticket-new:31',
+        model: 'helpdesk.ticket',
+        kind: 'new_record',
+        record_id: 31,
+        record_name: 'Duda con el IVA',
+        partner_id: 12,
+        by_client: false,
+        occurred_at: '2026-10-23T08:00:00Z',
+      }
+      expect(parsed(ticket)).toMatchObject({
+        kind: 'new_record',
+        scope: 'consulta',
+        recordName: 'Duda con el IVA',
+        byClient: false,
+      })
+      expect(parsed({ ...ticket, by_client: true })?.byClient).toBe(true)
+    })
+
+    it('la firma nueva de la acción de Odoo lleva el firmante en el id y es un aviso de firma', () => {
+      const firma = {
+        event_id: 'firma-new:7:12',
+        model: 'sign.request',
+        kind: 'new_firma',
+        record_id: 7,
+        record_name: 'Mandato SEPA',
+        partner_id: 12,
+        occurred_at: '2026-10-23T08:00:00Z',
+      }
+      expect(parsed(firma)).toMatchObject({
+        eventId: 'firma-new:7:12',
+        kind: 'new_firma',
+        scope: 'firma',
+        recordId: 7,
+        byClient: false,
+      })
+      expect(parsed({ ...firma, event_id: 'firma-new:7:13', partner_id: 13 })?.eventId).toBe(
+        'firma-new:7:13'
+      )
+    })
   })
 
   describe('obligaciones', () => {
