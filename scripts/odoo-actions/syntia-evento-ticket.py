@@ -2,10 +2,11 @@
 # Syntia de una consulta nueva. NO se ejecuta aquí: es la copia versionada del
 # código que vive en Odoo.
 # Regla «Syntia eventos: ticket nuevo»: on_create sobre Ticket de ayuda, sin dominio.
-# Mismos parámetros del sistema que syntia-evento-tarea.py, más uno opcional:
-#   syntia.portal_user_id   id del usuario de Odoo con el que Syntia crea los tickets
-#                           del cliente; si el ticket lo creó él, el aviso no le llega
-#                           al propio cliente (by_client = true).
+# Mismos parámetros del sistema que syntia-evento-tarea.py.
+# Syntia crea los tickets con el mismo usuario de Odoo que usa el equipo, así que el
+# creador no distingue «creado desde Syntia» de «creado a mano»: by_client solo es true
+# si lo creó el propio cliente (su contacto). Un ticket abierto desde Syntia avisa al
+# cliente de su propia consulta.
 # Odoo manda hechos en bruto; Syntia decide ámbito y título
 # (ver src/modules/push/domain/portal-event.ts).
 icp = env['ir.config_parameter'].sudo()
@@ -15,7 +16,6 @@ test_url = icp.get_param('syntia.odoo_events_url_tests')
 url = test_url or icp.get_param('syntia.odoo_events_url')
 secret = icp.get_param('syntia.odoo_events_secret')
 bypass = icp.get_param('syntia.vercel_protection_bypass')
-portal_user_id = int(icp.get_param('syntia.portal_user_id') or 0)
 # Con la URL de pruebas activa solo se envían los tickets del cliente 1233.
 TEST_PARTNER_ID = 1233
 ticket = record.sudo()
@@ -24,7 +24,7 @@ if url and secret and partner and ((not test_url) or partner.id == TEST_PARTNER_
     stamp = ticket.create_date
     occurred = stamp.strftime('%Y-%m-%dT%H:%M:%SZ')
     creator = ticket.create_uid
-    by_client = bool(creator) and (creator.id == portal_user_id or creator.partner_id.id == partner.id)
+    by_client = bool(creator) and creator.partner_id.id == partner.id
     payload = {
         'event_id': 'ticket-new:%s' % ticket.id,
         'model': 'helpdesk.ticket',
