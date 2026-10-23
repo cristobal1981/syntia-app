@@ -1,9 +1,12 @@
 # Acción de servidor de Odoo (Ejecutar código) sobre sign.request.item: avisa a
 # Syntia de una firma nueva pendiente para un firmante. NO se ejecuta aquí: es la
 # copia versionada del código que vive en Odoo.
-# Regla «Syntia eventos: firma nueva»: on_create sobre «Elemento de solicitud de firma»
-# (sign.request.item), sin dominio. Un item es un firmante de una solicitud, así que
-# hay un evento por cliente que debe firmar. Syntia lo recibe como model = sign.request.
+# Regla «Syntia eventos: firma nueva»: on_create_or_write sobre «Elemento de solicitud
+# de firma» (sign.request.item), campo disparador `state`, sin dominio. Un item es un
+# firmante de una solicitud y nace en borrador: solo cuenta cuando pasa a pendiente
+# (`sent` o `shared`, los mismos que usa el portal). Hay un evento por cliente que debe
+# firmar; el id lleva solicitud y firmante, así que repetir el disparo no duplica el aviso.
+# Syntia lo recibe como model = sign.request.
 # Mismos parámetros del sistema que syntia-evento-tarea.py.
 # Odoo manda hechos en bruto; Syntia decide ámbito y título
 # (ver src/modules/push/domain/portal-event.ts).
@@ -16,11 +19,12 @@ secret = icp.get_param('syntia.odoo_events_secret')
 bypass = icp.get_param('syntia.vercel_protection_bypass')
 # Con la URL de pruebas activa solo se envían las firmas del cliente 1233.
 TEST_PARTNER_ID = 1233
+PENDING_STATES = ('sent', 'shared')
 item = record.sudo()
 partner = item.partner_id
 sign_request = item.sign_request_id
-if url and secret and partner and sign_request and ((not test_url) or partner.id == TEST_PARTNER_ID):
-    stamp = item.create_date
+if url and secret and partner and sign_request and item.state in PENDING_STATES and ((not test_url) or partner.id == TEST_PARTNER_ID):
+    stamp = item.write_date or item.create_date
     occurred = stamp.strftime('%Y-%m-%dT%H:%M:%SZ')
     payload = {
         # Con el firmante en el id, dos firmantes de la misma solicitud no se pisan.
