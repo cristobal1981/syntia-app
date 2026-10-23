@@ -37,6 +37,8 @@ export const pushNotifications = {
     newTramiteBody: 'Tu asesoría ha abierto un trámite para ti.',
     firmaTitle: 'Tienes una firma pendiente',
     firmaDueTitle: 'Una firma está a punto de vencer',
+    assigneeTitle: (name: string) => `Nuevo responsable en «${name}»`,
+    assigneeBody: (assignee: string) => `Ahora te atiende ${assignee}.`,
     summaryTitle: (count: number) => `Tienes ${count} novedades en Syntia`,
     summaryParts: {
       messages: (n: number) => `${n} ${n === 1 ? 'mensaje' : 'mensajes'}`,
@@ -45,6 +47,8 @@ export const pushNotifications = {
       newTramites: (n: number) =>
         `${n} ${n === 1 ? 'trámite nuevo' : 'trámites nuevos'}`,
       firmas: (n: number) => `${n} ${n === 1 ? 'firma' : 'firmas'}`,
+      assignees: (n: number) =>
+        `${n} ${n === 1 ? 'cambio de responsable' : 'cambios de responsable'}`,
     },
   },
 } as const

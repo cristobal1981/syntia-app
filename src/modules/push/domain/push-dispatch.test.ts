@@ -145,6 +145,39 @@ describe('pushUrlForNotification', () => {
   })
 })
 
+describe('buildPushPayload: cambio de responsable', () => {
+  const change = (partial: Partial<PortalNotification> = {}) =>
+    n({
+      reason: 'assignee_change',
+      name: 'Alta de autónomo',
+      latestMessageId: undefined,
+      assigneeLabel: 'Ana García',
+      ...partial,
+    })
+
+  it('cuenta como aviso de estados: respeta esa preferencia del dispositivo', () => {
+    expect(pushCategoryForReason('assignee_change')).toBe('status')
+    const base = { notifications: [change()], sentKeys: [], baselined: true }
+    expect(selectNotificationsToPush({ ...base, preferences: all }).toSend).toHaveLength(1)
+    expect(
+      selectNotificationsToPush({ ...base, preferences: { ...all, status: false } }).toSend
+    ).toEqual([])
+  })
+
+  it('un aviso suelto dice en qué trámite y quién lo lleva ahora', () => {
+    expect(buildPushPayload([change()])).toMatchObject({
+      title: 'Nuevo responsable en «Alta de autónomo»',
+      body: 'Ahora te atiende Ana García.',
+    })
+  })
+
+  it('en un resumen se cuenta aparte de los cambios de estado', () => {
+    const payload = buildPushPayload([change(), n({ reason: 'status_change' }), n({ reason: 'unread_chatter' })])
+    expect(payload?.body).toContain('1 cambio de responsable')
+    expect(payload?.body).toContain('1 cambio de estado')
+  })
+})
+
 describe('buildPushPayload', () => {
   it('sin avisos no hay payload', () => {
     expect(buildPushPayload([])).toBeNull()

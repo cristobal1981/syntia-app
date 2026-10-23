@@ -354,6 +354,7 @@ export const portal = {
     typeStatusChange: 'Cambio de estado',
     typeStatusClosed: 'Trámite cerrado',
     typeNewFirma: 'Nueva firma pendiente',
+    typeAssigneeChange: 'Nuevo responsable',
   },
   confirm: {
     cancel: 'Cancelar',

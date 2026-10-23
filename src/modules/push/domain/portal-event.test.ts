@@ -412,6 +412,75 @@ describe('collapseEvents', () => {
   })
 })
 
+describe('cambio de responsable', () => {
+  const assign = {
+    event_id: 'assign:task:99:7,8:2026-10-23T10:00:00Z',
+    model: 'project.task',
+    kind: 'assignee_change',
+    record_id: 99,
+    record_name: 'Alta de autónomo',
+    partner_id: 12,
+    assignee_names: ['Ana García'],
+    occurred_at: '2026-10-23T10:00:00Z',
+  }
+
+  it('en un trámite avisa de quién lo lleva ahora, con el nombre guardado como etiqueta', () => {
+    expect(parsed(assign)).toMatchObject({
+      kind: 'assignee_change',
+      scope: 'tramite',
+      stateLabel: 'Ana García',
+      previousStateLabel: null,
+      byClient: false,
+    })
+  })
+
+  it('en una consulta (ticket) también', () => {
+    expect(parsed({ ...assign, model: 'helpdesk.ticket' })).toMatchObject({ scope: 'consulta' })
+  })
+
+  it('varias personas se resumen igual que en el drawer', () => {
+    const label = (names: string[]) => parsed({ ...assign, assignee_names: names })?.stateLabel
+    expect(label(['Ana', 'Bruno'])).toBe('Ana y Bruno')
+    expect(label(['Ana', 'Bruno', 'Carla'])).toBe('Ana, Bruno y 1 más')
+  })
+
+  it('si se quitó la asignación (nadie) o solo hay nombres vacíos, no hay nada que decir y Odoo no reintenta', () => {
+    expect(parse({ ...assign, assignee_names: [] })).toEqual({ status: 'ignored' })
+    expect(parse({ ...assign, assignee_names: ['  '] })).toEqual({ status: 'ignored' })
+  })
+
+  it('lista de nombres mal formada: inválido', () => {
+    expect(parse({ ...assign, assignee_names: undefined })).toEqual({ status: 'invalid' })
+    expect(parse({ ...assign, assignee_names: 'Ana' })).toEqual({ status: 'invalid' })
+    expect(parse({ ...assign, assignee_names: ['Ana', 7] })).toEqual({ status: 'invalid' })
+    expect(parse({ ...assign, assignee_names: Array.from({ length: 11 }, () => 'x') })).toEqual({
+      status: 'invalid',
+    })
+  })
+
+  it('las obligaciones no avisan de quién las lleva', () => {
+    expect(
+      parse({
+        ...assign,
+        record_name: 'Modelo 420',
+        ancestor_names: ['Obligaciones Fiscales', 'Trimestre 2'],
+      })
+    ).toEqual({ status: 'ignored' })
+  })
+
+  it('no es un evento de firma: con el modelo sign.request se rechaza', () => {
+    expect(parse({ ...assign, model: 'sign.request' })).toEqual({ status: 'invalid' })
+  })
+
+  it('el aviso lleva el responsable y el motivo es cambio de responsable', () => {
+    const notification = eventToNotification(
+      row({ kind: 'assignee_change', stateLabel: 'Ana García' })
+    )
+    expect(notification).toMatchObject({ reason: 'assignee_change', assigneeLabel: 'Ana García' })
+    expect(eventToNotification(row({ kind: 'status', stateLabel: 'Hecho' })).assigneeLabel).toBeUndefined()
+  })
+})
+
 describe('previewsFromEvents', () => {
   it('mapea id de mensaje a extracto, solo cuando hay ambos', () => {
     const previews = previewsFromEvents([

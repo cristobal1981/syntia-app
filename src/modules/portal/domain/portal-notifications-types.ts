@@ -10,6 +10,7 @@ export type PortalNotificationReason =
   | 'status_change'
   | 'new_firma'
   | 'firma_due_soon'
+  | 'assignee_change'
 
 export type PortalNotification = {
   scope: PortalRecordScope
@@ -22,6 +23,8 @@ export type PortalNotification = {
   latestMessageId?: number
   previousStateLabel?: string
   newStateLabel?: string
+  /** Quién lo lleva ahora (aviso de cambio de responsable). */
+  assigneeLabel?: string
   isCloseEvent?: boolean
 }
 
