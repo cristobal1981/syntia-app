@@ -343,11 +343,6 @@ export function RecordChatterPanel({
           queueMicrotask(() => {
             invalidateAttachmentsClientCache(kind, recordId)
             onAttachmentsChanged?.(result.attachmentCount!)
-            void notifications?.ackDocumentsSeen?.(
-              recordScopeFromKind(kind),
-              recordId,
-              result.attachmentCount!
-            )
             router.refresh()
           })
         }

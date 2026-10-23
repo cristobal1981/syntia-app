@@ -24,10 +24,9 @@ export type TramiteActivitySignal = {
 const REASON_PRIORITY: Record<PortalNotification['reason'], number> = {
   status_change: 0,
   unread_chatter: 1,
-  new_document: 2,
-  new_tramite: 3,
-  new_firma: 4,
-  firma_due_soon: 5,
+  new_tramite: 2,
+  new_firma: 3,
+  firma_due_soon: 4,
 }
 
 function isChangesRequestedNotification(notification: PortalNotification): boolean {

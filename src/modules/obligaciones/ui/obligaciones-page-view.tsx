@@ -24,7 +24,6 @@ import { ObligacionClosedYears } from '@/src/modules/obligaciones/ui/obligacion-
 import { ObligacionDetailDrawer } from '@/src/modules/obligaciones/ui/obligacion-detail-drawer'
 import { ObligacionModelGroupsList } from '@/src/modules/obligaciones/ui/obligacion-model-groups-list'
 import { ObligacionUrgentList } from '@/src/modules/obligaciones/ui/obligacion-urgent-list'
-import { PortalRefreshButton } from '@/src/modules/portal/ui/portal-refresh-button'
 import { PortalSearchToolbar } from '@/src/modules/portal/ui/portal-search-toolbar'
 
 type ObligacionesPageViewProps = {
@@ -119,21 +118,6 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-            {obligaciones.title}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {obligaciones.description}
-          </p>
-        </div>
-        <PortalRefreshButton
-          label={obligaciones.refreshButton}
-          refreshingLabel={obligaciones.refreshing}
-        />
-      </header>
-
       {hasAnyData ? (
         <div className="flex flex-col gap-6">
           <div className="flex justify-end">
@@ -253,21 +237,14 @@ export function ObligacionesStateView({
   variant = 'default',
 }: ObligacionesStateViewProps) {
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-          {obligaciones.title}
-        </h1>
-      </header>
-      <div
-        className={cn(
-          'portal-home-card rounded-xl px-6 py-10 text-center',
-          variant === 'destructive' && 'border-destructive/30'
-        )}
-      >
-        <h2 className="font-sans text-lg font-semibold text-foreground">{title}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      </div>
+    <div
+      className={cn(
+        'portal-home-card rounded-xl px-6 py-10 text-center',
+        variant === 'destructive' && 'border-destructive/30'
+      )}
+    >
+      <h2 className="font-sans text-lg font-semibold text-foreground">{title}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </div>
   )
 }

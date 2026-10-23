@@ -67,6 +67,27 @@ export function getChatterNotificationsPollMaxIntervalMs(): number {
   return parsed
 }
 
+/**
+ * `events`: la pestaña líder del portal solo pregunta a Supabase si hay eventos
+ * nuevos del cliente y hace la comprobación completa contra Odoo cuando cambian
+ * (o cada `getPortalNewsFullCheckMaxAgeMs`, que cubre lo que no llega por eventos).
+ * Cualquier otro valor: comprobación completa en cada sondeo, como siempre.
+ */
+export function isPortalNewsSignalEnabled(): boolean {
+  return process.env.PORTAL_NEWS_SIGNAL?.trim() === 'events'
+}
+
+const DEFAULT_NEWS_FULL_CHECK_MAX_AGE_MS = 300_000
+
+export function getPortalNewsFullCheckMaxAgeMs(): number {
+  const raw = process.env.PORTAL_NEWS_FULL_CHECK_MAX_AGE_MS?.trim()
+  const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_NEWS_FULL_CHECK_MAX_AGE_MS
+  if (!Number.isInteger(parsed) || parsed < 60_000 || parsed > 900_000) {
+    return DEFAULT_NEWS_FULL_CHECK_MAX_AGE_MS
+  }
+  return parsed
+}
+
 const DEFAULT_NOTIFICATIONS_BATCH_LIMIT = 300
 
 export function getChatterNotificationsBatchLimit(): number {

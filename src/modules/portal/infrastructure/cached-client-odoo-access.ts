@@ -12,11 +12,12 @@ import type {
   PendingSignaturesSnapshot,
   SignatureHistorySnapshot,
 } from '@/src/modules/firmas/domain/types'
-import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   resolveOdooErrorCode,
   type OdooServiceErrorCode,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import { fetchObligacionesFromOdoo } from '@/src/modules/obligaciones/infrastructure/odoo-obligaciones-repository'
+import type { ObligacionesSnapshot } from '@/src/modules/obligaciones/domain/types'
 import { fetchClientProjectIds } from '@/src/modules/portal/infrastructure/odoo-client-projects'
 import type { TramitesSnapshot } from '@/src/modules/tramites/domain/types'
 import { fetchTramitesFromOdoo } from '@/src/modules/tramites/infrastructure/odoo-tramites-repository'
@@ -36,6 +37,7 @@ const OBLIGACION_NOTIFICATION_SNAPSHOT_REVALIDATE_SECONDS = 90
 const PENDING_SIGNATURES_SNAPSHOT_REVALIDATE_SECONDS = 90
 const SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS = 90
 const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
+const OBLIGACION_TREE_REVALIDATE_SECONDS = 90
 
 const EMPTY_TRAMITES_SNAPSHOT: TramitesSnapshot = {
   tasks: [],
@@ -63,15 +65,19 @@ function clientProjectIdsCacheTag(partnerId: number): string {
   return `client-project-ids:${partnerId}`
 }
 
-function obligacionTaskIndexCacheTag(partnerId: number): string {
+export function obligacionTaskIndexCacheTag(partnerId: number): string {
   return `obligacion-task-index:${partnerId}`
 }
 
-function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
+export function obligacionTreeCacheTag(partnerId: number): string {
+  return `obligacion-tree:${partnerId}`
+}
+
+export function obligacionNotificationSnapshotCacheTag(partnerId: number): string {
   return `obligacion-notification-snapshot:${partnerId}`
 }
 
-function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
+export function pendingSignaturesSnapshotCacheTag(partnerId: number): string {
   return `pending-signatures-snapshot:${partnerId}`
 }
 
@@ -189,27 +195,22 @@ export async function getCachedTramitesSnapshot(
   return cached()
 }
 
+/**
+ * Los documentos ya no generan avisos, así que el recuento de adjuntos de cada
+ * obligación no se pide a Odoo (era una consulta de ~400 ms por visita). El campo
+ * se conserva en 0 por el seguimiento guardado, que ya no lo lee para avisar.
+ */
+function withoutAttachmentCount<T extends object>(
+  leaves: T[]
+): Array<T & { attachmentCount: number }> {
+  return leaves.map((leaf) => ({ ...leaf, attachmentCount: 0 }))
+}
+
 async function loadObligacionNotificationSnapshot(
   partnerId: number
 ): Promise<ObligacionNotificationSnapshot> {
   const index = await getCachedObligacionTaskIndex(partnerId)
-  const leafIds = index.leaves.map((leaf) => leaf.id)
-
-  if (!leafIds.length) {
-    return { leaves: [] }
-  }
-
-  const attachmentCounts = await countAttachmentsByRecordIds(
-    'project.task',
-    leafIds
-  )
-
-  return {
-    leaves: index.leaves.map((leaf) => ({
-      ...leaf,
-      attachmentCount: attachmentCounts.get(leaf.id) ?? 0,
-    })),
-  }
+  return { leaves: withoutAttachmentCount(index.leaves) }
 }
 
 export async function getCachedObligacionNotificationSnapshot(
@@ -221,6 +222,24 @@ export async function getCachedObligacionNotificationSnapshot(
     {
       revalidate: OBLIGACION_NOTIFICATION_SNAPSHOT_REVALIDATE_SECONDS,
       tags: [obligacionNotificationSnapshotCacheTag(partnerId)],
+    }
+  )
+
+  return cached()
+}
+
+/**
+ * Árbol de obligaciones de la pantalla (años, periodos y hojas con su recuento
+ * de adjuntos): son 5 consultas en serie a Odoo, así que se comparte entre
+ * visitas con la misma caducidad que el resto de snapshots.
+ */
+export async function getCachedObligacionTree(partnerId: number): Promise<ObligacionesSnapshot> {
+  const cached = unstable_cache(
+    () => fetchObligacionesFromOdoo(partnerId),
+    ['obligacion-tree', String(partnerId)],
+    {
+      revalidate: OBLIGACION_TREE_REVALIDATE_SECONDS,
+      tags: [obligacionTreeCacheTag(partnerId)],
     }
   )
 
@@ -332,23 +351,7 @@ async function loadFreshObligacionNotificationSnapshot(
 ): Promise<ObligacionNotificationSnapshot> {
   const projectIds = await fetchClientProjectIds(partnerId)
   const index = await buildObligacionTaskIndex(projectIds)
-  const leafIds = index.leaves.map((leaf) => leaf.id)
-
-  if (!leafIds.length) {
-    return { leaves: [] }
-  }
-
-  const attachmentCounts = await countAttachmentsByRecordIds(
-    'project.task',
-    leafIds
-  )
-
-  return {
-    leaves: index.leaves.map((leaf) => ({
-      ...leaf,
-      attachmentCount: attachmentCounts.get(leaf.id) ?? 0,
-    })),
-  }
+  return { leaves: withoutAttachmentCount(index.leaves) }
 }
 
 export async function getFreshObligacionNotificationSnapshotSafe(

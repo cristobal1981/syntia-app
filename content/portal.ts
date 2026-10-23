@@ -353,7 +353,6 @@ export const portal = {
     typeUnreadMessage: 'Mensaje sin leer',
     typeStatusChange: 'Cambio de estado',
     typeStatusClosed: 'Trámite cerrado',
-    typeNewDocument: 'Nuevo documento',
     typeNewFirma: 'Nueva firma pendiente',
   },
   confirm: {

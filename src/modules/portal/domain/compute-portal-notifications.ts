@@ -131,10 +131,7 @@ export function computeRecordWatchDeltas(input: {
 
     if (!previous.lastIsClosed) {
       const stateChanged = previous.lastState !== stateKey
-      const documentIncreased =
-        record.attachmentCount > previous.lastAttachmentCount
       let notifyStatus = false
-      let notifyDocument = false
 
       if (record.isClosed && !previous.lastIsClosed) {
         notifyStatus = true
@@ -186,32 +183,13 @@ export function computeRecordWatchDeltas(input: {
         })
       }
 
-      if (!record.isClosed && documentIncreased) {
-        notifyDocument = true
-        notifications.push({
-          scope: record.scope,
-          recordId: record.recordId,
-          name: record.name,
-          reason: 'new_document',
-          latestDate: record.modifiedAt,
-          ...(record.scope !== 'obligacion'
-            ? {
-                recordKind: record.scope === 'tramite' ? 'task' : 'ticket',
-                listKind: record.scope,
-              }
-            : {}),
-        })
-      }
-
       currentUpsert.lastState = notifyStatus
         ? (previous.lastState ?? stateKey)
         : stateKey
       currentUpsert.lastIsClosed = notifyStatus
         ? previous.lastIsClosed
         : record.isClosed
-      currentUpsert.lastAttachmentCount = notifyDocument
-        ? previous.lastAttachmentCount
-        : record.attachmentCount
+      currentUpsert.lastAttachmentCount = record.attachmentCount
     }
 
     watchUpdates.push(currentUpsert)

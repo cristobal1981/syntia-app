@@ -132,54 +132,6 @@ export function usePortalNotificationActions({
     [applyReadState, commitUnread, enabled, publishStateToOtherTabs, readStateRef, unreadRef]
   )
 
-  const ackDocumentsSeen = useCallback(
-    async (
-      scope: 'tramite' | 'consulta' | 'obligacion',
-      recordId: number,
-      attachmentCount: number
-    ) => {
-      if (!enabled) return
-
-      const ackKey = `${scope}:${recordId}:new_document`
-      if (documentsAckInFlightRef.current.has(ackKey)) return
-      documentsAckInFlightRef.current.add(ackKey)
-
-      const nextUnread = removePortalNotificationsByScope(
-        unreadRef.current,
-        scope,
-        recordId,
-        'new_document'
-      )
-      commitUnread(nextUnread)
-      publishStateToOtherTabs(unreadRef.current)
-
-      resetPollInterval()
-
-      try {
-        await dedupedServerAction(
-          serverActionDedupKey('ackPortalNotification', {
-            scope,
-            recordId,
-            reason: 'new_document',
-            attachmentCount,
-          }),
-          () =>
-            ackPortalNotificationAction({
-              scope,
-              recordId,
-              reason: 'new_document',
-              attachmentCount,
-            })
-        )
-      } catch {
-        // UI already optimistically dismissed
-      } finally {
-        documentsAckInFlightRef.current.delete(ackKey)
-      }
-    },
-    [commitUnread, enabled, publishStateToOtherTabs, resetPollInterval, unreadRef]
-  )
-
   const ackStatusChangeSeen = useCallback(
     async (scope: 'tramite' | 'consulta' | 'obligacion', recordId: number) => {
       if (!enabled) return
@@ -230,7 +182,6 @@ export function usePortalNotificationActions({
       publishStateToOtherTabs(unreadRef.current)
 
       if (
-        notification.reason === 'new_document' ||
         notification.reason === 'status_change' ||
         notification.reason === 'new_firma' ||
         notification.reason === 'firma_due_soon'
@@ -299,9 +250,7 @@ export function usePortalNotificationActions({
           notification.listKind,
           notification.recordId
         )
-        const tab =
-          notification.reason === 'new_document' ? 'documents' : 'conversation'
-        router.push(`/tramites?open=${encodeURIComponent(openParam)}&tab=${tab}`)
+        router.push(`/tramites?open=${encodeURIComponent(openParam)}&tab=conversation`)
       }
     },
     [removeAndAckNotification, router]
@@ -310,7 +259,6 @@ export function usePortalNotificationActions({
   return {
     dismissNewTramiteNotification,
     markConversationSeen,
-    ackDocumentsSeen,
     ackStatusChangeSeen,
     openNotification,
     dismissNotification,

@@ -1,5 +1,5 @@
-import { PortalPageSkeleton } from '@/src/modules/portal/ui/skeletons'
+import { DocumentosSkeleton } from '@/src/modules/portal/ui/skeletons'
 
 export default function DocumentosLoading() {
-  return <PortalPageSkeleton />
+  return <DocumentosSkeleton />
 }

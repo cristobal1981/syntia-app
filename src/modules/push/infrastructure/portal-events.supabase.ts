@@ -107,6 +107,20 @@ export async function getMaxPortalEventSeq(): Promise<number> {
   return (data?.[0] as { seq: number } | undefined)?.seq ?? 0
 }
 
+/** Último `seq` de los eventos de ese cliente (0 si no hay): la señal barata de «hay novedades» de la campana. */
+export async function getMaxPortalEventSeqForPartner(partnerId: number): Promise<number> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('portal_events')
+    .select('seq')
+    .eq('partner_id', partnerId)
+    .order('seq', { ascending: false })
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  return (data?.[0] as { seq: number } | undefined)?.seq ?? 0
+}
+
 /**
  * Eventos posteriores a `afterSeq` que ya llevan un rato guardados (los
  * recientes esperan a la siguiente ejecución para agruparse), de más antiguo a

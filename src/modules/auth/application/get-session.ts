@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 
 import { applyViewAs } from '@/src/modules/auth/application/resolve-view-as-session'
 import { refreshPortalUser } from '@/src/modules/auth/application/resolve-portal-user'
@@ -36,12 +37,13 @@ export async function getSession(
   })
 }
 
-/** Sesión del staff real, sin la superposición de «vista como cliente». */
-export async function getRealSession(
-  cookieStore?: Awaited<ReturnType<typeof cookies>>
-): Promise<PortalSession | null> {
-  cookieStore ??= await cookies()
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+/**
+ * Revalidación contra BD de una cookie de sesión. `cache` de React la memoriza
+ * solo dentro de un mismo render: el layout y la página de una navegación
+ * comparten el resultado en vez de repetir las mismas consultas, y cada
+ * petición nueva (o cada server action, que no renderiza) vuelve a revalidar.
+ */
+const resolveRealSession = cache(async (token: string | undefined): Promise<PortalSession | null> => {
   const session = await getSessionFromToken(token)
 
   if (!session) {
@@ -74,4 +76,12 @@ export async function getRealSession(
   }
 
   return { ...session, user }
+})
+
+/** Sesión del staff real, sin la superposición de «vista como cliente». */
+export async function getRealSession(
+  cookieStore?: Awaited<ReturnType<typeof cookies>>
+): Promise<PortalSession | null> {
+  cookieStore ??= await cookies()
+  return resolveRealSession(cookieStore.get(SESSION_COOKIE_NAME)?.value)
 }

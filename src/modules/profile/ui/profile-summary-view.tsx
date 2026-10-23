@@ -1,18 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect } from 'react'
 import {
   IdCard,
   Landmark,
   Mail,
   MapPin,
-  PenLine,
   Phone,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { portal } from '@/content/portal'
 import { profile } from '@/content/profile'
 import { maskIban } from '@/lib/profile/validate-profile-change'
 import { cn } from '@/lib/utils'
@@ -23,7 +20,7 @@ import type {
 import { ProfileAssignedAdvisorCard } from '@/src/modules/profile/ui/profile-assigned-advisor-card'
 import { ProfileChangeDrawer } from '@/src/modules/profile/ui/profile-change-drawer'
 import { ProfileFieldRow } from '@/src/modules/profile/ui/profile-field-row'
-import { useOnboardingChecklistOptional } from '@/src/modules/portal/ui/onboarding-checklist-context'
+import { useProfileChangeDrawer } from '@/src/modules/profile/ui/profile-change-drawer-state'
 
 type ProfileSummaryViewProps = {
   initialProfile: ClientProfile
@@ -60,8 +57,12 @@ export function ProfileSummaryView({
   initialProfile,
   assignedAdvisor,
 }: ProfileSummaryViewProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const onboardingChecklist = useOnboardingChecklistOptional()
+  const drawer = useProfileChangeDrawer()
+  const setDrawerReady = drawer?.setReady
+  useEffect(() => {
+    setDrawerReady?.(true)
+    return () => setDrawerReady?.(false)
+  }, [setDrawerReady])
   const hasIban = Boolean(initialProfile.iban.trim())
   const displayIban = hasIban ? maskIban(initialProfile.iban) : ''
   const { address } = initialProfile
@@ -76,36 +77,6 @@ export function ProfileSummaryView({
   return (
     <>
       <div className="flex w-full flex-col gap-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-2xl">
-            <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
-              {profile.pageTitle}
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground md:text-base">
-              {profile.pageDescription}
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {onboardingChecklist ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onboardingChecklist.start}
-              >
-                {portal.onboardingChecklist.reopenLabel}
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="default"
-              onClick={() => setDrawerOpen(true)}
-            >
-              <PenLine className="size-4" aria-hidden />
-              {profile.actions.requestChange}
-            </Button>
-          </div>
-        </header>
-
         <div
           className={cn(
             'grid gap-6',
@@ -202,8 +173,8 @@ export function ProfileSummaryView({
       </div>
 
       <ProfileChangeDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        open={drawer?.open ?? false}
+        onOpenChange={(open) => drawer?.setOpen(open)}
         initialProfile={initialProfile}
       />
     </>

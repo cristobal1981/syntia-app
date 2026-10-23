@@ -1,8 +1,12 @@
+import { Suspense } from 'react'
+
 import { getObligacionesForClient } from '@/src/modules/obligaciones/application/get-obligaciones-for-client'
 import {
   ObligacionesPageView,
   ObligacionesStateView,
 } from '@/src/modules/obligaciones/ui/obligaciones-page-view'
+import { ObligacionesPageHeader } from '@/src/modules/obligaciones/ui/obligaciones-page-header'
+import { ObligacionesBodySkeleton } from '@/src/modules/portal/ui/skeletons'
 import { obligaciones } from '@/content/obligaciones'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
 
@@ -10,7 +14,22 @@ type ObligacionesPageProps = {
   user: PortalUser
 }
 
-export async function ObligacionesPage({ user }: ObligacionesPageProps) {
+/**
+ * Pinta ya la cabecera y deja el contenido (que espera al árbol de obligaciones,
+ * Odoo si la caché está fría) en streaming con su esqueleto.
+ */
+export function ObligacionesPage({ user }: ObligacionesPageProps) {
+  return (
+    <div className="flex flex-col gap-8">
+      <ObligacionesPageHeader />
+      <Suspense fallback={<ObligacionesBodySkeleton />}>
+        <ObligacionesPageContent user={user} />
+      </Suspense>
+    </div>
+  )
+}
+
+async function ObligacionesPageContent({ user }: ObligacionesPageProps) {
   const result = await getObligacionesForClient(user)
 
   if (!result.ok) {

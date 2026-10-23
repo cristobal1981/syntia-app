@@ -26,13 +26,12 @@ function n(partial: Partial<PortalNotification>): PortalNotification {
 const all = { chatter: true, status: true, firmas: true }
 
 describe('pushCategoryForReason', () => {
-  it('agrupa los motivos en los tres tipos y descarta documentos', () => {
+  it('agrupa los motivos en los tres tipos', () => {
     expect(pushCategoryForReason('unread_chatter')).toBe('chatter')
     expect(pushCategoryForReason('new_tramite')).toBe('status')
     expect(pushCategoryForReason('status_change')).toBe('status')
     expect(pushCategoryForReason('new_firma')).toBe('firmas')
     expect(pushCategoryForReason('firma_due_soon')).toBe('firmas')
-    expect(pushCategoryForReason('new_document')).toBeNull()
   })
 })
 
@@ -108,17 +107,6 @@ describe('selectNotificationsToPush', () => {
       baselined: true,
     })
     expect(on.toSend).toEqual([])
-  })
-
-  it('ignora los avisos de documentos', () => {
-    const result = selectNotificationsToPush({
-      notifications: [n({ reason: 'new_document' })],
-      preferences: all,
-      sentKeys: [],
-      baselined: true,
-    })
-    expect(result.toSend).toEqual([])
-    expect(result.nextSentKeys).toEqual([])
   })
 
   it('recorta las claves a las últimas MAX_SENT_KEYS', () => {

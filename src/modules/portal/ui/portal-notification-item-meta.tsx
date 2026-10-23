@@ -1,7 +1,6 @@
 import {
   Clock,
   FileSignature,
-  FileUp,
   Flame,
   MessageCircleWarning,
   RefreshCw,
@@ -28,8 +27,6 @@ export function portalNotificationTypeLabel(
       return copy.typeUnreadMessage
     case 'status_change':
       return item.isCloseEvent ? copy.typeStatusClosed : copy.typeStatusChange
-    case 'new_document':
-      return copy.typeNewDocument
     case 'new_firma':
       return copy.typeNewFirma
     case 'firma_due_soon':
@@ -47,8 +44,6 @@ function notificationIcon(item: PortalNotification) {
       return MessageCircleWarning
     case 'status_change':
       return RefreshCw
-    case 'new_document':
-      return FileUp
     case 'new_firma':
       return FileSignature
     case 'firma_due_soon':

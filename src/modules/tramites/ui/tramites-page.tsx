@@ -5,18 +5,35 @@ import { getTramitesListSeenStateForUser } from '@/src/modules/tramites/applicat
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 import type { PortalUser } from '@/src/modules/auth/domain/types'
+import { TramitesPageHeader } from '@/src/modules/tramites/ui/tramites-page-header'
 import {
   TramitesPageView,
   TramitesStateView,
 } from '@/src/modules/tramites/ui/tramites-page-view'
+import { TramitesBodySkeleton } from '@/src/modules/portal/ui/skeletons'
 import { tramites } from '@/content/tramites'
 
 type TramitesPageProps = {
   user: PortalUser
 }
 
+/**
+ * Pinta ya la cabecera y deja la lista (que espera a los snapshots, Odoo si la
+ * caché está fría) en streaming con su esqueleto.
+ */
+export function TramitesPage({ user }: TramitesPageProps) {
+  return (
+    <div className="flex flex-col gap-8">
+      <TramitesPageHeader />
+      <Suspense fallback={<TramitesBodySkeleton />}>
+        <TramitesPageContent user={user} />
+      </Suspense>
+    </div>
+  )
+}
+
 /** Carga la lista de trámites y resuelve los estados de error de Odoo; los trabajadores escriben solo con la sección `/tramites`. */
-export async function TramitesPage({ user }: TramitesPageProps) {
+async function TramitesPageContent({ user }: TramitesPageProps) {
   const actorId = await resolveDirectoryActorId(user)
   const [result, seenState, writeSections] = await Promise.all([
     getTramitesForClient(user),

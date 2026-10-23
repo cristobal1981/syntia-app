@@ -194,7 +194,7 @@ describe('computeRecordWatchDeltas', () => {
     expect(result.notifications[0].newStateLabel).toBe(obligaciones.taskStates.changesRequested)
   })
 
-  it('notifies new_document when attachmentCount increases on an open record with no state change', () => {
+  it('does NOT notify when attachmentCount increases: los documentos llegan con el mensaje del chatter o con el cambio de estado', () => {
     const watchState = new Map([
       ['tramite:1', entry({ lastIsClosed: false, lastState: '01_in_progress', lastAttachmentCount: 1 })],
     ])
@@ -203,11 +203,10 @@ describe('computeRecordWatchDeltas', () => {
       watchState,
       portalBaselineComplete: true,
     })
-    expect(result.notifications).toHaveLength(1)
-    expect(result.notifications[0].reason).toBe('new_document')
+    expect(result.notifications).toEqual([])
   })
 
-  it('on a new_document notification, the upsert keeps the OLD lastAttachmentCount (not yet consumed)', () => {
+  it('when attachmentCount increases, the upsert follows the new count (nothing pending to consume)', () => {
     const watchState = new Map([
       ['tramite:1', entry({ lastIsClosed: false, lastState: '01_in_progress', lastAttachmentCount: 1 })],
     ])
@@ -216,10 +215,10 @@ describe('computeRecordWatchDeltas', () => {
       watchState,
       portalBaselineComplete: true,
     })
-    expect(result.watchUpdates[0].lastAttachmentCount).toBe(1)
+    expect(result.watchUpdates[0].lastAttachmentCount).toBe(2)
   })
 
-  it('fires BOTH status_change and new_document when both happen at once on the same open record', () => {
+  it('a state change with more documents at once notifies only the status_change', () => {
     const watchState = new Map([
       ['tramite:1', entry({ lastIsClosed: false, lastState: '01_in_progress', lastAttachmentCount: 1 })],
     ])
@@ -230,8 +229,7 @@ describe('computeRecordWatchDeltas', () => {
       watchState,
       portalBaselineComplete: true,
     })
-    const reasons = result.notifications.map((n) => n.reason).sort()
-    expect(reasons).toEqual(['new_document', 'status_change'])
+    expect(result.notifications.map((n) => n.reason)).toEqual(['status_change'])
   })
 
   it('does not notify and advances the upsert to fresh values when nothing changed', () => {
@@ -511,7 +509,7 @@ describe('removePortalNotificationsByRecord', () => {
   function items(): PortalNotification[] {
     return [
       { scope: 'tramite', recordId: 5, name: 'x', reason: 'status_change', latestDate: 'd', recordKind: 'task' },
-      { scope: 'tramite', recordId: 5, name: 'x', reason: 'new_document', latestDate: 'd', recordKind: 'task' },
+      { scope: 'tramite', recordId: 5, name: 'x', reason: 'unread_chatter', latestDate: 'd', recordKind: 'task' },
       { scope: 'consulta', recordId: 9, name: 'y', reason: 'status_change', latestDate: 'd', recordKind: 'ticket' },
     ]
   }
@@ -524,7 +522,7 @@ describe('removePortalNotificationsByRecord', () => {
 
   it('with a reason, removes only the matching reason for that record', () => {
     const result = removePortalNotificationsByRecord(items(), 'task', 5, 'status_change')
-    expect(result.map((n) => n.reason)).toEqual(['new_document', 'status_change'])
+    expect(result.map((n) => n.reason)).toEqual(['unread_chatter', 'status_change'])
   })
 
   it('returns the exact same array reference when nothing matched (no-op)', () => {
@@ -554,7 +552,7 @@ describe('removeNotificationFromList', () => {
       reason: 'status_change',
       latestDate: 'd',
     }
-    const other: PortalNotification = { ...target, reason: 'new_document' }
+    const other: PortalNotification = { ...target, reason: 'new_tramite' }
     const result = removeNotificationFromList([target, other], target)
     expect(result).toEqual([other])
   })

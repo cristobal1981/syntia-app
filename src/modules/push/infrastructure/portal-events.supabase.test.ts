@@ -8,6 +8,7 @@ vi.mock('@/src/modules/directory/infrastructure/supabase-admin', () => ({
 import {
   getLastStatusLabel,
   getMaxPortalEventSeq,
+  getMaxPortalEventSeqForPartner,
   insertPortalEvent,
   listMaturePortalEvents,
 } from '@/src/modules/push/infrastructure/portal-events.supabase'
@@ -188,5 +189,26 @@ describe('getLastStatusLabel', () => {
   it('propaga el error de BD', async () => {
     use(chain({ error: { message: 'boom' } }))
     await expect(getLastStatusLabel('tramite', 1)).rejects.toThrow('boom')
+  })
+})
+
+describe('getMaxPortalEventSeqForPartner', () => {
+  it('pide el último seq solo de ese cliente', async () => {
+    const c = chain({ data: [{ seq: 41 }] })
+    const from = use(c)
+
+    expect(await getMaxPortalEventSeqForPartner(1233)).toBe(41)
+    expect(from).toHaveBeenCalledWith('portal_events')
+    expect(c.eq).toHaveBeenCalledWith('partner_id', 1233)
+    expect(c.order).toHaveBeenCalledWith('seq', { ascending: false })
+    expect(c.limit).toHaveBeenCalledWith(1)
+  })
+
+  it('0 si el cliente no tiene eventos, y propaga el error de la base', async () => {
+    use(chain({ data: [] }))
+    expect(await getMaxPortalEventSeqForPartner(1)).toBe(0)
+
+    use(chain({ error: { message: 'boom' } }))
+    await expect(getMaxPortalEventSeqForPartner(1)).rejects.toThrow('boom')
   })
 })

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
 import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
-import { checkPortalNotificationsAction } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
+import {
+  checkPortalNewsSignalAction,
+  checkPortalNotificationsAction,
+} from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
   mergeAccumulatedPortalNotifications,
   pruneResolvedFirmaNotifications,
@@ -20,9 +23,10 @@ import {
   notificationsSignature,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-scheduler'
 import {
-  DEFERRED_POLL_MS,
+  initialPollDelayMs,
   shouldDeferInitialPoll,
   shouldRefreshPortalPageOnNotificationPoll,
+  shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
 import {
   PortalNotificationsTabCoordinator,
@@ -48,6 +52,8 @@ type UsePortalNotificationsSyncArgs = {
   setStats: (stats: PortalNotificationsStats) => void
   setLastRecordMessage: (value: LastRecordMessage) => void
   setNotificationsLoading: (loading: boolean) => void
+  /** El servidor ya sembró las novedades de esta pantalla (el inicio). */
+  wasSeededFromServer: () => boolean
 }
 
 /**
@@ -71,12 +77,18 @@ export function usePortalNotificationsSync({
   setStats,
   setLastRecordMessage,
   setNotificationsLoading,
+  wasSeededFromServer,
 }: UsePortalNotificationsSyncArgs) {
   const pollingRef = useRef(false)
   const pollIntervalRef = useRef(getInitialPollIntervalMs())
   const pollTimerRef = useRef<number | null>(null)
   const coordinatorRef = useRef<PortalNotificationsTabCoordinator | null>(null)
   const rateLimitedRef = useRef(false)
+  // Señal de eventos (ver `shouldRunFullNotificationsCheck`): último `seq` con el que se hizo
+  // la comprobación completa y cuándo. `null` hasta la primera.
+  const lastSignalSeqRef = useRef<number | null>(null)
+  const lastFullCheckAtRef = useRef<number | null>(null)
+  const signalModeRef = useRef(false)
 
   const resetPollInterval = useCallback(() => {
     pollIntervalRef.current = getInitialPollIntervalMs()
@@ -194,6 +206,33 @@ export function usePortalNotificationsSync({
       pollingRef.current = true
 
       try {
+        // Con la señal activa, un sondeo programado primero mira (solo Supabase) si hay
+        // novedades; si no las hay, se salta la comprobación contra Odoo.
+        let signalSeq: number | null = null
+        signalModeRef.current = false
+        if (!options?.force) {
+          const signal = await checkPortalNewsSignalAction()
+          portalConnectivityStore.reportPollSuccess()
+          if (signal.ok && signal.mode === 'events') {
+            signalModeRef.current = true
+            signalSeq = signal.seq
+            const runFull = shouldRunFullNotificationsCheck({
+              signalSeq: signal.seq,
+              lastSignalSeq: lastSignalSeqRef.current,
+              lastFullCheckAt: lastFullCheckAtRef.current,
+              now: Date.now(),
+              maxAgeMs: signal.fullCheckMaxAgeMs,
+            })
+            if (!runFull) {
+              pollIntervalRef.current = rateLimitedRef.current
+                ? getMaxPollIntervalMs()
+                : getInitialPollIntervalMs()
+              setNotificationsLoading(false)
+              return
+            }
+          }
+        }
+
         const result = await checkPortalNotificationsAction()
         // Llegó respuesta del servidor (aunque sea un error): hay red.
         portalConnectivityStore.reportPollSuccess()
@@ -206,6 +245,12 @@ export function usePortalNotificationsSync({
         }
 
         applyPollResult(result, { refreshPages: true })
+        lastFullCheckAtRef.current = Date.now()
+        if (signalSeq !== null) lastSignalSeqRef.current = signalSeq
+        // Con la señal, el sondeo es barato: no se espacia por falta de cambios.
+        if (signalModeRef.current && !rateLimitedRef.current) {
+          pollIntervalRef.current = getInitialPollIntervalMs()
+        }
 
         coordinator?.broadcastPollResult({
           sourceTabId: coordinator.getTabId(),
@@ -319,9 +364,21 @@ export function usePortalNotificationsSync({
       void refreshNotifications({ force: true })
     })
 
-    const initialDelay = shouldDeferInitialPoll() ? DEFERRED_POLL_MS : 0
+    const serverWillSeed = pathnameRef.current === '/dashboard' && !wasSeededFromServer()
+    const initialDelay = initialPollDelayMs({
+      seededFromServer: wasSeededFromServer(),
+      serverWillSeed,
+      deferForOpenParam: shouldDeferInitialPoll(),
+      intervalMs: getInitialPollIntervalMs(),
+    })
 
     const initialTimer = window.setTimeout(() => {
+      // El servidor sembró las novedades durante el margen: repetir la carga
+      // ahora sería trabajo doble, el siguiente sondeo es el programado.
+      if (serverWillSeed && wasSeededFromServer()) {
+        scheduleNextPoll()
+        return
+      }
       void refreshNotifications().finally(() => {
         scheduleNextPoll()
       })
@@ -352,6 +409,7 @@ export function usePortalNotificationsSync({
   }, [
     applyPollResult,
     applyRemoteState,
+    wasSeededFromServer,
     enabled,
     loadReadStateFromStorage,
     pathnameRef,

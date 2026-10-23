@@ -8,7 +8,12 @@ import { formatObligacionPeriodLabel } from '@/src/modules/obligaciones/domain/f
 import { mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { htmlToPushPreview } from '@/src/modules/push/domain/push-text'
 
-export type PortalEventKind = 'message' | 'status' | 'new_record' | 'new_firma'
+export type PortalEventKind =
+  | 'message'
+  | 'status'
+  | 'new_record'
+  | 'new_firma'
+  | 'firma_due_soon'
 
 /** Lo que se guarda de un evento de Odoo (sin `seq` ni fecha de llegada). */
 export type PortalEventInput = {
@@ -34,7 +39,13 @@ export type PortalEventRow = PortalEventInput & {
   receivedAt: string
 }
 
-const KINDS: ReadonlySet<string> = new Set(['message', 'status', 'new_record', 'new_firma'])
+const KINDS: ReadonlySet<string> = new Set([
+  'message',
+  'status',
+  'new_record',
+  'new_firma',
+  'firma_due_soon',
+])
 
 const MODEL_TASK = 'project.task'
 const MODEL_TICKET = 'helpdesk.ticket'
@@ -99,8 +110,10 @@ export function parsePortalEventPayload(
 
   const model = raw.model === undefined ? MODEL_TASK : raw.model
   if (model !== MODEL_TASK && model !== MODEL_TICKET && model !== MODEL_SIGN) return INVALID
-  // Una firma solo genera «nueva firma»; el resto de tipos son de tareas y tickets.
-  if ((kind === 'new_firma') !== (model === MODEL_SIGN)) return INVALID
+  // Una firma solo genera «nueva firma» o «vence pronto»; el resto de tipos son de tareas y tickets.
+  if ((kind === 'new_firma' || kind === 'firma_due_soon') !== (model === MODEL_SIGN)) {
+    return INVALID
+  }
 
   const messageId =
     raw.message_id === undefined || raw.message_id === null
@@ -206,6 +219,7 @@ const REASON_BY_KIND: Record<PortalEventKind, PortalNotificationReason> = {
   status: 'status_change',
   new_record: 'new_tramite',
   new_firma: 'new_firma',
+  firma_due_soon: 'firma_due_soon',
 }
 
 /** Un evento como el aviso que ya sabe convertir en push (`buildPushPayload`). */

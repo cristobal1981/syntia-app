@@ -6,10 +6,8 @@ import {
   parsePortalEventPayload,
   resolveStatusChange,
 } from '@/src/modules/push/domain/portal-event'
-import {
-  getLastStatusLabel,
-  insertPortalEvent,
-} from '@/src/modules/push/infrastructure/portal-events.supabase'
+import { insertPortalEventAndInvalidate } from '@/src/modules/push/application/insert-portal-event'
+import { getLastStatusLabel } from '@/src/modules/push/infrastructure/portal-events.supabase'
 
 /** Un evento real pesa unos cientos de bytes; el cuerpo del mensaje es lo mayor. */
 const MAX_BODY_BYTES = 100_000
@@ -73,7 +71,7 @@ export async function POST(request: Request) {
     // Mismo estado visible que el último que ya conocíamos: no hay cambio que avisar.
     if (!event) return NextResponse.json({ ok: true, status: 'ignored' })
 
-    const status = await insertPortalEvent(event)
+    const status = await insertPortalEventAndInvalidate(event)
     return NextResponse.json({ ok: true, status })
   } catch (error) {
     console.error('[odoo events] guardar falló', { eventId: parsed.event.eventId, error })
