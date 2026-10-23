@@ -97,6 +97,28 @@ describe('watchableFromTramiteListItem', () => {
   })
 })
 
+describe('watchableFromTramiteListItem: responsable heredado', () => {
+  it('lo que una subtarea hereda del padre no se vigila (avisa el padre, no cada hija)', () => {
+    const item: TramiteListItem = {
+      id: 8,
+      name: 'Subtarea',
+      kind: 'tramite',
+      isClosed: false,
+      attachmentCount: 0,
+      modifiedAt: '2026-01-01',
+      assignedNotifyPartnerIds: [],
+      createdAt: '',
+      priority: 0,
+      assignees: [{ userId: 3, name: 'Ana' }],
+      assigneesInherited: true,
+    }
+    const watchable = watchableFromTramiteListItem(item)
+    expect(watchable.assigneeKey).toBeUndefined()
+    expect(watchable.assigneeLabel).toBeUndefined()
+    expect(watchableFromTramiteListItem({ ...item, assigneesInherited: false }).assigneeKey).toBe('3')
+  })
+})
+
 describe('computeRecordWatchDeltas', () => {
   it('a brand-new record (no previous watch state) is baselined without any notification', () => {
     const result = computeRecordWatchDeltas({

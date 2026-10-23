@@ -97,8 +97,13 @@ export function watchableFromTramiteListItem(
     isClosed: item.isClosed,
     attachmentCount: item.attachmentCount,
     modifiedAt: item.modifiedAt,
-    assigneeKey: assigneeKeyFor(item.assignees),
-    assigneeLabel: formatAssigneesLabel(item.assignees) ?? undefined,
+    // Lo heredado del padre no se vigila: si cambia el responsable del padre, avisa el padre una vez y no cada hija.
+    ...(item.assigneesInherited
+      ? {}
+      : {
+          assigneeKey: assigneeKeyFor(item.assignees),
+          assigneeLabel: formatAssigneesLabel(item.assignees) ?? undefined,
+        }),
   }
 }
 

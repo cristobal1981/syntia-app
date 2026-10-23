@@ -82,7 +82,9 @@ export const tramites = {
     emptyDescription: 'No hay trámites en curso en tu cuenta en este momento.',
     columns: {
       name: 'Trámite',
+      priority: 'Prioridad',
       tags: 'Etiquetas',
+      updated: 'Actualizado',
       documents: 'adjuntos',
     },
     downloadZip: 'Descargar todo',
@@ -105,6 +107,15 @@ export const tramites = {
   },
   assignee: {
     label: 'Te atiende',
+  },
+  priority: {
+    label: 'Prioridad',
+    levels: ['Baja', 'Media', 'Alta', 'Urgente'],
+    ariaLabel: 'Prioridad {level}',
+  },
+  dates: {
+    created: 'Abierto el {date}',
+    updated: 'Actualizado el {date}',
   },
   taskStates: {
     inProgress: 'En curso',

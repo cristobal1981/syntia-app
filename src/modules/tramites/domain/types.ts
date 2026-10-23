@@ -21,8 +21,10 @@ export type TramiteTask = {
   /** Fecha de creación en Odoo (ISO); vacía si no se pudo leer. */
   createdAt: string
   priority: TramitePriority
-  /** Quién lo lleva (puede haber varios, o ninguno). */
+  /** Quién lo lleva (puede haber varios, o ninguno). Si la subtarea no tiene a nadie, el del antecesor más cercano. */
   assignees: TramiteAssignee[]
+  /** `true` si `assignees` son los de un antecesor y no los propios de la subtarea. */
+  assigneesInherited?: boolean
   /** Tarea padre (subtarea de), si la tiene; puede no estar en la lista. */
   parentId?: number
   /** res.partner ids de user_ids asignados (para notificar en chatter). */

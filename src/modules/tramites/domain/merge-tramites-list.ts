@@ -19,6 +19,7 @@ export type TramiteListItem = {
   createdAt: string
   priority: TramitePriority
   assignees: TramiteAssignee[]
+  assigneesInherited?: boolean
   /** Solo trámites (tareas): la tarea de la que es subtarea. */
   parentId?: number
   assignedNotifyPartnerIds: number[]
@@ -39,6 +40,7 @@ export function mergeTramitesList(
     createdAt: task.createdAt,
     priority: task.priority,
     assignees: task.assignees,
+    assigneesInherited: task.assigneesInherited,
     parentId: task.parentId,
     assignedNotifyPartnerIds: task.assignedNotifyPartnerIds,
   }))

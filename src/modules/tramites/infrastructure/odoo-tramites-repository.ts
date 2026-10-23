@@ -5,6 +5,7 @@ import type {
   TramiteTicket,
   TramitesSnapshot,
 } from '@/src/modules/tramites/domain/types'
+import { inheritAssignees } from '@/src/modules/tramites/domain/inherit-assignees'
 import { isTaskClosed, mapTaskStateLabel } from '@/src/modules/tramites/domain/map-task-state'
 import { parseOdooDateTime } from '@/src/modules/tramites/domain/parse-odoo-datetime'
 import {
@@ -219,7 +220,8 @@ async function listProjectTasks(
     filteredRows.map((row) => row.id)
   )
 
-  return filteredRows.map((row) => mapTask(row, attachmentCounts, users))
+  // La herencia se calcula con las propias asignaciones de todas las tareas, antes de heredar.
+  return inheritAssignees(filteredRows.map((row) => mapTask(row, attachmentCounts, users)))
 }
 
 async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]> {

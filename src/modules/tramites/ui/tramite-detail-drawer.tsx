@@ -53,7 +53,9 @@ import {
 import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record-types'
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
+import { buildTramiteDatesLine } from '@/src/modules/tramites/domain/format-tramite-date'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
+import { TramitePriorityIndicator } from '@/src/modules/tramites/ui/tramite-priority-indicator'
 import { TramiteAssignees } from '@/src/modules/tramites/ui/tramite-assignees'
 import { TramiteDescription } from '@/src/modules/tramites/ui/tramite-description'
 import { TramiteTypeBadge } from '@/src/modules/tramites/ui/tramite-type-badge'
@@ -250,6 +252,7 @@ export function TramiteDetailDrawer({
 
   const tramite = item
   const stateBadge = getTramiteListItemStateBadge(tramite)
+  const datesLine = buildTramiteDatesLine(tramite)
   const subtasksCopy = tramites.subtasks
   const parentTramite = getParentTramite(allItems, tramite)
   const showZipButton = liveAttachmentCount > 1
@@ -416,14 +419,20 @@ export function TramiteDetailDrawer({
           {tramite.kind === 'tramite' ? (
             <TramiteDescription key={tramite.id} taskId={tramite.id} />
           ) : null}
+          {datesLine ? (
+            <p className="mt-2 text-xs text-muted-foreground">{datesLine}</p>
+          ) : null}
           <DialogDescription asChild>
             <div className="mt-3 flex flex-col items-start gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <TramiteTypeBadge kind={tramite.kind} />
-                <TaskStateBadge
-                  label={stateBadge.label}
-                  variant={stateBadge.variant}
-                />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <TramiteTypeBadge kind={tramite.kind} />
+                  <TaskStateBadge
+                    label={stateBadge.label}
+                    variant={stateBadge.variant}
+                  />
+                </div>
+                <TramitePriorityIndicator priority={tramite.priority} showLabel />
               </div>
               <TramiteAssignees assignees={tramite.assignees} />
             </div>

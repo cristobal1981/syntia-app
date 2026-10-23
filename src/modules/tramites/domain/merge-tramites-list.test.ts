@@ -14,6 +14,7 @@ const task: TramiteTask = {
   priority: 3,
   assignees: [{ userId: 7, name: 'Ana García' }],
   parentId: 99,
+  assigneesInherited: true,
   assignedNotifyPartnerIds: [701],
 }
 
@@ -37,6 +38,7 @@ describe('mergeTramitesList', () => {
       createdAt: task.createdAt,
       priority: 3,
       assignees: task.assignees,
+      assigneesInherited: true,
       parentId: 99,
     })
     expect(items.find((item) => item.kind === 'consulta')).toMatchObject({

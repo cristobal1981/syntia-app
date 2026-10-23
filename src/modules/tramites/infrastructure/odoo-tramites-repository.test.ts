@@ -55,6 +55,16 @@ beforeEach(() => {
               user_ids: [7, 8, 7],
               parent_id: false,
             },
+            {
+              id: 11,
+              name: 'Aportar el certificado',
+              state: '01_in_progress',
+              write_date: '2026-10-22 13:00:00',
+              create_date: '2026-10-02 09:00:00',
+              priority: '0',
+              user_ids: [],
+              parent_id: [10, 'Alta de autónomo'],
+            },
           ]
     }
     if (model === 'helpdesk.ticket') {
@@ -131,6 +141,17 @@ describe('fetchTramitesFromOdoo: fecha de creación, prioridad y asignados', () 
       ],
       assignedNotifyPartnerIds: [701],
     })
+  })
+
+  it('una subtarea sin nadie asignado enseña a quien lleva su padre (marcada como heredada), pero sus avisos del chatter siguen siendo los propios', async () => {
+    const { tasks } = await fetchTramitesFromOdoo(1233)
+    const child = tasks.find((task) => task.id === 11)!
+    const parent = tasks.find((task) => task.id === 10)!
+
+    expect(child.assignees).toEqual(parent.assignees)
+    expect(child.assigneesInherited).toBe(true)
+    expect(child.assignedNotifyPartnerIds).toEqual([])
+    expect(parent.assigneesInherited).toBeUndefined()
   })
 
   it('un ticket lleva su creación, su prioridad y su responsable', async () => {
