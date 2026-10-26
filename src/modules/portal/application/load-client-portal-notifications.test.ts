@@ -642,6 +642,26 @@ describe('loadClientPortalNotifications — tramitesChanged cache invalidation',
     expect(revalidateTag).toHaveBeenCalled()
   })
 
+  it('does NOT expire the tramites snapshot again when the fresh read already renewed the shared cache', async () => {
+    getFreshTramitesSnapshotSafe.mockResolvedValue({
+      data: { tasks: [], tickets: [], tagFilterActive: false },
+      cacheRefreshed: true,
+    })
+    computeRecordWatchDeltas.mockReturnValue({
+      notifications: [{ scope: 'tramite', recordId: 1, name: 'x', reason: 'status_change', latestDate: 'd' }],
+      watchUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+    })
+
+    expect(revalidateTag).not.toHaveBeenCalled()
+  })
+
   it('does NOT revalidate the tramites snapshot tag when the only changed scope is "obligacion"', async () => {
     computeRecordWatchDeltas.mockReturnValue({
       notifications: [{ scope: 'obligacion', recordId: 1, name: 'x', reason: 'status_change', latestDate: 'd' }],

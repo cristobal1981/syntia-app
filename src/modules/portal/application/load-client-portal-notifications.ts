@@ -310,7 +310,9 @@ export async function loadClientPortalNotifications(input: {
         (notification) =>
           notification.scope === 'tramite' || notification.scope === 'consulta'
       )
-    if (persist && tramitesChanged) {
+    // Si la lectura ya renovó la caché (sondeo desde una Server Action), no se vuelve a expirar: la
+    // página que se refresque justo después la encuentra al día en vez de reconstruirla en frío.
+    if (persist && tramitesChanged && !tramitesResult.cacheRefreshed) {
       revalidateTag(tramitesSnapshotCacheTag(input.partnerId), { expire: 0 })
     }
 
