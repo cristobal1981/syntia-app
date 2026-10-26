@@ -59,23 +59,17 @@ export const tramites = {
   filters: {
     searchLabel: 'Buscar trámites',
     searchPlaceholder: 'Buscar por nombre…',
-    includeClosed: 'Incluir cerrados',
-    includeClosedHint:
-      'En «Todos» muestra abiertos y cerrados. Con otros filtros activos, marca Hecho y Cancelado.',
     typeLabel: 'Tipo',
-    stateLabel: 'Estado',
     clearFilters: 'Limpiar filtros',
     views: {
       tramites: 'Trámites',
       consultas: 'Consultas',
-      done: 'Hecho',
-      canceled: 'Cancelado',
-      withDocuments: 'Con documentos',
-      needsAttention: 'Pendientes de ti',
+      closed: 'Cerrados',
+      needsAttention: 'Requiere tu atención',
     },
     noResultsTitle: 'Sin resultados',
     noResultsDescription:
-      'No hay trámites que coincidan con los filtros actuales. Prueba otra búsqueda, cambia el filtro o activa «Incluir cerrados».',
+      'No hay trámites que coincidan con los filtros actuales. Prueba otra búsqueda, cambia el filtro o mira en «Cerrados».',
   },
   list: {
     emptyTitle: 'Sin trámites',

@@ -1,10 +1,9 @@
 'use client'
 
-import { Info, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { tramites } from '@/content/tramites'
-import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
 import { PortalSearchToolbar } from '@/src/modules/portal/ui/portal-search-toolbar'
 import type { TramiteListItem } from '@/src/modules/tramites/domain/merge-tramites-list'
@@ -13,8 +12,6 @@ import {
   defaultTramitesListFilters,
   hasActiveTramitesFilters,
   isTramitesFilterChipActive,
-  setTramitesIncludeClosed,
-  supportsIncludeClosedCheckbox,
   toggleTramitesFilterChip,
   type TramitesFilterChip,
   type TramitesListFilters,
@@ -29,11 +26,6 @@ type TramitesFiltersToolbarProps = {
 const typeChipOptions: { value: TramitesFilterChip; label: string }[] = [
   { value: 'tramite', label: tramites.filters.views.tramites },
   { value: 'consulta', label: tramites.filters.views.consultas },
-]
-
-const stateChipOptions: { value: TramitesFilterChip; label: string }[] = [
-  { value: 'done', label: tramites.filters.views.done },
-  { value: 'canceled', label: tramites.filters.views.canceled },
 ]
 
 function ChipGroup({
@@ -78,12 +70,11 @@ export function TramitesFiltersToolbar({
   onChange,
   items,
 }: TramitesFiltersToolbarProps) {
-  const showIncludeClosed = supportsIncludeClosedCheckbox(filters)
   const hasActive = hasActiveTramitesFilters(filters)
-  const documentsCount = countTramitesForChip(items, 'withDocuments', filters)
-  const documentsActive = isTramitesFilterChipActive(filters, 'withDocuments')
   const attentionCount = countTramitesForChip(items, 'needsAttention', filters)
   const attentionActive = isTramitesFilterChipActive(filters, 'needsAttention')
+  const closedCount = countTramitesForChip(items, 'closed', filters)
+  const closedActive = isTramitesFilterChipActive(filters, 'closed')
 
   return (
     <PortalSearchToolbar
@@ -92,43 +83,21 @@ export function TramitesFiltersToolbar({
       searchPlaceholder={tramites.filters.searchPlaceholder}
       query={filters.query}
       onQueryChange={(query) => onChange({ ...filters, query })}
-      trailing={
-        showIncludeClosed ? (
-          <label className="flex items-center gap-1.5 text-sm whitespace-nowrap text-foreground sm:ml-auto">
-            <input
-              type="checkbox"
-              checked={filters.includeClosed}
-              onChange={(event) => {
-                onChange(setTramitesIncludeClosed(filters, event.target.checked))
-              }}
-              className="size-4 rounded border border-border accent-primary"
-            />
-            {tramites.filters.includeClosed}
-            <PortalActionTooltip content={tramites.filters.includeClosedHint}>
-              <span
-                tabIndex={0}
-                role="img"
-                aria-label={tramites.filters.includeClosedHint}
-                className="inline-flex"
-              >
-                <Info className="size-3.5 text-muted-foreground" aria-hidden />
-              </span>
-            </PortalActionTooltip>
-          </label>
-        ) : undefined
-      }
       filters={
         // En móvil los chips fluyen en una sola tanda (sin separadores ni grupos
-        // en filas propias); desde `sm` vuelven los tres grupos con su divisor.
+        // en filas propias); desde `sm` vuelven los grupos con su divisor.
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-x-4 sm:gap-y-2 sm:divide-x sm:divide-border">
-          <div className="contents sm:block sm:pr-4">
-            <PortalFilterChip
-              label={tramites.filters.views.needsAttention}
-              count={attentionCount}
-              active={attentionActive}
-              onClick={() => onChange(toggleTramitesFilterChip(filters, 'needsAttention'))}
-            />
-          </div>
+          {/* Estados distintos: con uno activo no se ofrece el otro. */}
+          {closedActive ? null : (
+            <div className="contents sm:block sm:pr-4">
+              <PortalFilterChip
+                label={tramites.filters.views.needsAttention}
+                count={attentionCount}
+                active={attentionActive}
+                onClick={() => onChange(toggleTramitesFilterChip(filters, 'needsAttention'))}
+              />
+            </div>
+          )}
 
           <div className="contents sm:block sm:pr-4">
             <ChipGroup
@@ -140,23 +109,15 @@ export function TramitesFiltersToolbar({
             />
           </div>
 
-          <div className="contents sm:block sm:pr-4 sm:pl-1">
-            <ChipGroup
-              label={tramites.filters.stateLabel}
-              options={stateChipOptions}
-              filters={filters}
-              items={items}
-              onChange={onChange}
-            />
-          </div>
-
           <div className="contents sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:pl-1">
-            <PortalFilterChip
-              label={tramites.filters.views.withDocuments}
-              count={documentsCount}
-              active={documentsActive}
-              onClick={() => onChange(toggleTramitesFilterChip(filters, 'withDocuments'))}
-            />
+            {attentionActive ? null : (
+              <PortalFilterChip
+                label={tramites.filters.views.closed}
+                count={closedCount}
+                active={closedActive}
+                onClick={() => onChange(toggleTramitesFilterChip(filters, 'closed'))}
+              />
+            )}
 
             {hasActive ? (
               <Button
