@@ -104,12 +104,16 @@ export function useChatterMessages({
     [markReadOnView]
   )
 
-  /** Pide solo lo posterior a `afterId` y lo añade; devuelve si la petición se completó. */
+  /**
+   * Pide solo lo posterior a `afterId` y lo añade. Con `silent` no enciende el indicador de
+   * «escribiendo»: es una comprobación de rutina al reabrir un chat guardado, no la señal de que
+   * está llegando un mensaje (eso lo da el sondeo de novedades).
+   */
   const loadNewer = useCallback(
-    async (afterId: number) => {
+    async (afterId: number, options: { silent?: boolean } = {}) => {
       if (loadingNewerRef.current) return
       loadingNewerRef.current = true
-      setLoadingNewer(true)
+      if (!options.silent) setLoadingNewer(true)
       try {
         const result = await listNewerRecordMessagesAction({ kind, recordId, afterId })
         if (!result.ok) return
@@ -125,7 +129,7 @@ export function useChatterMessages({
         })
       } finally {
         loadingNewerRef.current = false
-        setLoadingNewer(false)
+        if (!options.silent) setLoadingNewer(false)
       }
     },
     [kind, recordId]
@@ -151,7 +155,7 @@ export function useChatterMessages({
       setLoadedKey(drawerBundleKey(kind, recordId))
       notifyConversationViewed(enriched)
       const lastId = enriched[enriched.length - 1]?.id
-      if (!isDrawerBundleFresh(cached) && lastId) void loadNewer(lastId).catch(() => {})
+      if (!isDrawerBundleFresh(cached) && lastId) void loadNewer(lastId, { silent: true }).catch(() => {})
       return
     }
 
@@ -207,6 +211,7 @@ export function useChatterMessages({
     if (latestKnownMessageId <= maxLoadedId) return
 
     // Dispara el fetch de mensajes más recientes (polling) — no derivable.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadNewer(maxLoadedId).catch(() => {})
   }, [active, latestKnownMessageId, loadNewer, loadingInitial, messages, recordId])
 
