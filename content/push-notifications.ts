@@ -3,6 +3,16 @@ export const pushNotifications = {
   description:
     'Recibe un aviso del sistema cuando tu asesoría te escriba o haya algo pendiente, aunque no tengas Syntia abierta.',
   enable: 'Activar notificaciones',
+  prompt: {
+    title: 'No te pierdas ningún aviso de tu asesoría',
+    description:
+      'Actívalas en este dispositivo y te avisamos al momento, sin abrir Syntia.',
+    enable: 'Activar',
+    dismiss: 'Ahora no',
+    panelHint: 'Recibe estos avisos también fuera de Syntia.',
+    installTitle: 'Instala Syntia para recibir avisos',
+    understood: 'Entendido',
+  },
   types: {
     chatter: 'Mensajes de tu asesoría',
     status: 'Estados de trámites y avisos que requieren tu atención',

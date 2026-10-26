@@ -67,13 +67,13 @@ export function PortalNotificationItemMeta({
   const label = portalNotificationTypeLabel(item, copy)
 
   return (
-    <span className={cn('inline-flex items-center gap-1.5', className)}>
+    <span className={cn('inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5', className)}>
       {/* notificationIcon() siempre devuelve una de un puñado de referencias
           estables de lucide-react (Flame, RefreshCw, ...), nunca crea un
           componente nuevo — falso positivo de la regla. */}
       {/* eslint-disable-next-line react-hooks/static-components */}
       <Icon className="size-3.5 shrink-0 text-primary" aria-hidden />
-      <span>{label}</span>
+      <span className="whitespace-nowrap">{label}</span>
       {item.reason === 'status_change' &&
       item.previousStateLabel &&
       item.newStateLabel ? (

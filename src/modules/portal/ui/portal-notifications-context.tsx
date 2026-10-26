@@ -30,6 +30,8 @@ import { usePortalNotificationsSync } from '@/src/modules/portal/ui/use-portal-n
 import { usePortalPageRefresh } from '@/src/modules/portal/ui/use-portal-page-refresh'
 
 type PortalNotificationsContextValue = {
+  /** `false` bajo la «vista como cliente»: no hay sondeo ni acciones, y no se ofrece nada que escriba (p. ej. activar el push). */
+  enabled: boolean
   unread: PortalNotification[]
   unreadCount: number
   notificationsLoading: boolean
@@ -217,6 +219,7 @@ export function PortalNotificationsProvider({
 
   const value = useMemo(
     () => ({
+      enabled,
       unread,
       unreadCount: unread.length,
       notificationsLoading,
@@ -237,6 +240,7 @@ export function PortalNotificationsProvider({
       initializeNotifications,
     }),
     [
+      enabled,
       unread,
       notificationsLoading,
       stats,
