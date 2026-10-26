@@ -57,3 +57,30 @@ export function ChatterComposerSkeleton() {
     </div>
   )
 }
+
+/**
+ * El chat entero en esqueleto, con la misma estructura que `RecordChatterPanel` (zona de mensajes
+ * con su relleno y pie del compositor): lo que se enseña mientras el elemento del drawer se asienta,
+ * para que el cambio al chat real no mueva nada.
+ */
+export function ChatterPanelSkeleton() {
+  return (
+    <section
+      className="flex min-h-0 flex-1 flex-col"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Cargando conversación"
+    >
+      <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
+        <ChatterSkeleton />
+      </div>
+      <div className="shrink-0 border-t border-border px-6 py-4 dark:border-border/50">
+        <div className="flex items-end gap-2">
+          <ChatterComposerSkeleton />
+          <Skeleton className="size-9 shrink-0 rounded-md" />
+        </div>
+      </div>
+    </section>
+  )
+}

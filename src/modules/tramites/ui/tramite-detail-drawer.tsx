@@ -54,7 +54,7 @@ import type { PortalAttachment } from '@/src/modules/portal/domain/portal-record
 import { DocumentPreviewDialog } from '@/src/modules/portal/ui/document-preview/document-preview-dialog'
 import { getParentTramite } from '@/src/modules/tramites/domain/tramites-tree'
 import { buildTramiteDatesLine } from '@/src/modules/tramites/domain/format-tramite-date'
-import { ChatterSkeleton } from '@/src/modules/portal/ui/chatter-skeleton'
+import { ChatterPanelSkeleton } from '@/src/modules/portal/ui/chatter-skeleton'
 import { useSettledValue } from '@/lib/use-settled-value'
 import { TaskStateBadge } from '@/src/modules/tramites/ui/task-state-badge'
 import { TramitePriorityIndicator } from '@/src/modules/tramites/ui/tramite-priority-indicator'
@@ -469,7 +469,7 @@ export function TramiteDetailDrawer({
           onChange={handleTabChange}
         >
           {activeTab === 'conversation' && isSettling ? (
-            <ChatterSkeleton />
+            <ChatterPanelSkeleton />
           ) : activeTab === 'conversation' ? (
             <RecordChatterPanel
               kind={recordKind}

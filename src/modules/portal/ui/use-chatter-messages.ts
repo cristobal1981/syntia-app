@@ -69,7 +69,9 @@ export function useChatterMessages({
     initialCached ? drawerBundleKey(kind, recordId) : null
   )
   const [hasMore, setHasMore] = useState(initialCached?.hasMore ?? false)
-  const [loadingInitial, setLoadingInitial] = useState(false)
+  // Sin nada guardado, arranca ya en «cargando»: así el primer pintado es el esqueleto y no el
+  // aviso de «no hay mensajes», que parpadeaba hasta que corría el efecto de carga.
+  const [loadingInitial, setLoadingInitial] = useState(() => active && recordId > 0 && !initialCached)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [loadingNewer, setLoadingNewer] = useState(false)
   const [error, setError] = useState<string | null>(null)
