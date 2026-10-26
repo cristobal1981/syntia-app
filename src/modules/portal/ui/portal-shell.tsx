@@ -13,11 +13,11 @@ import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types
 import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
+import { useMediaQuery } from '@/lib/use-media-query'
 import {
   SIDEBAR_BELOW_XL_QUERY,
   SIDEBAR_OVERLAY_QUERY,
-  useMediaQuery,
-} from '@/src/modules/portal/lib/use-media-query'
+} from '@/src/modules/portal/lib/sidebar-queries'
 import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
 import { Sappo } from '@/components/errors/sappo'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'

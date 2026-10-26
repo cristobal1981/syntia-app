@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 export type DriveViewMode = 'grid' | 'list'
 
 const actionBarVisibility =
-  'opacity-100 sm:opacity-0 sm:transition-opacity sm:duration-200 motion-reduce:transition-none sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+  'opacity-100 sm:opacity-0 sm:transition-opacity sm:duration-200 motion-reduce:transition-none sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 [@media(hover:none)]:opacity-100'
 
 function formatFileSize(bytes?: number): string {
   if (!bytes || bytes <= 0) return ''

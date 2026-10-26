@@ -99,7 +99,7 @@ export function PortalTopBar({
       <div className="min-w-2 flex-1" aria-hidden />
 
       {/* Móvil/tablet: burger (arriba) → buscador → notificaciones → nueva consulta. */}
-      <div className="flex shrink-0 items-center gap-1 md:hidden">
+      <div className="flex shrink-0 items-center gap-2 md:hidden">
         <NotificationBell />
         <PortalTopBarCreateConsulta />
       </div>

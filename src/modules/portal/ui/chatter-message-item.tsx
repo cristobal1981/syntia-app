@@ -37,7 +37,7 @@ function ChatterReplyButton({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-7 shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-foreground"
+        className="size-7 shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-foreground"
         onClick={() => onReply(message)}
         aria-label={portalChatter.replyAction}
       >
