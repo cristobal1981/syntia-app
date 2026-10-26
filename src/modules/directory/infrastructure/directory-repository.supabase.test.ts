@@ -761,6 +761,85 @@ describe('createAuthUserForClient (3-way invite delivery + dev-only rate-limit f
   })
 })
 
+describe('setClientActive (activar o desactivar la cuenta, solo el estado)', () => {
+  function makeClient(userRow: unknown, updateResult: { error: { message: string } | null } = { error: null }) {
+    const update = vi.fn()
+    const eqAfterUpdate = vi.fn().mockResolvedValue(updateResult)
+    update.mockReturnValue({ eq: eqAfterUpdate })
+    const client = {
+      from: () => {
+        const chain: Record<string, unknown> = {}
+        chain.select = () => chain
+        chain.eq = () => chain
+        chain.maybeSingle = () => Promise.resolve({ data: userRow, error: null })
+        chain.update = update
+        return chain
+      },
+    }
+    return { client, update, eqAfterUpdate }
+  }
+
+  it('NOT_FOUND when the id is not a client', async () => {
+    const { client } = makeClient({ id: 'g1', role: 'advisor', status: 'active', auth_user_id: 'a1' })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    await expect(supabaseDirectoryRepository.setClientActive('g1', false)).rejects.toThrow('NOT_FOUND')
+  })
+
+  it('deactivating writes status=archived and is_active=false, and nothing else', async () => {
+    const { client, update, eqAfterUpdate } = makeClient({ id: 'c1', role: 'client', status: 'active', auth_user_id: 'a1' })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    expect(await supabaseDirectoryRepository.setClientActive('c1', false)).toBe('archived')
+
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith({
+      status: 'archived',
+      is_active: false,
+      updated_at: expect.any(String),
+    })
+    expect(eqAfterUpdate).toHaveBeenCalledWith('id', 'c1')
+    expect(sendClientAccessEmailForClient).not.toHaveBeenCalled()
+  })
+
+  it('reactivating an archived account that already has its access account goes back to ACTIVE (can log in again, no email)', async () => {
+    const { client, update } = makeClient({ id: 'c1', role: 'client', status: 'archived', auth_user_id: 'a1' })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    expect(await supabaseDirectoryRepository.setClientActive('c1', true)).toBe('active')
+
+    expect(update).toHaveBeenCalledWith({ status: 'active', is_active: true, updated_at: expect.any(String) })
+    expect(sendClientAccessEmailForClient).not.toHaveBeenCalled()
+  })
+
+  it('reactivating an archived account that never logged in goes back to INVITED (it turns active on first login)', async () => {
+    const { client, update } = makeClient({ id: 'c1', role: 'client', status: 'archived', auth_user_id: null })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    expect(await supabaseDirectoryRepository.setClientActive('c1', true)).toBe('invited')
+
+    expect(update).toHaveBeenCalledWith({ status: 'invited', is_active: false, updated_at: expect.any(String) })
+  })
+
+  it('does not write anything when the account is already in the requested state', async () => {
+    const { client, update } = makeClient({ id: 'c1', role: 'client', status: 'active', auth_user_id: 'a1' })
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    expect(await supabaseDirectoryRepository.setClientActive('c1', true)).toBe('active')
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a database error (for example a status constraint violation)', async () => {
+    const { client } = makeClient(
+      { id: 'c1', role: 'client', status: 'active', auth_user_id: 'a1' },
+      { error: { message: 'violates check constraint "users_status_check"' } }
+    )
+    createSupabaseAdminClient.mockReturnValue(client)
+
+    await expect(supabaseDirectoryRepository.setClientActive('c1', false)).rejects.toThrow('users_status_check')
+  })
+})
+
 describe('resendClientAccessEmail / resendGestorAccessEmail', () => {
   function makeClientForResend(userRow: unknown, updateUserById = vi.fn()) {
     return {

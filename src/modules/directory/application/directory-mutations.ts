@@ -1,6 +1,5 @@
 'use server'
 
-import { nextClientStatus } from '@/src/modules/directory/domain/client-status'
 import { updateTag } from 'next/cache'
 
 import {
@@ -356,8 +355,8 @@ export async function updateClientAction(
 
 /**
  * Activa o desactiva la cuenta de un cliente al instante (desde su drawer), sin pasar por «Guardar
- * cambios». Reutiliza el mismo camino que la edición (`updateClient`) con los datos tal como están y
- * solo el estado cambiado, con los mismos permisos: un asesor solo toca a sus clientes.
+ * cambios». Solo cambia el estado (no reescribe datos ni envía correos) y con los mismos permisos que
+ * editar: un asesor solo toca a sus clientes.
  */
 export async function setClientActiveAction(
   clientId: string,
@@ -379,25 +378,7 @@ export async function setClientActiveAction(
       return { ok: false, error: 'forbidden' }
     }
 
-    const status = nextClientStatus(existing.status, active)
-    if (status === existing.status) {
-      return { ok: true, status }
-    }
-
-    await repository.updateClient({
-      id: existing.id,
-      clientKind: existing.clientKind,
-      firstName: existing.firstName,
-      firstSurname: existing.firstSurname,
-      secondSurname: existing.secondSurname,
-      email: existing.email,
-      phone: existing.phone,
-      companyName: existing.companyName,
-      odooPartnerId: existing.odooPartnerId,
-      driveFolderId: existing.driveFolderId,
-      advisorId: existing.advisorId,
-      status,
-    })
+    const status = await repository.setClientActive(clientId, active)
     return { ok: true, status }
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {
