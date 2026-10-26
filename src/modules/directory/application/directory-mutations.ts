@@ -354,6 +354,45 @@ export async function updateClientAction(
 }
 
 /**
+ * Activa o desactiva la cuenta de un cliente al instante (desde su drawer), sin pasar por «Guardar
+ * cambios». Solo cambia el estado (no reescribe datos ni envía correos) y con los mismos permisos que
+ * editar: un asesor solo toca a sus clientes.
+ */
+export async function setClientActiveAction(
+  clientId: string,
+  active: boolean
+): Promise<DirectoryUpdateResult & { status?: PersonStatus }> {
+  try {
+    await requireDirectorySession()
+    const scope = await buildDirectoryScope()
+    if (scope.role === 'client') {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const repository = getDirectoryRepository()
+    const existing = await repository.getClient(clientId)
+    if (!existing) {
+      return { ok: false, error: 'unknown', message: 'Cliente no encontrado.' }
+    }
+    if (scope.role === 'advisor' && existing.advisorId !== scope.userId) {
+      return { ok: false, error: 'forbidden' }
+    }
+
+    const status = await repository.setClientActive(clientId, active)
+    return { ok: true, status }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return {
+      ok: false,
+      error: 'unknown',
+      message: error instanceof Error ? error.message : undefined,
+    }
+  }
+}
+
+/**
  * Reasigna el asesor de varios clientes a la vez. Solo toca `profiles.advisor_id`
  * (no reescribe email/estado/integraciones como `updateClientAction`), y es
  * admin-only: un asesor no puede reasignar su propia cartera en bloque.

@@ -14,6 +14,7 @@ import {
   resolveOdooPartnerDriveFolderAction,
   resendClientAccessEmailAction,
   resendGestorAccessEmailAction,
+  setClientActiveAction,
   updateClientAction,
   updateGestorAction,
 } from '@/src/modules/directory/application/directory-mutations'
@@ -35,6 +36,7 @@ const {
   deleteClient,
   getClient,
   resendClientAccessEmail,
+  setClientActive,
   bulkAssignAdvisor,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -53,6 +55,7 @@ const {
   deleteClient: vi.fn(),
   getClient: vi.fn(),
   resendClientAccessEmail: vi.fn(),
+  setClientActive: vi.fn(),
   bulkAssignAdvisor: vi.fn(),
 }))
 
@@ -82,6 +85,7 @@ vi.mock('@/src/modules/directory/infrastructure/get-directory-repository', () =>
     deleteClient,
     getClient,
     resendClientAccessEmail,
+    setClientActive,
     bulkAssignAdvisor,
   }),
 }))
@@ -650,6 +654,82 @@ describe('resendClientAccessEmailAction', () => {
 
     expect(result).toEqual({ ok: true })
     expect(resendClientAccessEmail).toHaveBeenCalledWith('client-1')
+  })
+})
+
+describe('setClientActiveAction (activar o desactivar la cuenta al instante)', () => {
+  function asAdmin() {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+  }
+
+  it('returns forbidden for role=client', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('client'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('client', 'client-user'))
+
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: false, error: 'forbidden' })
+    expect(setClientActive).not.toHaveBeenCalled()
+  })
+
+  it('BLOCKS an advisor from changing a client owned by a different advisor', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-B' }))
+
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: false, error: 'forbidden' })
+    expect(setClientActive).not.toHaveBeenCalled()
+  })
+
+  it('lets an advisor change their own client', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
+    setClientActive.mockResolvedValue('archived')
+
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: true, status: 'archived' })
+    expect(setClientActive).toHaveBeenCalledWith('client-1', false)
+  })
+
+  it('answers not found (unknown) when the client does not exist', async () => {
+    asAdmin()
+    getClient.mockResolvedValue(null)
+
+    expect(await setClientActiveAction('missing', false)).toMatchObject({ ok: false, error: 'unknown' })
+    expect(setClientActive).not.toHaveBeenCalled()
+  })
+
+  it('passes the requested state to the repository and returns the resulting status', async () => {
+    asAdmin()
+    getClient.mockResolvedValue(client({ status: 'archived' }))
+    setClientActive.mockResolvedValue('active')
+
+    expect(await setClientActiveAction('client-1', true)).toEqual({ ok: true, status: 'active' })
+    expect(setClientActive).toHaveBeenCalledWith('client-1', true)
+  })
+
+  it('never rewrites client data nor sends emails: only the status path is used', async () => {
+    asAdmin()
+    getClient.mockResolvedValue(client())
+    setClientActive.mockResolvedValue('archived')
+
+    await setClientActiveAction('client-1', false)
+
+    expect(updateClient).not.toHaveBeenCalled()
+    expect(resendClientAccessEmail).not.toHaveBeenCalled()
+  })
+
+  it('maps an unauthorized session and repository failures', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: false, error: 'unauthorized' })
+
+    asAdmin()
+    getClient.mockResolvedValue(client())
+    setClientActive.mockRejectedValue(new Error('db down'))
+    expect(await setClientActiveAction('client-1', false)).toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'db down',
+    })
   })
 })
 

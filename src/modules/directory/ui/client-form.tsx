@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
-import { TriangleAlertIcon } from 'lucide-react'
+import { ChevronRight, TriangleAlertIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -34,8 +34,6 @@ import type {
   ClientRecord,
   PersonStatus,
 } from '@/src/modules/directory/domain/types'
-import { ClientAccessSection } from '@/src/modules/directory/ui/client-access-section'
-import { ClientViewAsSection } from '@/src/modules/directory/ui/client-view-as-section'
 import { ClientDangerZone } from '@/src/modules/directory/ui/client-danger-zone'
 import { ClientKindSelector } from '@/src/modules/directory/ui/client-kind-selector'
 import { OdooNameSplitToolbar } from '@/src/modules/directory/ui/odoo-name-split-toolbar'
@@ -80,6 +78,8 @@ export type DriveFolderAutofill =
 type ClientFormProps = {
   mode: 'create' | 'edit'
   client?: ClientRecord
+  /** Estado actual de la cuenta al editar (la cabecera puede haberlo cambiado ya). */
+  accountStatus?: PersonStatus
   clientKind: ClientKind
   onClientKindChange: (kind: ClientKind) => void
   advisorOptions: Array<{ id: string; name: string; email: string }>
@@ -98,6 +98,25 @@ type ClientFormProps = {
   onOdooNameSplitModeChange?: (mode: OdooNameSplitMode) => void
 }
 
+/** Un grupo de campos con su título (solo al editar; al crear los campos van sueltos, como siempre). */
+function FormGroup({
+  title,
+  grouped,
+  children,
+}: {
+  title: string
+  grouped: boolean
+  children: React.ReactNode
+}) {
+  if (!grouped) return <>{children}</>
+  return (
+    <section className="flex flex-col gap-4">
+      <h3 className="font-sans text-sm font-semibold text-foreground">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
   return (
@@ -110,6 +129,7 @@ function FieldError({ message }: { message?: string }) {
 export function ClientForm({
   mode,
   client,
+  accountStatus,
   clientKind,
   onClientKindChange,
   advisorOptions,
@@ -195,15 +215,6 @@ export function ClientForm({
     setAdvisorIdValue(defaults.advisorId)
   }
 
-  const [statusValue, setStatusValue] = useState<PersonStatus>(
-    client?.status ?? 'invited'
-  )
-  const [prevClientStatus, setPrevClientStatus] = useState(client?.status)
-  if (client?.status !== prevClientStatus) {
-    setPrevClientStatus(client?.status)
-    setStatusValue(client?.status ?? 'invited')
-  }
-
   const corporateEmailHint =
     isCompany &&
     selectedOdooEmails?.contactEmail &&
@@ -223,6 +234,9 @@ export function ClientForm({
     }
     return undefined
   }
+
+  // Los vínculos técnicos van recogidos al editar; si falla su validación, se abren para verlo.
+  const linksHaveError = Boolean(getFieldError('odooPartnerId') || getFieldError('driveFolderId'))
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -296,7 +310,7 @@ export function ClientForm({
     <form
       key={formKey}
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className={isCreate ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'}
       noValidate
     >
       {!isCreate && client ? (
@@ -311,301 +325,390 @@ export function ClientForm({
         <p className="text-sm text-muted-foreground">{copy.inviteHint}</p>
       ) : null}
 
-      <ClientKindSelector value={clientKind} onChange={onClientKindChange} />
+      <div
+        className={
+          isCreate
+            ? 'contents'
+            : 'flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto overscroll-contain px-6 py-5'
+        }
+      >
+        <FormGroup title={copy.groups.identity} grouped={!isCreate}>
+        <ClientKindSelector value={clientKind} onChange={onClientKindChange} />
 
-      {isCreate && odooImportLoadState === 'loading' ? (
-        <p className="text-sm text-muted-foreground">{copy.odooImport.loading}</p>
-      ) : null}
+        {isCreate && odooImportLoadState === 'loading' ? (
+          <p className="text-sm text-muted-foreground">{copy.odooImport.loading}</p>
+        ) : null}
 
-      {isCreate && odooImportLoadState === 'unavailable' ? (
-        <p className="text-sm text-muted-foreground">
-          {copy.odooImport.unavailable}
-        </p>
-      ) : null}
+        {isCreate && odooImportLoadState === 'unavailable' ? (
+          <p className="text-sm text-muted-foreground">
+            {copy.odooImport.unavailable}
+          </p>
+        ) : null}
 
-      {isCreate && odooImportLoadState === 'error' ? (
-        <p className="text-sm text-destructive" role="alert">
-          {copy.odooImport.error}
-        </p>
-      ) : null}
+        {isCreate && odooImportLoadState === 'error' ? (
+          <p className="text-sm text-destructive" role="alert">
+            {copy.odooImport.error}
+          </p>
+        ) : null}
 
-      {isCreate &&
-      odooImportLoadState === 'ready' &&
-      onOdooPartnerSelect &&
-      odooPartners.length > 0 ? (
-        <OdooPartnerImportPicker
-          partners={odooPartners}
-          selectedId={selectedOdooPartnerId}
-          onSelect={onOdooPartnerSelect}
-        />
-      ) : null}
+        {isCreate &&
+        odooImportLoadState === 'ready' &&
+        onOdooPartnerSelect &&
+        odooPartners.length > 0 ? (
+          <OdooPartnerImportPicker
+            partners={odooPartners}
+            selectedId={selectedOdooPartnerId}
+            onSelect={onOdooPartnerSelect}
+          />
+        ) : null}
 
-      {isCreate &&
-      !isCompany &&
-      selectedOdooPartner &&
-      onOdooNameSplitModeChange ? (
-        <OdooNameSplitToolbar
-          odooLabel={selectedOdooPartner.label}
-          mode={odooNameSplitMode}
-          onModeChange={onOdooNameSplitModeChange}
-        />
-      ) : null}
+        {isCreate &&
+        !isCompany &&
+        selectedOdooPartner &&
+        onOdooNameSplitModeChange ? (
+          <OdooNameSplitToolbar
+            odooLabel={selectedOdooPartner.label}
+            mode={odooNameSplitMode}
+            onModeChange={onOdooNameSplitModeChange}
+          />
+        ) : null}
 
-      {isCreate && selectedOdooPartnerId ? (
-        <p className="text-xs text-muted-foreground">{copy.odooImport.reviewHint}</p>
-      ) : null}
+        {isCreate && selectedOdooPartnerId ? (
+          <p className="text-xs text-muted-foreground">{copy.odooImport.reviewHint}</p>
+        ) : null}
 
-      {isCompany ? (
+        {isCompany ? (
+          <div className="flex flex-col gap-2">
+            <RequiredFieldLabel htmlFor="client-company-legal">
+              {copy.fields.companyLegalName}
+            </RequiredFieldLabel>
+            <Input
+              {...NO_AUTOFILL}
+              id="client-company-legal"
+              name="companyName"
+              defaultValue={defaults.companyName}
+              required
+              aria-required="true"
+              aria-invalid={Boolean(getFieldError('companyName'))}
+            />
+            <FieldError message={getFieldError('companyName')} />
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-2">
+              <RequiredFieldLabel htmlFor="client-first-name">
+                {copy.fields.firstName}
+              </RequiredFieldLabel>
+              <Input
+                {...NO_AUTOFILL}
+                id="client-first-name"
+                name="firstName"
+                defaultValue={defaults.firstName}
+                required
+                aria-required="true"
+                aria-invalid={Boolean(getFieldError('firstName'))}
+              />
+              <FieldError message={getFieldError('firstName')} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <RequiredFieldLabel htmlFor="client-first-surname">
+                {copy.fields.firstSurname}
+              </RequiredFieldLabel>
+              <Input
+                {...NO_AUTOFILL}
+                id="client-first-surname"
+                name="firstSurname"
+                defaultValue={defaults.firstSurname}
+                required
+                aria-required="true"
+                aria-invalid={Boolean(getFieldError('firstSurname'))}
+              />
+              <FieldError message={getFieldError('firstSurname')} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="client-second-surname"
+                className="text-sm font-medium text-foreground"
+              >
+                {copy.fields.secondSurname}
+              </label>
+              <Input
+                {...NO_AUTOFILL}
+                id="client-second-surname"
+                name="secondSurname"
+                defaultValue={defaults.secondSurname}
+                aria-invalid={Boolean(getFieldError('secondSurname'))}
+              />
+              <FieldError message={getFieldError('secondSurname')} />
+            </div>
+          </>
+        )}
+        </FormGroup>
+
+        <FormGroup title={copy.groups.contact} grouped={!isCreate}>
         <div className="flex flex-col gap-2">
-          <RequiredFieldLabel htmlFor="client-company-legal">
-            {copy.fields.companyLegalName}
+          <RequiredFieldLabel htmlFor="client-email">
+            {isCompany ? copy.fields.contactEmail : copy.fields.email}
           </RequiredFieldLabel>
           <Input
             {...NO_AUTOFILL}
-            id="client-company-legal"
-            name="companyName"
-            defaultValue={defaults.companyName}
+            id="client-email"
+            name="email"
+            type="email"
+            defaultValue={defaults.email}
             required
             aria-required="true"
-            aria-invalid={Boolean(getFieldError('companyName'))}
+            aria-describedby={isCompany ? 'client-email-hint' : undefined}
+            aria-invalid={Boolean(getFieldError('email'))}
           />
-          <FieldError message={getFieldError('companyName')} />
+          {isCompany ? (
+            <p id="client-email-hint" className="text-xs text-muted-foreground">
+              {copy.fields.contactEmailHint}
+            </p>
+          ) : null}
+          {corporateEmailHint ? (
+            <p className="text-xs text-muted-foreground">{corporateEmailHint}</p>
+          ) : null}
+          <FieldError message={getFieldError('email')} />
         </div>
-      ) : (
-        <>
-          <div className="flex flex-col gap-2">
-            <RequiredFieldLabel htmlFor="client-first-name">
-              {copy.fields.firstName}
-            </RequiredFieldLabel>
-            <Input
-              {...NO_AUTOFILL}
-              id="client-first-name"
-              name="firstName"
-              defaultValue={defaults.firstName}
-              required
-              aria-required="true"
-              aria-invalid={Boolean(getFieldError('firstName'))}
-            />
-            <FieldError message={getFieldError('firstName')} />
-          </div>
 
-          <div className="flex flex-col gap-2">
-            <RequiredFieldLabel htmlFor="client-first-surname">
-              {copy.fields.firstSurname}
-            </RequiredFieldLabel>
-            <Input
-              {...NO_AUTOFILL}
-              id="client-first-surname"
-              name="firstSurname"
-              defaultValue={defaults.firstSurname}
-              required
-              aria-required="true"
-              aria-invalid={Boolean(getFieldError('firstSurname'))}
-            />
-            <FieldError message={getFieldError('firstSurname')} />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="client-second-surname"
-              className="text-sm font-medium text-foreground"
-            >
-              {copy.fields.secondSurname}
-            </label>
-            <Input
-              {...NO_AUTOFILL}
-              id="client-second-surname"
-              name="secondSurname"
-              defaultValue={defaults.secondSurname}
-              aria-invalid={Boolean(getFieldError('secondSurname'))}
-            />
-            <FieldError message={getFieldError('secondSurname')} />
-          </div>
-        </>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <RequiredFieldLabel htmlFor="client-email">
-          {isCompany ? copy.fields.contactEmail : copy.fields.email}
-        </RequiredFieldLabel>
-        <Input
-          {...NO_AUTOFILL}
-          id="client-email"
-          name="email"
-          type="email"
-          defaultValue={defaults.email}
-          required
-          aria-required="true"
-          aria-describedby={isCompany ? 'client-email-hint' : undefined}
-          aria-invalid={Boolean(getFieldError('email'))}
-        />
-        {isCompany ? (
-          <p id="client-email-hint" className="text-xs text-muted-foreground">
-            {copy.fields.contactEmailHint}
-          </p>
-        ) : null}
-        {corporateEmailHint ? (
-          <p className="text-xs text-muted-foreground">{corporateEmailHint}</p>
-        ) : null}
-        <FieldError message={getFieldError('email')} />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="client-phone" className="text-sm font-medium text-foreground">
-          {copy.fields.phone}
-        </label>
-        <Input
-          {...NO_AUTOFILL}
-          id="client-phone"
-          name="phone"
-          type="tel"
-          defaultValue={defaults.phone}
-        />
-      </div>
-
-      {!isCompany ? (
         <div className="flex flex-col gap-2">
-          <label
-            htmlFor="client-company"
-            className="text-sm font-medium text-foreground"
-          >
-            {copy.fields.companyCommercialName}
+          <label htmlFor="client-phone" className="text-sm font-medium text-foreground">
+            {copy.fields.phone}
           </label>
           <Input
             {...NO_AUTOFILL}
-            id="client-company"
-            name="companyName"
-            defaultValue={defaults.companyName}
-            aria-describedby="client-company-hint"
+            id="client-phone"
+            name="phone"
+            type="tel"
+            defaultValue={defaults.phone}
           />
-          <p id="client-company-hint" className="text-xs text-muted-foreground">
-            {copy.fields.companyCommercialNameHint}
-          </p>
         </div>
-      ) : null}
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="client-odoo" className="text-sm font-medium text-foreground">
-          {copy.fields.odooPartnerId}
-        </label>
-        <Input
-          {...NO_AUTOFILL}
-          id="client-odoo"
-          name="odooPartnerId"
-          inputMode="numeric"
-          defaultValue={defaults.odooPartnerId}
-          aria-describedby="client-odoo-hint"
-          aria-invalid={Boolean(getFieldError('odooPartnerId'))}
-        />
-        <p id="client-odoo-hint" className="text-xs text-muted-foreground">
-          {copy.fields.odooPartnerIdHint}
-        </p>
-        <FieldError message={getFieldError('odooPartnerId')} />
-      </div>
+        {!isCompany ? (
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="client-company"
+              className="text-sm font-medium text-foreground"
+            >
+              {copy.fields.companyCommercialName}
+            </label>
+            <Input
+              {...NO_AUTOFILL}
+              id="client-company"
+              name="companyName"
+              defaultValue={defaults.companyName}
+              aria-describedby="client-company-hint"
+            />
+            <p id="client-company-hint" className="text-xs text-muted-foreground">
+              {copy.fields.companyCommercialNameHint}
+            </p>
+          </div>
+        ) : null}
+        </FormGroup>
 
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="client-drive"
-          className="text-sm font-medium text-foreground"
-        >
-          {copy.fields.driveFolderId}
-        </label>
-        <Input
-          {...NO_AUTOFILL}
-          id="client-drive"
-          name="driveFolderId"
-          value={driveValue}
-          onChange={(event) => {
-            setDriveValue(event.target.value)
-            setDriveEdited(true)
-          }}
-          aria-describedby="client-drive-hint"
-          aria-invalid={Boolean(getFieldError('driveFolderId'))}
-        />
-        <p id="client-drive-hint" className="text-xs text-muted-foreground">
-          {copy.fields.driveFolderIdHint}
-        </p>
-        {isCreate && driveAutofill.status === 'loading' ? (
-          <p className="text-xs text-muted-foreground" role="status">
-            {copy.fields.driveFolderIdAutofill.loading}
-          </p>
+        <FormGroup title={copy.groups.management} grouped={!isCreate}>
+        {canAssignAdvisor ? (
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="client-advisor"
+              className="text-sm font-medium text-foreground"
+            >
+              {copy.fields.advisor}
+            </label>
+            <input type="hidden" name="advisorId" value={advisorIdValue} />
+            <Select
+              value={advisorIdValue}
+              onValueChange={(next) => setAdvisorIdValue(next)}
+            >
+              <SelectTrigger aria-label={copy.fields.advisor} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                <SelectValue placeholder={copy.fields.unassigned} />
+              </SelectTrigger>
+              <SelectContent className="max-w-[calc(100vw-3rem)]">
+                <SelectItem value="">{copy.fields.unassigned}</SelectItem>
+                {advisorOptions.map((advisor) => (
+                  <SelectItem key={advisor.id} value={advisor.id}>
+                    <span
+                      className="block max-w-[min(22rem,70vw)] truncate"
+                      title={`${advisor.name} (${advisor.email})`}
+                    >
+                      {advisor.name}{' '}
+                      <span className="text-muted-foreground">({advisor.email})</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : null}
-        {isCreate && driveAutofill.status === 'found' && !driveEdited ? (
-          <p className="text-xs text-muted-foreground" role="status">
-            {copy.fields.driveFolderIdAutofill.found}
-          </p>
-        ) : null}
-        {isCreate &&
-        (driveAutofill.status === 'notFound' ||
-          driveAutofill.status === 'error') ? (
-          <p
-            className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-            role="alert"
-          >
-            <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-            <span>{copy.fields.driveFolderIdAutofill[driveAutofill.status]}</span>
-          </p>
-        ) : null}
-        <FieldError message={getFieldError('driveFolderId')} />
-      </div>
 
-      {canAssignAdvisor ? (
+        {!isCreate ? (
+          // El estado de la cuenta se cambia desde la cabecera (al instante); aquí solo viaja con el resto.
+          <input type="hidden" name="status" value={accountStatus ?? client?.status ?? 'invited'} />
+        ) : null}
+        </FormGroup>
+
+        {isCreate ? (
+          <>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="client-odoo" className="text-sm font-medium text-foreground">
+            {copy.fields.odooPartnerId}
+          </label>
+          <Input
+            {...NO_AUTOFILL}
+            id="client-odoo"
+            name="odooPartnerId"
+            inputMode="numeric"
+            defaultValue={defaults.odooPartnerId}
+            aria-describedby="client-odoo-hint"
+            aria-invalid={Boolean(getFieldError('odooPartnerId'))}
+          />
+          <p id="client-odoo-hint" className="text-xs text-muted-foreground">
+            {copy.fields.odooPartnerIdHint}
+          </p>
+          <FieldError message={getFieldError('odooPartnerId')} />
+        </div>
+
         <div className="flex flex-col gap-2">
           <label
-            htmlFor="client-advisor"
+            htmlFor="client-drive"
             className="text-sm font-medium text-foreground"
           >
-            {copy.fields.advisor}
+            {copy.fields.driveFolderId}
           </label>
-          <input type="hidden" name="advisorId" value={advisorIdValue} />
-          <Select
-            value={advisorIdValue}
-            onValueChange={(next) => setAdvisorIdValue(next)}
-          >
-            <SelectTrigger aria-label={copy.fields.advisor} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-              <SelectValue placeholder={copy.fields.unassigned} />
-            </SelectTrigger>
-            <SelectContent className="max-w-[calc(100vw-3rem)]">
-              <SelectItem value="">{copy.fields.unassigned}</SelectItem>
-              {advisorOptions.map((advisor) => (
-                <SelectItem key={advisor.id} value={advisor.id}>
-                  <span
-                    className="block max-w-[min(22rem,70vw)] truncate"
-                    title={`${advisor.name} (${advisor.email})`}
-                  >
-                    {advisor.name}{' '}
-                    <span className="text-muted-foreground">({advisor.email})</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            {...NO_AUTOFILL}
+            id="client-drive"
+            name="driveFolderId"
+            value={driveValue}
+            onChange={(event) => {
+              setDriveValue(event.target.value)
+              setDriveEdited(true)
+            }}
+            aria-describedby="client-drive-hint"
+            aria-invalid={Boolean(getFieldError('driveFolderId'))}
+          />
+          <p id="client-drive-hint" className="text-xs text-muted-foreground">
+            {copy.fields.driveFolderIdHint}
+          </p>
+          {isCreate && driveAutofill.status === 'loading' ? (
+            <p className="text-xs text-muted-foreground" role="status">
+              {copy.fields.driveFolderIdAutofill.loading}
+            </p>
+          ) : null}
+          {isCreate && driveAutofill.status === 'found' && !driveEdited ? (
+            <p className="text-xs text-muted-foreground" role="status">
+              {copy.fields.driveFolderIdAutofill.found}
+            </p>
+          ) : null}
+          {isCreate &&
+          (driveAutofill.status === 'notFound' ||
+            driveAutofill.status === 'error') ? (
+            <p
+              className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+              role="alert"
+            >
+              <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <span>{copy.fields.driveFolderIdAutofill[driveAutofill.status]}</span>
+            </p>
+          ) : null}
+          <FieldError message={getFieldError('driveFolderId')} />
         </div>
-      ) : null}
-
-      {!isCreate ? (
+          </>
+        ) : (
+          <details
+            className="group rounded-lg border border-border"
+            open={linksHaveError || undefined}
+          >
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+              <ChevronRight
+                className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                aria-hidden
+              />
+              {copy.groups.links}
+            </summary>
+            <div className="flex flex-col gap-4 border-t border-border px-4 py-4 dark:border-border/50">
         <div className="flex flex-col gap-2">
-          <label htmlFor="client-status" className="text-sm font-medium text-foreground">
-            {copy.fields.status}
+          <label htmlFor="client-odoo" className="text-sm font-medium text-foreground">
+            {copy.fields.odooPartnerId}
           </label>
-          <input type="hidden" name="status" value={statusValue} />
-          <Select
-            value={statusValue}
-            onValueChange={(next) => setStatusValue(next as PersonStatus)}
-          >
-            <SelectTrigger aria-label={copy.fields.status} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{equipo.status.active}</SelectItem>
-              <SelectItem value="invited">{equipo.status.invited}</SelectItem>
-              <SelectItem value="archived">{equipo.status.archived}</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input
+            {...NO_AUTOFILL}
+            id="client-odoo"
+            name="odooPartnerId"
+            inputMode="numeric"
+            defaultValue={defaults.odooPartnerId}
+            aria-describedby="client-odoo-hint"
+            aria-invalid={Boolean(getFieldError('odooPartnerId'))}
+          />
+          <p id="client-odoo-hint" className="text-xs text-muted-foreground">
+            {copy.fields.odooPartnerIdHint}
+          </p>
+          <FieldError message={getFieldError('odooPartnerId')} />
         </div>
-      ) : null}
 
-      <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex flex-col gap-2">
+          <label
+            htmlFor="client-drive"
+            className="text-sm font-medium text-foreground"
+          >
+            {copy.fields.driveFolderId}
+          </label>
+          <Input
+            {...NO_AUTOFILL}
+            id="client-drive"
+            name="driveFolderId"
+            value={driveValue}
+            onChange={(event) => {
+              setDriveValue(event.target.value)
+              setDriveEdited(true)
+            }}
+            aria-describedby="client-drive-hint"
+            aria-invalid={Boolean(getFieldError('driveFolderId'))}
+          />
+          <p id="client-drive-hint" className="text-xs text-muted-foreground">
+            {copy.fields.driveFolderIdHint}
+          </p>
+          {isCreate && driveAutofill.status === 'loading' ? (
+            <p className="text-xs text-muted-foreground" role="status">
+              {copy.fields.driveFolderIdAutofill.loading}
+            </p>
+          ) : null}
+          {isCreate && driveAutofill.status === 'found' && !driveEdited ? (
+            <p className="text-xs text-muted-foreground" role="status">
+              {copy.fields.driveFolderIdAutofill.found}
+            </p>
+          ) : null}
+          {isCreate &&
+          (driveAutofill.status === 'notFound' ||
+            driveAutofill.status === 'error') ? (
+            <p
+              className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+              role="alert"
+            >
+              <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <span>{copy.fields.driveFolderIdAutofill[driveAutofill.status]}</span>
+            </p>
+          ) : null}
+          <FieldError message={getFieldError('driveFolderId')} />
+        </div>
+            </div>
+          </details>
+        )}
+        {!isCreate && client && onDeleted ? (
+          <ClientDangerZone client={client} onDeleted={onDeleted} />
+        ) : null}
+      </div>
+
+      <div
+        className={
+          isCreate
+            ? 'mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
+            : 'flex shrink-0 flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end dark:border-border/50'
+        }
+      >
         <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
           {copy.cancel}
         </Button>
@@ -620,12 +723,6 @@ export function ClientForm({
         </Button>
       </div>
 
-      {!isCreate && client ? <ClientViewAsSection client={client} /> : null}
-      {!isCreate && client ? <ClientAccessSection client={client} /> : null}
-
-      {!isCreate && client && onDeleted ? (
-        <ClientDangerZone client={client} onDeleted={onDeleted} />
-      ) : null}
     </form>
   )
 }

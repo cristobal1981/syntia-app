@@ -1,5 +1,6 @@
 import type {
   ClientRecord,
+  PersonStatus,
   CreateClientInput,
   CreateClientResult,
   CreateGestorInput,
@@ -32,6 +33,8 @@ export interface DirectoryRepository {
   updateClient(input: UpdateClientInput): Promise<ClientRecord>
   deleteGestor(id: string): Promise<void>
   deleteClient(id: string): Promise<void>
+  /** Activa o desactiva la cuenta (solo el estado, sin tocar datos ni enviar nada); devuelve el estado resultante. */
+  setClientActive(clientId: string, active: boolean): Promise<PersonStatus>
   resendClientAccessEmail(clientId: string): Promise<void>
   resendGestorAccessEmail(gestorId: string): Promise<void>
   listAdvisorOptions(): Promise<Array<{ id: string; name: string; email: string }>>

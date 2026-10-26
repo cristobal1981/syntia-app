@@ -1,4 +1,4 @@
-import { unstable_cache } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 
 import { getClientIntegrationByUserId } from '@/src/modules/directory/infrastructure/client-integrations.supabase'
 import type { ObligacionNotificationSnapshot } from '@/src/modules/obligaciones/infrastructure/odoo-obligacion-notification-snapshot'
@@ -293,6 +293,37 @@ export async function getCachedSignatureHistorySnapshot(
 export type CachedOdooSnapshotResult<T> = {
   data: T
   odooError?: OdooServiceErrorCode
+  /** La lectura renovó la caché compartida (no solo se saltó): lo siguiente que la lea ya la encuentra al día. */
+  cacheRefreshed?: boolean
+}
+
+/**
+ * Expira ya esas cachés para releerlas al instante (`updateTag`, solo disponible en Server Actions;
+ * fuera de una devuelve `false` y quien llama carga directo, como antes). Es la forma de que la
+ * lectura «fresca» del sondeo deje la caché al día en vez de tirar su resultado: sin esto, el
+ * sondeo pagaba la carga entera de Odoo y, justo después, la página la volvía a pagar en frío.
+ */
+function expireCacheTagsNow(tags: string[]): boolean {
+  try {
+    for (const tag of tags) updateTag(tag)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function refreshSnapshotCache<T>(input: {
+  tags: string[]
+  cachedLoader: () => Promise<T>
+  directLoader: () => Promise<T>
+  fallback: T
+}): Promise<CachedOdooSnapshotResult<T>> {
+  const refreshing = expireCacheTagsNow(input.tags)
+  const result = await loadCachedSnapshotSafe(
+    refreshing ? input.cachedLoader : input.directLoader,
+    input.fallback
+  )
+  return refreshing && !result.odooError ? { ...result, cacheRefreshed: true } : result
 }
 
 async function loadCachedSnapshotSafe<T>(
@@ -336,14 +367,19 @@ export async function getCachedPendingSignaturesSnapshotSafe(
   )
 }
 
-/** Poll / server action: evita `unstable_cache` para reflejar novedades al instante. */
+/**
+ * Poll / server action: refleja las novedades al instante y, de paso, deja la caché de la página al
+ * día con lo que acaba de leer (ver `refreshSnapshotCache`).
+ */
 export async function getFreshTramitesSnapshotSafe(
   partnerId: number
 ): Promise<CachedOdooSnapshotResult<TramitesSnapshot>> {
-  return loadCachedSnapshotSafe(
-    () => loadTramitesSnapshot(partnerId),
-    EMPTY_TRAMITES_SNAPSHOT
-  )
+  return refreshSnapshotCache({
+    tags: [tramitesSnapshotCacheTag(partnerId)],
+    cachedLoader: () => getCachedTramitesSnapshot(partnerId),
+    directLoader: () => loadTramitesSnapshot(partnerId),
+    fallback: EMPTY_TRAMITES_SNAPSHOT,
+  })
 }
 
 async function loadFreshObligacionNotificationSnapshot(
@@ -357,19 +393,28 @@ async function loadFreshObligacionNotificationSnapshot(
 export async function getFreshObligacionNotificationSnapshotSafe(
   partnerId: number
 ): Promise<CachedOdooSnapshotResult<ObligacionNotificationSnapshot>> {
-  return loadCachedSnapshotSafe(
-    () => loadFreshObligacionNotificationSnapshot(partnerId),
-    EMPTY_OBLIGACION_NOTIFICATION_SNAPSHOT
-  )
+  return refreshSnapshotCache({
+    // El snapshot sale del índice de tareas, y este de los proyectos del cliente: los tres, al día.
+    tags: [
+      clientProjectIdsCacheTag(partnerId),
+      obligacionTaskIndexCacheTag(partnerId),
+      obligacionNotificationSnapshotCacheTag(partnerId),
+    ],
+    cachedLoader: () => getCachedObligacionNotificationSnapshot(partnerId),
+    directLoader: () => loadFreshObligacionNotificationSnapshot(partnerId),
+    fallback: EMPTY_OBLIGACION_NOTIFICATION_SNAPSHOT,
+  })
 }
 
 export async function getFreshPendingSignaturesSnapshotSafe(
   partnerId: number
 ): Promise<CachedOdooSnapshotResult<PendingSignaturesSnapshot>> {
-  return loadCachedSnapshotSafe(
-    () => loadPendingSignaturesSnapshot(partnerId),
-    EMPTY_PENDING_SIGNATURES_SNAPSHOT
-  )
+  return refreshSnapshotCache({
+    tags: [pendingSignaturesSnapshotCacheTag(partnerId)],
+    cachedLoader: () => getCachedPendingSignaturesSnapshot(partnerId),
+    directLoader: () => loadPendingSignaturesSnapshot(partnerId),
+    fallback: EMPTY_PENDING_SIGNATURES_SNAPSHOT,
+  })
 }
 
 export async function getFreshUnreadChatterCandidates(input: {

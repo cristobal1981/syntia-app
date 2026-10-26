@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { KeyRound, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -9,11 +10,12 @@ import { resendClientAccessEmailAction } from '@/src/modules/directory/applicati
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 
-type ClientAccessSectionProps = {
+type ClientAccessButtonProps = {
   client: ClientRecord
 }
 
-export function ClientAccessSection({ client }: ClientAccessSectionProps) {
+/** Reenviar la invitación (cuenta sin activar) o restablecer la contraseña (cuenta activa). */
+export function ClientAccessButton({ client }: ClientAccessButtonProps) {
   const copy = equipo.form.accessSection
   const [pending, startTransition] = useTransition()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -36,35 +38,26 @@ export function ClientAccessSection({ client }: ClientAccessSectionProps) {
 
   return (
     <>
-      <section
-        aria-labelledby="client-access-section-title"
-        className="mt-8 rounded-lg border border-border bg-muted/30 px-4 py-5"
+      <Button
+        type="button"
+        variant="ghost"
+        disabled={pending}
+        aria-busy={pending}
+        onClick={() => (isActive ? setConfirmOpen(true) : run())}
       >
-        <h2
-          id="client-access-section-title"
-          className="font-sans text-sm font-semibold text-foreground"
-        >
-          {copy.title}
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-4"
-          disabled={pending}
-          aria-busy={pending}
-          onClick={() => (isActive ? setConfirmOpen(true) : run())}
-        >
-          {isActive
-            ? pending
-              ? copy.resetting
-              : copy.resetButton
-            : pending
-              ? copy.sending
-              : copy.sendButton}
-        </Button>
-        <p className="mt-3 text-xs text-muted-foreground">{copy.loginHint}</p>
-      </section>
+        {isActive ? (
+          <KeyRound className="size-4" aria-hidden />
+        ) : (
+          <Mail className="size-4" aria-hidden />
+        )}
+        {isActive
+          ? pending
+            ? copy.resetting
+            : copy.resetButton
+          : pending
+            ? copy.sending
+            : copy.sendButton}
+      </Button>
 
       <PortalConfirmDialog
         open={confirmOpen}

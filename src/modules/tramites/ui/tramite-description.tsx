@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react'
 
 import { tramites } from '@/content/tramites'
 import { cn } from '@/lib/utils'
-import { getTramiteDescriptionAction } from '@/src/modules/portal/application/portal-chatter-actions'
+import { loadDrawerBundle, readDrawerBundle } from '@/src/modules/portal/ui/record-drawer-bundle'
 import { prepareChatterHtmlForDisplay } from '@/src/modules/portal/ui/sanitize-chatter-html.client'
 
 type TramiteDescriptionProps = {
@@ -15,19 +15,23 @@ type TramiteDescriptionProps = {
 /**
  * «Ver descripción» bajo el título del drawer: información de consulta
  * ocasional, así que va plegada y, si la tarea no tiene descripción (o falla
- * la lectura), no se pinta nada. Se pide al abrir el drawer, no en el listado.
+ * la lectura), no se pinta nada. Se pide al abrir el drawer, no en el listado, junto con el
+ * chat (misma petición) y se reutiliza si ya se había visto.
  * El padre la monta con `key` por trámite para reiniciar el estado.
  */
 export function TramiteDescription({ taskId }: TramiteDescriptionProps) {
-  const [html, setHtml] = useState<string | null>(null)
+  const [html, setHtml] = useState<string | null>(
+    () => readDrawerBundle('task', taskId)?.description ?? null
+  )
   const [expanded, setExpanded] = useState(false)
   const panelId = useId()
 
   useEffect(() => {
     let cancelled = false
-    void getTramiteDescriptionAction(taskId)
+    if (readDrawerBundle('task', taskId)?.description !== undefined) return
+    void loadDrawerBundle('task', taskId)
       .then((result) => {
-        if (!cancelled && result.ok) setHtml(result.html)
+        if (!cancelled && result.ok) setHtml(result.description)
       })
       .catch(() => {})
     return () => {

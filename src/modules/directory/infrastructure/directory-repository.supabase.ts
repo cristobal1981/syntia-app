@@ -8,8 +8,10 @@ import {
   mapDirectorySourceToGestor,
   mapNamePartsToProfileFields,
   mapPersonStatusToDb,
+  mapStatusToPersonStatus,
   parseOdooPartnerId,
 } from '@/src/modules/directory/domain/map-directory-row'
+import { nextClientStatus } from '@/src/modules/directory/domain/client-status'
 import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
 import type { DirectoryRepository } from '@/src/modules/directory/infrastructure/directory-repository'
 import { sendClientAccessEmailForClient } from '@/src/modules/directory/infrastructure/client-access-link'
@@ -504,6 +506,40 @@ export const supabaseDirectoryRepository: DirectoryRepository = {
         throw new Error('DELETE_AUTH_FAILED')
       }
     }
+  },
+
+  async setClientActive(clientId, active) {
+    const supabase = createSupabaseAdminClient()
+    const { data: userRow, error: fetchError } = await supabase
+      .from('users')
+      .select('id, role, status, auth_user_id')
+      .eq('id', clientId)
+      .maybeSingle()
+
+    if (fetchError) {
+      throw new Error(fetchError.message)
+    }
+    if (!userRow || userRow.role !== 'client') {
+      throw new Error('NOT_FOUND')
+    }
+
+    const current = mapStatusToPersonStatus(userRow.status)
+    const next = nextClientStatus(current, active, Boolean(userRow.auth_user_id))
+    if (next === current) return next
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        status: mapPersonStatusToDb(next),
+        is_active: next === 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', clientId)
+
+    if (updateError) {
+      throw new Error(updateError.message)
+    }
+    return next
   },
 
   async resendClientAccessEmail(clientId) {

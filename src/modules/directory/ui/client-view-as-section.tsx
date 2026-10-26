@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
+import { Eye, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -9,7 +10,11 @@ import { equipo } from '@/content/equipo'
 import { startViewAsClientAction } from '@/src/modules/auth/application/start-view-as-action'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 
-export function ClientViewAsSection({ client }: { client: ClientRecord }) {
+/**
+ * «Ver como cliente»: abre el portal tal y como lo ve ese cliente, en solo lectura. Es la primera
+ * acción del drawer pero no va en sólido: el único relleno del drawer es «Guardar cambios».
+ */
+export function ClientViewAsButton({ client }: { client: ClientRecord }) {
   const copy = equipo.form.viewAsSection
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -29,27 +34,13 @@ export function ClientViewAsSection({ client }: { client: ClientRecord }) {
   }
 
   return (
-    <section
-      aria-labelledby="client-view-as-title"
-      className="mt-8 rounded-lg border border-border bg-muted/30 px-4 py-5"
-    >
-      <h2
-        id="client-view-as-title"
-        className="font-sans text-sm font-semibold text-foreground"
-      >
-        {copy.title}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-4"
-        disabled={pending}
-        aria-busy={pending}
-        onClick={open}
-      >
-        {pending ? copy.opening : copy.button}
-      </Button>
-    </section>
+    <Button type="button" variant="outline" disabled={pending} aria-busy={pending} onClick={open}>
+      {pending ? (
+        <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+      ) : (
+        <Eye className="size-4" aria-hidden />
+      )}
+      {pending ? copy.opening : copy.button}
+    </Button>
   )
 }

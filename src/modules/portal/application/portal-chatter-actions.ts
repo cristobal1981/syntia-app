@@ -16,6 +16,7 @@ import type {
   PortalChatterMessagesPageResult,
   PortalChatterPostResult,
   PostRecordMessageInput,
+  RecordDrawerBundleResult,
 } from '@/src/modules/portal/domain/portal-chatter-types'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
@@ -192,6 +193,56 @@ export async function listRecordMessagesAction(
       ok: true,
       messages: await applyTrustedReplyLinks(page.messages),
       hasMore: page.hasMore,
+    }
+  } catch (error) {
+    return { ok: false, error: resolveOdooErrorCode(error) }
+  }
+}
+
+/**
+ * Mensajes y descripción de un trámite o consulta en UNA sola Server Action: las acciones salen en
+ * cola desde el navegador y cada una repetía sesión, permiso y consultas a Odoo. Odoo atiende las
+ * peticiones en serie, así que lo que ahorra tiempo es pedir menos, no pedir a la vez.
+ * Una descripción que falla no tumba los mensajes.
+ */
+export async function getRecordDrawerBundleAction(input: {
+  kind: ListRecordMessagesInput['kind']
+  recordId: number
+}): Promise<RecordDrawerBundleResult> {
+  const access = await resolveClientPartnerId()
+  if (!access.ok) {
+    return { ok: false, error: access.error }
+  }
+
+  const recordId = parseRecordId(input.recordId)
+  if (!recordId) {
+    return { ok: false, error: 'not_found' }
+  }
+
+  try {
+    const resModel = getOdooModelForRecordKind(input.kind)
+
+    const [allowed, page, description] = await Promise.all([
+      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      listPortalMessagesPage({
+        resModel,
+        recordId,
+        clientPartnerId: access.partnerId,
+      }),
+      input.kind === 'task'
+        ? fetchTramiteDescription(recordId).catch(() => null)
+        : Promise.resolve(null),
+    ])
+
+    if (!allowed) {
+      return { ok: false, error: 'not_found' }
+    }
+
+    return {
+      ok: true,
+      messages: await applyTrustedReplyLinks(page.messages),
+      hasMore: page.hasMore,
+      description,
     }
   } catch (error) {
     return { ok: false, error: resolveOdooErrorCode(error) }

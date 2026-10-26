@@ -1,8 +1,8 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { equipo } from '@/content/equipo'
 import type { ClientKind } from '@/src/modules/directory/domain/types'
-import { cn } from '@/lib/utils'
 
 type ClientKindSelectorProps = {
   value: ClientKind
@@ -23,20 +23,16 @@ export function ClientKindSelector({ value, onChange }: ClientKindSelectorProps)
         aria-label={copy.title}
       >
         {KINDS.map((kind) => (
-          <button
+          <Button
             key={kind}
             type="button"
+            size="sm"
+            variant={value === kind ? 'filterActive' : 'filter'}
             aria-pressed={value === kind}
-            className={cn(
-              'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
-              value === kind
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:bg-muted/40'
-            )}
             onClick={() => onChange(kind)}
           >
             {copy.options[kind]}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
