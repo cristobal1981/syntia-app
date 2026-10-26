@@ -199,7 +199,7 @@ export function AltaAutonomoCreateDialog({
           {linkUrl ? (
             <Button
               type="button"
-              variant="secondary"
+              variant="default"
               className="order-1 flex-1 gap-2"
               onClick={handleCopyLink}
             >
