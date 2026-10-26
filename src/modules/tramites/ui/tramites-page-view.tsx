@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronRight, ClipboardList, Eye, Paperclip, SearchX } from 'lucide-react'
+import { ChevronRight, ClipboardList, Paperclip, SearchX } from 'lucide-react'
 
 import { PortalEmptyState } from '@/components/ui/portal-empty-state'
 
@@ -291,20 +291,6 @@ function TramitesListSection({
         header: copy.columns.updated,
         cellClassName: 'w-px whitespace-nowrap tabular-nums text-muted-foreground',
         render: ({ node }: TramiteTreeRow) => formatTramiteDate(node.item.modifiedAt) || '—',
-      },
-      {
-        id: 'actions',
-        header: '',
-        headerClassName: 'w-px px-4',
-        hideInCard: true,
-        cellClassName: 'w-px whitespace-nowrap px-4 text-right',
-        // Abre el panel de detalle: icono distinto al del chevron que despliega subtrámites.
-        render: () => (
-          <Eye
-            className="ml-auto size-4 text-muted-foreground"
-            aria-hidden
-          />
-        ),
       },
     ],
     [
