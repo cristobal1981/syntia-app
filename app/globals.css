@@ -442,7 +442,7 @@ html.dark.hc .portal-surface {
       calc(var(--radius-xl) * 0.5) var(--sidebar);
   }
 
-  @media (max-width: 1023px) {
+  @media (max-width: 767px) {
     .portal-menu-corner::after {
       content: none;
     }
@@ -452,7 +452,7 @@ html.dark.hc .portal-surface {
     left: 0;
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 768px) {
     .portal-content-progress {
       left: var(--radius-xl);
     }

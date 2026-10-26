@@ -13,6 +13,11 @@ import type { WorkerSectionHref } from '@/src/modules/colaboradores/domain/types
 import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-bar-split'
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
+import {
+  SIDEBAR_BELOW_XL_QUERY,
+  SIDEBAR_OVERLAY_QUERY,
+  useMediaQuery,
+} from '@/src/modules/portal/lib/use-media-query'
 import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
 import { Sappo } from '@/components/errors/sappo'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
@@ -97,7 +102,15 @@ export function PortalShell({
   const pathname = usePathname()
   const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // Preferencia guardada de la persona (`null` = nunca la ha tocado: por defecto
+  // la barra va plegada a iconos por debajo de 1280 px y desplegada por encima).
+  const [sidebarPreference, setSidebarPreference] = useState<boolean | null>(null)
+  // 768–959 px: la barra desplegada no empuja el contenido, se superpone a él.
+  const overlayRange = useMediaQuery(SIDEBAR_OVERLAY_QUERY)
+  const belowXl = useMediaQuery(SIDEBAR_BELOW_XL_QUERY)
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const overlayExpanded = overlayRange && overlayOpen
+  const sidebarCollapsed = overlayRange ? !overlayExpanded : (sidebarPreference ?? belowXl)
   const [navPending, setNavPending] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const navItems = navItemsProp ?? getNavForRole(user.role)
@@ -122,7 +135,7 @@ export function PortalShell({
     // localStorage solo existe en cliente — no se puede leer durante SSR.
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored === 'true') setSidebarCollapsed(true)
+    if (stored === 'true' || stored === 'false') setSidebarPreference(stored === 'true')
   }, [])
 
   // Ajuste durante el render (no en un efecto): limpia el indicador de
@@ -130,6 +143,7 @@ export function PortalShell({
   const [prevPathname, setPrevPathname] = useState(pathname)
   if (pathname !== prevPathname) {
     setPrevPathname(pathname)
+    setOverlayOpen(false)
     setNavPending(false)
     setPendingHref(null)
   }
@@ -142,12 +156,23 @@ export function PortalShell({
   }
 
   const toggleSidebar = () => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev
-      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
-      return next
-    })
+    if (overlayRange) {
+      setOverlayOpen((open) => !open)
+      return
+    }
+    const next = !sidebarCollapsed
+    setSidebarPreference(next)
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
   }
+
+  useEffect(() => {
+    if (!overlayExpanded) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOverlayOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [overlayExpanded])
 
   return (
     <PortalShortcutOverlayProvider>
@@ -198,10 +223,26 @@ export function PortalShell({
         </div>
       ) : null}
     <div className="flex min-h-0 flex-1 overflow-clip">
+      {overlayExpanded ? (
+        <div
+          className="fixed inset-0 z-30 bg-black/40"
+          aria-hidden
+          onClick={() => setOverlayOpen(false)}
+        />
+      ) : null}
+      {/* En 768–959 px el hueco es siempre el de la barra plegada y la desplegada flota encima. */}
+      <div
+        className={cn(
+          'relative hidden min-h-0 shrink-0 md:flex',
+          overlayRange ? 'w-[4.5rem]' : 'transition-[width] duration-200',
+          !overlayRange && (sidebarCollapsed ? 'w-[4.5rem]' : 'w-64')
+        )}
+      >
       <aside
         className={cn(
-          'hidden min-h-0 shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:flex',
-          sidebarCollapsed ? 'w-[4.5rem]' : 'w-64'
+          'flex min-h-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200',
+          overlayRange ? 'absolute inset-y-0 left-0 z-40' : 'w-full',
+          overlayRange && (sidebarCollapsed ? 'w-[4.5rem]' : 'w-64 shadow-2xl')
         )}
       >
         <div
@@ -242,6 +283,7 @@ export function PortalShell({
           />
         </div>
       </aside>
+      </div>
 
       {/* overflow-clip (no hidden): un contenedor hidden sigue siendo desplazable
           programáticamente (focus/scrollIntoView) y descolocaba la barra superior */}
@@ -266,7 +308,7 @@ export function PortalShell({
             {mobileOpen ? (
               <m.div
                 key="mobile-nav"
-                className="fixed inset-x-0 top-12 bottom-0 z-40 lg:hidden"
+                className="fixed inset-x-0 top-12 bottom-0 z-40 md:hidden"
                 initial={reducedMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={reducedMotion ? undefined : { opacity: 0 }}
@@ -290,7 +332,7 @@ export function PortalShell({
         <main
           className={cn(
             'min-h-0 flex-1 overflow-y-auto p-4 sm:p-10',
-            bottomBarItems.length > 0 && 'pb-24 lg:pb-10'
+            bottomBarItems.length > 0 && 'pb-24 md:pb-10'
           )}
         >
           {children}
