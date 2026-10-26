@@ -17,6 +17,7 @@ import {
 import type { WorkerRecord } from '@/src/modules/colaboradores/domain/types'
 import { PersonStatusBadge } from '@/src/modules/directory/ui/person-status-badge'
 import { WorkerFormDrawer } from '@/src/modules/colaboradores/ui/worker-form-drawer'
+import { PortalSettingRow } from '@/src/modules/portal/ui/portal-setting-row'
 import { useRetainedValue } from '@/src/modules/portal/ui/use-retained-value'
 
 type ColaboradoresSectionProps = {
@@ -102,34 +103,25 @@ export function ColaboradoresSection({
   const limitReached = workers.length >= maxWorkers
 
   return (
-    <section className="rounded-2xl border border-border bg-card px-5 py-4 md:px-6 md:py-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="font-sans text-lg font-semibold text-foreground">
-            {colaboradores.title}
-          </h3>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            {colaboradores.description}
-          </p>
-        </div>
-
-        <label className="flex shrink-0 items-center gap-2 text-sm text-foreground">
-          {colaboradores.enableLabel}
-          <Switch
-            checked={enabled}
-            disabled={togglePending}
-            onCheckedChange={handleToggle}
-            aria-label={colaboradores.enableLabel}
-          />
-        </label>
-      </div>
+    <PortalSettingRow
+      title={colaboradores.profileTitle}
+      description={colaboradores.description}
+      control={
+        <Switch
+          checked={enabled}
+          disabled={togglePending}
+          onCheckedChange={handleToggle}
+          aria-label={colaboradores.enableLabel}
+        />
+      }
+    >
 
       {!enabled ? (
-        <p className="mt-3 text-sm text-muted-foreground">{colaboradores.enableHint}</p>
+        <p className="text-sm text-muted-foreground">{colaboradores.enableHint}</p>
       ) : null}
 
       {enabled ? (
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {limitReached ? (
             <p className="text-sm text-amber-600 dark:text-amber-500">
               {colaboradores.limitReached.replace('{max}', String(maxWorkers))}
@@ -261,6 +253,6 @@ export function ColaboradoresSection({
           onSuccess={() => router.refresh()}
         />
       ) : null}
-    </section>
+    </PortalSettingRow>
   )
 }

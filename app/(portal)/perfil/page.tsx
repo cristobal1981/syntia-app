@@ -32,14 +32,21 @@ export default async function PerfilPage() {
       <div className="flex flex-col gap-6">
         <ProfilePageHeader />
         <Suspense fallback={<PerfilBodySkeleton />}>
-          <PerfilContent user={session.user} />
+          <PerfilContent user={session.user} showPushSettings={!session.viewingAs} />
         </Suspense>
       </div>
     </ProfileChangeDrawerProvider>
   )
 }
 
-async function PerfilContent({ user }: { user: PortalUser }) {
+async function PerfilContent({
+  user,
+  showPushSettings,
+}: {
+  user: PortalUser
+  /** Bajo la «vista como cliente» no se enseña el push: es del dispositivo de quien mira, no del cliente. */
+  showPushSettings: boolean
+}) {
   const [result, assignedAdvisor, workersFeature, workers] = await Promise.all([
     getClientProfileForClient(user),
     getAssignedAdvisorForClient(user),
@@ -59,6 +66,7 @@ async function PerfilContent({ user }: { user: PortalUser }) {
       workersEnabled={workersFeature.workers_enabled}
       maxWorkers={workersFeature.max_workers}
       workers={workers}
+      showPushSettings={showPushSettings}
     />
   )
 }

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { pushNotifications as copy } from '@/content/push-notifications'
+import { PortalSettingRow } from '@/src/modules/portal/ui/portal-setting-row'
 import type { PushPreferences } from '@/src/modules/push/domain/push-subscription'
 import {
   isPushConfigured,
@@ -19,7 +20,7 @@ function reportError(error: PushActionError | null) {
   toast.error(copy.errors[error])
 }
 
-/** Interruptor de notificaciones push del dispositivo, en el perfil. */
+/** Ajuste de notificaciones push del dispositivo, con sus preferencias cuando está activo. */
 export function PushNotificationsSection() {
   const { state, pending, enable, disable, setPreferences } = usePushSubscription()
 
@@ -50,30 +51,24 @@ export function PushNotificationsSection() {
           : null
 
   return (
-    <section className="rounded-2xl border border-border bg-card px-5 py-4 md:px-6 md:py-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">{copy.title}</h2>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            {copy.description}
-          </p>
-        </div>
-        {state.kind === 'off' || state.kind === 'on' ? (
+    <PortalSettingRow
+      title={copy.title}
+      description={copy.description}
+      control={
+        state.kind === 'off' || state.kind === 'on' ? (
           <Switch
             checked={on}
             disabled={pending}
             onCheckedChange={(next) => void handleToggle(next)}
             aria-label={copy.enable}
           />
-        ) : null}
-      </div>
-
-      {message ? (
-        <p className="mt-3 text-sm text-muted-foreground">{message}</p>
-      ) : null}
+        ) : null
+      }
+    >
+      {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
 
       {state.kind === 'on' ? (
-        <ul className="mt-4 flex flex-col gap-2.5">
+        <ul className="flex flex-col gap-2.5">
           {TYPE_KEYS.map((key) => (
             <li key={key}>
               <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground">
@@ -88,6 +83,6 @@ export function PushNotificationsSection() {
           ))}
         </ul>
       ) : null}
-    </section>
+    </PortalSettingRow>
   )
 }
