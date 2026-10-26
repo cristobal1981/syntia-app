@@ -3,7 +3,11 @@
 import { useState } from 'react'
 
 import { equipo } from '@/content/equipo'
-import type { ClientRecord, GestorRecord } from '@/src/modules/directory/domain/types'
+import type {
+  ClientRecord,
+  GestorRecord,
+  PersonStatus,
+} from '@/src/modules/directory/domain/types'
 import { ClientForm } from '@/src/modules/directory/ui/client-form'
 import { SideDrawer } from '@/components/ui/side-drawer'
 import { ClientEditHeader } from '@/src/modules/directory/ui/client-edit-header'
@@ -33,6 +37,11 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
   const [clientKind, setClientKind] = useState(
     kind === 'client' && record ? record.clientKind : 'person'
   )
+  // Estado de la cuenta del cliente: lo cambia la cabecera al instante y el formulario lo envía tal
+  // cual, para que «Guardar cambios» no pise un cambio ya hecho con el estado antiguo.
+  const [accountStatus, setAccountStatus] = useState<PersonStatus | undefined>(
+    kind === 'client' ? record?.status : undefined
+  )
   // Ajuste durante el render (no en un efecto) cuando cambia `record`: React
   // recomienda esto para "sincronizar estado con una prop" — evita un
   // re-render extra respecto a hacerlo en un useEffect.
@@ -41,6 +50,7 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
     setPrevRecord(record)
     if (kind === 'client' && record) {
       setClientKind(record.clientKind)
+      setAccountStatus(record.status)
     }
   }
 
@@ -53,12 +63,22 @@ export function PersonEditDialog(props: PersonEditDialogProps) {
   if (kind === 'client') {
     return (
       <SideDrawer open={open} onOpenChange={onOpenChange} size="wide" layout="stack">
-        {record ? <ClientEditHeader client={record} /> : null}
+        {record ? (
+          <ClientEditHeader
+            client={record}
+            status={accountStatus ?? record.status}
+            onStatusChange={(next) => {
+              setAccountStatus(next)
+              onSaved()
+            }}
+          />
+        ) : null}
         {record ? (
           <ClientForm
             key={clientFormKey}
             mode="edit"
             client={record}
+            accountStatus={accountStatus ?? record.status}
             clientKind={clientKind}
             onClientKindChange={setClientKind}
             formInstanceKey={clientFormKey}

@@ -14,6 +14,7 @@ import {
   resolveOdooPartnerDriveFolderAction,
   resendClientAccessEmailAction,
   resendGestorAccessEmailAction,
+  setClientActiveAction,
   updateClientAction,
   updateGestorAction,
 } from '@/src/modules/directory/application/directory-mutations'
@@ -650,6 +651,109 @@ describe('resendClientAccessEmailAction', () => {
 
     expect(result).toEqual({ ok: true })
     expect(resendClientAccessEmail).toHaveBeenCalledWith('client-1')
+  })
+})
+
+describe('setClientActiveAction (activar o desactivar la cuenta al instante)', () => {
+  function asAdmin() {
+    requireDirectorySession.mockResolvedValue(sessionFor('admin'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('admin', 'admin-1'))
+  }
+
+  it('returns forbidden for role=client', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('client'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('client', 'client-user'))
+
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: false, error: 'forbidden' })
+    expect(updateClient).not.toHaveBeenCalled()
+  })
+
+  it('BLOCKS an advisor from changing a client owned by a different advisor', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-B' }))
+
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: false, error: 'forbidden' })
+    expect(updateClient).not.toHaveBeenCalled()
+  })
+
+  it('lets an advisor change their own client', async () => {
+    requireDirectorySession.mockResolvedValue(sessionFor('advisor'))
+    buildDirectoryScope.mockResolvedValue(scopeFor('advisor', 'advisor-A'))
+    getClient.mockResolvedValue(client({ advisorId: 'advisor-A' }))
+
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: true, status: 'archived' })
+  })
+
+  it('answers not found (unknown) when the client does not exist', async () => {
+    asAdmin()
+    getClient.mockResolvedValue(null)
+
+    expect(await setClientActiveAction('missing', false)).toMatchObject({ ok: false, error: 'unknown' })
+    expect(updateClient).not.toHaveBeenCalled()
+  })
+
+  it('deactivating archives and keeps every other field exactly as it was', async () => {
+    asAdmin()
+    const existing = client({
+      phone: '600', companyName: 'ACME', odooPartnerId: '42', driveFolderId: 'drive-1', secondSurname: 'Dos',
+    })
+    getClient.mockResolvedValue(existing)
+
+    const result = await setClientActiveAction('client-1', false)
+
+    expect(result).toEqual({ ok: true, status: 'archived' })
+    expect(updateClient).toHaveBeenCalledTimes(1)
+    expect(updateClient).toHaveBeenCalledWith({
+      id: 'client-1',
+      clientKind: 'person',
+      firstName: 'Cliente',
+      firstSurname: 'Uno',
+      secondSurname: 'Dos',
+      email: 'cliente@example.com',
+      phone: '600',
+      companyName: 'ACME',
+      odooPartnerId: '42',
+      driveFolderId: 'drive-1',
+      advisorId: 'advisor-1',
+      status: 'archived',
+    })
+  })
+
+  it('activating an archived account invites it again (it turns active on first login)', async () => {
+    asAdmin()
+    getClient.mockResolvedValue(client({ status: 'archived' }))
+
+    expect(await setClientActiveAction('client-1', true)).toEqual({ ok: true, status: 'invited' })
+    expect(updateClient).toHaveBeenCalledWith(expect.objectContaining({ status: 'invited' }))
+  })
+
+  it('does nothing when the account is already in the requested state', async () => {
+    asAdmin()
+    getClient.mockResolvedValue(client({ status: 'active' }))
+    expect(await setClientActiveAction('client-1', true)).toEqual({ ok: true, status: 'active' })
+
+    getClient.mockResolvedValue(client({ status: 'archived' }))
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: true, status: 'archived' })
+
+    getClient.mockResolvedValue(client({ status: 'invited' }))
+    expect(await setClientActiveAction('client-1', true)).toEqual({ ok: true, status: 'invited' })
+
+    expect(updateClient).not.toHaveBeenCalled()
+  })
+
+  it('maps an unauthorized session and repository failures', async () => {
+    requireDirectorySession.mockRejectedValue(new Error('unauthorized'))
+    expect(await setClientActiveAction('client-1', false)).toEqual({ ok: false, error: 'unauthorized' })
+
+    asAdmin()
+    getClient.mockResolvedValue(client())
+    updateClient.mockRejectedValue(new Error('db down'))
+    expect(await setClientActiveAction('client-1', false)).toEqual({
+      ok: false,
+      error: 'unknown',
+      message: 'db down',
+    })
   })
 })
 

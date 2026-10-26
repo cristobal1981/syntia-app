@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -25,7 +24,6 @@ import {
   validateClientForm,
 } from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
-import { nextClientStatus } from '@/src/modules/directory/domain/client-status'
 import type {
   OdooNameSplitMode,
   OdooPartnerImportOption,
@@ -80,6 +78,8 @@ export type DriveFolderAutofill =
 type ClientFormProps = {
   mode: 'create' | 'edit'
   client?: ClientRecord
+  /** Estado actual de la cuenta al editar (la cabecera puede haberlo cambiado ya). */
+  accountStatus?: PersonStatus
   clientKind: ClientKind
   onClientKindChange: (kind: ClientKind) => void
   advisorOptions: Array<{ id: string; name: string; email: string }>
@@ -129,6 +129,7 @@ function FieldError({ message }: { message?: string }) {
 export function ClientForm({
   mode,
   client,
+  accountStatus,
   clientKind,
   onClientKindChange,
   advisorOptions,
@@ -212,15 +213,6 @@ export function ClientForm({
   if (defaults.advisorId !== prevDefaultsAdvisorId) {
     setPrevDefaultsAdvisorId(defaults.advisorId)
     setAdvisorIdValue(defaults.advisorId)
-  }
-
-  const [statusValue, setStatusValue] = useState<PersonStatus>(
-    client?.status ?? 'invited'
-  )
-  const [prevClientStatus, setPrevClientStatus] = useState(client?.status)
-  if (client?.status !== prevClientStatus) {
-    setPrevClientStatus(client?.status)
-    setStatusValue(client?.status ?? 'invited')
   }
 
   const corporateEmailHint =
@@ -553,23 +545,8 @@ export function ClientForm({
         ) : null}
 
         {!isCreate ? (
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <label htmlFor="client-active" className="text-sm font-medium text-foreground">
-                {copy.statusToggle.label}
-              </label>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {copy.statusToggle.description[statusValue]}
-              </p>
-            </div>
-            <input type="hidden" name="status" value={statusValue} />
-            <Switch
-              id="client-active"
-              className="mt-0.5 shrink-0"
-              checked={statusValue !== 'archived'}
-              onCheckedChange={(next) => setStatusValue(nextClientStatus(client?.status, next))}
-            />
-          </div>
+          // El estado de la cuenta se cambia desde la cabecera (al instante); aquí solo viaja con el resto.
+          <input type="hidden" name="status" value={accountStatus ?? client?.status ?? 'invited'} />
         ) : null}
         </FormGroup>
 
