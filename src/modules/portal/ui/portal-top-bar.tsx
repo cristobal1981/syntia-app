@@ -51,7 +51,7 @@ export function PortalTopBar({
           <button
             type="button"
             onClick={onSidebarToggle}
-            className="hidden size-8 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
+            className="hidden size-8 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:flex"
             aria-label={
               sidebarCollapsed
                 ? portal.shell.sidebarExpandLabel
@@ -76,7 +76,7 @@ export function PortalTopBar({
           <button
             type="button"
             onClick={onMobileNavToggle}
-            className="flex size-9 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+            className="flex size-9 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:hidden"
             aria-expanded={mobileNavOpen}
             aria-controls="mobile-nav"
             aria-label={
@@ -99,14 +99,14 @@ export function PortalTopBar({
       <div className="min-w-2 flex-1" aria-hidden />
 
       {/* Móvil/tablet: burger (arriba) → buscador → notificaciones → nueva consulta. */}
-      <div className="flex shrink-0 items-center gap-1 lg:hidden">
+      <div className="flex shrink-0 items-center gap-2 md:hidden">
         <NotificationBell />
         <PortalTopBarCreateConsulta />
       </div>
 
       {/* Desktop: nueva consulta → notificaciones → tema. Accesibilidad y reportar un
           problema viven en el menú del perfil (pie del sidebar). */}
-      <div className="hidden shrink-0 items-center gap-2 lg:flex">
+      <div className="hidden shrink-0 items-center gap-2 md:flex">
         <PortalTopBarCreateConsulta dataTour="tour-nueva-consulta" />
         <NotificationBell />
         <ThemeToggle className="shrink-0" />

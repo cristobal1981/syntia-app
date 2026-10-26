@@ -21,7 +21,7 @@ type PortalActionButtonProps = {
   pending?: boolean
   onClick?: () => void
   disabled?: boolean
-  variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link'
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'link' | 'nav'
   size?: 'default' | 'sm' | 'lg'
   compact?: boolean
   icon?: LucideIcon

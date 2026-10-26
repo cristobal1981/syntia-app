@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { PortalActionTooltip } from '@/src/modules/portal/ui/portal-action-tooltip'
 import { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
 import { PortalNotificationItemMeta } from '@/src/modules/portal/ui/portal-notification-item-meta'
+import { PushPanelHint } from '@/src/modules/push/ui/push-panel-hint'
 
 const PANEL_EXIT_MS = 150
 
@@ -104,7 +105,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           ref={panelRef}
           data-state={open ? 'open' : 'closed'}
           className={cn(
-            'absolute top-full right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] origin-top-right rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-lg:fixed max-lg:top-14 max-lg:left-3 max-lg:right-3 max-lg:mt-0 max-lg:w-auto',
+            'absolute top-full right-0 z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] origin-top-right rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-md:fixed max-md:top-14 max-md:left-3 max-md:right-3 max-md:mt-0 max-md:w-auto',
             // Entrada y salida sutiles (mismo gesto que el panel del perfil).
             'duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1',
             'data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-top-1',
@@ -173,6 +174,9 @@ export function NotificationBell({ className }: NotificationBellProps) {
               ))}
             </ul>
           )}
+
+          {/* Bajo la «vista como cliente» no se ofrece activar el push: es del dispositivo de quien mira. */}
+          {notifications.enabled ? <PushPanelHint /> : null}
         </div>
       ) : null}
     </div>

@@ -26,7 +26,7 @@ export function PortalBottomBar({ items, pendingHref, onNavStart }: PortalBottom
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Principal"
     >
       {items.map((item, index) => {

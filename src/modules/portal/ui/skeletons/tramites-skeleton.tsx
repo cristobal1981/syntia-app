@@ -25,7 +25,6 @@ export function TramitesBodySkeleton() {
         <div className="flex items-center gap-4 border-b border-border px-4 py-3 dark:border-border/50">
           <Skeleton className="h-3.5 w-16 flex-1 max-w-24" />
           <Skeleton className="h-3.5 w-20" />
-          <span className="w-px px-4" />
         </div>
         {ROW_NAME_WIDTHS.map((width, index) => (
           <div
@@ -40,7 +39,6 @@ export function TramitesBodySkeleton() {
               <Skeleton className="h-5 w-16 rounded-full" />
               <Skeleton className="h-5 w-24 rounded-full" />
             </div>
-            <Skeleton className="size-4" />
           </div>
         ))}
       </div>

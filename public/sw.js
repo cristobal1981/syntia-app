@@ -17,13 +17,15 @@ function safePath(value) {
 }
 
 async function showPush(payload) {
-  // Con la app abierta y a la vista el aviso ya se ve dentro: no se duplica
-  // con una notificación del sistema.
+  // Con la app abierta y a la vista el aviso ya se ve dentro (la campana y el
+  // drawer se actualizan solos): no se duplica con una notificación del sistema.
+  // Basta con que se vea, aunque no tenga el foco: con la ventana al lado de
+  // Odoo el push llegaba más tarde que la campana.
   const windows = await self.clients.matchAll({
     type: 'window',
     includeUncontrolled: true,
   })
-  if (windows.some((client) => client.visibilityState === 'visible' && client.focused)) {
+  if (windows.some((client) => client.visibilityState === 'visible')) {
     return
   }
 

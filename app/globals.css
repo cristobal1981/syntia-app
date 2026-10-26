@@ -442,17 +442,36 @@ html.dark.hc .portal-surface {
       calc(var(--radius-xl) * 0.5) var(--sidebar);
   }
 
-  @media (max-width: 1023px) {
+  @media (max-width: 767px) {
     .portal-menu-corner::after {
       content: none;
     }
+  }
+
+  /* Acción de navegación (chrome oscuro): «Nueva consulta» y «Subida rápida» comparten esta receta. */
+  .nav-action {
+    border: 1px solid color-mix(in srgb, var(--turquesa) 35%, transparent);
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--agua) 70%, transparent),
+      color-mix(in srgb, var(--agua) 30%, transparent)
+    );
+    color: var(--sidebar-foreground);
+  }
+  .nav-action:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--agua) 90%, transparent),
+      color-mix(in srgb, var(--agua) 45%, transparent)
+    );
   }
 
   .portal-content-progress {
     left: 0;
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 768px) {
     .portal-content-progress {
       left: var(--radius-xl);
     }

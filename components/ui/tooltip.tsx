@@ -3,6 +3,7 @@
 import * as React from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
+import { useMediaQuery } from '@/lib/use-media-query'
 import { cn } from '@/lib/utils'
 
 function TooltipProvider({
@@ -35,6 +36,11 @@ function TooltipContent({
   sideOffset = 6,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  // Sin ratón (móvil, tablet) no hay «pasar por encima»: el tap enfocaba el botón y el
+  // texto se quedaba pegado. Los botones con solo icono ya llevan `aria-label`.
+  const canHover = useMediaQuery('(hover: hover)')
+  if (!canHover) return null
+
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content

@@ -5,6 +5,8 @@ export const profile = {
   requestModeHint:
     'Modifica solo los datos que necesites. Enviaremos únicamente los campos que hayan cambiado.',
   sections: {
+    data: 'Tus datos',
+    settings: 'Ajustes',
     contact: 'Contacto',
     fiscal: 'Datos fiscales',
     address: 'Dirección fiscal',

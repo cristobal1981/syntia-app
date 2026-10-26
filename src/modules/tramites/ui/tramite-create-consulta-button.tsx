@@ -42,16 +42,16 @@ export function TramiteCreateConsultaButton({
       label={label}
       onClick={onOpen}
       disabled={disabled}
-      variant="default"
+      variant="nav"
       size={compact ? 'sm' : 'default'}
       compact={compact}
       icon={TicketPlus}
       iconBehavior="scaleOnHover"
+      iconClassName="text-primary"
       shortcut={PORTAL_CREATE_CONSULTA_SHORTCUT}
-      shortcutTone="onPrimary"
       tooltip={tooltip}
       ariaKeyshortcuts={shortcutLabel}
-      overlayRingClassName="ring-2 ring-primary-foreground/25"
+      overlayRingClassName="ring-2 ring-sidebar-primary/40"
       dataTour={dataTour}
     />
   )

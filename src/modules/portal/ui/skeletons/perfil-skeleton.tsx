@@ -11,50 +11,54 @@ function FieldSkeleton({ labelWidth, valueWidth }: { labelWidth: string; valueWi
   )
 }
 
-/** Tarjeta de perfil (avatar, datos, dirección) y sección de notificaciones: lo que espera a los datos. */
+/** Identidad y los dos paneles (datos y ajustes): lo que espera a los datos del perfil. */
 export function PerfilBodySkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Cargando perfil">
-      <article className="w-full overflow-hidden rounded-xl border border-border bg-card dark:border-transparent">
-        <div className="flex items-center gap-4 border-b border-border px-5 py-4 md:px-6 md:py-5 dark:border-border/50">
-          <Skeleton className="size-12 shrink-0 rounded-full" />
-          <div className="flex min-w-0 flex-col gap-2">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-4 w-56" />
-          </div>
+    <div className="flex flex-col gap-8" aria-busy="true" aria-label="Cargando perfil">
+      <div className="flex items-center gap-4">
+        <Skeleton className="size-14 shrink-0 rounded-full" />
+        <div className="flex min-w-0 flex-col gap-2">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-56" />
         </div>
-        <div className="flex flex-col gap-4 border-b border-border px-5 py-4 md:px-6 md:py-5 dark:border-border/50">
-          <Skeleton className="h-4 w-32" />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FieldSkeleton labelWidth="w-20" valueWidth="w-40" />
-            <FieldSkeleton labelWidth="w-24" valueWidth="w-36" />
+      </div>
+
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-border bg-card p-5 md:p-6 dark:border-transparent">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-64 max-w-full" />
+            </div>
+            <Skeleton className="h-8 w-44 rounded-md" />
+          </div>
+          <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
             <FieldSkeleton labelWidth="w-16" valueWidth="w-32" />
             <FieldSkeleton labelWidth="w-20" valueWidth="w-28" />
-          </div>
-        </div>
-        <div className="px-5 py-4 md:px-6 md:py-5">
-          <Skeleton className="h-4 w-24" />
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <FieldSkeleton labelWidth="w-16" valueWidth="w-24" />
-            <FieldSkeleton labelWidth="w-14" valueWidth="w-20" />
-            <FieldSkeleton labelWidth="w-20" valueWidth="w-28" />
-            <FieldSkeleton labelWidth="w-16" valueWidth="w-24" />
-          </div>
-        </div>
-      </article>
-
-      <section className="portal-home-card flex flex-col gap-4 rounded-xl p-5">
-        <Skeleton className="h-5 w-64" />
-        <Skeleton className="h-4 w-full max-w-xl" />
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="flex items-center justify-between gap-4">
+            <FieldSkeleton labelWidth="w-12" valueWidth="w-44" />
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Skeleton className="h-3 w-24" />
               <Skeleton className="h-4 w-56" />
-              <Skeleton className="h-6 w-10 rounded-full" />
+              <Skeleton className="h-4 w-40" />
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-5 md:p-6 dark:border-transparent">
+          <Skeleton className="mb-5 h-5 w-20" />
+          <div className="divide-y divide-border dark:divide-border/50">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div key={index} className="flex items-start justify-between gap-4 py-5 first:pt-0 last:pb-0">
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-64 max-w-full" />
+                </div>
+                <Skeleton className="h-6 w-10 shrink-0 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

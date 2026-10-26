@@ -1,5 +1,6 @@
 export const colaboradores = {
   title: 'Colaboradores',
+  profileTitle: 'Equipo y accesos',
   description:
     'Da acceso limitado al portal a personas de tu equipo. Cada colaborador solo ve las secciones que le habilites.',
   enableLabel: 'Activar colaboradores',

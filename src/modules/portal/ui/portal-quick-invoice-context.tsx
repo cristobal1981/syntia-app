@@ -347,11 +347,7 @@ export function PortalQuickInvoiceButton({
       aria-label={collapsed ? label : undefined}
       title={collapsed ? undefined : hint}
       className={cn(
-        'group flex w-full cursor-pointer items-center rounded-xl border text-left transition-colors',
-        'border-[color:color-mix(in_srgb,var(--turquesa)_35%,transparent)]',
-        'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--agua)_70%,transparent),color-mix(in_srgb,var(--agua)_30%,transparent))]',
-        'hover:border-[color:color-mix(in_srgb,var(--primary)_60%,transparent)]',
-        'hover:bg-[linear-gradient(135deg,color-mix(in_srgb,var(--agua)_90%,transparent),color-mix(in_srgb,var(--agua)_45%,transparent))]',
+        'nav-action group flex w-full cursor-pointer items-center rounded-xl text-left transition-colors',
         'disabled:cursor-wait disabled:opacity-80',
         'focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         collapsed ? 'justify-center p-1.5' : large ? 'gap-3 px-3 py-2.5' : 'gap-3 px-2.5 py-2'

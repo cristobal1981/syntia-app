@@ -18,7 +18,7 @@ export default async function DashboardPage() {
   switch (user.role) {
     case 'client':
     case 'worker':
-      return <ClientHome user={user} />
+      return <ClientHome user={user} showPushPrompt={!session.viewingAs} />
     case 'admin':
       return <AdminHome user={user} />
     case 'advisor':

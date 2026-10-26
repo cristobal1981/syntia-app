@@ -9,6 +9,7 @@ import {
   ClientHomeQuickLinksSection,
   QUICK_LINKS,
 } from '@/src/modules/portal/ui/client-home-static'
+import { PushPromptBanner } from '@/src/modules/push/ui/push-prompt-banner'
 import { PortalDashboardReady } from '@/src/modules/portal/ui/portal-dashboard-ready'
 import {
   ClientHomeDashboardSkeleton,
@@ -17,6 +18,8 @@ import {
 
 type ClientHomeProps = {
   user: PortalUser
+  /** Bajo la «vista como cliente» no se ofrece activar notificaciones: son del cliente, no de quien mira. */
+  showPushPrompt?: boolean
 }
 
 /**
@@ -24,10 +27,12 @@ type ClientHomeProps = {
  * colaborador espera a sus permisos) y deja en streaming solo lo que depende de
  * los snapshots: el resumen y las novedades.
  */
-export function ClientHome({ user }: ClientHomeProps) {
+export function ClientHome({ user, showPushPrompt = false }: ClientHomeProps) {
   return (
     <div className="flex flex-col gap-8">
       <ClientHomeGreeting name={user.name} companyName={user.companyName} />
+
+      {showPushPrompt ? <PushPromptBanner userId={user.id} /> : null}
 
       <Suspense fallback={<ClientHomeDashboardSkeleton />}>
         <ClientHomeDashboardSection user={user} />
