@@ -14,6 +14,7 @@ import { getBottomBarSplit } from '@/src/modules/portal/application/get-bottom-b
 import { getNavForRole } from '@/src/modules/portal/application/get-nav-for-role'
 import type { NavItem } from '@/src/modules/portal/domain/types'
 import { useMediaQuery } from '@/lib/use-media-query'
+import { ensureDrawerBundleOwner } from '@/src/modules/portal/ui/record-drawer-bundle'
 import {
   SIDEBAR_BELOW_XL_QUERY,
   SIDEBAR_OVERLAY_QUERY,
@@ -102,6 +103,8 @@ export function PortalShell({
   const pathname = usePathname()
   const reducedMotion = usePrefersReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Las conversaciones guardadas para abrir el drawer al instante son de quien mira: si cambia (otro
+  // cliente en la vista como cliente, otra sesión), se vacían.
   // Preferencia guardada de la persona (`null` = nunca la ha tocado: por defecto
   // la barra va plegada a iconos por debajo de 1280 px y desplegada por encima).
   const [sidebarPreference, setSidebarPreference] = useState<boolean | null>(null)
@@ -130,6 +133,10 @@ export function PortalShell({
       (user.role === 'worker' && (workerWriteSections ?? []).includes('/tramites')))
   const { bottomBarItems, moreNavItems } = getBottomBarSplit(navItems, user.role)
   const roleLabel = portal.roles[user.role]
+
+  useEffect(() => {
+    ensureDrawerBundleOwner(user.id)
+  }, [user.id])
 
   useEffect(() => {
     // localStorage solo existe en cliente — no se puede leer durante SSR.

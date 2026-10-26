@@ -5,6 +5,14 @@ import {
   listNewerRecordMessagesAction,
   listRecordMessagesAction,
 } from '@/src/modules/portal/application/portal-chatter-actions'
+import {
+  drawerBundleKey,
+  isDrawerBundleFresh,
+  loadDrawerBundle,
+  readDrawerBundle,
+  touchDrawerBundle,
+  writeDrawerMessages,
+} from '@/src/modules/portal/ui/record-drawer-bundle'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
@@ -58,6 +66,7 @@ export function useChatterMessages({
   const [dividerDismissed, setDividerDismissed] = useState(false)
 
   const loadGenerationRef = useRef(0)
+  const loadedKeyRef = useRef<string | null>(null)
   const loadingOlderRef = useRef(false)
   const loadingNewerRef = useRef(false)
   const lastNotifiedMessageIdRef = useRef(0)
@@ -84,21 +93,66 @@ export function useChatterMessages({
     [markReadOnView]
   )
 
+  /** Pide solo lo posterior a `afterId` y lo añade; devuelve si la petición se completó. */
+  const loadNewer = useCallback(
+    async (afterId: number) => {
+      if (loadingNewerRef.current) return
+      loadingNewerRef.current = true
+      setLoadingNewer(true)
+      try {
+        const result = await listNewerRecordMessagesAction({ kind, recordId, afterId })
+        if (!result.ok) return
+        if (!result.messages.length) {
+          touchDrawerBundle(kind, recordId)
+          return
+        }
+        setMessages((current) => {
+          const existingIds = new Set(current.map((message) => message.id))
+          const newer = result.messages.filter((message) => !existingIds.has(message.id))
+          if (!newer.length) return current
+          return enrichPortalChatterMessages([...current, ...newer])
+        })
+      } finally {
+        loadingNewerRef.current = false
+        setLoadingNewer(false)
+      }
+    },
+    [kind, recordId]
+  )
+
   const loadInitial = useCallback(async () => {
     if (recordId <= 0) return
 
     const generation = ++loadGenerationRef.current
+    // Hasta que haya mensajes de ESTE registro en el estado, no se guarda nada en la caché.
+    loadedKeyRef.current = null
 
-    setLoadingInitial(true)
     setError(null)
-    setMessages([])
-    setHasMore(false)
     setDividerDismissed(false)
     resetComposerState()
     shouldStickToBottomRef.current = true
 
+    // Conversación ya vista: se pinta al instante y, si lleva un rato guardada, se pide solo lo
+    // posterior al último mensaje (el sondeo de novedades ya avisa de lo que llegue después).
+    const cached = readDrawerBundle(kind, recordId)
+    if (cached) {
+      const enriched = enrichPortalChatterMessages(cached.messages)
+      setMessages(enriched)
+      setHasMore(cached.hasMore)
+      setLoadingInitial(false)
+      loadedKeyRef.current = drawerBundleKey(kind, recordId)
+      notifyConversationViewed(enriched)
+      const lastId = enriched[enriched.length - 1]?.id
+      if (!isDrawerBundleFresh(cached) && lastId) void loadNewer(lastId).catch(() => {})
+      return
+    }
+
+    setLoadingInitial(true)
+    setMessages([])
+    setHasMore(false)
+
     try {
-      const result = await listRecordMessagesAction({ kind, recordId })
+      const result = await loadDrawerBundle(kind, recordId)
       if (generation !== loadGenerationRef.current) return
 
       if (!result.ok) {
@@ -111,6 +165,7 @@ export function useChatterMessages({
       const enriched = enrichPortalChatterMessages(result.messages)
       setMessages(enriched)
       setHasMore(result.hasMore)
+      loadedKeyRef.current = drawerBundleKey(kind, recordId)
       notifyConversationViewed(enriched)
     } catch {
       if (generation !== loadGenerationRef.current) return
@@ -120,7 +175,7 @@ export function useChatterMessages({
         setLoadingInitial(false)
       }
     }
-  }, [kind, recordId, notifyConversationViewed, resetComposerState, shouldStickToBottomRef])
+  }, [kind, recordId, loadNewer, notifyConversationViewed, resetComposerState, shouldStickToBottomRef])
 
   useEffect(() => {
     if (!active || recordId <= 0) return
@@ -129,6 +184,14 @@ export function useChatterMessages({
     void loadInitial()
   }, [active, recordId, loadInitial])
 
+  // Guarda la conversación de este registro cada vez que cambia (llegan, se envían o se cargan
+  // más antiguos), para reabrirla al instante. Va DESPUÉS del efecto que lanza `loadInitial`: este
+  // vacía `loadedKeyRef` antes de que el estado deje de ser de otro registro.
+  useEffect(() => {
+    if (loadingInitial || loadedKeyRef.current !== drawerBundleKey(kind, recordId)) return
+    writeDrawerMessages(kind, recordId, { messages, hasMore })
+  }, [hasMore, kind, loadingInitial, messages, recordId])
+
   useEffect(() => {
     if (!active || loadingInitial || recordId <= 0) return
     if (!latestKnownMessageId || loadingNewerRef.current) return
@@ -136,25 +199,9 @@ export function useChatterMessages({
     const maxLoadedId = messages.length ? messages[messages.length - 1]!.id : 0
     if (latestKnownMessageId <= maxLoadedId) return
 
-    loadingNewerRef.current = true
     // Dispara el fetch de mensajes más recientes (polling) — no derivable.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingNewer(true)
-    void listNewerRecordMessagesAction({ kind, recordId, afterId: maxLoadedId })
-      .then((result) => {
-        if (!result.ok || !result.messages.length) return
-        setMessages((current) => {
-          const existingIds = new Set(current.map((message) => message.id))
-          const newer = result.messages.filter((message) => !existingIds.has(message.id))
-          if (!newer.length) return current
-          return enrichPortalChatterMessages([...current, ...newer])
-        })
-      })
-      .finally(() => {
-        loadingNewerRef.current = false
-        setLoadingNewer(false)
-      })
-  }, [active, kind, latestKnownMessageId, loadingInitial, messages, recordId])
+    void loadNewer(maxLoadedId).catch(() => {})
+  }, [active, latestKnownMessageId, loadNewer, loadingInitial, messages, recordId])
 
   // Mensaje propio enviado desde OTRA pestaña del mismo usuario: ya llega
   // completo por el broadcast (notifyRecordMutated), no hace falta pedir

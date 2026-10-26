@@ -19,6 +19,7 @@ import {
 import {
   formatTramiteListItemKey,
   getTramiteListItemKey,
+  getTramiteListRecordKind,
   mergeTramitesList,
   type TramiteListItem,
 } from '@/src/modules/tramites/domain/merge-tramites-list'
@@ -40,6 +41,7 @@ import {
   PORTAL_LIST_PAGE_SIZE,
 } from '@/src/modules/portal/ui/list-pagination'
 import { PortalRecordTable } from '@/src/modules/portal/ui/portal-record-table'
+import { prefetchDrawerBundle } from '@/src/modules/portal/ui/record-drawer-bundle'
 import { TramiteActivityBadge } from '@/src/modules/tramites/ui/tramite-activity-badge'
 import { TramiteDetailDrawer } from '@/src/modules/tramites/ui/tramite-detail-drawer'
 import { formatTramiteDate } from '@/src/modules/tramites/domain/format-tramite-date'
@@ -325,6 +327,8 @@ function TramitesListSection({
         rows={rows}
         rowKey={(row) => getTramiteListItemKey(row.node.item)}
         onRowClick={(row) => onSelectedItemChange(row.node.item)}
+        // El ratón se detiene sobre una fila: se calienta lo que abrirá el drawer (chat y descripción).
+        onRowIntent={(row) => prefetchDrawerBundle(getTramiteListRecordKind(row.node.item), row.node.item.id)}
         // Hover marcado: el de los subtrámites se perdía contra su fondo tenue.
         rowClassName={(row) =>
           row.depth > 0

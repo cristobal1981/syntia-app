@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -33,6 +33,11 @@ export type PortalRecordTableProps<T> = {
   rows: T[]
   rowKey: (row: T) => string
   onRowClick?: (row: T) => void
+  /**
+   * El ratón se detiene sobre la fila (o recibe el foco del teclado): ocasión para calentar lo que
+   * abrirá el clic. No se llama por pasar de largo, solo tras `ROW_INTENT_DELAY_MS`.
+   */
+  onRowIntent?: (row: T) => void
   sort?: PortalRecordTableSort | null
   onSortChange?: (sort: PortalRecordTableSort) => void
   page?: number
@@ -72,11 +77,15 @@ function SortIndicator({
   return <ArrowDown className="size-3.5" aria-hidden />
 }
 
+/** Lo que tiene que quedarse el ratón sobre una fila para considerarlo una intención de abrirla. */
+export const ROW_INTENT_DELAY_MS = 150
+
 export function PortalRecordTable<T>({
   columns,
   rows,
   rowKey,
   onRowClick,
+  onRowIntent,
   sort = null,
   onSortChange,
   page = 1,
@@ -92,6 +101,26 @@ export function PortalRecordTable<T>({
   cardLinkedToPrevious,
   flatOnMobile = false,
 }: PortalRecordTableProps<T>) {
+  const intentTimerRef = useRef<number | null>(null)
+  useEffect(() => () => {
+    if (intentTimerRef.current !== null) window.clearTimeout(intentTimerRef.current)
+  }, [])
+
+  function cancelIntent() {
+    if (intentTimerRef.current === null) return
+    window.clearTimeout(intentTimerRef.current)
+    intentTimerRef.current = null
+  }
+
+  function startIntent(row: T) {
+    if (!onRowIntent) return
+    cancelIntent()
+    intentTimerRef.current = window.setTimeout(() => {
+      intentTimerRef.current = null
+      onRowIntent(row)
+    }, ROW_INTENT_DELAY_MS)
+  }
+
   const paginatedRows =
     onPageChange !== undefined && !rowsArePaged
       ? paginateItems(rows, page, pageSize)
@@ -129,6 +158,18 @@ export function PortalRecordTable<T>({
     tabIndex: onRowClick ? 0 : undefined,
     role: onRowClick ? 'button' : undefined,
     onKeyDown: onRowClick ? (event: React.KeyboardEvent) => handleRowKeyDown(event, row) : undefined,
+    // Solo con ratón: en táctil no hay «pasar por encima» y el tap ya abre la fila.
+    onPointerEnter: onRowIntent
+      ? (event: React.PointerEvent) => {
+          if (event.pointerType === 'mouse') startIntent(row)
+        }
+      : undefined,
+    onPointerLeave: onRowIntent ? cancelIntent : undefined,
+    onFocus: onRowIntent
+      ? (event: React.FocusEvent) => {
+          if (event.target === event.currentTarget) startIntent(row)
+        }
+      : undefined,
   })
 
   const titleColumn = columns[0]

@@ -45,6 +45,20 @@ export type PortalChatterMessagesPageResult =
       error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable' | 'odoo_rate_limited'
     }
 
+/** Todo lo que el drawer necesita al abrir un trámite o consulta, en una sola petición. */
+export type RecordDrawerBundleResult =
+  | {
+      ok: true
+      messages: PortalChatterMessage[]
+      hasMore: boolean
+      /** Descripción ya saneada; `null` si no tiene o no es un trámite. */
+      description: string | null
+    }
+  | {
+      ok: false
+      error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable' | 'odoo_rate_limited'
+    }
+
 export type PortalChatterPostResult =
   | { ok: true; message: PortalChatterMessage; attachmentCount?: number }
   | {
