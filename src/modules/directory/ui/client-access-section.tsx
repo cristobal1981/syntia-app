@@ -40,7 +40,7 @@ export function ClientAccessButton({ client }: ClientAccessButtonProps) {
     <>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         disabled={pending}
         aria-busy={pending}
         onClick={() => (isActive ? setConfirmOpen(true) : run())}

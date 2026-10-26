@@ -11,8 +11,8 @@ import { startViewAsClientAction } from '@/src/modules/auth/application/start-vi
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 
 /**
- * «Ver como cliente»: abre el portal tal y como lo ve ese cliente, en solo lectura. Es la acción
- * principal del drawer del cliente, así que va en sólido y la primera.
+ * «Ver como cliente»: abre el portal tal y como lo ve ese cliente, en solo lectura. Es la primera
+ * acción del drawer pero no va en sólido: el único relleno del drawer es «Guardar cambios».
  */
 export function ClientViewAsButton({ client }: { client: ClientRecord }) {
   const copy = equipo.form.viewAsSection
@@ -34,7 +34,7 @@ export function ClientViewAsButton({ client }: { client: ClientRecord }) {
   }
 
   return (
-    <Button type="button" disabled={pending} aria-busy={pending} onClick={open}>
+    <Button type="button" variant="outline" disabled={pending} aria-busy={pending} onClick={open}>
       {pending ? (
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
       ) : (
