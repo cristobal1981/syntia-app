@@ -57,8 +57,18 @@ export function useChatterMessages({
   shouldStickToBottomRef,
   resetComposerState,
 }: UseChatterMessagesArgs) {
-  const [messages, setMessages] = useState<PortalChatterMessage[]>([])
-  const [hasMore, setHasMore] = useState(false)
+  // Al volver a montarse (p. ej. al regresar de la pestaña de documentos) arranca ya con lo guardado:
+  // sin esto, el primer pintado enseñaba «no hay mensajes» hasta que corría el efecto de carga.
+  const [initialCached] = useState(() => (recordId > 0 ? readDrawerBundle(kind, recordId) : undefined))
+  const [messages, setMessages] = useState<PortalChatterMessage[]>(() =>
+    initialCached ? enrichPortalChatterMessages(initialCached.messages) : []
+  )
+  // De qué registro son `messages` (se fija en el mismo lote que ellos). Mientras no coincida con
+  // el registro actual no se guarda nada en la caché: antes de cargar, `messages` es `[]` o de otro.
+  const [loadedKey, setLoadedKey] = useState<string | null>(() =>
+    initialCached ? drawerBundleKey(kind, recordId) : null
+  )
+  const [hasMore, setHasMore] = useState(initialCached?.hasMore ?? false)
   const [loadingInitial, setLoadingInitial] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [loadingNewer, setLoadingNewer] = useState(false)
@@ -66,7 +76,6 @@ export function useChatterMessages({
   const [dividerDismissed, setDividerDismissed] = useState(false)
 
   const loadGenerationRef = useRef(0)
-  const loadedKeyRef = useRef<string | null>(null)
   const loadingOlderRef = useRef(false)
   const loadingNewerRef = useRef(false)
   const lastNotifiedMessageIdRef = useRef(0)
@@ -124,9 +133,6 @@ export function useChatterMessages({
     if (recordId <= 0) return
 
     const generation = ++loadGenerationRef.current
-    // Hasta que haya mensajes de ESTE registro en el estado, no se guarda nada en la caché.
-    loadedKeyRef.current = null
-
     setError(null)
     setDividerDismissed(false)
     resetComposerState()
@@ -140,7 +146,7 @@ export function useChatterMessages({
       setMessages(enriched)
       setHasMore(cached.hasMore)
       setLoadingInitial(false)
-      loadedKeyRef.current = drawerBundleKey(kind, recordId)
+      setLoadedKey(drawerBundleKey(kind, recordId))
       notifyConversationViewed(enriched)
       const lastId = enriched[enriched.length - 1]?.id
       if (!isDrawerBundleFresh(cached) && lastId) void loadNewer(lastId).catch(() => {})
@@ -165,7 +171,7 @@ export function useChatterMessages({
       const enriched = enrichPortalChatterMessages(result.messages)
       setMessages(enriched)
       setHasMore(result.hasMore)
-      loadedKeyRef.current = drawerBundleKey(kind, recordId)
+      setLoadedKey(drawerBundleKey(kind, recordId))
       notifyConversationViewed(enriched)
     } catch {
       if (generation !== loadGenerationRef.current) return
@@ -185,12 +191,11 @@ export function useChatterMessages({
   }, [active, recordId, loadInitial])
 
   // Guarda la conversación de este registro cada vez que cambia (llegan, se envían o se cargan
-  // más antiguos), para reabrirla al instante. Va DESPUÉS del efecto que lanza `loadInitial`: este
-  // vacía `loadedKeyRef` antes de que el estado deje de ser de otro registro.
+  // más antiguos), para reabrirla al instante.
   useEffect(() => {
-    if (loadingInitial || loadedKeyRef.current !== drawerBundleKey(kind, recordId)) return
+    if (loadingInitial || loadedKey !== drawerBundleKey(kind, recordId)) return
     writeDrawerMessages(kind, recordId, { messages, hasMore })
-  }, [hasMore, kind, loadingInitial, messages, recordId])
+  }, [hasMore, kind, loadedKey, loadingInitial, messages, recordId])
 
   useEffect(() => {
     if (!active || loadingInitial || recordId <= 0) return
