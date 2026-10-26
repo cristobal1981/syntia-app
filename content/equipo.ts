@@ -131,6 +131,15 @@ export const equipo = {
       reviewHint:
         'Datos importados de Odoo. Revisa y corrige lo necesario antes de crear.',
     },
+    statusToggle: {
+      label: 'Cuenta activa',
+      description: {
+        active: 'El cliente puede entrar al portal.',
+        invited:
+          'Invitación enviada: la cuenta pasa a activa sola cuando el cliente entre por primera vez.',
+        archived: 'Sin acceso al portal. Sus datos se conservan.',
+      },
+    },
     groups: {
       identity: 'Identidad',
       contact: 'Contacto',

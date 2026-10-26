@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
   validateClientForm,
 } from '@/src/modules/directory/application/validate-directory'
 import { parseClientKind } from '@/src/modules/directory/domain/client-kind'
+import { nextClientStatus } from '@/src/modules/directory/domain/client-status'
 import type {
   OdooNameSplitMode,
   OdooPartnerImportOption,
@@ -551,24 +553,22 @@ export function ClientForm({
         ) : null}
 
         {!isCreate ? (
-          <div className="flex flex-col gap-2">
-            <label htmlFor="client-status" className="text-sm font-medium text-foreground">
-              {copy.fields.status}
-            </label>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <label htmlFor="client-active" className="text-sm font-medium text-foreground">
+                {copy.statusToggle.label}
+              </label>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {copy.statusToggle.description[statusValue]}
+              </p>
+            </div>
             <input type="hidden" name="status" value={statusValue} />
-            <Select
-              value={statusValue}
-              onValueChange={(next) => setStatusValue(next as PersonStatus)}
-            >
-              <SelectTrigger aria-label={copy.fields.status} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">{equipo.status.active}</SelectItem>
-                <SelectItem value="invited">{equipo.status.invited}</SelectItem>
-                <SelectItem value="archived">{equipo.status.archived}</SelectItem>
-              </SelectContent>
-            </Select>
+            <Switch
+              id="client-active"
+              className="mt-0.5 shrink-0"
+              checked={statusValue !== 'archived'}
+              onCheckedChange={(next) => setStatusValue(nextClientStatus(client?.status, next))}
+            />
           </div>
         ) : null}
         </FormGroup>
