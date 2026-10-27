@@ -172,7 +172,7 @@
   background: #02161b;
 }
 .va-overlay[data-phase='landed'] {
-  animation: va-fade-out 560ms ease-in 1440ms both;
+  animation: va-fade-out 560ms ease-in 1740ms both;
 }
 
 .va-return {
@@ -292,7 +292,10 @@
   width: clamp(11rem, 34vmin, 19rem);
   /* Los pies de Sappo quedan en el punto de aterrizaje. */
   translate: -50% -100%;
-  animation: va-descend 2s cubic-bezier(0.3, 0.55, 0.4, 1) both;
+  /* Caída a velocidad casi constante (un paracaídas no acelera ni frena): tramos lineales, sin easing. */
+  animation:
+    va-descend 2.2s linear both,
+    va-hover-sink 12s linear 2.2s both;
 }
 .va-drop-sway {
   position: relative;
@@ -371,43 +374,62 @@
 
 /* ── Aterrizaje ── */
 .va-overlay[data-phase='landed'] .va-drop {
-  animation: none;
+  animation: va-touchdown 300ms linear both;
 }
 .va-overlay[data-phase='landed'] .va-drop-sway {
-  animation: va-splash-sink 1.5s cubic-bezier(0.25, 0.6, 0.35, 1) both;
+  animation: va-splash-sink 1.5s cubic-bezier(0.25, 0.6, 0.35, 1) 300ms both;
 }
 .va-overlay[data-phase='landed'] .va-water-front {
   opacity: 0.9;
+  transition: opacity 80ms linear 300ms;
 }
 .va-overlay[data-phase='landed'] .va-chute {
-  animation: va-chute-drape 1.5s ease-in both;
+  animation: va-chute-drape 1.5s ease-in 300ms both;
 }
 .va-overlay[data-phase='landed'] .va-wave-1 {
-  animation: va-wave-burst 1.3s ease-out both;
+  animation: va-wave-burst 1.3s ease-out 300ms both;
 }
 .va-overlay[data-phase='landed'] .va-wave-2 {
-  animation: va-wave-burst 1.3s ease-out 0.22s both;
+  animation: va-wave-burst 1.3s ease-out 520ms both;
 }
 .va-overlay[data-phase='landed'] .va-wave-3 {
-  animation: va-wave-burst 1.3s ease-out 0.44s both;
+  animation: va-wave-burst 1.3s ease-out 740ms both;
 }
 .va-overlay[data-phase='landed'] .va-shockwave {
-  animation: va-shock 1.1s cubic-bezier(0.15, 0.7, 0.3, 1) both;
+  animation: va-shock 1.1s cubic-bezier(0.15, 0.7, 0.3, 1) 300ms both;
 }
 .va-overlay[data-phase='landed'] .va-droplet {
-  animation: va-droplet-fly 0.9s cubic-bezier(0.3, 0.6, 0.5, 1) both;
+  animation: va-droplet-fly 0.9s cubic-bezier(0.3, 0.6, 0.5, 1) calc(300ms + var(--d, 0ms)) both;
 }
 .va-overlay[data-phase='landed'] .va-idle-wave,
 .va-overlay[data-phase='landed'] .va-twinkle {
   animation-play-state: running;
 }
 
+/* Cae hasta unos metros sobre el agua y ahí queda descendiendo muy despacio hasta que el panel esté listo. */
 @keyframes va-descend {
   from {
-    transform: translate(-3vw, -78vh);
+    transform: translate(-4vw, -80vh);
   }
-  55% {
-    transform: translate(4vw, -26vh);
+  86% {
+    transform: translate(0.5vw, -13vh);
+  }
+  to {
+    transform: translate(0, -9vh);
+  }
+}
+@keyframes va-hover-sink {
+  from {
+    transform: translate(0, -9vh);
+  }
+  to {
+    transform: translate(0, -6vh);
+  }
+}
+/* Último tramo hasta el agua: misma velocidad que la caída (sin frenar) y el chapuzón llega justo al final. */
+@keyframes va-touchdown {
+  from {
+    transform: translate(0, -9vh);
   }
   to {
     transform: translate(0, 0);
@@ -519,6 +541,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .va-drop,
+  .va-overlay[data-phase='landed'] .va-drop,
   .va-drop-sway,
   .va-twinkle,
   .va-cloud,

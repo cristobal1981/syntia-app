@@ -30,9 +30,9 @@ export const VIEW_AS_LAUNCH_MAX_MS = 12_000
 export const VIEW_AS_LAUNCH_FLIGHT_MS = 950
 
 /** Lo mínimo que dura la caída: da tiempo a ver el paracaídas aunque el panel cargue al instante. */
-export const VIEW_AS_RETURN_MIN_MS = 2000
+export const VIEW_AS_RETURN_MIN_MS = 2200
 /** Lo que dura el aterrizaje (chapuzón, ondas y fundido) antes de quitar la pantalla. */
-export const VIEW_AS_LANDING_MS = 2000
+export const VIEW_AS_LANDING_MS = 2400
 
 export function startViewAsLaunch(now: number): ViewAsLaunchState {
   return { phase: 'waiting', startedAt: now, ready: false }

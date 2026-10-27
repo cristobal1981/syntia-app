@@ -111,7 +111,7 @@ export function ViewAsReturnScene({ label }: { label: string }) {
               {
                 '--dx': `${drop.dx}rem`,
                 '--dy': `${drop.dy}rem`,
-                animationDelay: `${(i % 3) * 0.04}s`,
+                '--d': `${(i % 3) * 40}ms`,
               } as React.CSSProperties
             }
           />
