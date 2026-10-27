@@ -230,3 +230,104 @@ describe('edad de lo cargado contra Odoo (isSnapshotLoadedWithin)', () => {
     expect(isSnapshotLoadedWithin('obligaciones', 9006, 20_000)).toBe(true)
   })
 })
+
+describe('carga única: las cargas simultáneas del mismo snapshot comparten una sola lectura', () => {
+  const snapshot = { tasks: [], tickets: [], tagFilterActive: true }
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (error: Error) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
+  it('dos peticiones a la vez del mismo cliente leen de Odoo una sola vez y reciben lo mismo', async () => {
+    const gate = deferred<typeof snapshot>()
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockReturnValue(gate.promise)
+
+    const first = getCachedTramitesSnapshot(8101)
+    const second = getCachedTramitesSnapshot(8101)
+    const third = getFreshTramitesSnapshotSafe(8101)
+    gate.resolve(snapshot)
+
+    expect(await first).toBe(snapshot)
+    expect(await second).toBe(snapshot)
+    expect((await third).data).toBe(snapshot)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(1)
+  })
+
+  it('una petición posterior, cuando la anterior ya terminó, vuelve a leer (no se queda con lo viejo)', async () => {
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockResolvedValue(snapshot)
+
+    await getCachedTramitesSnapshot(8102)
+    await getCachedTramitesSnapshot(8102)
+
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('clientes distintos no comparten la carga', async () => {
+    const gate = deferred<typeof snapshot>()
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockReturnValue(gate.promise)
+
+    const a = getCachedTramitesSnapshot(8103)
+    const b = getCachedTramitesSnapshot(8104)
+    gate.resolve(snapshot)
+    await Promise.all([a, b])
+
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledWith(8103)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledWith(8104)
+  })
+
+  it('si la carga falla, todos los que esperaban reciben el error y el siguiente intento lee de nuevo', async () => {
+    const gate = deferred<typeof snapshot>()
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockReturnValueOnce(gate.promise)
+
+    const first = getCachedTramitesSnapshot(8105)
+    const second = getCachedTramitesSnapshot(8105)
+    const settled = Promise.allSettled([first, second])
+    gate.reject(new Error('ODOO_REQUEST_FAILED'))
+    const results = await settled
+
+    expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected'])
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(1)
+
+    fetchTramitesFromOdoo.mockResolvedValueOnce(snapshot)
+    expect(await getCachedTramitesSnapshot(8105)).toBe(snapshot)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('las firmas pendientes también comparten la lectura en marcha', async () => {
+    const gate = deferred<unknown[]>()
+    fetchPendingSignaturesFromOdoo.mockReset()
+    fetchPendingSignaturesFromOdoo.mockReturnValue(gate.promise)
+
+    const a = getCachedPendingSignaturesSnapshot(8106)
+    const b = getFreshPendingSignaturesSnapshotSafe(8106)
+    gate.resolve([])
+    await Promise.all([a, b])
+
+    expect(fetchPendingSignaturesFromOdoo).toHaveBeenCalledTimes(1)
+  })
+
+  it('el índice de obligaciones comparte la lectura entre el snapshot de avisos y el árbol de tareas', async () => {
+    const gate = deferred<{ excludedTaskIds: number[]; leaves: unknown[] }>()
+    buildObligacionTaskIndex.mockReset()
+    buildObligacionTaskIndex.mockReturnValue(gate.promise)
+    fetchClientProjectIds.mockResolvedValue([1])
+
+    const a = getCachedObligacionNotificationSnapshot(8107)
+    const b = getCachedObligacionNotificationSnapshot(8107)
+    gate.resolve({ excludedTaskIds: [], leaves: [] })
+    await Promise.all([a, b])
+
+    expect(buildObligacionTaskIndex).toHaveBeenCalledTimes(1)
+  })
+})

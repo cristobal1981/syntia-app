@@ -40,6 +40,27 @@ const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
 const OBLIGACION_TREE_REVALIDATE_SECONDS = 90
 
 /**
+ * Una sola carga a la vez por clave: si ya hay una en marcha, quien llega después espera a esa y
+ * recibe su resultado en vez de repetir las mismas lecturas a Odoo. `unstable_cache` no junta las
+ * cargas simultáneas de una entrada expirada, y el sondeo la expira justo cuando varios renders de
+ * la página la vuelven a pedir: el mismo snapshot se leía 3 o 4 veces a la vez. Solo en este
+ * proceso; la carga en marcha se olvida al terminar (también si falla, para que se pueda reintentar).
+ * Quien se une a una carga ya empezada recibe datos de cuando empezó, como mucho unos segundos viejos.
+ */
+const loadsInFlight = new Map<string, Promise<unknown>>()
+
+function singleFlight<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const running = loadsInFlight.get(key) as Promise<T> | undefined
+  if (running) return running
+
+  const promise: Promise<T> = load().finally(() => {
+    if (loadsInFlight.get(key) === promise) loadsInFlight.delete(key)
+  })
+  loadsInFlight.set(key, promise)
+  return promise
+}
+
+/**
  * Cuándo se ejecutó por última vez, en este proceso, una carga REAL contra Odoo de cada snapshot
  * (`unstable_cache` no dice la edad de lo que devuelve). Sirve para que el primer sondeo tras
  * cargar una página reutilice lo que el render acaba de leer en vez de repetirlo. Si no consta
@@ -181,10 +202,12 @@ export async function getCachedClientProjectIds(
 }
 
 async function loadObligacionTaskIndex(partnerId: number): Promise<ObligacionTaskIndex> {
-  const projectIds = await getCachedClientProjectIds(partnerId)
-  const index = await buildObligacionTaskIndex(projectIds)
-  markSnapshotLoaded('obligaciones', partnerId)
-  return index
+  return singleFlight(`obligacion-task-index:${partnerId}`, async () => {
+    const projectIds = await getCachedClientProjectIds(partnerId)
+    const index = await buildObligacionTaskIndex(projectIds)
+    markSnapshotLoaded('obligaciones', partnerId)
+    return index
+  })
 }
 
 export async function getCachedObligacionTaskIndex(
@@ -203,9 +226,11 @@ export async function getCachedObligacionTaskIndex(
 }
 
 async function loadTramitesSnapshot(partnerId: number): Promise<TramitesSnapshot> {
-  const snapshot = await fetchTramitesFromOdoo(partnerId)
-  markSnapshotLoaded('tramites', partnerId)
-  return snapshot
+  return singleFlight(`tramites-snapshot:${partnerId}`, async () => {
+    const snapshot = await fetchTramitesFromOdoo(partnerId)
+    markSnapshotLoaded('tramites', partnerId)
+    return snapshot
+  })
 }
 
 export async function getCachedTramitesSnapshot(
@@ -277,9 +302,11 @@ export async function getCachedObligacionTree(partnerId: number): Promise<Obliga
 async function loadPendingSignaturesSnapshot(
   partnerId: number
 ): Promise<PendingSignaturesSnapshot> {
-  const requests = await fetchPendingSignaturesFromOdoo(partnerId)
-  markSnapshotLoaded('firmas', partnerId)
-  return { requests }
+  return singleFlight(`pending-signatures:${partnerId}`, async () => {
+    const requests = await fetchPendingSignaturesFromOdoo(partnerId)
+    markSnapshotLoaded('firmas', partnerId)
+    return { requests }
+  })
 }
 
 export async function getCachedPendingSignaturesSnapshot(
@@ -414,10 +441,12 @@ export async function getFreshTramitesSnapshotSafe(
 async function loadFreshObligacionNotificationSnapshot(
   partnerId: number
 ): Promise<ObligacionNotificationSnapshot> {
-  const projectIds = await fetchClientProjectIds(partnerId)
-  const index = await buildObligacionTaskIndex(projectIds)
-  markSnapshotLoaded('obligaciones', partnerId)
-  return { leaves: withoutAttachmentCount(index.leaves) }
+  return singleFlight(`obligacion-notification-fresh:${partnerId}`, async () => {
+    const projectIds = await fetchClientProjectIds(partnerId)
+    const index = await buildObligacionTaskIndex(projectIds)
+    markSnapshotLoaded('obligaciones', partnerId)
+    return { leaves: withoutAttachmentCount(index.leaves) }
+  })
 }
 
 export async function getFreshObligacionNotificationSnapshotSafe(
