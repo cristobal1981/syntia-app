@@ -26,7 +26,10 @@ import {
   fetchChatterReadStateForUser,
   upsertChatterReadState,
 } from '@/src/modules/portal/infrastructure/chatter-read-state.supabase'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import {
+  isOdooApiConfigured,
+  runWithOdooPriority,
+} from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
   getPortalNewsFullCheckMaxAgeMs,
   isPortalNewsSignalEnabled,
@@ -123,6 +126,16 @@ export async function checkChatterNotificationsAction(): Promise<PortalNotificat
 }
 
 export async function markChatterConversationSeenAction(input: {
+  kind: PortalRecordKind
+  recordId: number
+  lastSeenMessageId: number
+}): Promise<PortalMarkSeenResult> {
+  // Con prioridad: la comprobación de acceso lee de Odoo y, detrás de las peticiones de fondo,
+  // el «visto» tardaba segundos en quitar el aviso de la campana.
+  return runWithOdooPriority(() => markChatterConversationSeenActionImpl(input))
+}
+
+async function markChatterConversationSeenActionImpl(input: {
   kind: PortalRecordKind
   recordId: number
   lastSeenMessageId: number

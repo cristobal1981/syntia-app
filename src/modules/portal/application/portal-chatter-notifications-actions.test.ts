@@ -8,6 +8,8 @@ import {
   markChatterConversationSeenAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 
+const priorityRuns = vi.hoisted(() => ({ count: 0 }))
+
 const {
   getSession,
   getAllowedSectionsForWorker,
@@ -61,6 +63,10 @@ vi.mock('@/src/modules/portal/infrastructure/chatter-read-state.supabase', () =>
 }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   isOdooApiConfigured,
+  runWithOdooPriority: <T>(task: () => Promise<T>) => {
+    priorityRuns.count += 1
+    return task()
+  },
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-watch-state.supabase', () => ({
   fetchWatchStateForUser,
@@ -105,6 +111,7 @@ beforeEach(() => {
   // leaves .mockResolvedValue/.mockReturnValue implementations from a previous
   // test in place, which can make a later test pass for the wrong reason.
   vi.resetAllMocks()
+  priorityRuns.count = 0
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
   resolveDirectoryActorId.mockResolvedValue('actor-1')
@@ -230,6 +237,12 @@ describe('checkChatterNotificationsAction (deprecated alias)', () => {
 })
 
 describe('markChatterConversationSeenAction', () => {
+  it('lee de Odoo con prioridad: el «visto» no espera detrás de las peticiones de fondo', async () => {
+    await markChatterConversationSeenAction({ kind: 'task', recordId: 5, lastSeenMessageId: 10 })
+
+    expect(priorityRuns.count).toBe(1)
+  })
+
   it('propagates the access gate error without touching Odoo state', async () => {
     getSession.mockResolvedValue(null)
 

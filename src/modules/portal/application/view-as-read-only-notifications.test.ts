@@ -96,6 +96,7 @@ vi.mock('@/src/modules/portal/infrastructure/chatter-read-state.supabase', () =>
 }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   isOdooApiConfigured: () => true,
+  runWithOdooPriority: <T>(task: () => Promise<T>) => task(),
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-watch-state.supabase', () => ({
   fetchWatchStateForUser,
