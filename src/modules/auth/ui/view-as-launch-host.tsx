@@ -18,7 +18,7 @@ import {
   takeOffViewAsLaunch,
   useViewAsLaunchState,
 } from '@/src/modules/auth/ui/view-as-launch-store'
-import { FALL_STREAKS, ViewAsReturnScene } from '@/src/modules/auth/ui/view-as-launch-return'
+import { ViewAsReturnScene } from '@/src/modules/auth/ui/view-as-launch-return'
 import { ViewAsLaunchRocket } from '@/src/modules/auth/ui/view-as-launch-rocket'
 import './view-as-launch.css'
 
@@ -103,21 +103,7 @@ export function ViewAsLaunchHost() {
       aria-busy={state.phase === 'waiting' || state.phase === 'returning'}
     >
       {isReturn ? (
-        <>
-          <div className="va-streaks" aria-hidden>
-            {FALL_STREAKS.map((left, i) => (
-              <span
-                key={left}
-                className="va-streak"
-                style={{ left: `${left}%`, animationDelay: `${(i * 0.29) % 1.2}s` }}
-              />
-            ))}
-          </div>
-          <div className="va-stage">
-            <ViewAsReturnScene />
-            <p className="va-label">{copy.landingLabel}</p>
-          </div>
-        </>
+        <ViewAsReturnScene label={copy.landingLabel} />
       ) : (
         <>
           <div className="va-stars" aria-hidden>
