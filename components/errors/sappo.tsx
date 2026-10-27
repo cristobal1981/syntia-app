@@ -236,6 +236,7 @@ export function Sappo({ mood, className }: SappoProps) {
         ) : null}
         {mood === 'incognito' ? <Fedora /> : null}
         {mood === 'builder' ? <HardHat /> : null}
+        {mood === 'astronaut' ? <SpaceHelmet /> : null}
         {mood === 'lawyer' ? <LawyerGear /> : null}
         {mood === 'conductor' ? <Glasses frame={INK} /> : null}
         {mood === 'carrier' ? <Document /> : null}
@@ -343,6 +344,40 @@ function Fedora() {
       <path d="M 150 84 C 146 34, 196 20, 245 30 C 294 20, 344 34, 340 84 Z" fill={felt} />
       <path d="M 149 70 L 341 70 L 340 86 L 150 86 Z" fill="var(--service-fiscal)" />
       <ellipse cx={245} cy={86} rx={150} ry={13} fill={felt} />
+    </g>
+  )
+}
+
+/**
+ * Casco de astronauta: cúpula de cristal sobre la cabeza, con reflejo, y un aro en el cuello. Va por
+ * encima de los ojos con el cristal casi transparente para que se vean las pupilas.
+ */
+function SpaceHelmet() {
+  const rim = 'var(--surface-dark)'
+  const glass = 'color-mix(in oklch, var(--brisa) 24%, transparent)'
+  return (
+    <g>
+      <ellipse cx={245} cy={116} rx={196} ry={124} fill={glass} stroke={rim} strokeWidth={9} />
+      <path
+        d="M 118 78 C 140 44, 188 28, 236 30"
+        fill="none"
+        stroke="var(--brisa)"
+        strokeWidth={11}
+        strokeLinecap="round"
+        opacity={0.85}
+      />
+      <path
+        d="M 392 92 C 396 104, 396 118, 392 132"
+        fill="none"
+        stroke="var(--brisa)"
+        strokeWidth={7}
+        strokeLinecap="round"
+        opacity={0.55}
+      />
+      <rect x={96} y={212} width={298} height={22} rx={11} fill={rim} />
+      <rect x={96} y={212} width={298} height={8} rx={4} fill="var(--brisa)" opacity={0.35} />
+      <circle cx={140} cy={223} r={4.5} fill="var(--brisa)" opacity={0.7} />
+      <circle cx={350} cy={223} r={4.5} fill="var(--brisa)" opacity={0.7} />
     </g>
   )
 }

@@ -159,6 +159,7 @@ export const equipo = {
         'Abre el portal tal y como lo ve este cliente, en solo lectura y durante 2 horas. Sirve también si todavía no ha terminado el alta. No activa su cuenta ni le envía nada.',
       button: 'Ver como cliente',
       opening: 'Abriendo…',
+      launchLabel: 'Preparando la vista del cliente…',
       helper:
         'Abre su portal en solo lectura durante 2 horas, también si aún no ha terminado el alta. No activa su cuenta ni le envía nada.',
       errors: {

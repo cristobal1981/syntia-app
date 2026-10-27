@@ -29,6 +29,7 @@ import {
   PortalQuickInvoiceProvider,
 } from '@/src/modules/portal/ui/portal-quick-invoice-context'
 import { PortalInviteProvider } from '@/src/modules/invitations/ui/portal-invite-context'
+import { ViewAsLaunchReady } from '@/src/modules/auth/ui/view-as-launch-ready'
 import { PushOpenListener } from '@/src/modules/push/ui/push-open-listener'
 import { PushSubscriptionGuard } from '@/src/modules/push/ui/push-subscription-guard'
 import { PortalOfflineBanner } from '@/src/modules/portal/ui/portal-offline-banner'
@@ -206,6 +207,7 @@ export function PortalShell({
           // a la derecha, flotando fuera del flujo): el texto queda centrado en el banner.
           className="relative flex min-h-11 shrink-0 items-center justify-center overflow-hidden border-b border-primary/25 bg-primary/10 px-[4.5rem] py-2 text-center text-sm text-foreground sm:px-44"
         >
+          <ViewAsLaunchReady />
           {/* Sappo asoma en diagonal por la esquina inferior izquierda; el banner lo recorta. Quieto: se anima el sombrero y las gafas. */}
           <Sappo
             mood="incognito"
