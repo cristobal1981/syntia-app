@@ -5,6 +5,7 @@ import {
   initialPollDelayMs,
   SERVER_SEED_GRACE_MS,
   shouldAcknowledgeEventsSeen,
+  shouldRefreshOnVisible,
   shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
 
@@ -86,5 +87,23 @@ describe('shouldAcknowledgeEventsSeen', () => {
   it('sin seq (señal apagada) o con seq 0 no avisa', () => {
     expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: null })).toBe(false)
     expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 0, lastAcknowledgedSeq: null })).toBe(false)
+  })
+})
+
+describe('shouldRefreshOnVisible', () => {
+  it('refresca si nunca se ha comprobado', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: null, now: 1000, rateLimited: false })).toBe(true)
+  })
+
+  it('no repite una comprobación hecha hace menos de 15 s', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: 10_000, now: 24_999, rateLimited: false })).toBe(false)
+  })
+
+  it('refresca pasados los 15 s', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: 10_000, now: 25_000, rateLimited: false })).toBe(true)
+  })
+
+  it('con un 429 vigente no refresca aunque haya pasado el tiempo', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: 0, now: 999_999, rateLimited: true })).toBe(false)
   })
 })
