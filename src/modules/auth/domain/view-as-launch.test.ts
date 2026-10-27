@@ -4,11 +4,16 @@ import {
   IDLE_VIEW_AS_LAUNCH,
   VIEW_AS_LAUNCH_MAX_MS,
   VIEW_AS_LAUNCH_MIN_MS,
+  VIEW_AS_RETURN_MIN_MS,
+  land,
   launch,
   markViewAsReady,
+  markViewAsReturnArrived,
   shouldGiveUp,
+  shouldLand,
   shouldLaunch,
   startViewAsLaunch,
+  startViewAsReturn,
 } from '@/src/modules/auth/domain/view-as-launch'
 
 const T0 = 1_000_000
@@ -66,5 +71,41 @@ describe('despegue de la vista como cliente', () => {
   it('con el portal ya pintado no se rinde: lo que toca es despegar', () => {
     const ready = markViewAsReady(startViewAsLaunch(T0))
     expect(shouldGiveUp(ready, T0 + VIEW_AS_LAUNCH_MAX_MS * 2)).toBe(false)
+  })
+})
+
+describe('vuelta de la vista como cliente (paracaídas)', () => {
+  it('al empezar queda cayendo, sin panel listo', () => {
+    expect(startViewAsReturn(T0)).toEqual({ phase: 'returning', startedAt: T0, ready: false })
+  })
+
+  it('no aterriza mientras el panel no esté pintado', () => {
+    expect(shouldLand(startViewAsReturn(T0), T0 + VIEW_AS_RETURN_MIN_MS * 10)).toBe(false)
+  })
+
+  it('con el panel listo no aterriza antes del mínimo de caída', () => {
+    const arrived = markViewAsReturnArrived(startViewAsReturn(T0))
+    expect(shouldLand(arrived, T0 + VIEW_AS_RETURN_MIN_MS - 1)).toBe(false)
+    expect(shouldLand(arrived, T0 + VIEW_AS_RETURN_MIN_MS)).toBe(true)
+  })
+
+  it('aterrizar pasa de returning a landed y no toca otras fases', () => {
+    const arrived = markViewAsReturnArrived(startViewAsReturn(T0))
+    expect(land(arrived).phase).toBe('landed')
+    const waiting = startViewAsLaunch(T0)
+    expect(land(waiting)).toBe(waiting)
+    expect(markViewAsReturnArrived(waiting)).toBe(waiting)
+  })
+
+  it('la llegada del panel no cuenta si se está esperando al despegue, ni al revés', () => {
+    expect(markViewAsReady(startViewAsReturn(T0)).ready).toBe(false)
+    expect(shouldLaunch(startViewAsReturn(T0), T0 + 99_999)).toBe(false)
+  })
+
+  it('se rinde si el panel no llega a pintarse en el plazo máximo', () => {
+    const returning = startViewAsReturn(T0)
+    expect(shouldGiveUp(returning, T0 + VIEW_AS_LAUNCH_MAX_MS - 1)).toBe(false)
+    expect(shouldGiveUp(returning, T0 + VIEW_AS_LAUNCH_MAX_MS)).toBe(true)
+    expect(shouldGiveUp(markViewAsReturnArrived(returning), T0 + VIEW_AS_LAUNCH_MAX_MS)).toBe(false)
   })
 })

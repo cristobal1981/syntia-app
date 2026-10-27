@@ -160,6 +160,7 @@ export const equipo = {
       button: 'Ver como cliente',
       opening: 'Abriendo…',
       launchLabel: 'Preparando la vista del cliente…',
+      landingLabel: 'Volviendo a tierra…',
       helper:
         'Abre su portal en solo lectura durante 2 horas, también si aún no ha terminado el alta. No activa su cuenta ni le envía nada.',
       errors: {

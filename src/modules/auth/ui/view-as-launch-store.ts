@@ -2,9 +2,12 @@ import { useSyncExternalStore } from 'react'
 
 import {
   IDLE_VIEW_AS_LAUNCH,
+  land,
   launch,
   markViewAsReady,
+  markViewAsReturnArrived,
   startViewAsLaunch,
+  startViewAsReturn,
   type ViewAsLaunchState,
 } from '@/src/modules/auth/domain/view-as-launch'
 
@@ -33,6 +36,20 @@ export function reportViewAsReady() {
 
 export function takeOffViewAsLaunch() {
   set(launch(state))
+}
+
+/** Se pidió salir de la vista: Sappo empieza a caer en paracaídas. */
+export function beginViewAsReturn() {
+  set(startViewAsReturn(Date.now()))
+}
+
+/** El panel del equipo ya está pintado (lo avisa el anfitrión al cambiar de ruta). */
+export function reportViewAsReturnArrived() {
+  set(markViewAsReturnArrived(state))
+}
+
+export function landViewAsReturn() {
+  set(land(state))
 }
 
 export function endViewAsLaunch() {

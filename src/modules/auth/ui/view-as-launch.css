@@ -164,3 +164,204 @@
     display: none;
   }
 }
+
+/* ───────── Vuelta: Sappo baja en paracaídas ───────── */
+
+.va-overlay[data-phase='returning'],
+.va-overlay[data-phase='landed'] {
+  /* De noche arriba (el espacio que se deja) a un cielo claro abajo (la tierra). */
+  background: linear-gradient(
+    to bottom,
+    var(--surface-dark),
+    color-mix(in oklch, var(--surface-dark) 45%, var(--turquesa)) 70%,
+    color-mix(in oklch, var(--turquesa) 60%, var(--brisa))
+  );
+}
+.va-overlay[data-phase='landed'] {
+  animation: va-fade-out 520ms ease-in 760ms both;
+}
+
+.va-drop {
+  position: relative;
+  width: clamp(11rem, 34vmin, 19rem);
+  animation: va-descend 1.7s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+}
+.va-drop-sway {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-origin: 50% 0;
+  animation: va-sway 2.1s ease-in-out infinite alternate;
+}
+.va-chute {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  transform-origin: 50% 100%;
+}
+.va-drop-sappo {
+  width: 40%;
+  height: auto;
+  /* Los cordones llegan a la cabeza: Sappo sube un poco para tapar su punta. */
+  margin-top: -2%;
+}
+
+.va-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -0.9rem;
+  width: 46%;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--surface-dark) 55%, transparent);
+  transform: translateX(-50%) scale(0.3);
+  opacity: 0;
+}
+.va-dust {
+  position: absolute;
+  bottom: -0.7rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--brisa) 85%, transparent);
+  opacity: 0;
+}
+.va-dust-l {
+  left: 22%;
+}
+.va-dust-r {
+  right: 22%;
+}
+
+.va-overlay[data-phase='landed'] .va-drop {
+  animation: none;
+}
+.va-overlay[data-phase='landed'] .va-drop-sway {
+  animation: va-hop 560ms cubic-bezier(0.3, 0, 0.4, 1) both;
+}
+.va-overlay[data-phase='landed'] .va-chute {
+  animation: va-chute-fold 620ms ease-in both;
+}
+.va-overlay[data-phase='landed'] .va-shadow {
+  animation: va-shadow-in 360ms ease-out both;
+}
+.va-overlay[data-phase='landed'] .va-dust-l {
+  animation: va-dust-l 700ms ease-out 120ms both;
+}
+.va-overlay[data-phase='landed'] .va-dust-r {
+  animation: va-dust-r 700ms ease-out 120ms both;
+}
+
+/* Rayas de caída: suben mientras Sappo baja. */
+.va-streaks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.va-streak {
+  position: absolute;
+  top: 100%;
+  width: 2px;
+  height: 52px;
+  border-radius: 2px;
+  background: linear-gradient(to top, transparent, var(--brisa));
+  opacity: 0.45;
+  animation: va-streak-rise 1.2s linear infinite;
+}
+.va-overlay[data-phase='landed'] .va-streak {
+  animation-play-state: paused;
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+@keyframes va-descend {
+  from {
+    transform: translateY(-82vh);
+  }
+  to {
+    transform: translateY(4vh);
+  }
+}
+@keyframes va-sway {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+@keyframes va-hop {
+  0% {
+    transform: translateY(0) rotate(0);
+  }
+  40% {
+    transform: translateY(-1.1rem) rotate(0);
+  }
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+}
+@keyframes va-chute-fold {
+  to {
+    transform: translateY(32%) scaleY(0.12) scaleX(1.12);
+    opacity: 0;
+  }
+}
+@keyframes va-shadow-in {
+  to {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes va-dust-l {
+  from {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-1.6rem, -0.6rem) scale(1.5);
+  }
+}
+@keyframes va-dust-r {
+  from {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translate(1.6rem, -0.6rem) scale(1.5);
+  }
+}
+@keyframes va-streak-rise {
+  to {
+    transform: translateY(-120vh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .va-drop,
+  .va-drop-sway,
+  .va-overlay[data-phase='landed'] .va-drop-sway,
+  .va-overlay[data-phase='landed'] .va-chute,
+  .va-overlay[data-phase='landed'] .va-shadow,
+  .va-overlay[data-phase='landed'] .va-dust-l,
+  .va-overlay[data-phase='landed'] .va-dust-r,
+  .va-streak {
+    animation: none;
+  }
+  .va-streaks {
+    display: none;
+  }
+  .va-overlay[data-phase='landed'] {
+    animation-delay: 0s;
+    animation-duration: 200ms;
+  }
+}
+
+/* La caída termina algo por debajo del centro: la etiqueta baja para no pisar a Sappo. */
+.va-overlay[data-phase='returning'] .va-label,
+.va-overlay[data-phase='landed'] .va-label {
+  margin-top: 2.75rem;
+}

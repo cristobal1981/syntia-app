@@ -1,18 +1,24 @@
 'use client'
 
-import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 
 import { equipo } from '@/content/equipo'
 import {
+  VIEW_AS_LANDING_MS,
   VIEW_AS_LAUNCH_FLIGHT_MS,
   shouldGiveUp,
+  shouldLand,
   shouldLaunch,
 } from '@/src/modules/auth/domain/view-as-launch'
 import {
   endViewAsLaunch,
+  landViewAsReturn,
+  reportViewAsReturnArrived,
   takeOffViewAsLaunch,
   useViewAsLaunchState,
 } from '@/src/modules/auth/ui/view-as-launch-store'
+import { FALL_STREAKS, ViewAsReturnScene } from '@/src/modules/auth/ui/view-as-launch-return'
 import { ViewAsLaunchRocket } from '@/src/modules/auth/ui/view-as-launch-rocket'
 import './view-as-launch.css'
 
@@ -37,6 +43,38 @@ const STARS = [
 export function ViewAsLaunchHost() {
   const state = useViewAsLaunchState()
   const copy = equipo.form.viewAsSection
+  const pathname = usePathname()
+  // Ruta en la que estaba al pedir salir: cuando cambia, el panel del equipo ya está pintado.
+  const returnFromPath = useRef(pathname)
+  const isReturn = state.phase === 'returning' || state.phase === 'landed'
+
+  useEffect(() => {
+    // Fuera de la vuelta sigue a la ruta actual; al empezar a volver se queda con la de origen.
+    if (state.phase === 'returning') return
+    returnFromPath.current = pathname
+  }, [pathname, state.phase])
+
+  useEffect(() => {
+    if (state.phase === 'returning' && pathname !== returnFromPath.current) {
+      reportViewAsReturnArrived()
+    }
+  }, [pathname, state.phase])
+
+  useEffect(() => {
+    if (state.phase !== 'returning') return
+    const timer = window.setInterval(() => {
+      const now = Date.now()
+      if (shouldLand(state, now)) landViewAsReturn()
+      else if (shouldGiveUp(state, now)) endViewAsLaunch()
+    }, 80)
+    return () => window.clearInterval(timer)
+  }, [state])
+
+  useEffect(() => {
+    if (state.phase !== 'landed') return
+    const timer = window.setTimeout(endViewAsLaunch, VIEW_AS_LANDING_MS)
+    return () => window.clearTimeout(timer)
+  }, [state.phase])
 
   useEffect(() => {
     if (state.phase !== 'waiting') return
@@ -62,25 +100,45 @@ export function ViewAsLaunchHost() {
       data-phase={state.phase}
       role="status"
       aria-live="polite"
-      aria-busy={state.phase === 'waiting'}
+      aria-busy={state.phase === 'waiting' || state.phase === 'returning'}
     >
-      <div className="va-stars" aria-hidden>
-        {STARS.map((star, i) => (
-          <span
-            key={`${star.left}-${star.top}`}
-            className="va-star"
-            style={{
-              left: `${star.left}%`,
-              top: `${star.top}%`,
-              animationDelay: `${(i * 0.37) % 1.8}s`,
-            }}
-          />
-        ))}
-      </div>
-      <div className="va-stage">
-        <ViewAsLaunchRocket />
-        <p className="va-label">{copy.launchLabel}</p>
-      </div>
+      {isReturn ? (
+        <>
+          <div className="va-streaks" aria-hidden>
+            {FALL_STREAKS.map((left, i) => (
+              <span
+                key={left}
+                className="va-streak"
+                style={{ left: `${left}%`, animationDelay: `${(i * 0.29) % 1.2}s` }}
+              />
+            ))}
+          </div>
+          <div className="va-stage">
+            <ViewAsReturnScene />
+            <p className="va-label">{copy.landingLabel}</p>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="va-stars" aria-hidden>
+            {STARS.map((star, i) => (
+              <span
+                key={`${star.left}-${star.top}`}
+                className="va-star"
+                style={{
+                  left: `${star.left}%`,
+                  top: `${star.top}%`,
+                  animationDelay: `${(i * 0.37) % 1.8}s`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="va-stage">
+            <ViewAsLaunchRocket />
+            <p className="va-label">{copy.launchLabel}</p>
+          </div>
+        </>
+      )}
     </div>
   )
 }
