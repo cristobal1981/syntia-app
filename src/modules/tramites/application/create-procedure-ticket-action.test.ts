@@ -58,6 +58,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 }))
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: () => 'tag',
+  forgetRecentTramitesLoad: () => undefined,
 }))
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), updateTag: vi.fn() }))
 

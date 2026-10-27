@@ -2,6 +2,7 @@ import { revalidateTag } from 'next/cache'
 
 import {
   chatterUnreadBatchCacheTag,
+  forgetRecentTramitesLoad,
   obligacionNotificationSnapshotCacheTag,
   obligacionTaskIndexCacheTag,
   obligacionTreeCacheTag,
@@ -53,6 +54,7 @@ export function portalCacheTagsForEvent(event: CacheEvent): string[] {
 /** Caduca al instante las cachés afectadas; un fallo se registra y no tumba el evento ya guardado. */
 export function invalidatePortalCachesForEvent(event: CacheEvent): void {
   try {
+    forgetRecentTramitesLoad(event.partnerId)
     for (const tag of portalCacheTagsForEvent(event)) {
       revalidateTag(tag, { expire: 0 })
     }

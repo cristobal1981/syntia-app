@@ -27,6 +27,7 @@ import { resolveDirectoryActorId } from '@/src/modules/directory/application/res
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
   chatterUnreadBatchCacheTag,
+  forgetRecentTramitesLoad,
   tramitesSnapshotCacheTag,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
@@ -466,6 +467,7 @@ export async function postRecordMessageAction(
       if (!hadAttachments) return
 
       // El contador de documentos de la lista sale de este snapshot.
+      forgetRecentTramitesLoad(access.partnerId)
       revalidateTag(tramitesSnapshotCacheTag(access.partnerId), 'max')
     })
 

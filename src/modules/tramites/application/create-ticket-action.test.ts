@@ -12,6 +12,7 @@ const {
   createPartnerTicket,
   postRecordComment,
   checkRateLimit,
+  forgetRecentTramitesLoad,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -20,6 +21,7 @@ const {
   createPartnerTicket: vi.fn(),
   postRecordComment: vi.fn(),
   checkRateLimit: vi.fn(),
+  forgetRecentTramitesLoad: vi.fn(),
 }))
 
 vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
@@ -44,6 +46,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 }))
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: () => 'tag',
+  forgetRecentTramitesLoad,
 }))
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), updateTag: vi.fn() }))
 
@@ -103,6 +106,14 @@ describe('createTicketAction (/tramites section gate for colaboradores)', () => 
     expect(result).toMatchObject({ ok: true })
     expect(updateTag).toHaveBeenCalledWith('tag')
     expect(revalidateTag).not.toHaveBeenCalled()
+  })
+
+  it('olvida la última carga reutilizable del snapshot al crear, para que lo nuevo aparezca al instante', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    await createTicketAction({ subject: 'hola', body: '<p>cuerpo</p>' })
+
+    expect(forgetRecentTramitesLoad).toHaveBeenCalledWith(999)
   })
 
   it('never section-checks a full client', async () => {

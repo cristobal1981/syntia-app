@@ -69,6 +69,7 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () =>
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: (partnerId: number) => `tramites-snapshot:${partnerId}`,
   chatterUnreadBatchCacheTag: (partnerId: number) => `chatter-unread-batch:${partnerId}`,
+  forgetRecentTramitesLoad: () => undefined,
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase', () => ({
   fetchChatterReplyLinks,

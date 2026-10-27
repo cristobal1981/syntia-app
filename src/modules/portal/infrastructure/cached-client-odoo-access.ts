@@ -48,16 +48,51 @@ const OBLIGACION_TREE_REVALIDATE_SECONDS = 90
  * Quien se une a una carga ya empezada recibe datos de cuando empezó, como mucho unos segundos viejos.
  */
 const loadsInFlight = new Map<string, Promise<unknown>>()
+const recentLoads = new Map<string, { at: number; value: unknown }>()
+const RECENT_LOADS_MAX = 200
 
-function singleFlight<T>(key: string, load: () => Promise<T>): Promise<T> {
+function singleFlight<T>(
+  key: string,
+  load: () => Promise<T>,
+  options: { reuseForMs?: number } = {}
+): Promise<T> {
+  const recent = recentLoads.get(key)
+  if (recent && options.reuseForMs && Date.now() - recent.at < options.reuseForMs) {
+    return Promise.resolve(recent.value as T)
+  }
+
   const running = loadsInFlight.get(key) as Promise<T> | undefined
   if (running) return running
 
-  const promise: Promise<T> = load().finally(() => {
-    if (loadsInFlight.get(key) === promise) loadsInFlight.delete(key)
-  })
+  const promise: Promise<T> = load()
+    .then((value) => {
+      if (options.reuseForMs) {
+        if (recentLoads.size >= RECENT_LOADS_MAX) recentLoads.clear()
+        recentLoads.set(key, { at: Date.now(), value })
+      }
+      return value
+    })
+    .finally(() => {
+      if (loadsInFlight.get(key) === promise) loadsInFlight.delete(key)
+    })
   loadsInFlight.set(key, promise)
   return promise
+}
+
+/**
+ * Cuánto se reutiliza, tras terminar, la última carga del snapshot de trámites. El sondeo lo expira
+ * con `updateTag` dentro de una Server Action y Next repinta la página en esa misma respuesta
+ * tratándolo como expirado: la segunda tanda repetía ~9 lecturas 1,5 s después de la primera.
+ */
+const TRAMITES_RECENT_LOAD_REUSE_MS = 5_000
+
+/**
+ * Olvida la última carga del snapshot de trámites de ese cliente. Hay que llamarla donde se
+ * invalide esa caché por un cambio real (crear una consulta, un adjunto, un evento de Odoo): si no,
+ * lo recién creado no aparecería hasta pasados los 5 s de reutilización.
+ */
+export function forgetRecentTramitesLoad(partnerId: number): void {
+  recentLoads.delete(`tramites-snapshot:${partnerId}`)
 }
 
 /**
@@ -226,11 +261,15 @@ export async function getCachedObligacionTaskIndex(
 }
 
 async function loadTramitesSnapshot(partnerId: number): Promise<TramitesSnapshot> {
-  return singleFlight(`tramites-snapshot:${partnerId}`, async () => {
-    const snapshot = await fetchTramitesFromOdoo(partnerId)
-    markSnapshotLoaded('tramites', partnerId)
-    return snapshot
-  })
+  return singleFlight(
+    `tramites-snapshot:${partnerId}`,
+    async () => {
+      const snapshot = await fetchTramitesFromOdoo(partnerId)
+      markSnapshotLoaded('tramites', partnerId)
+      return snapshot
+    },
+    { reuseForMs: TRAMITES_RECENT_LOAD_REUSE_MS }
+  )
 }
 
 export async function getCachedTramitesSnapshot(
