@@ -291,7 +291,11 @@ export async function deletePushSubscriptionsByIds(ids: string[]): Promise<void>
 
 const CURSOR_UPDATE_CHUNK = 100
 
-/** Marca a varios dispositivos como procesados hasta el evento `seq`. */
+/**
+ * Marca a varios dispositivos como procesados hasta el evento `seq`. Solo avanza: un cursor nunca
+ * retrocede, así que una ejecución del cron que ya estaba en marcha no pisa lo que el usuario vio
+ * en la app mientras tanto (`advanceUserPushCursor`).
+ */
 export async function advancePushCursors(ids: string[], seq: number): Promise<void> {
   if (ids.length === 0) return
   const supabase = createSupabaseAdminClient()
@@ -300,10 +304,28 @@ export async function advancePushCursors(ids: string[], seq: number): Promise<vo
     const { error } = await supabase
       .from('push_subscriptions')
       .update({ last_event_seq: seq })
+      .lt('last_event_seq', seq)
       .in('id', ids.slice(from, from + CURSOR_UPDATE_CHUNK))
 
     if (error) throw new Error(error.message)
   }
+}
+
+/**
+ * El usuario ya vio en la app los eventos hasta `seq`: sus dispositivos con push dejan de recibirlos.
+ * Solo avanza cursores ya inicializados (un dispositivo sin baseline sigue sin mandar nada) y nunca
+ * hacia atrás.
+ */
+export async function advanceUserPushCursor(userId: string, seq: number): Promise<void> {
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .update({ last_event_seq: seq })
+    .eq('user_id', userId)
+    .not('last_event_seq', 'is', null)
+    .lt('last_event_seq', seq)
+
+  if (error) throw new Error(error.message)
 }
 
 /** Cliente de Odoo de cada usuario (los colaboradores comparten el del titular). */

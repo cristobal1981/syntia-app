@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
 import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
 import {
+  acknowledgeEventsSeenInAppAction,
   checkPortalNewsSignalAction,
   checkPortalNotificationsAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
@@ -21,9 +22,11 @@ import {
   getMaxPollIntervalMs,
   nextPollIntervalMs,
   notificationsSignature,
+  SIGNAL_POLL_INTERVAL_MS,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-scheduler'
 import {
   initialPollDelayMs,
+  shouldAcknowledgeEventsSeen,
   shouldDeferInitialPoll,
   shouldRefreshPortalPageOnNotificationPoll,
   shouldRunFullNotificationsCheck,
@@ -88,6 +91,9 @@ export function usePortalNotificationsSync({
   // la comprobación completa y cuándo. `null` hasta la primera.
   const lastSignalSeqRef = useRef<number | null>(null)
   const lastFullCheckAtRef = useRef<number | null>(null)
+  // Último evento que se avisó al servidor como visto en pantalla (para que el push no lo repita).
+  const lastAcknowledgedSeqRef = useRef<number | null>(null)
+  const lastCheckUsedRecentSnapshotsRef = useRef(false)
   const signalModeRef = useRef(false)
 
   const resetPollInterval = useCallback(() => {
@@ -188,6 +194,29 @@ export function usePortalNotificationsSync({
     [applyReadState, commitUnread, pathnameRef, pendingFirmaIdsRef, refreshPortalPages, setStats, unreadRef]
   )
 
+  /** El portal acaba de enseñar los avisos hasta `seq` con la ventana a la vista: el push no los repite. */
+  const acknowledgeSeen = useCallback((seq: number | null, usedRecentSnapshots: boolean) => {
+    if (
+      !shouldAcknowledgeEventsSeen({
+        signalSeq: seq,
+        lastAcknowledgedSeq: lastAcknowledgedSeqRef.current,
+        windowVisible: document.visibilityState === 'visible',
+        usedRecentSnapshots,
+      })
+    ) {
+      return
+    }
+    const previous = lastAcknowledgedSeqRef.current
+    lastAcknowledgedSeqRef.current = seq
+    void acknowledgeEventsSeenInAppAction(seq)
+      .then((result) => {
+        if (!result.ok) lastAcknowledgedSeqRef.current = previous
+      })
+      .catch(() => {
+        lastAcknowledgedSeqRef.current = previous
+      })
+  }, [])
+
   const refreshNotifications = useCallback(
     async (options?: { force?: boolean; afterPageLoad?: boolean }) => {
       if (!enabled || pollingRef.current) return
@@ -226,7 +255,8 @@ export function usePortalNotificationsSync({
             if (!runFull) {
               pollIntervalRef.current = rateLimitedRef.current
                 ? getMaxPollIntervalMs()
-                : getInitialPollIntervalMs()
+                : SIGNAL_POLL_INTERVAL_MS
+              acknowledgeSeen(signal.seq, lastCheckUsedRecentSnapshotsRef.current)
               setNotificationsLoading(false)
               return
             }
@@ -249,9 +279,11 @@ export function usePortalNotificationsSync({
         applyPollResult(result, { refreshPages: true })
         lastFullCheckAtRef.current = Date.now()
         if (signalSeq !== null) lastSignalSeqRef.current = signalSeq
-        // Con la señal, el sondeo es barato: no se espacia por falta de cambios.
+        lastCheckUsedRecentSnapshotsRef.current = Boolean(options?.afterPageLoad)
+        acknowledgeSeen(signalSeq, Boolean(options?.afterPageLoad))
+        // Con la señal, el sondeo es barato (solo Supabase): no se espacia por falta de cambios.
         if (signalModeRef.current && !rateLimitedRef.current) {
-          pollIntervalRef.current = getInitialPollIntervalMs()
+          pollIntervalRef.current = SIGNAL_POLL_INTERVAL_MS
         }
 
         coordinator?.broadcastPollResult({
@@ -271,7 +303,7 @@ export function usePortalNotificationsSync({
         setNotificationsLoading(false)
       }
     },
-    [applyPollResult, enabled, setNotificationsLoading]
+    [acknowledgeSeen, applyPollResult, enabled, setNotificationsLoading]
   )
 
   const refreshNotificationsPublic = useCallback(

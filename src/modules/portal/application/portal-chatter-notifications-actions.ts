@@ -35,6 +35,7 @@ import {
   isPortalNewsSignalEnabled,
 } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { getMaxPortalEventSeqForPartner } from '@/src/modules/push/infrastructure/portal-events.supabase'
+import { advanceUserPushCursor } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
 import {
   fetchWatchStateForUser,
   upsertWatchStateBatch,
@@ -132,6 +133,35 @@ export async function checkPortalNewsSignalAction(): Promise<PortalNewsSignalRes
 /** @deprecated Use checkPortalNotificationsAction */
 export async function checkChatterNotificationsAction(): Promise<PortalNotificationsCheckResult> {
   return checkPortalNotificationsAction()
+}
+
+export type EventsSeenInAppResult = { ok: true } | { ok: false; error: 'forbidden' | 'invalid' | 'unavailable' }
+
+/**
+ * El portal acaba de enseñar los avisos hasta el evento `seq` con la ventana a la vista: los
+ * dispositivos con push de este usuario dejan de recibirlos, para que el aviso no llegue por push
+ * minutos después de haberlo visto en pantalla. `seq` nunca puede pasar del último evento del
+ * cliente (el navegador no puede adelantar el cursor y silenciar avisos futuros).
+ */
+export async function acknowledgeEventsSeenInAppAction(
+  seq: unknown
+): Promise<EventsSeenInAppResult> {
+  if (typeof seq !== 'number' || !Number.isInteger(seq) || seq <= 0) {
+    return { ok: false, error: 'invalid' }
+  }
+
+  const access = await resolveClientAccess()
+  if (!access.ok) return { ok: false, error: 'forbidden' }
+
+  try {
+    const latest = await getMaxPortalEventSeqForPartner(access.partnerId)
+    const upTo = Math.min(seq, latest)
+    if (upTo > 0) await advanceUserPushCursor(access.actorId, upTo)
+    return { ok: true }
+  } catch (error) {
+    console.error('[push] marcar eventos vistos en la app falló', error)
+    return { ok: false, error: 'unavailable' }
+  }
 }
 
 export async function markChatterConversationSeenAction(input: {

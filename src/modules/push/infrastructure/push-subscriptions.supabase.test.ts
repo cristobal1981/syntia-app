@@ -16,6 +16,7 @@ vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({
 import {
   acquirePushDispatchLock,
   advancePushCursors,
+  advanceUserPushCursor,
   fetchPartnerIdsByUserIds,
   deletePushSubscription,
   fetchPushPreferences,
@@ -341,8 +342,16 @@ describe('cerrojo del dispatcher', () => {
 })
 
 describe('advancePushCursors', () => {
+  function chainWithLt(result: { error: { message: string } | null } = { error: null }) {
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {}
+    chain.update = vi.fn(() => chain)
+    chain.lt = vi.fn(() => chain)
+    chain.in = vi.fn().mockResolvedValue(result)
+    return chain
+  }
+
   it('marca los dispositivos indicados hasta ese evento', async () => {
-    const chain = { update: vi.fn(() => chain), in: vi.fn().mockResolvedValue({ error: null }) }
+    const chain = chainWithLt()
     createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
 
     await advancePushCursors(['a', 'b'], 12)
@@ -351,13 +360,22 @@ describe('advancePushCursors', () => {
     expect(chain.in).toHaveBeenCalledWith('id', ['a', 'b'])
   })
 
+  it('solo avanza: nunca baja un cursor que otro proceso ya adelantó', async () => {
+    const chain = chainWithLt()
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await advancePushCursors(['a'], 12)
+
+    expect(chain.lt).toHaveBeenCalledWith('last_event_seq', 12)
+  })
+
   it('no llama a la BD sin dispositivos', async () => {
     await advancePushCursors([], 12)
     expect(createSupabaseAdminClient).not.toHaveBeenCalled()
   })
 
   it('parte la lista en bloques de 100', async () => {
-    const chain = { update: vi.fn(() => chain), in: vi.fn().mockResolvedValue({ error: null }) }
+    const chain = chainWithLt()
     createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
     const ids = Array.from({ length: 250 }, (_, i) => `s${i}`)
 
@@ -369,13 +387,40 @@ describe('advancePushCursors', () => {
   })
 
   it('propaga el error de BD', async () => {
-    const chain = {
-      update: vi.fn(() => chain),
-      in: vi.fn().mockResolvedValue({ error: { message: 'boom' } }),
-    }
+    const chain = chainWithLt({ error: { message: 'boom' } })
     createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
 
     await expect(advancePushCursors(['a'], 1)).rejects.toThrow('boom')
+  })
+})
+
+describe('advanceUserPushCursor', () => {
+  function chainUser(result: { error: { message: string } | null } = { error: null }) {
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {}
+    for (const name of ['update', 'eq', 'not']) chain[name] = vi.fn(() => chain)
+    chain.lt = vi.fn().mockResolvedValue(result)
+    return chain
+  }
+
+  it('adelanta solo los dispositivos de ese usuario, ya inicializados y que van por detrás', async () => {
+    const chain = chainUser()
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    await advanceUserPushCursor('user-1', 30)
+
+    expect(from).toHaveBeenCalledWith('push_subscriptions')
+    expect(chain.update).toHaveBeenCalledWith({ last_event_seq: 30 })
+    expect(chain.eq).toHaveBeenCalledWith('user_id', 'user-1')
+    expect(chain.not).toHaveBeenCalledWith('last_event_seq', 'is', null)
+    expect(chain.lt).toHaveBeenCalledWith('last_event_seq', 30)
+  })
+
+  it('propaga el error de BD', async () => {
+    const chain = chainUser({ error: { message: 'boom' } })
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await expect(advanceUserPushCursor('user-1', 30)).rejects.toThrow('boom')
   })
 })
 

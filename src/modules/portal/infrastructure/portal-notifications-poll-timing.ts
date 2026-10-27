@@ -37,6 +37,23 @@ export function shouldDeferInitialPoll(): boolean {
 }
 
 /**
+ * ¿Hay que avisar al servidor de que el usuario ya vio los eventos hasta `signalSeq`? Solo con la
+ * ventana a la vista (igual que el service worker, que no muestra el push con una ventana visible),
+ * tras una comprobación completa de verdad (no con snapshots reutilizados, que pueden ir por detrás
+ * de los eventos) y solo si hay algo más nuevo que lo último avisado.
+ */
+export function shouldAcknowledgeEventsSeen(input: {
+  signalSeq: number | null
+  lastAcknowledgedSeq: number | null
+  windowVisible: boolean
+  usedRecentSnapshots: boolean
+}): boolean {
+  if (input.signalSeq === null || input.signalSeq <= 0) return false
+  if (!input.windowVisible || input.usedRecentSnapshots) return false
+  return input.lastAcknowledgedSeq === null || input.signalSeq > input.lastAcknowledgedSeq
+}
+
+/**
  * Con la señal de eventos activa, un sondeo programado solo hace la
  * comprobación completa (Odoo) si hay eventos nuevos desde la última, si nunca
  * se ha hecho o si ya pasó `maxAgeMs`: esa red de seguridad cubre lo que no

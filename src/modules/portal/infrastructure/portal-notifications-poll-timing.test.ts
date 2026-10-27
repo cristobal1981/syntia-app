@@ -4,6 +4,7 @@ import {
   DEFERRED_POLL_MS,
   initialPollDelayMs,
   SERVER_SEED_GRACE_MS,
+  shouldAcknowledgeEventsSeen,
   shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
 
@@ -55,5 +56,35 @@ describe('initialPollDelayMs', () => {
     expect(
       initialPollDelayMs({ ...base, seededFromServer: true, serverWillSeed: true })
     ).toBe(30_000)
+  })
+})
+
+describe('shouldAcknowledgeEventsSeen', () => {
+  const ack = { signalSeq: 42, lastAcknowledgedSeq: 40, windowVisible: true, usedRecentSnapshots: false }
+
+  it('con la ventana a la vista y un evento más nuevo que el último avisado, avisa', () => {
+    expect(shouldAcknowledgeEventsSeen(ack)).toBe(true)
+  })
+
+  it('la primera vez (nada avisado todavía) avisa', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, lastAcknowledgedSeq: null })).toBe(true)
+  })
+
+  it('con la ventana oculta no avisa: el push debe llegar como siempre', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, windowVisible: false })).toBe(false)
+  })
+
+  it('tras una comprobación con snapshots reutilizados no avisa: pueden ir por detrás de los eventos', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, usedRecentSnapshots: true })).toBe(false)
+  })
+
+  it('sin evento nuevo no repite el aviso', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 40 })).toBe(false)
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 39 })).toBe(false)
+  })
+
+  it('sin seq (señal apagada) o con seq 0 no avisa', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: null })).toBe(false)
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 0, lastAcknowledgedSeq: null })).toBe(false)
   })
 })
