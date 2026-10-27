@@ -208,22 +208,6 @@ async function listProjectTaskRows(
   return rows.filter((row) => !excludedTaskIds.has(row.id))
 }
 
-async function listProjectTasks(
-  projectIds: number[],
-  excludedTaskIds: Set<number>
-): Promise<TramiteTask[]> {
-  const filteredRows = await listProjectTaskRows(projectIds, excludedTaskIds)
-  const assigneeUserIds = filteredRows.flatMap((row) => mapOdooUserIds(row.user_ids))
-  const users = await resolveOdooUsersByIds(assigneeUserIds)
-  const attachmentCounts = await countAttachmentsByRecordIds(
-    'project.task',
-    filteredRows.map((row) => row.id)
-  )
-
-  // La herencia se calcula con las propias asignaciones de todas las tareas, antes de heredar.
-  return inheritAssignees(filteredRows.map((row) => mapTask(row, attachmentCounts, users)))
-}
-
 async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]> {
   const model = getOdooTicketsModel()
   const closedField = getTicketClosedField()
@@ -233,23 +217,6 @@ async function listPartnerTicketRows(partnerId: number): Promise<OdooTicketRow[]
     order: 'write_date desc, id desc',
     limit: TRAMITES_FETCH_LIMIT,
   })
-}
-
-async function listPartnerTickets(partnerId: number): Promise<TramiteTicket[]> {
-  const model = getOdooTicketsModel()
-  const closedField = getTicketClosedField()
-  const rows = await listPartnerTicketRows(partnerId)
-  const assigneeUserIds = rows
-    .map((row) => mapOdooMany2OneId(row.user_id))
-    .filter((id): id is number => typeof id === 'number' && id > 0)
-  const users = await resolveOdooUsersByIds(assigneeUserIds)
-
-  const attachmentCounts = await countAttachmentsByRecordIds(
-    model,
-    rows.map((row) => row.id)
-  )
-
-  return rows.map((row) => mapTicket(row, attachmentCounts, closedField, users))
 }
 
 /** Foto de trámites (tareas + tickets) del cliente en Odoo; la cachea el portal. */
@@ -263,11 +230,41 @@ export async function fetchTramitesFromOdoo(
   const excludedTaskIds = await collectExcludedObligacionTaskIds(partnerId)
   const projectIds = await listClientProjectIds(partnerId)
 
-  const tasks = projectIds.length
-    ? await listProjectTasks(projectIds, excludedTaskIds)
-    : []
+  // Tareas y tickets no dependen entre sí: se leen a la vez (antes, una cadena de ~7 viajes
+  // seguidos a Odoo). Los usuarios se piden juntos para tareas y tickets: en paralelo, dos
+  // consultas separadas no se aprovecharían la una de la otra.
+  const [taskRows, ticketRows] = await Promise.all([
+    projectIds.length ? listProjectTaskRows(projectIds, excludedTaskIds) : [],
+    listPartnerTicketRows(partnerId),
+  ])
 
-  const tickets = await listPartnerTickets(partnerId)
+  const closedField = getTicketClosedField()
+  const ticketsModel = getOdooTicketsModel()
+  const assigneeUserIds = [
+    ...taskRows.flatMap((row) => mapOdooUserIds(row.user_ids)),
+    ...ticketRows
+      .map((row) => mapOdooMany2OneId(row.user_id))
+      .filter((id): id is number => typeof id === 'number' && id > 0),
+  ]
+  const [users, taskAttachmentCounts, ticketAttachmentCounts] = await Promise.all([
+    resolveOdooUsersByIds(assigneeUserIds),
+    countAttachmentsByRecordIds(
+      'project.task',
+      taskRows.map((row) => row.id)
+    ),
+    countAttachmentsByRecordIds(
+      ticketsModel,
+      ticketRows.map((row) => row.id)
+    ),
+  ])
+
+  // La herencia se calcula con las propias asignaciones de todas las tareas, antes de heredar.
+  const tasks = inheritAssignees(
+    taskRows.map((row) => mapTask(row, taskAttachmentCounts, users))
+  )
+  const tickets = ticketRows.map((row) =>
+    mapTicket(row, ticketAttachmentCounts, closedField, users)
+  )
 
   return {
     tasks,
