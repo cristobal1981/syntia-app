@@ -294,7 +294,9 @@ const CURSOR_UPDATE_CHUNK = 100
 /**
  * Marca a varios dispositivos como procesados hasta el evento `seq`. Solo avanza: un cursor nunca
  * retrocede, así que una ejecución del cron que ya estaba en marcha no pisa lo que el usuario vio
- * en la app mientras tanto (`advanceUserPushCursor`).
+ * en la app mientras tanto (`advanceUserPushCursor`). Un cursor vacío (`null`, dispositivo sin foto
+ * inicial) cuenta como «por detrás de todo»: en SQL `null < n` no es verdadero, por eso se pide
+ * explícitamente; sin eso el dispositivo no se inicializaría nunca y nunca recibiría un push.
  */
 export async function advancePushCursors(ids: string[], seq: number): Promise<void> {
   if (ids.length === 0) return
@@ -304,7 +306,7 @@ export async function advancePushCursors(ids: string[], seq: number): Promise<vo
     const { error } = await supabase
       .from('push_subscriptions')
       .update({ last_event_seq: seq })
-      .lt('last_event_seq', seq)
+      .or(`last_event_seq.is.null,last_event_seq.lt.${seq}`)
       .in('id', ids.slice(from, from + CURSOR_UPDATE_CHUNK))
 
     if (error) throw new Error(error.message)

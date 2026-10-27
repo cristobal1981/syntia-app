@@ -346,6 +346,7 @@ describe('advancePushCursors', () => {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {}
     chain.update = vi.fn(() => chain)
     chain.lt = vi.fn(() => chain)
+    chain.or = vi.fn(() => chain)
     chain.in = vi.fn().mockResolvedValue(result)
     return chain
   }
@@ -366,7 +367,18 @@ describe('advancePushCursors', () => {
 
     await advancePushCursors(['a'], 12)
 
-    expect(chain.lt).toHaveBeenCalledWith('last_event_seq', 12)
+    expect(chain.or).toHaveBeenCalledWith(expect.stringContaining('last_event_seq.lt.12'))
+  })
+
+  it('un dispositivo con el cursor vacío (sin foto inicial) también se inicializa', async () => {
+    const chain = chainWithLt()
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    await advancePushCursors(['a'], 12)
+
+    // `null < 12` no es verdadero en SQL: hay que pedir explícitamente los vacíos.
+    expect(chain.or).toHaveBeenCalledWith('last_event_seq.is.null,last_event_seq.lt.12')
+    expect(chain.lt).not.toHaveBeenCalled()
   })
 
   it('no llama a la BD sin dispositivos', async () => {
