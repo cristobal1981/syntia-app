@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Archivo, Host_Grotesk } from 'next/font/google'
 
 import { AccessibilityProvider } from '@/components/providers/accessibility-provider'
@@ -72,7 +73,10 @@ export default function RootLayout({
         <ThemeProvider>
           <AccessibilityProvider>
             {children}
-            <ViewAsLaunchHost />
+            {/* `usePathname` es dinámico: sin Suspense impide prerrenderizar las rutas con parámetros. */}
+            <Suspense fallback={null}>
+              <ViewAsLaunchHost />
+            </Suspense>
           </AccessibilityProvider>
         </ThemeProvider>
       </body>
