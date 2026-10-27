@@ -20,8 +20,10 @@ const {
   fetchChatterReplyLinks,
   checkRateLimit,
   getCachedTramitesSnapshot,
+  resolveTaskWorkerSection,
 } = vi.hoisted(() => ({
   getCachedTramitesSnapshot: vi.fn(),
+  resolveTaskWorkerSection: vi.fn(),
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
   verifyClientRecordAccess,
+  resolveTaskWorkerSection,
   getOdooModelForRecordKind: () => 'project.task',
   canClientReplyOnRecord: vi.fn().mockResolvedValue(true),
 }))
@@ -129,6 +132,7 @@ describe('portal-chatter-actions (/tramites section gate, covers both trámites 
     getSession.mockResolvedValue(sessionFor('worker'))
     getAllowedSectionsForWorker.mockResolvedValue(new Set(['/tramites']))
     verifyClientRecordAccess.mockResolvedValue(true)
+    resolveTaskWorkerSection.mockResolvedValue('/tramites')
     listPortalMessagesPage.mockResolvedValue({ messages: [], hasMore: false })
 
     const result = await listRecordMessagesAction({ kind: 'task', recordId: 1 })
@@ -180,6 +184,7 @@ describe('postRecordMessageAction (/tramites write gate for colaboradores)', () 
     getSession.mockResolvedValue(sessionFor('worker'))
     getWorkerWriteSections.mockResolvedValue(new Set(['/tramites']))
     verifyClientRecordAccess.mockResolvedValue(true)
+    resolveTaskWorkerSection.mockResolvedValue('/tramites')
     postRecordComment.mockResolvedValue({
       id: 10,
       bodyHtml: '<p>hola</p>',
@@ -340,5 +345,74 @@ describe('postRecordMessageAction (a quién se avisa por correo)', () => {
 
     expect(getCachedTramitesSnapshot).not.toHaveBeenCalled()
     expect(postRecordComment).toHaveBeenCalledWith(expect.objectContaining({ notifyPartnerIds: [] }))
+  })
+})
+
+describe('portal-chatter-actions (sección del registro para colaboradores)', () => {
+  function worker(sections: string[]) {
+    getSession.mockResolvedValue(sessionFor('worker'))
+    getAllowedSectionsForWorker.mockResolvedValue(new Set(sections))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    listPortalMessagesPage.mockResolvedValue({ messages: [], hasMore: false })
+  }
+
+  it('con solo /tramites no lee el chat de una obligación (tarea de la sección /obligaciones)', async () => {
+    worker(['/tramites'])
+    resolveTaskWorkerSection.mockResolvedValue('/obligaciones')
+
+    const result = await listRecordMessagesAction({ kind: 'task', recordId: 7 })
+
+    expect(result).toMatchObject({ ok: false, error: 'not_found' })
+  })
+
+  it('con solo /obligaciones lee el chat de una obligación', async () => {
+    worker(['/obligaciones'])
+    resolveTaskWorkerSection.mockResolvedValue('/obligaciones')
+
+    const result = await listRecordMessagesAction({ kind: 'task', recordId: 7 })
+
+    expect(result).toMatchObject({ ok: true })
+  })
+
+  it('con solo /obligaciones no lee un trámite ni una consulta', async () => {
+    worker(['/obligaciones'])
+    resolveTaskWorkerSection.mockResolvedValue('/tramites')
+
+    expect(await listRecordMessagesAction({ kind: 'task', recordId: 7 })).toMatchObject({
+      ok: false,
+      error: 'not_found',
+    })
+    expect(await listRecordMessagesAction({ kind: 'ticket', recordId: 8 })).toMatchObject({
+      ok: false,
+      error: 'not_found',
+    })
+  })
+
+  it('un registro que no está en ninguna lista del cliente no se lee con una sola sección', async () => {
+    worker(['/tramites'])
+    resolveTaskWorkerSection.mockResolvedValue(null)
+
+    const result = await listRecordMessagesAction({ kind: 'task', recordId: 7 })
+
+    expect(result).toMatchObject({ ok: false, error: 'not_found' })
+  })
+
+  it('con las dos secciones no hace falta mirar a cuál pertenece', async () => {
+    worker(['/tramites', '/obligaciones'])
+
+    const result = await listRecordMessagesAction({ kind: 'task', recordId: 7 })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(resolveTaskWorkerSection).not.toHaveBeenCalled()
+  })
+
+  it('el titular nunca consulta la sección', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    listPortalMessagesPage.mockResolvedValue({ messages: [], hasMore: false })
+
+    await listRecordMessagesAction({ kind: 'task', recordId: 7 })
+
+    expect(resolveTaskWorkerSection).not.toHaveBeenCalled()
   })
 })

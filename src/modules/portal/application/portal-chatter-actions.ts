@@ -22,7 +22,7 @@ import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
-import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
+import type { WorkerAccessLevel, WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import { restrictNotifyPartnerIds } from '@/src/modules/portal/domain/notify-partner-ids'
@@ -35,6 +35,7 @@ import {
 import {
   canClientReplyOnRecord,
   getOdooModelForRecordKind,
+  resolveTaskWorkerSection,
   verifyClientRecordAccess,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { createAttachmentsForRecord } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
@@ -53,6 +54,7 @@ import {
   fetchChatterReplyLinks,
   recordChatterReplyLink,
 } from '@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase'
+import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
@@ -61,7 +63,13 @@ import { fetchTramiteDescription } from '@/src/modules/tramites/infrastructure/o
 async function resolveClientPartnerId(
   requiredLevel: WorkerAccessLevel = 'read'
 ): Promise<
-  | { ok: true; partnerId: number; actorId: string }
+  | {
+      ok: true
+      partnerId: number
+      actorId: string
+      /** Secciones del colaborador para este nivel; `null` si es el titular. */
+      workerSections: Set<WorkerSectionHref> | null
+    }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession({ allowViewAsRead: requiredLevel === 'read' })
@@ -70,17 +78,17 @@ async function resolveClientPartnerId(
   }
 
   /**
-   * Toda esta acción es chatter de trámites/tickets — ambos viven bajo
-   * `/tramites` (ver `recordScopeFromKind`). Un colaborador sin ese nivel
-   * concedido no debe poder leer (o, si `requiredLevel` es 'write',
-   * escribir) mensajes aquí, aunque conozca el `recordId`.
+   * Chatter de trámites, consultas (`/tramites`) y obligaciones (`/obligaciones`, también un
+   * `project.task`). Un colaborador necesita al menos una de las dos secciones; cuál vale para
+   * cada registro se comprueba después (`verifyRecordAccess`), porque Odoo no distingue por modelo.
    */
+  let workerSections: Set<WorkerSectionHref> | null = null
   if (session.user.role === 'worker') {
-    const sections =
+    workerSections =
       requiredLevel === 'write'
         ? await getWorkerWriteSections(session.user)
         : await getAllowedSectionsForWorker(session.user)
-    if (!sections.has('/tramites')) {
+    if (!workerSections.has('/tramites') && !workerSections.has('/obligaciones')) {
       return { ok: false, error: 'forbidden' }
     }
   }
@@ -95,7 +103,28 @@ async function resolveClientPartnerId(
   }
 
   const actorId = await resolveDirectoryActorId(session.user)
-  return { ok: true, partnerId, actorId }
+  return { ok: true, partnerId, actorId, workerSections }
+}
+
+/**
+ * El registro es del cliente Y, si quien pregunta es un colaborador, de una sección que tiene
+ * concedida: una consulta (ticket) es de `/tramites`; una tarea, de `/tramites` o `/obligaciones`
+ * según en qué lista del cliente aparezca. Con las dos secciones no hace falta mirar cuál.
+ */
+async function verifyRecordAccess(
+  access: { partnerId: number; workerSections: Set<WorkerSectionHref> | null },
+  kind: PortalRecordKind,
+  recordId: number
+): Promise<boolean> {
+  if (!(await verifyClientRecordAccess(kind, recordId, access.partnerId))) return false
+
+  const sections = access.workerSections
+  if (!sections) return true
+  if (kind === 'ticket') return sections.has('/tramites')
+  if (sections.has('/tramites') && sections.has('/obligaciones')) return true
+
+  const section = await resolveTaskWorkerSection(recordId, access.partnerId)
+  return section !== null && sections.has(section)
 }
 
 function parseRecordId(recordId: number): number | null {
@@ -223,7 +252,7 @@ async function listRecordMessagesActionImpl(
     const beforeId = parseBeforeId(input.beforeId)
 
     const [allowed, page] = await Promise.all([
-      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      verifyRecordAccess(access, input.kind, recordId),
       listPortalMessagesPage({
         resModel,
         recordId,
@@ -277,7 +306,7 @@ async function getRecordDrawerBundleActionImpl(input: {
     const resModel = getOdooModelForRecordKind(input.kind)
 
     const [allowed, page, description] = await Promise.all([
-      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      verifyRecordAccess(access, input.kind, recordId),
       listPortalMessagesPage({
         resModel,
         recordId,
@@ -324,7 +353,7 @@ async function getTramiteDescriptionActionImpl(taskId: number): Promise<TramiteD
   }
 
   try {
-    const allowed = await verifyClientRecordAccess('task', recordId, access.partnerId)
+    const allowed = await verifyRecordAccess(access, 'task', recordId)
     if (!allowed) {
       return { ok: false, error: 'not_found' }
     }
@@ -363,7 +392,7 @@ async function listNewerRecordMessagesActionImpl(
     const resModel = getOdooModelForRecordKind(input.kind)
 
     const [allowed, messages] = await Promise.all([
-      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      verifyRecordAccess(access, input.kind, recordId),
       listNewerPortalMessages({
         resModel,
         recordId,
@@ -442,7 +471,7 @@ export async function postRecordMessageAction(
 
     const [canReply, allowed, attachmentIds, parentValid] = await Promise.all([
       canClientReplyOnRecord(input.kind, recordId),
-      verifyClientRecordAccess(input.kind, recordId, access.partnerId),
+      verifyRecordAccess(access, input.kind, recordId),
       files.length
         ? createAttachmentsForRecord({
             resModel,
