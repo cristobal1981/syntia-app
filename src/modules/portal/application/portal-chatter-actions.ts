@@ -25,9 +25,11 @@ import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/
 import type { WorkerAccessLevel } from '@/src/modules/colaboradores/domain/types'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
+import { restrictNotifyPartnerIds } from '@/src/modules/portal/domain/notify-partner-ids'
 import {
   chatterUnreadBatchCacheTag,
   forgetRecentTramitesLoad,
+  getCachedTramitesSnapshot,
   tramitesSnapshotCacheTag,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
@@ -130,6 +132,40 @@ function sanitizeNotifyPartnerIds(partnerIds: number[] | undefined): number[] {
       partnerIds.filter((partnerId) => Number.isInteger(partnerId) && partnerId > 0)
     ),
   ]
+}
+
+/** Cuánto se espera al snapshot de trámites para conocer a los responsables antes de publicar. */
+const ASSIGNEES_LOOKUP_GRACE_MS = 1500
+
+/**
+ * Responsables reales del registro (los que reciben el aviso por correo de lo que escribe el
+ * cliente), sacados del snapshot del servidor y nunca del navegador. Sin snapshot a tiempo, nadie:
+ * es preferible no avisar por correo a avisar a quien no toca.
+ */
+async function loadAssigneePartnerIds(
+  kind: ListRecordMessagesInput['kind'],
+  recordId: number,
+  clientPartnerId: number
+): Promise<number[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const snapshot = await Promise.race([
+      getCachedTramitesSnapshot(clientPartnerId),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ASSIGNEES_LOOKUP_GRACE_MS)
+      }),
+    ])
+    if (!snapshot) return []
+    const record =
+      kind === 'task'
+        ? snapshot.tasks.find((task) => task.id === recordId)
+        : snapshot.tickets.find((ticket) => ticket.id === recordId)
+    return record?.assignedNotifyPartnerIds ?? []
+  } catch {
+    return []
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function stripUntrustedParentId(message: PortalChatterMessage): PortalChatterMessage {
@@ -391,7 +427,7 @@ export async function postRecordMessageAction(
   }
 
   const parentId = parseParentId(input.parentId)
-  const notifyPartnerIds = sanitizeNotifyPartnerIds(input.notifyPartnerIds)
+  const requestedNotifyPartnerIds = sanitizeNotifyPartnerIds(input.notifyPartnerIds)
 
   try {
     const resModel = getOdooModelForRecordKind(input.kind)
@@ -428,6 +464,14 @@ export async function postRecordMessageAction(
     if (!parentValid) {
       return { ok: false, error: 'invalid_parent' }
     }
+
+    // El navegador solo elige entre los responsables reales del registro (calculados aquí).
+    const notifyPartnerIds = requestedNotifyPartnerIds.length
+      ? restrictNotifyPartnerIds(
+          requestedNotifyPartnerIds,
+          await loadAssigneePartnerIds(input.kind, recordId, access.partnerId)
+        )
+      : []
 
     const attachmentRefs = attachmentIds.map((id, index) => ({
       id,

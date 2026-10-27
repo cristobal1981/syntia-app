@@ -19,7 +19,9 @@ const {
   postRecordComment,
   fetchChatterReplyLinks,
   checkRateLimit,
+  getCachedTramitesSnapshot,
 } = vi.hoisted(() => ({
+  getCachedTramitesSnapshot: vi.fn(),
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
   getWorkerWriteSections: vi.fn(),
@@ -70,6 +72,7 @@ vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => (
   tramitesSnapshotCacheTag: (partnerId: number) => `tramites-snapshot:${partnerId}`,
   chatterUnreadBatchCacheTag: (partnerId: number) => `chatter-unread-batch:${partnerId}`,
   forgetRecentTramitesLoad: () => undefined,
+  getCachedTramitesSnapshot,
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase', () => ({
   fetchChatterReplyLinks,
@@ -231,5 +234,111 @@ describe('postRecordMessageAction (rate limiting)', () => {
     expect(result).toEqual({ ok: false, error: 'rate_limited' })
     expect(verifyClientRecordAccess).not.toHaveBeenCalled()
     expect(postRecordComment).not.toHaveBeenCalled()
+  })
+})
+
+describe('postRecordMessageAction (a quién se avisa por correo)', () => {
+  const saved = {
+    id: 10,
+    bodyHtml: '<p>hola</p>',
+    date: '2026-08-31',
+    authorName: 'Client',
+    isFromClient: true,
+  }
+
+  function ready() {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    postRecordComment.mockResolvedValue(saved)
+  }
+
+  const post = (notifyPartnerIds: number[], kind: 'task' | 'ticket' = 'task') =>
+    postRecordMessageAction({ kind, recordId: 5, body: '<p>hola</p>', notifyPartnerIds })
+
+  it('solo avisa a los responsables reales del registro, aunque el navegador pida a otros contactos', async () => {
+    ready()
+    getCachedTramitesSnapshot.mockResolvedValue({
+      tasks: [{ id: 5, assignedNotifyPartnerIds: [701, 902] }],
+      tickets: [],
+    })
+
+    await post([701, 4242, 902])
+
+    expect(postRecordComment).toHaveBeenCalledWith(
+      expect.objectContaining({ notifyPartnerIds: [701, 902] })
+    )
+  })
+
+  it('un contacto ajeno (otro cliente) pedido desde el navegador no recibe nada', async () => {
+    ready()
+    getCachedTramitesSnapshot.mockResolvedValue({
+      tasks: [{ id: 5, assignedNotifyPartnerIds: [701] }],
+      tickets: [],
+    })
+
+    await post([555])
+
+    expect(postRecordComment).toHaveBeenCalledWith(expect.objectContaining({ notifyPartnerIds: [] }))
+  })
+
+  it('en una consulta usa los responsables del ticket, no los de una tarea con el mismo id', async () => {
+    ready()
+    getCachedTramitesSnapshot.mockResolvedValue({
+      tasks: [{ id: 5, assignedNotifyPartnerIds: [111] }],
+      tickets: [{ id: 5, assignedNotifyPartnerIds: [222] }],
+    })
+
+    await post([111, 222], 'ticket')
+
+    expect(postRecordComment).toHaveBeenCalledWith(
+      expect.objectContaining({ notifyPartnerIds: [222] })
+    )
+  })
+
+  it('si el registro no está en el snapshot, nadie', async () => {
+    ready()
+    getCachedTramitesSnapshot.mockResolvedValue({ tasks: [], tickets: [] })
+
+    await post([701])
+
+    expect(postRecordComment).toHaveBeenCalledWith(expect.objectContaining({ notifyPartnerIds: [] }))
+  })
+
+  it('si el snapshot falla, el mensaje se publica igualmente y sin avisos por correo', async () => {
+    ready()
+    getCachedTramitesSnapshot.mockRejectedValue(new Error('ODOO_REQUEST_FAILED'))
+
+    const result = await post([701])
+
+    expect(result).toMatchObject({ ok: true })
+    expect(postRecordComment).toHaveBeenCalledWith(expect.objectContaining({ notifyPartnerIds: [] }))
+  })
+
+  it('si el snapshot tarda demasiado, no retrasa el mensaje: se publica sin avisos por correo', async () => {
+    vi.useFakeTimers()
+    try {
+      ready()
+      getCachedTramitesSnapshot.mockReturnValue(new Promise(() => {}))
+
+      const pending = post([701])
+      await vi.advanceTimersByTimeAsync(1500)
+      const result = await pending
+
+      expect(result).toMatchObject({ ok: true })
+      expect(postRecordComment).toHaveBeenCalledWith(
+        expect.objectContaining({ notifyPartnerIds: [] })
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sin contactos pedidos no consulta el snapshot', async () => {
+    ready()
+
+    await post([])
+
+    expect(getCachedTramitesSnapshot).not.toHaveBeenCalled()
+    expect(postRecordComment).toHaveBeenCalledWith(expect.objectContaining({ notifyPartnerIds: [] }))
   })
 })
