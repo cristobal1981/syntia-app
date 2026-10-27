@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 
 import { portalChatter } from '@/content/portal-chatter'
 import { postRecordMessageAction } from '@/src/modules/portal/application/portal-chatter-actions'
+import { mergeChatterMessages } from '@/src/modules/portal/domain/merge-chatter-messages'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
 import { isChatterHtmlEmpty } from '@/src/modules/portal/domain/filter-portal-messages'
 import type {
@@ -152,6 +153,7 @@ export function RecordChatterPanel({
     firstUnreadIndex,
     setDividerDismissed,
     loadOlder,
+    syncAfterOwnMessage,
   } = useChatterMessages({
     kind,
     recordId,
@@ -327,11 +329,10 @@ export function RecordChatterPanel({
               return stripped
             })()
         setMessages((current) => {
-          if (current.some((message) => message.id === postedMessage.id)) {
-            return current
-          }
-          return enrichPortalChatterMessages([...current, postedMessage])
+          const merged = mergeChatterMessages(current, [postedMessage])
+          return merged === current ? current : enrichPortalChatterMessages(merged)
         })
+        void syncAfterOwnMessage().catch(() => {})
 
         notifications?.notifyRecordMutated(
           recordScopeFromKind(kind),

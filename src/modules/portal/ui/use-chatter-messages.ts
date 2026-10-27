@@ -14,6 +14,7 @@ import {
   writeDrawerMessages,
 } from '@/src/modules/portal/ui/record-drawer-bundle'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
+import { mergeChatterMessages } from '@/src/modules/portal/domain/merge-chatter-messages'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import type { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
@@ -81,6 +82,10 @@ export function useChatterMessages({
   const loadingOlderRef = useRef(false)
   const loadingNewerRef = useRef(false)
   const lastNotifiedMessageIdRef = useRef(0)
+  // Último id que ha devuelto el servidor. Un mensaje propio recién enviado puede tener un id mayor
+  // que uno anterior de otra persona que aún no se ha cargado: pedir «lo posterior» desde el propio
+  // dejaría ese hueco para siempre, así que lo nuevo se pide siempre desde el último id del servidor.
+  const lastServerIdRef = useRef(0)
   const onConversationViewedRef = useRef(onConversationViewed)
 
   useEffect(() => {
@@ -89,6 +94,7 @@ export function useChatterMessages({
 
   useEffect(() => {
     lastNotifiedMessageIdRef.current = 0
+    lastServerIdRef.current = 0
   }, [kind, recordId])
 
   const notifyConversationViewed = useCallback(
@@ -121,11 +127,13 @@ export function useChatterMessages({
           touchDrawerBundle(kind, recordId)
           return
         }
+        lastServerIdRef.current = Math.max(
+          lastServerIdRef.current,
+          ...result.messages.map((message) => message.id)
+        )
         setMessages((current) => {
-          const existingIds = new Set(current.map((message) => message.id))
-          const newer = result.messages.filter((message) => !existingIds.has(message.id))
-          if (!newer.length) return current
-          return enrichPortalChatterMessages([...current, ...newer])
+          const merged = mergeChatterMessages(current, result.messages)
+          return merged === current ? current : enrichPortalChatterMessages(merged)
         })
       } finally {
         loadingNewerRef.current = false
@@ -155,6 +163,7 @@ export function useChatterMessages({
       setLoadedKey(drawerBundleKey(kind, recordId))
       notifyConversationViewed(enriched)
       const lastId = enriched[enriched.length - 1]?.id
+      lastServerIdRef.current = lastId ?? 0
       if (!isDrawerBundleFresh(cached) && lastId) void loadNewer(lastId, { silent: true }).catch(() => {})
       return
     }
@@ -175,6 +184,7 @@ export function useChatterMessages({
       }
 
       const enriched = enrichPortalChatterMessages(result.messages)
+      lastServerIdRef.current = enriched[enriched.length - 1]?.id ?? 0
       setMessages(enriched)
       setHasMore(result.hasMore)
       setLoadedKey(drawerBundleKey(kind, recordId))
@@ -211,8 +221,7 @@ export function useChatterMessages({
     if (latestKnownMessageId <= maxLoadedId) return
 
     // Dispara el fetch de mensajes más recientes (polling) — no derivable.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadNewer(maxLoadedId).catch(() => {})
+    void loadNewer(lastServerIdRef.current || maxLoadedId).catch(() => {})
   }, [active, latestKnownMessageId, loadNewer, loadingInitial, messages, recordId])
 
   // Mensaje propio enviado desde OTRA pestaña del mismo usuario: ya llega
@@ -232,10 +241,8 @@ export function useChatterMessages({
     // externo real, no una simple derivación de render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages((current) => {
-      if (current.some((message) => message.id === broadcast.message.id)) {
-        return current
-      }
-      return enrichPortalChatterMessages([...current, broadcast.message])
+      const merged = mergeChatterMessages(current, [broadcast.message])
+      return merged === current ? current : enrichPortalChatterMessages(merged)
     })
   }, [kind, notifications?.lastRecordMessage, recordId])
 
@@ -259,6 +266,16 @@ export function useChatterMessages({
     // duplicado importa aquí (coste de Odoo).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, loadingInitial, markReadOnView, messages.length, notifyConversationViewed])
+
+  /**
+   * Tras enviar un mensaje propio: pide lo que otra persona haya escrito entre lo último cargado
+   * y el mensaje enviado (su id es mayor, pero el hueco quedaría sin cargar).
+   */
+  const syncAfterOwnMessage = useCallback(async () => {
+    const afterId = lastServerIdRef.current
+    if (!afterId) return
+    await loadNewer(afterId, { silent: true })
+  }, [loadNewer])
 
   const loadOlder = useCallback(async () => {
     if (recordId <= 0 || loadingOlderRef.current || !hasMore || !messages.length) {
@@ -321,5 +338,6 @@ export function useChatterMessages({
     dividerDismissed,
     setDividerDismissed,
     loadOlder,
+    syncAfterOwnMessage,
   }
 }
