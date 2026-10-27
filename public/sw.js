@@ -48,6 +48,28 @@ self.addEventListener('push', (event) => {
   event.waitUntil(showPush(payload))
 })
 
+/** Cuánto se espera a que la app abierta confirme que abre la ruta por dentro. */
+const OPEN_ACK_TIMEOUT_MS = 1000
+
+/**
+ * Con la app ya abierta, le manda la ruta para que navegue por dentro (sin recargar la página:
+ * se conservan las conversaciones y los avisos que ya tiene en memoria). Si no confirma a tiempo
+ * (pestaña vieja o en una pantalla sin el oyente), recarga con `navigate` como antes.
+ */
+async function openInExistingWindow(client, url) {
+  const channel = new MessageChannel()
+  const acknowledged = new Promise((resolve) => {
+    channel.port1.onmessage = () => resolve(true)
+  })
+  const timedOut = new Promise((resolve) => {
+    setTimeout(() => resolve(false), OPEN_ACK_TIMEOUT_MS)
+  })
+  client.postMessage({ type: 'syntia:open-url', url }, [channel.port2])
+
+  if (await Promise.race([acknowledged, timedOut])) return
+  if ('navigate' in client) await client.navigate(url)
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = safePath(event.notification.data && event.notification.data.url)
@@ -61,7 +83,7 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of windows) {
         if ('focus' in client) {
           await client.focus()
-          if ('navigate' in client) await client.navigate(url)
+          await openInExistingWindow(client, url)
           return
         }
       }
