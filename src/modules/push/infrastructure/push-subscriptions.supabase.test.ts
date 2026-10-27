@@ -311,21 +311,21 @@ describe('cerrojo del dispatcher', () => {
     expect(await acquirePushDispatchLock(90)).toBe(false)
   })
 
-  it('si el RPC falla se ejecuta sin cerrojo (fail-open) y se loguea', async () => {
+  it('si el RPC falla no se ejecuta (fail-closed) y se loguea', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     useRpc({ data: null, error: { message: 'no existe' } })
 
-    expect(await acquirePushDispatchLock(90)).toBe(true)
+    expect(await acquirePushDispatchLock(90)).toBe(false)
     expect(log).toHaveBeenCalled()
   })
 
-  it('si el cliente lanza se ejecuta sin cerrojo', async () => {
+  it('si el cliente lanza no se ejecuta', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     createSupabaseAdminClient.mockImplementation(() => {
       throw new Error('sin config')
     })
 
-    expect(await acquirePushDispatchLock(90)).toBe(true)
+    expect(await acquirePushDispatchLock(90)).toBe(false)
   })
 
   it('soltar el cerrojo llama al RPC y nunca lanza', async () => {

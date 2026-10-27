@@ -11,6 +11,9 @@ export type PushSendResult = 'ok' | 'gone' | 'rejected' | 'error'
 
 const REJECTED_STATUSES = new Set([400, 401, 403, 413])
 
+/** Sin esto `web-push` espera indefinidamente y un envío colgado bloquea un worker y el cerrojo. */
+const SEND_TIMEOUT_MS = 8000
+
 function hostOf(endpoint: string): string {
   try {
     return new URL(endpoint).host
@@ -53,7 +56,7 @@ export async function sendWebPush(
       },
       JSON.stringify(payload),
       // Un aviso que no se entrega en una hora deja de interesar.
-      { TTL: 3600 }
+      { TTL: 3600, timeout: SEND_TIMEOUT_MS }
     )
     return 'ok'
   } catch (error) {

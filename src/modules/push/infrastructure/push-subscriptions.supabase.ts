@@ -251,8 +251,8 @@ export async function savePushFailureCount(
 
 /**
  * Cerrojo de ejecución del dispatcher. Si no se puede ni comprobar (RPC sin
- * desplegar, Supabase caído) se deja pasar y se loguea: un cerrojo roto no debe
- * dejar sin avisos a nadie, igual que el limitador de `checkRateLimit`.
+ * desplegar, Supabase caído) NO se ejecuta y se loguea: sin cerrojo dos ejecuciones
+ * solapadas envían lo mismo dos veces, y el cron reintenta al minuto siguiente.
  */
 export async function acquirePushDispatchLock(ttlSeconds: number): Promise<boolean> {
   try {
@@ -261,13 +261,13 @@ export async function acquirePushDispatchLock(ttlSeconds: number): Promise<boole
       p_ttl_seconds: ttlSeconds,
     })
     if (error) {
-      console.error('[push] cerrojo del dispatcher falló, se ejecuta sin él', error.message)
-      return true
+      console.error('[push] cerrojo del dispatcher falló, se omite esta ejecución', error.message)
+      return false
     }
     return data === true
   } catch (error) {
-    console.error('[push] cerrojo del dispatcher falló, se ejecuta sin él', error)
-    return true
+    console.error('[push] cerrojo del dispatcher falló, se omite esta ejecución', error)
+    return false
   }
 }
 
