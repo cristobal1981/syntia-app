@@ -26,7 +26,10 @@ import {
   fetchChatterReadStateForUser,
   upsertChatterReadState,
 } from '@/src/modules/portal/infrastructure/chatter-read-state.supabase'
-import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import {
+  isOdooApiConfigured,
+  runWithOdooPriority,
+} from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
   getPortalNewsFullCheckMaxAgeMs,
   isPortalNewsSignalEnabled,
@@ -66,7 +69,13 @@ function readStateMapToObject(map: Map<string, number>): ChatterReadStateMap {
   return Object.fromEntries(map.entries())
 }
 
-export async function checkPortalNotificationsAction(): Promise<PortalNotificationsCheckResult> {
+/** Edad máxima de un snapshot para que el primer sondeo tras cargar la página lo reutilice. */
+const REUSE_RECENT_SNAPSHOT_MS = 20_000
+
+export async function checkPortalNotificationsAction(options?: {
+  /** Primer sondeo tras cargar la página: no repite lo que el render acaba de leer de Odoo. */
+  reuseRecentSnapshots?: boolean
+}): Promise<PortalNotificationsCheckResult> {
   const access = await resolveClientAccess()
   if (!access.ok) {
     return { ok: false, error: access.error }
@@ -77,6 +86,9 @@ export async function checkPortalNotificationsAction(): Promise<PortalNotificati
     actorId: access.actorId,
     cache: false,
     persist: true,
+    ...(options?.reuseRecentSnapshots === true
+      ? { reuseRecentSnapshotMs: REUSE_RECENT_SNAPSHOT_MS }
+      : {}),
   })
 
   if (access.user.role === 'worker' && result.ok) {
@@ -123,6 +135,16 @@ export async function checkChatterNotificationsAction(): Promise<PortalNotificat
 }
 
 export async function markChatterConversationSeenAction(input: {
+  kind: PortalRecordKind
+  recordId: number
+  lastSeenMessageId: number
+}): Promise<PortalMarkSeenResult> {
+  // Con prioridad: la comprobación de acceso lee de Odoo y, detrás de las peticiones de fondo,
+  // el «visto» tardaba segundos en quitar el aviso de la campana.
+  return runWithOdooPriority(() => markChatterConversationSeenActionImpl(input))
+}
+
+async function markChatterConversationSeenActionImpl(input: {
   kind: PortalRecordKind
   recordId: number
   lastSeenMessageId: number

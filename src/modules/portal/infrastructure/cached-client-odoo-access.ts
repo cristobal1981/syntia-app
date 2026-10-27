@@ -39,6 +39,86 @@ const SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS = 90
 const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
 const OBLIGACION_TREE_REVALIDATE_SECONDS = 90
 
+/**
+ * Una sola carga a la vez por clave: si ya hay una en marcha, quien llega después espera a esa y
+ * recibe su resultado en vez de repetir las mismas lecturas a Odoo. `unstable_cache` no junta las
+ * cargas simultáneas de una entrada expirada, y el sondeo la expira justo cuando varios renders de
+ * la página la vuelven a pedir: el mismo snapshot se leía 3 o 4 veces a la vez. Solo en este
+ * proceso; la carga en marcha se olvida al terminar (también si falla, para que se pueda reintentar).
+ * Quien se une a una carga ya empezada recibe datos de cuando empezó, como mucho unos segundos viejos.
+ */
+const loadsInFlight = new Map<string, Promise<unknown>>()
+const recentLoads = new Map<string, { at: number; value: unknown }>()
+const RECENT_LOADS_MAX = 200
+
+function singleFlight<T>(
+  key: string,
+  load: () => Promise<T>,
+  options: { reuseForMs?: number } = {}
+): Promise<T> {
+  const recent = recentLoads.get(key)
+  if (recent && options.reuseForMs && Date.now() - recent.at < options.reuseForMs) {
+    return Promise.resolve(recent.value as T)
+  }
+
+  const running = loadsInFlight.get(key) as Promise<T> | undefined
+  if (running) return running
+
+  const promise: Promise<T> = load()
+    .then((value) => {
+      if (options.reuseForMs) {
+        if (recentLoads.size >= RECENT_LOADS_MAX) recentLoads.clear()
+        recentLoads.set(key, { at: Date.now(), value })
+      }
+      return value
+    })
+    .finally(() => {
+      if (loadsInFlight.get(key) === promise) loadsInFlight.delete(key)
+    })
+  loadsInFlight.set(key, promise)
+  return promise
+}
+
+/**
+ * Cuánto se reutiliza, tras terminar, la última carga del snapshot de trámites. El sondeo lo expira
+ * con `updateTag` dentro de una Server Action y Next repinta la página en esa misma respuesta
+ * tratándolo como expirado: la segunda tanda repetía ~9 lecturas 1,5 s después de la primera.
+ */
+const TRAMITES_RECENT_LOAD_REUSE_MS = 5_000
+
+/**
+ * Olvida la última carga del snapshot de trámites de ese cliente. Hay que llamarla donde se
+ * invalide esa caché por un cambio real (crear una consulta, un adjunto, un evento de Odoo): si no,
+ * lo recién creado no aparecería hasta pasados los 5 s de reutilización.
+ */
+export function forgetRecentTramitesLoad(partnerId: number): void {
+  recentLoads.delete(`tramites-snapshot:${partnerId}`)
+}
+
+/**
+ * Cuándo se ejecutó por última vez, en este proceso, una carga REAL contra Odoo de cada snapshot
+ * (`unstable_cache` no dice la edad de lo que devuelve). Sirve para que el primer sondeo tras
+ * cargar una página reutilice lo que el render acaba de leer en vez de repetirlo. Si no consta
+ * (otra instancia, arranque en frío) se considera que no hay nada reciente y se lee en fresco.
+ */
+type RecentSnapshotName = 'tramites' | 'obligaciones' | 'firmas'
+
+const snapshotLoadedAt = new Map<string, number>()
+
+function markSnapshotLoaded(name: RecentSnapshotName, partnerId: number, now = Date.now()) {
+  snapshotLoadedAt.set(`${name}:${partnerId}`, now)
+}
+
+export function isSnapshotLoadedWithin(
+  name: RecentSnapshotName,
+  partnerId: number,
+  maxAgeMs: number,
+  now = Date.now()
+): boolean {
+  const loadedAt = snapshotLoadedAt.get(`${name}:${partnerId}`)
+  return loadedAt !== undefined && now - loadedAt <= maxAgeMs
+}
+
 const EMPTY_TRAMITES_SNAPSHOT: TramitesSnapshot = {
   tasks: [],
   tickets: [],
@@ -157,8 +237,12 @@ export async function getCachedClientProjectIds(
 }
 
 async function loadObligacionTaskIndex(partnerId: number): Promise<ObligacionTaskIndex> {
-  const projectIds = await getCachedClientProjectIds(partnerId)
-  return buildObligacionTaskIndex(projectIds)
+  return singleFlight(`obligacion-task-index:${partnerId}`, async () => {
+    const projectIds = await getCachedClientProjectIds(partnerId)
+    const index = await buildObligacionTaskIndex(projectIds)
+    markSnapshotLoaded('obligaciones', partnerId)
+    return index
+  })
 }
 
 export async function getCachedObligacionTaskIndex(
@@ -177,7 +261,15 @@ export async function getCachedObligacionTaskIndex(
 }
 
 async function loadTramitesSnapshot(partnerId: number): Promise<TramitesSnapshot> {
-  return fetchTramitesFromOdoo(partnerId)
+  return singleFlight(
+    `tramites-snapshot:${partnerId}`,
+    async () => {
+      const snapshot = await fetchTramitesFromOdoo(partnerId)
+      markSnapshotLoaded('tramites', partnerId)
+      return snapshot
+    },
+    { reuseForMs: TRAMITES_RECENT_LOAD_REUSE_MS }
+  )
 }
 
 export async function getCachedTramitesSnapshot(
@@ -249,8 +341,11 @@ export async function getCachedObligacionTree(partnerId: number): Promise<Obliga
 async function loadPendingSignaturesSnapshot(
   partnerId: number
 ): Promise<PendingSignaturesSnapshot> {
-  const requests = await fetchPendingSignaturesFromOdoo(partnerId)
-  return { requests }
+  return singleFlight(`pending-signatures:${partnerId}`, async () => {
+    const requests = await fetchPendingSignaturesFromOdoo(partnerId)
+    markSnapshotLoaded('firmas', partnerId)
+    return { requests }
+  })
 }
 
 export async function getCachedPendingSignaturesSnapshot(
@@ -385,9 +480,12 @@ export async function getFreshTramitesSnapshotSafe(
 async function loadFreshObligacionNotificationSnapshot(
   partnerId: number
 ): Promise<ObligacionNotificationSnapshot> {
-  const projectIds = await fetchClientProjectIds(partnerId)
-  const index = await buildObligacionTaskIndex(projectIds)
-  return { leaves: withoutAttachmentCount(index.leaves) }
+  return singleFlight(`obligacion-notification-fresh:${partnerId}`, async () => {
+    const projectIds = await fetchClientProjectIds(partnerId)
+    const index = await buildObligacionTaskIndex(projectIds)
+    markSnapshotLoaded('obligaciones', partnerId)
+    return { leaves: withoutAttachmentCount(index.leaves) }
+  })
 }
 
 export async function getFreshObligacionNotificationSnapshotSafe(

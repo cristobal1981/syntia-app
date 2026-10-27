@@ -9,7 +9,10 @@ import { isOdooApiConfigured } from '@/src/modules/portal/infrastructure/odoo-js
 import { postRecordComment } from '@/src/modules/portal/infrastructure/odoo-messages-repository'
 import { CHATTER_MESSAGE_MAX_LENGTH } from '@/src/modules/portal/infrastructure/portal-chatter-env'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
-import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
+import {
+  forgetRecentTramitesLoad,
+  tramitesSnapshotCacheTag,
+} from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
@@ -118,6 +121,7 @@ export async function createTicketAction(input: {
       htmlBody,
     })
 
+    forgetRecentTramitesLoad(partnerId)
     updateTag(tramitesSnapshotCacheTag(partnerId))
 
     return {

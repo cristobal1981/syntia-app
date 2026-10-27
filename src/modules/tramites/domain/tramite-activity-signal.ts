@@ -94,10 +94,11 @@ export function getTramiteActivitySignal(
 
 /**
  * Orden de la lista: primero los trámites en «Requiere tu atención» (los que el
- * cliente tiene que atender, más recientes primero), luego los que tienen
- * alguna señal activa (más reciente primero) y al final el resto en su orden
- * habitual (más modificado primero). Así lo que necesita atención se ve sin
- * tener que buscarlo en dos sitios.
+ * cliente tiene que atender), luego los que tienen alguna señal activa y al
+ * final el resto. Dentro de cada grupo van primero los de prioridad más alta y,
+ * a igual prioridad, los más recientes (el resto, en su orden habitual de más
+ * modificado primero). La prioridad no salta de grupo: una consulta urgente sin
+ * novedades no tapa lo que el cliente tiene que atender.
  */
 export function sortTramiteListByActivity(
   items: TramiteListItem[],
@@ -121,8 +122,16 @@ export function sortTramiteListByActivity(
     }
   }
 
-  changesRequested.sort((a, b) => compareTramiteModifiedAtDesc(a.modifiedAt, b.modifiedAt))
-  withSignal.sort((a, b) => compareTramiteModifiedAtDesc(a.timestamp, b.timestamp))
+  changesRequested.sort(
+    (a, b) =>
+      b.priority - a.priority || compareTramiteModifiedAtDesc(a.modifiedAt, b.modifiedAt)
+  )
+  withSignal.sort(
+    (a, b) =>
+      b.item.priority - a.item.priority || compareTramiteModifiedAtDesc(a.timestamp, b.timestamp)
+  )
+  // Orden estable: a igual prioridad se conserva el orden de llegada (más modificado primero).
+  withoutSignal.sort((a, b) => b.priority - a.priority)
 
   return [
     ...changesRequested,

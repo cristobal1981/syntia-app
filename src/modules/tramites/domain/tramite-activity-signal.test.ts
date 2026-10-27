@@ -61,4 +61,58 @@ describe('sortTramiteListByActivity', () => {
     const items = [item(1), item(2, { kind: 'consulta', state: '02_changes_requested' })]
     expect(ids(sortTramiteListByActivity(items, []))).toEqual([1, 2])
   })
+
+  describe('prioridad', () => {
+    it('sin novedades, las de prioridad más alta van primero y a igual prioridad se conserva el orden de llegada', () => {
+      const items = [
+        item(1, { priority: 0 }),
+        item(2, { priority: 3 }),
+        item(3, { priority: 1 }),
+        item(4, { priority: 3 }),
+      ]
+      expect(ids(sortTramiteListByActivity(items, []))).toEqual([2, 4, 3, 1])
+    })
+
+    it('entre los que tienen novedades, primero la prioridad y a igual prioridad la novedad más reciente', () => {
+      const items = [item(1, { priority: 0 }), item(2, { priority: 2 }), item(3, { priority: 2 })]
+      const news = [chatter(1), chatter(2), { ...chatter(3), latestDate: '2026-10-31 10:00:00' }]
+      expect(ids(sortTramiteListByActivity(items, news))).toEqual([3, 2, 1])
+    })
+
+    it('entre los que tienen novedades, una prioridad alta con novedad más vieja va antes que una baja con novedad más nueva', () => {
+      const items = [item(1, { priority: 0 }), item(2, { priority: 3 })]
+      const news = [
+        { ...chatter(1), latestDate: '2026-11-05 10:00:00' },
+        { ...chatter(2), latestDate: '2026-10-20 10:00:00' },
+      ]
+      expect(ids(sortTramiteListByActivity(items, news))).toEqual([2, 1])
+    })
+
+    it('entre los de «Requiere tu atención», primero la prioridad y luego el más reciente', () => {
+      const items = [
+        item(1, { state: '02_changes_requested', priority: 0 }),
+        item(5, { state: '02_changes_requested', priority: 0 }),
+        item(3, { state: '02_changes_requested', priority: 2 }),
+      ]
+      expect(ids(sortTramiteListByActivity(items, []))).toEqual([3, 5, 1])
+    })
+
+    it('la prioridad no salta de grupo: una urgente sin novedades va detrás de lo que requiere atención y de lo que tiene novedades', () => {
+      const items = [
+        item(1, { priority: 3 }),
+        item(2, { priority: 0 }),
+        item(3, { state: '02_changes_requested', priority: 0 }),
+      ]
+      expect(ids(sortTramiteListByActivity(items, [chatter(2)]))).toEqual([3, 2, 1])
+    })
+
+    it('las consultas se ordenan por prioridad igual que los trámites', () => {
+      const items = [
+        item(1, { kind: 'consulta', priority: 0 }),
+        item(2, { kind: 'consulta', priority: 3 }),
+        item(3, { priority: 1 }),
+      ]
+      expect(ids(sortTramiteListByActivity(items, []))).toEqual([2, 3, 1])
+    })
+  })
 })

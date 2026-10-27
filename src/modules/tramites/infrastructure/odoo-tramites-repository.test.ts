@@ -166,9 +166,128 @@ describe('fetchTramitesFromOdoo: fecha de creación, prioridad y asignados', () 
     })
   })
 
-  it('pide los nombres de los usuarios en una sola consulta para tareas y tickets juntos', async () => {
+})
+
+describe('fetchTramitesFromOdoo: lecturas a Odoo en paralelo y sin repetir', () => {
+  // Los usuarios ya conocidos se guardan en memoria y no se vuelven a pedir: cada test usa ids propios.
+  let nextUserBase = 7100
+  let userIds: number[] = []
+  let taskRow: Record<string, unknown> = {}
+  let ticketRow: Record<string, unknown> = {}
+
+  beforeEach(() => {
+    const base = (nextUserBase += 10)
+    userIds = [base + 1, base + 2, base + 3]
+    taskRow = { id: 10, name: 'T', state: '01_in_progress', write_date: '2026-10-22 12:00:00', create_date: '2026-10-01 08:30:00', priority: '0', user_ids: [userIds[0], userIds[1]], parent_id: false }
+    ticketRow = { id: 20, name: 'K', close_date: false, write_date: '2026-10-23 09:00:00', create_date: '2026-10-20 10:00:00', priority: '0', user_id: [userIds[2], 'Luis'] }
+  })
+
+  function stubOdoo(overrides: Record<string, () => Promise<unknown[]>> = {}) {
+    odooSearchRead.mockImplementation(async (model: string, options: { fields?: string[] }) => {
+      if (model === 'project.task') {
+        return options.fields?.length === 1 ? [{ id: 10 }] : (overrides.tasks?.() ?? [taskRow])
+      }
+      if (model === 'helpdesk.ticket') return overrides.tickets?.() ?? [ticketRow]
+      if (model === 'res.users') {
+        return overrides.users?.() ?? userIds.map((id) => ({ id, name: `U${id}`, partner_id: false }))
+      }
+      return []
+    })
+  }
+
+  it('pide los nombres de los usuarios en UNA sola consulta para tareas y tickets juntos', async () => {
+    stubOdoo()
+
     await fetchTramitesFromOdoo(1233)
-    // Tareas y tickets resuelven por separado, cada uno con una consulta (los ya conocidos no se repiten).
-    expect(callsTo('res.users').length).toBeLessThanOrEqual(2)
+
+    const userCalls = callsTo('res.users')
+    expect(userCalls).toHaveLength(1)
+    const requested = (userCalls[0]![1].domain as [string, string, number[]][])[0]![2]
+    expect([...requested].sort()).toEqual([...userIds].sort())
+  })
+
+  it('las tareas y los tickets se piden a la vez, sin esperar unos a otros', async () => {
+    let releaseTasks: () => void = () => {}
+    const tasksGate = new Promise<void>((resolve) => {
+      releaseTasks = resolve
+    })
+    stubOdoo({
+      tasks: async () => {
+        await tasksGate
+        return [taskRow]
+      },
+    })
+
+    const pending = fetchTramitesFromOdoo(1233)
+    await vi.waitFor(() => expect(callsTo('helpdesk.ticket')).toHaveLength(1))
+    // Los tickets ya se han pedido aunque las tareas siguen sin responder.
+    expect(callsTo('res.users')).toHaveLength(0)
+    releaseTasks()
+
+    const snapshot = await pending
+    expect(snapshot.tasks).toHaveLength(1)
+    expect(snapshot.tickets).toHaveLength(1)
+  })
+
+  it('los usuarios y los recuentos de adjuntos se piden a la vez', async () => {
+    let releaseCounts: () => void = () => {}
+    const countsGate = new Promise<void>((resolve) => {
+      releaseCounts = resolve
+    })
+    stubOdoo()
+    countAttachmentsByRecordIds.mockImplementation(async () => {
+      await countsGate
+      return new Map()
+    })
+
+    const pending = fetchTramitesFromOdoo(1233)
+    // Los recuentos están bloqueados y aun así se consultan los usuarios.
+    await vi.waitFor(() => expect(callsTo('res.users')).toHaveLength(1))
+    expect(countAttachmentsByRecordIds).toHaveBeenCalledTimes(2)
+    releaseCounts()
+
+    await pending
+  })
+
+  it('los recuentos de adjuntos no esperan a la respuesta de los usuarios', async () => {
+    let releaseUsers: () => void = () => {}
+    const usersGate = new Promise<void>((resolve) => {
+      releaseUsers = resolve
+    })
+    stubOdoo({
+      users: async () => {
+        await usersGate
+        return userIds.map((id) => ({ id, name: `U${id}`, partner_id: false }))
+      },
+    })
+    countAttachmentsByRecordIds.mockResolvedValue(new Map())
+
+    const pending = fetchTramitesFromOdoo(1233)
+    await vi.waitFor(() => expect(countAttachmentsByRecordIds).toHaveBeenCalledTimes(2))
+    // Los usuarios siguen sin responder y los recuentos ya se han pedido.
+    expect(callsTo('res.users')).toHaveLength(1)
+    releaseUsers()
+
+    await pending
+  })
+
+  it('cuenta los adjuntos de tareas y de tickets cada uno en su modelo, con sus ids', async () => {
+    stubOdoo()
+
+    await fetchTramitesFromOdoo(1233)
+
+    expect(countAttachmentsByRecordIds).toHaveBeenCalledWith('project.task', [10])
+    expect(countAttachmentsByRecordIds).toHaveBeenCalledWith('helpdesk.ticket', [20])
+  })
+
+  it('sin proyectos del cliente no se leen tareas y los tickets se devuelven igualmente', async () => {
+    getCachedClientProjectIds.mockResolvedValue([])
+    stubOdoo()
+
+    const snapshot = await fetchTramitesFromOdoo(1233)
+
+    expect(callsTo('project.task')).toHaveLength(0)
+    expect(snapshot.tasks).toEqual([])
+    expect(snapshot.tickets).toHaveLength(1)
   })
 })

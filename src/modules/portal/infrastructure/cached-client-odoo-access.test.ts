@@ -45,6 +45,10 @@ import {
   getFreshObligacionNotificationSnapshotSafe,
   getFreshPendingSignaturesSnapshotSafe,
   getFreshTramitesSnapshotSafe,
+  getCachedTramitesSnapshot,
+  getCachedPendingSignaturesSnapshot,
+  isSnapshotLoadedWithin,
+  forgetRecentTramitesLoad,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 
 const leaf = { id: 11, name: 'Modelo 420', modifiedAt: '2026-10-22', state: '01_in_progress' }
@@ -95,6 +99,11 @@ describe('árbol de obligaciones de la pantalla', () => {
 
 describe('lectura fresca del sondeo: renueva la caché en vez de saltarla', () => {
   const snapshot = { tasks: [], tickets: [{ id: 1 }], tagFilterActive: true }
+
+  beforeEach(() => {
+    // Cada test lee como si no hubiera una carga reciente de este cliente.
+    forgetRecentTramitesLoad(7)
+  })
 
   it('trámites: expira la etiqueta del cliente, relee por la caché y lo avisa', async () => {
     fetchTramitesFromOdoo.mockResolvedValue(snapshot)
@@ -177,5 +186,216 @@ describe('lectura fresca del sondeo: renueva la caché en vez de saltarla', () =
 
     expect(updateTag).toHaveBeenCalledWith('tramites-snapshot:8')
     expect(updateTag).not.toHaveBeenCalledWith('tramites-snapshot:7')
+  })
+})
+
+describe('edad de lo cargado contra Odoo (isSnapshotLoadedWithin)', () => {
+  it('sin ninguna carga registrada para ese cliente no hay nada reciente', () => {
+    expect(isSnapshotLoadedWithin('tramites', 9001, 20_000)).toBe(false)
+    expect(isSnapshotLoadedWithin('obligaciones', 9001, 20_000)).toBe(false)
+    expect(isSnapshotLoadedWithin('firmas', 9001, 20_000)).toBe(false)
+  })
+
+  it('tras cargar trámites es reciente dentro del margen y deja de serlo pasado el margen', async () => {
+    fetchTramitesFromOdoo.mockResolvedValue({ tasks: [], tickets: [], tagFilterActive: false })
+    const before = Date.now()
+
+    await getCachedTramitesSnapshot(9002)
+
+    expect(isSnapshotLoadedWithin('tramites', 9002, 20_000, before + 19_000)).toBe(true)
+    expect(isSnapshotLoadedWithin('tramites', 9002, 20_000, before + 25_000)).toBe(false)
+  })
+
+  it('es por cliente y por snapshot: cargar uno no marca a otro cliente ni a otro snapshot', async () => {
+    fetchTramitesFromOdoo.mockResolvedValue({ tasks: [], tickets: [], tagFilterActive: false })
+
+    await getCachedTramitesSnapshot(9003)
+
+    expect(isSnapshotLoadedWithin('tramites', 9003, 20_000)).toBe(true)
+    expect(isSnapshotLoadedWithin('tramites', 9004, 20_000)).toBe(false)
+    expect(isSnapshotLoadedWithin('firmas', 9003, 20_000)).toBe(false)
+  })
+
+  it('una carga que falla no cuenta como reciente', async () => {
+    fetchTramitesFromOdoo.mockRejectedValue(new Error('ODOO_REQUEST_FAILED'))
+
+    await expect(getCachedTramitesSnapshot(9005)).rejects.toThrow()
+
+    expect(isSnapshotLoadedWithin('tramites', 9005, 20_000)).toBe(false)
+  })
+
+  it('las firmas y las obligaciones también registran su carga', async () => {
+    fetchPendingSignaturesFromOdoo.mockResolvedValue([])
+    buildObligacionTaskIndex.mockResolvedValue({ leaves: [] })
+    fetchClientProjectIds.mockResolvedValue([])
+
+    await getCachedPendingSignaturesSnapshot(9006)
+    await getCachedObligacionNotificationSnapshot(9006)
+
+    expect(isSnapshotLoadedWithin('firmas', 9006, 20_000)).toBe(true)
+    expect(isSnapshotLoadedWithin('obligaciones', 9006, 20_000)).toBe(true)
+  })
+})
+
+describe('carga única: las cargas simultáneas del mismo snapshot comparten una sola lectura', () => {
+  const snapshot = { tasks: [], tickets: [], tagFilterActive: true }
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (error: Error) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
+  it('dos peticiones a la vez del mismo cliente leen de Odoo una sola vez y reciben lo mismo', async () => {
+    const gate = deferred<typeof snapshot>()
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockReturnValue(gate.promise)
+
+    const first = getCachedTramitesSnapshot(8101)
+    const second = getCachedTramitesSnapshot(8101)
+    const third = getFreshTramitesSnapshotSafe(8101)
+    gate.resolve(snapshot)
+
+    expect(await first).toBe(snapshot)
+    expect(await second).toBe(snapshot)
+    expect((await third).data).toBe(snapshot)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(1)
+  })
+
+  it('una petición posterior pasado el plazo de reutilización vuelve a leer (no se queda con lo viejo)', async () => {
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockResolvedValue(snapshot)
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+
+    await getCachedTramitesSnapshot(8102)
+    now.mockReturnValue(1_000_000 + 4_999)
+    await getCachedTramitesSnapshot(8102)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(1)
+
+    now.mockReturnValue(1_000_000 + 5_000)
+    await getCachedTramitesSnapshot(8102)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+    now.mockRestore()
+  })
+
+  it('una carga que acaba de terminar se reutiliza unos segundos (la 2ª tanda del repintado tras el sondeo)', async () => {
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockResolvedValue(snapshot)
+
+    const first = await getFreshTramitesSnapshotSafe(8108)
+    const rendered = await getCachedTramitesSnapshot(8108)
+
+    expect(rendered).toBe(first.data)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(1)
+  })
+
+  it('olvidar la última carga obliga a leer de nuevo (algo acaba de cambiar: crear una consulta)', async () => {
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockResolvedValue(snapshot)
+
+    await getCachedTramitesSnapshot(8109)
+    forgetRecentTramitesLoad(8109)
+    await getCachedTramitesSnapshot(8109)
+
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('olvidar la carga de un cliente no afecta a la de otro', async () => {
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockResolvedValue(snapshot)
+
+    await getCachedTramitesSnapshot(8110)
+    await getCachedTramitesSnapshot(8111)
+    forgetRecentTramitesLoad(8110)
+    await getCachedTramitesSnapshot(8111)
+
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('una carga fallida no se reutiliza', async () => {
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockRejectedValueOnce(new Error('ODOO_REQUEST_FAILED'))
+    fetchTramitesFromOdoo.mockResolvedValueOnce(snapshot)
+
+    await expect(getCachedTramitesSnapshot(8112)).rejects.toThrow()
+
+    expect(await getCachedTramitesSnapshot(8112)).toBe(snapshot)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('las firmas no se reutilizan una vez terminadas: solo se comparte la carga en marcha', async () => {
+    fetchPendingSignaturesFromOdoo.mockReset()
+    fetchPendingSignaturesFromOdoo.mockResolvedValue([])
+
+    await getCachedPendingSignaturesSnapshot(8113)
+    await getCachedPendingSignaturesSnapshot(8113)
+
+    expect(fetchPendingSignaturesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('clientes distintos no comparten la carga', async () => {
+    const gate = deferred<typeof snapshot>()
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockReturnValue(gate.promise)
+
+    const a = getCachedTramitesSnapshot(8103)
+    const b = getCachedTramitesSnapshot(8104)
+    gate.resolve(snapshot)
+    await Promise.all([a, b])
+
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledWith(8103)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledWith(8104)
+  })
+
+  it('si la carga falla, todos los que esperaban reciben el error y el siguiente intento lee de nuevo', async () => {
+    const gate = deferred<typeof snapshot>()
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockReturnValueOnce(gate.promise)
+
+    const first = getCachedTramitesSnapshot(8105)
+    const second = getCachedTramitesSnapshot(8105)
+    const settled = Promise.allSettled([first, second])
+    gate.reject(new Error('ODOO_REQUEST_FAILED'))
+    const results = await settled
+
+    expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected'])
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(1)
+
+    fetchTramitesFromOdoo.mockResolvedValueOnce(snapshot)
+    expect(await getCachedTramitesSnapshot(8105)).toBe(snapshot)
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('las firmas pendientes también comparten la lectura en marcha', async () => {
+    const gate = deferred<unknown[]>()
+    fetchPendingSignaturesFromOdoo.mockReset()
+    fetchPendingSignaturesFromOdoo.mockReturnValue(gate.promise)
+
+    const a = getCachedPendingSignaturesSnapshot(8106)
+    const b = getFreshPendingSignaturesSnapshotSafe(8106)
+    gate.resolve([])
+    await Promise.all([a, b])
+
+    expect(fetchPendingSignaturesFromOdoo).toHaveBeenCalledTimes(1)
+  })
+
+  it('el índice de obligaciones comparte la lectura entre el snapshot de avisos y el árbol de tareas', async () => {
+    const gate = deferred<{ excludedTaskIds: number[]; leaves: unknown[] }>()
+    buildObligacionTaskIndex.mockReset()
+    buildObligacionTaskIndex.mockReturnValue(gate.promise)
+    fetchClientProjectIds.mockResolvedValue([1])
+
+    const a = getCachedObligacionNotificationSnapshot(8107)
+    const b = getCachedObligacionNotificationSnapshot(8107)
+    gate.resolve({ excludedTaskIds: [], leaves: [] })
+    await Promise.all([a, b])
+
+    expect(buildObligacionTaskIndex).toHaveBeenCalledTimes(1)
   })
 })

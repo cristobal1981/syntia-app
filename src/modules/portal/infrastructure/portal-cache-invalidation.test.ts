@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { revalidateTag } = vi.hoisted(() => ({ revalidateTag: vi.fn() }))
+const { revalidateTag, forgetRecentTramitesLoad } = vi.hoisted(() => ({
+  revalidateTag: vi.fn(),
+  forgetRecentTramitesLoad: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidateTag, unstable_cache: (fn: () => unknown) => fn }))
+vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/src/modules/portal/infrastructure/cached-client-odoo-access')>()),
+  forgetRecentTramitesLoad,
+}))
 
 import {
   invalidatePortalCachesForEvent,
@@ -73,6 +80,17 @@ describe('invalidatePortalCachesForEvent', () => {
     invalidatePortalCachesForEvent({ kind: 'status', scope: 'obligacion', partnerId: P })
     expect(revalidateTag).toHaveBeenCalledTimes(3)
     expect(revalidateTag).toHaveBeenCalledWith(`obligacion-tree:${P}`, { expire: 0 })
+  })
+
+  it('olvida la última carga reutilizable de trámites del cliente del evento, antes de caducar las etiquetas', () => {
+    const order: string[] = []
+    forgetRecentTramitesLoad.mockImplementation(() => order.push('forget'))
+    revalidateTag.mockImplementation(() => order.push('expire'))
+
+    invalidatePortalCachesForEvent({ kind: 'status', scope: 'tramite', partnerId: P })
+
+    expect(forgetRecentTramitesLoad).toHaveBeenCalledWith(P)
+    expect(order).toEqual(['forget', 'expire'])
   })
 
   it('sin etiquetas no llama a nada', () => {

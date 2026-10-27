@@ -25,7 +25,10 @@ import {
   type ProcedureFieldErrorKey,
 } from '@/src/modules/tramites/domain/validate-procedure-ticket'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
-import { tramitesSnapshotCacheTag } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
+import {
+  forgetRecentTramitesLoad,
+  tramitesSnapshotCacheTag,
+} from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import { createPartnerTask } from '@/src/modules/tramites/infrastructure/odoo-create-task-repository'
 import { createPartnerTicket } from '@/src/modules/tramites/infrastructure/odoo-create-ticket-repository'
 
@@ -158,6 +161,7 @@ export async function createStructuredProcedureRecord<T extends ProcedureTicketP
       }
     }
 
+    forgetRecentTramitesLoad(partnerId)
     updateTag(tramitesSnapshotCacheTag(partnerId))
 
     return { ok: true, recordId, name: subject }

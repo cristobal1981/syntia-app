@@ -8,7 +8,7 @@ Antes de cada commit, comprueba que `build`, `lint`, `tsc` y los tests pasan. Si
 
 ## Errores conocidos
 
-Al empezar una tarea nueva, lee antes la página de Notion `Syntia — Histórico de Errores` (https://app.notion.com/p/3dc96234e54981f995b9f0823e66ce24), sobre todo «Resumen de errores conocidos a evitar». Si encadenas varias tareas seguidas en la misma sesión, no hace falta releerla en cada una. Cuando aparezca un error nuevo o uno que ya se haya visto y no esté anotado, añádelo ahí con su causa, su solución y si está confirmada.
+Al empezar una tarea nueva, lee antes la página de Notion `Syntia — Histórico de Errores` (https://app.notion.com/p/b86d2def504c83d3b4ec012f0c737945), sobre todo «Resumen de errores conocidos a evitar». Si encadenas varias tareas seguidas en la misma sesión, no hace falta releerla en cada una. Cuando aparezca un error nuevo o uno que ya se haya visto y no esté anotado, añádelo ahí con su causa, su solución y si está confirmada.
 
 ## Migraciones de Supabase
 
@@ -26,7 +26,7 @@ Lo que sigue está apagado por decisión de producto y se conserva entero (rutas
 Nunca hagas `git push` por tu cuenta. Al terminar una tarea:
 
 1. Pregunta al usuario si da el OK para pushear. Sin un OK explícito a esa pregunta, no se pushea; un OK anterior para otra tarea no vale.
-2. Con el OK, pushea y, en el mismo paso, actualiza el backlog de Notion (`Syntia — Backlog técnico`): marca como hechas (`- [x] ✅ RESUELTO (fecha)`, con el commit) las tareas que se han commiteado y se pushean.
+2. Con el OK, pushea y, en el mismo paso, actualiza el backlog de Notion (`Syntia — Backlog técnico`, https://app.notion.com/p/bcad2def504c821d9dd98182c6192192): marca como hechas (`- [x] ✅ RESUELTO (fecha)`, con el commit) las tareas que se han commiteado y se pushean.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

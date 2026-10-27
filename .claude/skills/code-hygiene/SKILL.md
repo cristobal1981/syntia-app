@@ -11,7 +11,7 @@ the git hash of every file at review time. A file is **pending** if it is not
 in the ledger or its content changed since (new development reopens it).
 The human-facing log lives in Notion:
 **«Syntia — Registro de limpieza de código»**
-(https://app.notion.com/p/3f996234e549815b81f3d23268f4e953), child of
+(https://app.notion.com/p/3cad2def504c82a6b56201c940fc19d2), child of
 «Syntia — Portal de Clientes».
 
 ## Session flow (lead agent)

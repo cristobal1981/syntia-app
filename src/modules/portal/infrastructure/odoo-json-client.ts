@@ -77,6 +77,25 @@ export function mapOdooMany2OneId(value: OdooMany2One): number | undefined {
  */
 let activeOdooRequests = 0
 const odooRequestQueue: Array<() => void> = []
+const odooPriorityQueue: Array<() => void> = []
+
+// Sin `import 'node:async_hooks'` estático: este fichero llega al bundle del navegador por los
+// mapeadores de dominio (`mapOdooMany2OneId`...) y Turbopack no admite ese módulo allí. En el
+// servidor se obtiene en ejecución; en el navegador no existe y la prioridad no hace nada.
+const odooPriorityContext = (() => {
+  if (typeof process === 'undefined' || typeof process.getBuiltinModule !== 'function') return undefined
+  return new (process.getBuiltinModule('node:async_hooks').AsyncLocalStorage)<true>()
+})()
+
+/**
+ * Marca como prioritarias las llamadas a Odoo que haga `task` (y todo lo que esta lance): se
+ * saltan la cola de las de fondo (sondeos, repintado de listas). Para lo que el usuario está
+ * esperando mirando la pantalla, como el chat que acaba de abrir: sin esto sus lecturas esperan
+ * detrás de decenas de peticiones de fondo y una carga de 1,5 s pasa de 10 s.
+ */
+export function runWithOdooPriority<T>(task: () => Promise<T>): Promise<T> {
+  return odooPriorityContext ? odooPriorityContext.run(true, task) : task()
+}
 
 function acquireOdooRequestSlot(): Promise<void> {
   if (activeOdooRequests < MAX_CONCURRENT_ODOO_REQUESTS) {
@@ -84,8 +103,9 @@ function acquireOdooRequestSlot(): Promise<void> {
     return Promise.resolve()
   }
 
+  const queue = odooPriorityContext?.getStore() ? odooPriorityQueue : odooRequestQueue
   return new Promise((resolve) => {
-    odooRequestQueue.push(() => {
+    queue.push(() => {
       activeOdooRequests += 1
       resolve()
     })
@@ -94,7 +114,7 @@ function acquireOdooRequestSlot(): Promise<void> {
 
 function releaseOdooRequestSlot() {
   activeOdooRequests = Math.max(0, activeOdooRequests - 1)
-  const next = odooRequestQueue.shift()
+  const next = odooPriorityQueue.shift() ?? odooRequestQueue.shift()
   next?.()
 }
 

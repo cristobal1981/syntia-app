@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ODOO_ERROR,
   odooCall,
+  runWithOdooPriority,
   odooSearchRead,
 } from '@/src/modules/portal/infrastructure/odoo-json-client'
 
@@ -110,5 +111,74 @@ describe('registro de peticiones (ODOO_REQUEST_LOG)', () => {
     await odooSearchRead('res.partner', {})
 
     expect(console.info).not.toHaveBeenCalled()
+  })
+})
+
+describe('cola de peticiones: prioridad', () => {
+  it('con todos los huecos ocupados, una llamada prioritaria pasa delante de las de fondo ya en espera', async () => {
+    const resolvers: Array<(response: Response) => void> = []
+    const started: string[] = []
+    fetchMock.mockImplementation((url: string) => {
+      started.push(url.split('/json/2/')[1]!)
+      return new Promise<Response>((resolve) => {
+        resolvers.push(resolve)
+      })
+    })
+
+    // Ocupan los 5 huecos.
+    const busy = Array.from({ length: 5 }, (_, i) => odooCall(`busy.${i}`, 'search_read', {}))
+    // Esperan en la cola normal, en este orden.
+    const backgroundA = odooCall('background.a', 'search_read', {})
+    const backgroundB = odooCall('background.b', 'search_read', {})
+    // Llega después, pero es prioritaria.
+    const urgent = runWithOdooPriority(() => odooCall('urgent.chat', 'search_read', {}))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(started).toHaveLength(5)
+
+    resolvers[0]!(ok([]))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(started[5]).toBe('urgent.chat/search_read')
+
+    resolvers[1]!(ok([]))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(started[6]).toBe('background.a/search_read')
+
+    for (const resolve of resolvers.slice(2)) resolve(ok([]))
+    await vi.advanceTimersByTimeAsync(0)
+    resolvers.slice(started.length - 1).forEach((resolve) => resolve(ok([])))
+    for (const resolve of resolvers) resolve(ok([]))
+    await Promise.all([...busy, backgroundA, backgroundB, urgent])
+    expect(started).toEqual([
+      ...Array.from({ length: 5 }, (_, i) => `busy.${i}/search_read`),
+      'urgent.chat/search_read',
+      'background.a/search_read',
+      'background.b/search_read',
+    ])
+  })
+
+  it('el contexto prioritario no se filtra a llamadas ajenas hechas fuera de él', async () => {
+    const resolvers: Array<(response: Response) => void> = []
+    const started: string[] = []
+    fetchMock.mockImplementation((url: string) => {
+      started.push(url.split('/json/2/')[1]!)
+      return new Promise<Response>((resolve) => {
+        resolvers.push(resolve)
+      })
+    })
+
+    const busy = Array.from({ length: 5 }, (_, i) => odooCall(`busy.${i}`, 'search_read', {}))
+    const first = runWithOdooPriority(() => Promise.resolve())
+    const background = odooCall('background.x', 'search_read', {})
+    const urgent = runWithOdooPriority(() => odooCall('urgent.y', 'search_read', {}))
+    await first
+    await vi.advanceTimersByTimeAsync(0)
+
+    resolvers[0]!(ok([]))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(started[5]).toBe('urgent.y/search_read')
+    for (const resolve of resolvers) resolve(ok([]))
+    await vi.advanceTimersByTimeAsync(0)
+    for (const resolve of resolvers) resolve(ok([]))
+    await Promise.all([...busy, background, urgent])
   })
 })

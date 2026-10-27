@@ -27,6 +27,7 @@ import { resolveDirectoryActorId } from '@/src/modules/directory/application/res
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import {
   chatterUnreadBatchCacheTag,
+  forgetRecentTramitesLoad,
   tramitesSnapshotCacheTag,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
@@ -35,7 +36,11 @@ import {
   verifyClientRecordAccess,
 } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { createAttachmentsForRecord } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
-import { isOdooApiConfigured, resolveOdooErrorCode } from '@/src/modules/portal/infrastructure/odoo-json-client'
+import {
+  isOdooApiConfigured,
+  resolveOdooErrorCode,
+  runWithOdooPriority,
+} from '@/src/modules/portal/infrastructure/odoo-json-client'
 import {
   listNewerPortalMessages,
   listPortalMessagesPage,
@@ -161,6 +166,12 @@ async function applyTrustedReplyLinks(
 export async function listRecordMessagesAction(
   input: ListRecordMessagesInput
 ): Promise<PortalChatterMessagesPageResult> {
+  return runWithOdooPriority(() => listRecordMessagesActionImpl(input))
+}
+
+async function listRecordMessagesActionImpl(
+  input: ListRecordMessagesInput
+): Promise<PortalChatterMessagesPageResult> {
   const access = await resolveClientPartnerId()
   if (!access.ok) {
     return { ok: false, error: access.error }
@@ -209,6 +220,13 @@ export async function getRecordDrawerBundleAction(input: {
   kind: ListRecordMessagesInput['kind']
   recordId: number
 }): Promise<RecordDrawerBundleResult> {
+  return runWithOdooPriority(() => getRecordDrawerBundleActionImpl(input))
+}
+
+async function getRecordDrawerBundleActionImpl(input: {
+  kind: ListRecordMessagesInput['kind']
+  recordId: number
+}): Promise<RecordDrawerBundleResult> {
   const access = await resolveClientPartnerId()
   if (!access.ok) {
     return { ok: false, error: access.error }
@@ -254,9 +272,11 @@ export type TramiteDescriptionResult =
   | { ok: false; error: 'forbidden' | 'not_linked' | 'not_found' | 'odoo_unavailable' | 'odoo_rate_limited' }
 
 /** Descripción (HTML ya saneado) de un trámite del cliente; `html: null` si no tiene. */
-export async function getTramiteDescriptionAction(
-  taskId: number
-): Promise<TramiteDescriptionResult> {
+export async function getTramiteDescriptionAction(taskId: number): Promise<TramiteDescriptionResult> {
+  return runWithOdooPriority(() => getTramiteDescriptionActionImpl(taskId))
+}
+
+async function getTramiteDescriptionActionImpl(taskId: number): Promise<TramiteDescriptionResult> {
   const access = await resolveClientPartnerId()
   if (!access.ok) {
     return { ok: false, error: access.error }
@@ -280,6 +300,12 @@ export async function getTramiteDescriptionAction(
 }
 
 export async function listNewerRecordMessagesAction(
+  input: ListNewerRecordMessagesInput
+): Promise<PortalChatterMessagesPageResult> {
+  return runWithOdooPriority(() => listNewerRecordMessagesActionImpl(input))
+}
+
+async function listNewerRecordMessagesActionImpl(
   input: ListNewerRecordMessagesInput
 ): Promise<PortalChatterMessagesPageResult> {
   const access = await resolveClientPartnerId()
@@ -441,6 +467,7 @@ export async function postRecordMessageAction(
       if (!hadAttachments) return
 
       // El contador de documentos de la lista sale de este snapshot.
+      forgetRecentTramitesLoad(access.partnerId)
       revalidateTag(tramitesSnapshotCacheTag(access.partnerId), 'max')
     })
 

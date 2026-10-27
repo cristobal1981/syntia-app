@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { portal } from '@/content/portal'
+import { runWhenIdle } from '@/lib/run-when-idle'
 import { cn } from '@/lib/utils'
 import {
   getInvoiceUploadAvailabilityAction,
@@ -109,17 +110,22 @@ export function PortalQuickInvoiceProvider({
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
-    void getInvoiceUploadAvailabilityAction()
-      .then((result) => {
-        if (cancelled) return
-        setAvailable(result.available)
-        setFolderName(result.folderName ?? null)
-      })
-      .catch(() => {
-        // Sin conexión o pestaña vieja: simplemente no hay botón.
-      })
+    // Va a Drive (~1 s) y las Server Actions van en cola: si se lanzara al montar, el chat que se
+    // abre desde un aviso esperaría detrás. El botón puede tardar un poco en salir.
+    const cancelIdle = runWhenIdle(() => {
+      void getInvoiceUploadAvailabilityAction()
+        .then((result) => {
+          if (cancelled) return
+          setAvailable(result.available)
+          setFolderName(result.folderName ?? null)
+        })
+        .catch(() => {
+          // Sin conexión o pestaña vieja: simplemente no hay botón.
+        })
+    })
     return () => {
       cancelled = true
+      cancelIdle()
     }
   }, [enabled])
 

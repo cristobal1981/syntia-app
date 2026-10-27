@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PortalSession } from '@/src/modules/auth/domain/types'
 import { getRecordDrawerBundleAction } from '@/src/modules/portal/application/portal-chatter-actions'
 
+const priorityRuns = vi.hoisted(() => ({ count: 0 }))
+
 const {
   getSession,
   getAllowedSectionsForWorker,
@@ -37,6 +39,10 @@ vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () 
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   isOdooApiConfigured,
   resolveOdooErrorCode: () => 'odoo_unavailable',
+  runWithOdooPriority: <T>(task: () => Promise<T>) => {
+    priorityRuns.count += 1
+    return task()
+  },
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
   verifyClientRecordAccess,
@@ -55,6 +61,7 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () =>
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: (partnerId: number) => `tramites-snapshot:${partnerId}`,
   chatterUnreadBatchCacheTag: (partnerId: number) => `chatter-unread-batch:${partnerId}`,
+  forgetRecentTramitesLoad: () => undefined,
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase', () => ({
   fetchChatterReplyLinks,
@@ -78,6 +85,7 @@ const message = { id: 7, bodyHtml: '<p>hola</p>', date: '2026-10-26T10:00:00Z', 
 
 beforeEach(() => {
   vi.resetAllMocks()
+  priorityRuns.count = 0
   getSession.mockResolvedValue(clientSession)
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
@@ -88,6 +96,12 @@ beforeEach(() => {
 })
 
 describe('getRecordDrawerBundleAction', () => {
+  it('lee de Odoo con prioridad: el chat que se abre no espera detrás de las peticiones de fondo', async () => {
+    await getRecordDrawerBundleAction({ kind: 'task', recordId: 5 })
+
+    expect(priorityRuns.count).toBe(1)
+  })
+
   it('devuelve mensajes y descripción de un trámite en una sola respuesta, con un solo permiso', async () => {
     const result = await getRecordDrawerBundleAction({ kind: 'task', recordId: 5 })
 

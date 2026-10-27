@@ -6,6 +6,8 @@ import {
   postRecordMessageAction,
 } from '@/src/modules/portal/application/portal-chatter-actions'
 
+const priorityRuns = vi.hoisted(() => ({ count: 0 }))
+
 const {
   getSession,
   getAllowedSectionsForWorker,
@@ -44,6 +46,10 @@ vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () 
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   isOdooApiConfigured,
   resolveOdooErrorCode: () => 'odoo_unavailable',
+  runWithOdooPriority: <T>(task: () => Promise<T>) => {
+    priorityRuns.count += 1
+    return task()
+  },
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
   verifyClientRecordAccess,
@@ -63,6 +69,7 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () =>
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: (partnerId: number) => `tramites-snapshot:${partnerId}`,
   chatterUnreadBatchCacheTag: (partnerId: number) => `chatter-unread-batch:${partnerId}`,
+  forgetRecentTramitesLoad: () => undefined,
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-chatter-reply-links.supabase', () => ({
   fetchChatterReplyLinks,

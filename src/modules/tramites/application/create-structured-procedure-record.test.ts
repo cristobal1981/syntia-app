@@ -17,6 +17,7 @@ const m = vi.hoisted(() => ({
   validateChatterUploadFiles: vi.fn(),
   checkRateLimit: vi.fn(),
   isProcedureTypeAvailable: vi.fn(),
+  forgetRecentTramitesLoad: vi.fn(),
 }))
 
 vi.mock('@/src/modules/tramites/domain/procedure-ticket-types', async (importOriginal) => {
@@ -56,6 +57,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({
 }))
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
   tramitesSnapshotCacheTag: (id: number) => `tag:${id}`,
+  forgetRecentTramitesLoad: m.forgetRecentTramitesLoad,
 }))
 vi.mock('next/cache', () => ({ updateTag: vi.fn() }))
 
@@ -248,6 +250,13 @@ describe('createStructuredProcedureRecord — creación', () => {
     const result = await run({ identityAttachment: file })
     expect(result).toMatchObject({ ok: true, recordId: 11 })
     expect(updateTag).toHaveBeenCalledWith('tag:999')
+  })
+
+  it('olvida la última carga reutilizable del snapshot al crear, para que lo nuevo aparezca al instante', async () => {
+    const result = await run({ identityAttachment: file })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(m.forgetRecentTramitesLoad).toHaveBeenCalledWith(999)
   })
 
   it('expira el snapshot del partner tras crear', async () => {

@@ -8,6 +8,8 @@ import {
   markChatterConversationSeenAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 
+const priorityRuns = vi.hoisted(() => ({ count: 0 }))
+
 const {
   getSession,
   getAllowedSectionsForWorker,
@@ -61,6 +63,10 @@ vi.mock('@/src/modules/portal/infrastructure/chatter-read-state.supabase', () =>
 }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   isOdooApiConfigured,
+  runWithOdooPriority: <T>(task: () => Promise<T>) => {
+    priorityRuns.count += 1
+    return task()
+  },
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-watch-state.supabase', () => ({
   fetchWatchStateForUser,
@@ -105,9 +111,40 @@ beforeEach(() => {
   // leaves .mockResolvedValue/.mockReturnValue implementations from a previous
   // test in place, which can make a later test pass for the wrong reason.
   vi.resetAllMocks()
+  priorityRuns.count = 0
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
   resolveDirectoryActorId.mockResolvedValue('actor-1')
+})
+
+describe('checkPortalNotificationsAction: reutilizar lo recién cargado', () => {
+  const okResult = { ok: true, stats: {}, unread: [], readState: {} }
+
+  async function callWith(options?: Parameters<typeof checkPortalNotificationsAction>[0]) {
+    getSession.mockResolvedValue(sessionFor('client'))
+    loadClientPortalNotifications.mockResolvedValue(okResult)
+    await checkPortalNotificationsAction(options)
+    return loadClientPortalNotifications.mock.calls[0]![0] as Record<string, unknown>
+  }
+
+  it('por defecto lee en fresco y no pide reutilizar nada', async () => {
+    const input = await callWith()
+
+    expect(input).toMatchObject({ cache: false, persist: true })
+    expect(input).not.toHaveProperty('reuseRecentSnapshotMs')
+  })
+
+  it('con reuseRecentSnapshots pide reutilizar lo cargado en los últimos 20 s', async () => {
+    const input = await callWith({ reuseRecentSnapshots: true })
+
+    expect(input).toMatchObject({ cache: false, persist: true, reuseRecentSnapshotMs: 20_000 })
+  })
+
+  it('un valor que no es exactamente true (viene del navegador) no activa la reutilización', async () => {
+    const input = await callWith({ reuseRecentSnapshots: 'yes' as unknown as boolean })
+
+    expect(input).not.toHaveProperty('reuseRecentSnapshotMs')
+  })
 })
 
 describe('resolveClientAccess gate (shared by all actions in this file)', () => {
@@ -230,6 +267,12 @@ describe('checkChatterNotificationsAction (deprecated alias)', () => {
 })
 
 describe('markChatterConversationSeenAction', () => {
+  it('lee de Odoo con prioridad: el «visto» no espera detrás de las peticiones de fondo', async () => {
+    await markChatterConversationSeenAction({ kind: 'task', recordId: 5, lastSeenMessageId: 10 })
+
+    expect(priorityRuns.count).toBe(1)
+  })
+
   it('propagates the access gate error without touching Odoo state', async () => {
     getSession.mockResolvedValue(null)
 
