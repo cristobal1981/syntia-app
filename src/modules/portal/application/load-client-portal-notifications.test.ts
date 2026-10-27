@@ -24,6 +24,7 @@ const {
   getFreshPendingSignaturesSnapshotSafe,
   getCachedUnreadChatterCandidates,
   getFreshUnreadChatterCandidates,
+  isSnapshotLoadedWithin,
   tramitesSnapshotCacheTag,
   getOdooModelForRecordKind,
   fetchChatterReadStateForUser,
@@ -56,6 +57,7 @@ const {
   getFreshPendingSignaturesSnapshotSafe: vi.fn(),
   getCachedUnreadChatterCandidates: vi.fn(),
   getFreshUnreadChatterCandidates: vi.fn(),
+  isSnapshotLoadedWithin: vi.fn(),
   tramitesSnapshotCacheTag: vi.fn(),
   getOdooModelForRecordKind: vi.fn(),
   fetchChatterReadStateForUser: vi.fn(),
@@ -101,6 +103,7 @@ vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => (
   getFreshPendingSignaturesSnapshotSafe,
   getFreshTramitesSnapshotSafe,
   getFreshUnreadChatterCandidates,
+  isSnapshotLoadedWithin,
   tramitesSnapshotCacheTag,
 }))
 
@@ -308,6 +311,117 @@ describe('loadClientPortalNotifications — cache vs fresh loader selection', ()
     expect(getCachedObligacionNotificationSnapshotSafe).not.toHaveBeenCalled()
     expect(getCachedPendingSignaturesSnapshotSafe).not.toHaveBeenCalled()
     expect(getCachedUnreadChatterCandidates).not.toHaveBeenCalled()
+  })
+})
+
+describe('loadClientPortalNotifications — reutilizar lo recién cargado (primer sondeo tras cargar la página)', () => {
+  const MAX_AGE = 20_000
+
+  it('con cache:false y snapshots recientes, los lee por la caché y no vuelve a Odoo; el chatter sigue en fresco', async () => {
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    isSnapshotLoadedWithin.mockReturnValue(true)
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      reuseRecentSnapshotMs: MAX_AGE,
+    })
+
+    expect(isSnapshotLoadedWithin).toHaveBeenCalledWith('tramites', PARTNER_ID, MAX_AGE)
+    expect(isSnapshotLoadedWithin).toHaveBeenCalledWith('obligaciones', PARTNER_ID, MAX_AGE)
+    expect(isSnapshotLoadedWithin).toHaveBeenCalledWith('firmas', PARTNER_ID, MAX_AGE)
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalledWith(PARTNER_ID)
+    expect(getCachedObligacionNotificationSnapshotSafe).toHaveBeenCalledWith(PARTNER_ID)
+    expect(getCachedPendingSignaturesSnapshotSafe).toHaveBeenCalledWith(PARTNER_ID)
+    expect(getFreshTramitesSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshObligacionNotificationSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshPendingSignaturesSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshUnreadChatterCandidates).toHaveBeenCalled()
+    expect(getCachedUnreadChatterCandidates).not.toHaveBeenCalled()
+  })
+
+  it('cada snapshot decide por separado: el que no es reciente se lee en fresco', async () => {
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    isSnapshotLoadedWithin.mockImplementation((name: string) => name === 'tramites')
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      reuseRecentSnapshotMs: MAX_AGE,
+    })
+
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalled()
+    expect(getFreshTramitesSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshObligacionNotificationSnapshotSafe).toHaveBeenCalled()
+    expect(getCachedObligacionNotificationSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshPendingSignaturesSnapshotSafe).toHaveBeenCalled()
+    expect(getCachedPendingSignaturesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
+  it('si no consta ninguna carga reciente, lee todo en fresco', async () => {
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    isSnapshotLoadedWithin.mockReturnValue(false)
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      reuseRecentSnapshotMs: MAX_AGE,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalled()
+    expect(getCachedTramitesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
+  it('sin reuseRecentSnapshotMs no se consulta la edad aunque haya cargas recientes', async () => {
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    isSnapshotLoadedWithin.mockReturnValue(true)
+
+    await loadClientPortalNotifications({ partnerId: PARTNER_ID, actorId: ACTOR_ID, cache: false })
+
+    expect(isSnapshotLoadedWithin).not.toHaveBeenCalled()
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalled()
+    expect(getCachedTramitesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
+  it('reutilizar trámites no expira su caché aunque haya cambios (la página que sigue la encuentra al día)', async () => {
+    isSnapshotLoadedWithin.mockReturnValue(true)
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    computeRecordWatchDeltas.mockReturnValue({
+      notifications: [{ scope: 'tramite', recordId: 1, name: 'x', reason: 'status_change' }],
+      watchUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      reuseRecentSnapshotMs: MAX_AGE,
+    })
+
+    expect(revalidateTag).not.toHaveBeenCalled()
+  })
+
+  it('sin reutilizar y con cambios en trámites, sí expira la caché (control)', async () => {
+    isSnapshotLoadedWithin.mockReturnValue(false)
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    computeRecordWatchDeltas.mockReturnValue({
+      notifications: [{ scope: 'tramite', recordId: 1, name: 'x', reason: 'status_change' }],
+      watchUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      reuseRecentSnapshotMs: MAX_AGE,
+    })
+
+    expect(revalidateTag).toHaveBeenCalled()
   })
 })
 

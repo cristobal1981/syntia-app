@@ -69,7 +69,13 @@ function readStateMapToObject(map: Map<string, number>): ChatterReadStateMap {
   return Object.fromEntries(map.entries())
 }
 
-export async function checkPortalNotificationsAction(): Promise<PortalNotificationsCheckResult> {
+/** Edad máxima de un snapshot para que el primer sondeo tras cargar la página lo reutilice. */
+const REUSE_RECENT_SNAPSHOT_MS = 20_000
+
+export async function checkPortalNotificationsAction(options?: {
+  /** Primer sondeo tras cargar la página: no repite lo que el render acaba de leer de Odoo. */
+  reuseRecentSnapshots?: boolean
+}): Promise<PortalNotificationsCheckResult> {
   const access = await resolveClientAccess()
   if (!access.ok) {
     return { ok: false, error: access.error }
@@ -80,6 +86,9 @@ export async function checkPortalNotificationsAction(): Promise<PortalNotificati
     actorId: access.actorId,
     cache: false,
     persist: true,
+    ...(options?.reuseRecentSnapshots === true
+      ? { reuseRecentSnapshotMs: REUSE_RECENT_SNAPSHOT_MS }
+      : {}),
   })
 
   if (access.user.role === 'worker' && result.ok) {

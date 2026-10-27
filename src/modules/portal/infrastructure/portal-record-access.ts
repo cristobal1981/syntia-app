@@ -102,20 +102,48 @@ async function isTicketInClientCachedSnapshot(
   return tramites.tickets.some((ticket) => ticket.id === ticketId)
 }
 
-/** Evita verify Odoo cuando el registro ya está en snapshot cacheado del cliente. */
+/**
+ * Cuánto se espera al snapshot cacheado antes de comprobar el acceso directamente en Odoo. Con la
+ * caché al día responde en milisegundos; si el sondeo la acaba de expirar y la está rellenando, esta
+ * lectura se quedaría esperando ese relleno (lecturas de fondo, sin prioridad) y el chat tardaría
+ * segundos en abrirse.
+ */
+const SNAPSHOT_GRACE_MS = 400
+
+/**
+ * Evita verify Odoo cuando el registro ya está en snapshot cacheado del cliente. Si el snapshot no
+ * responde a tiempo, la comprobación directa (una o dos lecturas, con la prioridad de quien llama)
+ * decide por sí sola: es la fuente de verdad, el snapshot solo ahorra esa lectura.
+ */
 export async function verifyClientRecordAccess(
   kind: 'task' | 'ticket',
   recordId: number,
   partnerId: number
 ): Promise<boolean> {
-  const inSnapshot =
+  const viaSnapshot =
     kind === 'task'
-      ? await isTaskInClientCachedSnapshot(recordId, partnerId)
-      : await isTicketInClientCachedSnapshot(recordId, partnerId)
+      ? isTaskInClientCachedSnapshot(recordId, partnerId)
+      : isTicketInClientCachedSnapshot(recordId, partnerId)
 
-  if (inSnapshot) {
-    return true
+  let graceTimer: ReturnType<typeof setTimeout> | undefined
+  const answer = await Promise.race([
+    viaSnapshot.then(
+      (inSnapshot) => ({ inSnapshot }),
+      (error: unknown) => ({ error })
+    ),
+    new Promise<null>((resolve) => {
+      graceTimer = setTimeout(() => resolve(null), SNAPSHOT_GRACE_MS)
+    }),
+  ])
+  clearTimeout(graceTimer)
+
+  if (answer === null) {
+    // Sigue rellenándose: se ignora su resultado (un fallo tardío ya está manejado en el `race`)
+    // y se decide con Odoo.
+    return verifyRecordBelongsToPartner(kind, recordId, partnerId)
   }
+  if ('error' in answer) throw answer.error
+  if (answer.inSnapshot) return true
 
   return verifyRecordBelongsToPartner(kind, recordId, partnerId)
 }

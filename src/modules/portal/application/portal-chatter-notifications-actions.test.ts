@@ -117,6 +117,36 @@ beforeEach(() => {
   resolveDirectoryActorId.mockResolvedValue('actor-1')
 })
 
+describe('checkPortalNotificationsAction: reutilizar lo recién cargado', () => {
+  const okResult = { ok: true, stats: {}, unread: [], readState: {} }
+
+  async function callWith(options?: Parameters<typeof checkPortalNotificationsAction>[0]) {
+    getSession.mockResolvedValue(sessionFor('client'))
+    loadClientPortalNotifications.mockResolvedValue(okResult)
+    await checkPortalNotificationsAction(options)
+    return loadClientPortalNotifications.mock.calls[0]![0] as Record<string, unknown>
+  }
+
+  it('por defecto lee en fresco y no pide reutilizar nada', async () => {
+    const input = await callWith()
+
+    expect(input).toMatchObject({ cache: false, persist: true })
+    expect(input).not.toHaveProperty('reuseRecentSnapshotMs')
+  })
+
+  it('con reuseRecentSnapshots pide reutilizar lo cargado en los últimos 20 s', async () => {
+    const input = await callWith({ reuseRecentSnapshots: true })
+
+    expect(input).toMatchObject({ cache: false, persist: true, reuseRecentSnapshotMs: 20_000 })
+  })
+
+  it('un valor que no es exactamente true (viene del navegador) no activa la reutilización', async () => {
+    const input = await callWith({ reuseRecentSnapshots: 'yes' as unknown as boolean })
+
+    expect(input).not.toHaveProperty('reuseRecentSnapshotMs')
+  })
+})
+
 describe('resolveClientAccess gate (shared by all actions in this file)', () => {
   it('returns forbidden when there is no session', async () => {
     getSession.mockResolvedValue(null)

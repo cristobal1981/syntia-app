@@ -189,7 +189,7 @@ export function usePortalNotificationsSync({
   )
 
   const refreshNotifications = useCallback(
-    async (options?: { force?: boolean }) => {
+    async (options?: { force?: boolean; afterPageLoad?: boolean }) => {
       if (!enabled || pollingRef.current) return
 
       if (options?.force) {
@@ -233,7 +233,9 @@ export function usePortalNotificationsSync({
           }
         }
 
-        const result = await checkPortalNotificationsAction()
+        const result = await checkPortalNotificationsAction(
+          options?.afterPageLoad ? { reuseRecentSnapshots: true } : undefined
+        )
         // Llegó respuesta del servidor (aunque sea un error): hay red.
         portalConnectivityStore.reportPollSuccess()
         if (!result.ok) {
@@ -379,7 +381,8 @@ export function usePortalNotificationsSync({
         scheduleNextPoll()
         return
       }
-      void refreshNotifications().finally(() => {
+      // Primer sondeo tras cargar la página: puede reutilizar lo que el render acaba de leer.
+      void refreshNotifications({ afterPageLoad: true }).finally(() => {
         scheduleNextPoll()
       })
     }, initialDelay)

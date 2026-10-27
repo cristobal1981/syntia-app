@@ -23,6 +23,7 @@ import {
   getCachedObligacionNotificationSnapshotSafe,
   getCachedPendingSignaturesSnapshotSafe,
   getCachedTramitesSnapshotSafe,
+  isSnapshotLoadedWithin,
   getCachedUnreadChatterCandidates,
   getFreshObligacionNotificationSnapshotSafe,
   getFreshPendingSignaturesSnapshotSafe,
@@ -88,22 +89,36 @@ export async function loadClientPortalNotifications(input: {
    * SSR y vistas previas deben usar `false` para no borrar novedades en otros entornos.
    */
   persist?: boolean
+  /**
+   * Con `cache: false`, reutiliza los snapshots de trámites, obligaciones y firmas que se cargaron
+   * contra Odoo hace menos de estos ms en vez de volver a leerlos. Es el primer sondeo tras cargar
+   * una página: el render acaba de pagar esa lectura y repetirla duplica ~25 peticiones. El chatter
+   * se lee siempre en fresco.
+   */
+  reuseRecentSnapshotMs?: number
 }): Promise<PortalNotificationsCheckResult> {
   try {
     const useCache = input.cache !== false
     const persist = input.persist === true
 
-    const loadTramitesSnapshot = useCache
-      ? getCachedTramitesSnapshotSafe
-      : getFreshTramitesSnapshotSafe
+    const reuseRecent = (name: 'tramites' | 'obligaciones' | 'firmas') =>
+      !useCache &&
+      input.reuseRecentSnapshotMs !== undefined &&
+      isSnapshotLoadedWithin(name, input.partnerId, input.reuseRecentSnapshotMs)
+    const reusedTramites = reuseRecent('tramites')
 
-    const loadObligacionSnapshot = useCache
-      ? getCachedObligacionNotificationSnapshotSafe
-      : getFreshObligacionNotificationSnapshotSafe
+    const loadTramitesSnapshot =
+      useCache || reusedTramites ? getCachedTramitesSnapshotSafe : getFreshTramitesSnapshotSafe
 
-    const loadFirmasSnapshot = useCache
-      ? getCachedPendingSignaturesSnapshotSafe
-      : getFreshPendingSignaturesSnapshotSafe
+    const loadObligacionSnapshot =
+      useCache || reuseRecent('obligaciones')
+        ? getCachedObligacionNotificationSnapshotSafe
+        : getFreshObligacionNotificationSnapshotSafe
+
+    const loadFirmasSnapshot =
+      useCache || reuseRecent('firmas')
+        ? getCachedPendingSignaturesSnapshotSafe
+        : getFreshPendingSignaturesSnapshotSafe
 
     const loadUnreadChatter = useCache
       ? getCachedUnreadChatterCandidates
@@ -312,7 +327,7 @@ export async function loadClientPortalNotifications(input: {
       )
     // Si la lectura ya renovó la caché (sondeo desde una Server Action), no se vuelve a expirar: la
     // página que se refresque justo después la encuentra al día en vez de reconstruirla en frío.
-    if (persist && tramitesChanged && !tramitesResult.cacheRefreshed) {
+    if (persist && tramitesChanged && !tramitesResult.cacheRefreshed && !reusedTramites) {
       revalidateTag(tramitesSnapshotCacheTag(input.partnerId), { expire: 0 })
     }
 

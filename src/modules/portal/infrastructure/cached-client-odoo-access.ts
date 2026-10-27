@@ -39,6 +39,30 @@ const SIGNATURE_HISTORY_SNAPSHOT_REVALIDATE_SECONDS = 90
 const CHATTER_UNREAD_BATCH_REVALIDATE_SECONDS = 60
 const OBLIGACION_TREE_REVALIDATE_SECONDS = 90
 
+/**
+ * Cuándo se ejecutó por última vez, en este proceso, una carga REAL contra Odoo de cada snapshot
+ * (`unstable_cache` no dice la edad de lo que devuelve). Sirve para que el primer sondeo tras
+ * cargar una página reutilice lo que el render acaba de leer en vez de repetirlo. Si no consta
+ * (otra instancia, arranque en frío) se considera que no hay nada reciente y se lee en fresco.
+ */
+type RecentSnapshotName = 'tramites' | 'obligaciones' | 'firmas'
+
+const snapshotLoadedAt = new Map<string, number>()
+
+function markSnapshotLoaded(name: RecentSnapshotName, partnerId: number, now = Date.now()) {
+  snapshotLoadedAt.set(`${name}:${partnerId}`, now)
+}
+
+export function isSnapshotLoadedWithin(
+  name: RecentSnapshotName,
+  partnerId: number,
+  maxAgeMs: number,
+  now = Date.now()
+): boolean {
+  const loadedAt = snapshotLoadedAt.get(`${name}:${partnerId}`)
+  return loadedAt !== undefined && now - loadedAt <= maxAgeMs
+}
+
 const EMPTY_TRAMITES_SNAPSHOT: TramitesSnapshot = {
   tasks: [],
   tickets: [],
@@ -158,7 +182,9 @@ export async function getCachedClientProjectIds(
 
 async function loadObligacionTaskIndex(partnerId: number): Promise<ObligacionTaskIndex> {
   const projectIds = await getCachedClientProjectIds(partnerId)
-  return buildObligacionTaskIndex(projectIds)
+  const index = await buildObligacionTaskIndex(projectIds)
+  markSnapshotLoaded('obligaciones', partnerId)
+  return index
 }
 
 export async function getCachedObligacionTaskIndex(
@@ -177,7 +203,9 @@ export async function getCachedObligacionTaskIndex(
 }
 
 async function loadTramitesSnapshot(partnerId: number): Promise<TramitesSnapshot> {
-  return fetchTramitesFromOdoo(partnerId)
+  const snapshot = await fetchTramitesFromOdoo(partnerId)
+  markSnapshotLoaded('tramites', partnerId)
+  return snapshot
 }
 
 export async function getCachedTramitesSnapshot(
@@ -250,6 +278,7 @@ async function loadPendingSignaturesSnapshot(
   partnerId: number
 ): Promise<PendingSignaturesSnapshot> {
   const requests = await fetchPendingSignaturesFromOdoo(partnerId)
+  markSnapshotLoaded('firmas', partnerId)
   return { requests }
 }
 
@@ -387,6 +416,7 @@ async function loadFreshObligacionNotificationSnapshot(
 ): Promise<ObligacionNotificationSnapshot> {
   const projectIds = await fetchClientProjectIds(partnerId)
   const index = await buildObligacionTaskIndex(projectIds)
+  markSnapshotLoaded('obligaciones', partnerId)
   return { leaves: withoutAttachmentCount(index.leaves) }
 }
 

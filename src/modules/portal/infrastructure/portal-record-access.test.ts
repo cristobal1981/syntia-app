@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 
 import {
   canClientReplyOnRecord,
@@ -214,6 +214,81 @@ describe('verifyClientRecordAccess', () => {
     getCachedTramitesSnapshot.mockRejectedValue(new Error('SNAP'))
 
     await expect(verifyClientRecordAccess('task', 9, PARTNER_ID)).rejects.toThrow('SNAP')
+  })
+})
+
+describe('verifyClientRecordAccess: snapshot que tarda (se está rellenando)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    getCachedObligacionTaskIndex.mockResolvedValue({ leaves: [] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const neverResolves = () => new Promise(() => {})
+
+  it('si el snapshot no responde en 400 ms, decide la comprobación directa y concede si el partner coincide', async () => {
+    getCachedTramitesSnapshot.mockReturnValue(neverResolves())
+    odooSearchRead
+      .mockResolvedValueOnce([{ id: 5, project_id: [3, 'P'] }])
+      .mockResolvedValueOnce([{ id: 3, partner_id: [PARTNER_ID, 'C'] }])
+
+    const result = verifyClientRecordAccess('task', 5, PARTNER_ID)
+    await vi.advanceTimersByTimeAsync(399)
+    expect(odooSearchRead).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(await result).toBe(true)
+    expect(odooSearchRead).toHaveBeenCalledTimes(2)
+  })
+
+  it('con el snapshot colgado, un registro de otro partner se deniega (no se concede por esperar)', async () => {
+    getCachedTramitesSnapshot.mockReturnValue(neverResolves())
+    odooSearchRead
+      .mockResolvedValueOnce([{ id: 5, project_id: [3, 'P'] }])
+      .mockResolvedValueOnce([{ id: 3, partner_id: [999, 'Otro'] }])
+
+    const result = verifyClientRecordAccess('task', 5, PARTNER_ID)
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(await result).toBe(false)
+  })
+
+  it('un ticket con el snapshot colgado también se comprueba en Odoo', async () => {
+    getCachedTramitesSnapshot.mockReturnValue(neverResolves())
+    odooSearchRead.mockResolvedValueOnce([{ id: 8, partner_id: [PARTNER_ID, 'C'] }])
+
+    const result = verifyClientRecordAccess('ticket', 8, PARTNER_ID)
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(await result).toBe(true)
+    expect(odooSearchRead).toHaveBeenCalledWith('helpdesk.ticket', expect.anything())
+  })
+
+  it('si el snapshot acaba fallando después del plazo, no hay rechazo sin manejar ni cambia el resultado', async () => {
+    let rejectSnapshot: (error: Error) => void = () => {}
+    getCachedTramitesSnapshot.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectSnapshot = reject
+      })
+    )
+    odooSearchRead.mockResolvedValueOnce([{ id: 8, partner_id: [PARTNER_ID, 'C'] }])
+
+    const result = verifyClientRecordAccess('ticket', 8, PARTNER_ID)
+    await vi.advanceTimersByTimeAsync(400)
+    rejectSnapshot(new Error('SNAP_TARDE'))
+
+    expect(await result).toBe(true)
+  })
+
+  it('si el snapshot responde dentro del plazo no se consulta Odoo ni queda ningún temporizador pendiente', async () => {
+    getCachedTramitesSnapshot.mockResolvedValue({ tasks: [{ id: 5 }], tickets: [] })
+
+    expect(await verifyClientRecordAccess('task', 5, PARTNER_ID)).toBe(true)
+
+    expect(odooSearchRead).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
 
