@@ -7,8 +7,9 @@
  * - `launching`: el portal del cliente ya está pintado; el cohete despega y la pantalla se abre.
  *
  * Al salir de la vista se hace el camino inverso: Sappo baja en paracaídas.
- * - `returning`: se pidió salir; Sappo cae con el paracaídas mientras carga el panel del equipo.
- * - `landed`: el panel ya está pintado; Sappo aterriza, el paracaídas se pliega y la pantalla se abre.
+ * - `returning`: se pidió salir; Sappo cae en paracaídas, chapotea en la charca y flota mientras carga el
+ *   panel del equipo. La caída y el chapuzón van por su cuenta (CSS), sin esperar al panel.
+ * - `landed`: el panel ya está pintado y se vio la animación entera; la pantalla se abre.
  */
 export type ViewAsLaunchPhase = 'idle' | 'waiting' | 'launching' | 'returning' | 'landed'
 
@@ -29,10 +30,10 @@ export const VIEW_AS_LAUNCH_MAX_MS = 12_000
 /** Lo que dura el despegue antes de quitar la pantalla. */
 export const VIEW_AS_LAUNCH_FLIGHT_MS = 950
 
-/** Lo mínimo que dura la caída: da tiempo a ver el paracaídas aunque el panel cargue al instante. */
-export const VIEW_AS_RETURN_MIN_MS = 2200
-/** Lo que dura el aterrizaje (chapuzón, ondas y fundido) antes de quitar la pantalla. */
-export const VIEW_AS_LANDING_MS = 2400
+/** Lo mínimo antes de abrir la pantalla: la caída (2 s) y el chapuzón se ven enteros aunque el panel cargue al instante. */
+export const VIEW_AS_RETURN_MIN_MS = 3000
+/** Lo que dura el fundido final antes de quitar la pantalla. */
+export const VIEW_AS_LANDING_MS = 600
 
 export function startViewAsLaunch(now: number): ViewAsLaunchState {
   return { phase: 'waiting', startedAt: now, ready: false }
