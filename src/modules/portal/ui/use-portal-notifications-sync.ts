@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
+import { fetchNewsSignal } from '@/src/modules/portal/ui/portal-read-api'
 import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
 import {
   acknowledgeEventsSeenInAppAction,
-  checkPortalNewsSignalAction,
   checkPortalNotificationsAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
@@ -243,7 +243,7 @@ export function usePortalNotificationsSync({
         let signalSeq: number | null = null
         signalModeRef.current = false
         if (!options?.force) {
-          const signal = await checkPortalNewsSignalAction()
+          const signal = await fetchNewsSignal()
           portalConnectivityStore.reportPollSuccess()
           if (signal.ok && signal.mode === 'events') {
             signalModeRef.current = true
