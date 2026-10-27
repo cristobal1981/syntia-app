@@ -32,7 +32,9 @@ export type EventPushDispatchDeps = {
   listMatureEvents: (
     afterSeq: number,
     receivedBefore: Date,
-    limit: number
+    limit: number,
+    /** Ignora lo recibido antes de esta fecha (ya caducado para avisar). */
+    receivedAfter: Date
   ) => Promise<PortalEventRow[]>
   /** Secciones de un colaborador, o `null` si no se pudieron leer. */
   loadAllowedSections: (recipient: PushRecipient) => Promise<Set<WorkerSectionHref> | null>
@@ -48,6 +50,9 @@ export type EventPushDispatchDeps = {
 }
 
 const CONCURRENCY = 4
+
+/** Dispositivos procesados que se acumulan antes de guardar su cursor. */
+const ADVANCE_FLUSH_SIZE = 25
 
 /** Un mensaje que el usuario ya leyó en el portal (o en otro dispositivo) no vuelve a avisar. */
 function isMessageAlreadyRead(event: PortalEventRow, readState: Map<string, number>): boolean {
@@ -177,7 +182,8 @@ async function processEvents(
   const events = await deps.listMatureEvents(
     minCursor,
     new Date(startedAt - EVENT_QUIET_MS),
-    EVENT_BATCH_SIZE
+    EVENT_BATCH_SIZE,
+    new Date(startedAt - EVENT_MAX_AGE_MS)
   )
   if (events.length === 0) return
 
@@ -260,6 +266,20 @@ async function processEvents(
     }
 
     advance.push(subscription.id)
+    if (advance.length >= ADVANCE_FLUSH_SIZE) await flushAdvance()
+  }
+
+  // El cursor avanza por lotes según se envía: si la función muere a mitad, lo ya entregado no se repite.
+  async function flushAdvance() {
+    if (advance.length === 0) return
+    const ids = advance.splice(0, advance.length)
+    try {
+      await deps.advanceCursors(ids, processedUpTo)
+    } catch (error) {
+      // Sin avanzar se reenviaría lo mismo en la siguiente ejecución: se registra
+      // y se deja que lo reintente el siguiente pulso.
+      console.error('[push] avanzar cursores falló', error)
+    }
   }
 
   async function processUser(userId: string, userSubscriptions: DispatchSubscription[]) {
@@ -325,11 +345,5 @@ async function processEvents(
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
 
-  try {
-    await deps.advanceCursors(advance, processedUpTo)
-  } catch (error) {
-    // Sin avanzar se reenviaría lo mismo en la siguiente ejecución: se registra
-    // y se deja que lo reintente el siguiente pulso.
-    console.error('[push] avanzar cursores falló', error)
-  }
+  await flushAdvance()
 }
