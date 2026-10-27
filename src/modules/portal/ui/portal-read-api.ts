@@ -1,4 +1,5 @@
 import type { PortalNewsSignalResult } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
+import type { PortalNotificationsCheckResult } from '@/src/modules/portal/domain/portal-notifications-types'
 
 /**
  * Lecturas del portal por HTTP (Route Handlers) en lugar de Server Actions: Next despacha las
@@ -25,4 +26,28 @@ export function fetchNewsSignal(): Promise<PortalNewsSignalResult> {
     ok: false,
     error: 'odoo_unavailable',
   })
+}
+
+/**
+ * Comprobación completa de avisos. POST porque guarda estado («visto»). Una respuesta sin forma de
+ * resultado (p. ej. el 403 del proxy bajo «vista como cliente», que es de solo lectura) se trata
+ * como sin permiso, igual que antes con la acción.
+ */
+export async function fetchNotificationsCheck(options?: {
+  reuseRecentSnapshots?: boolean
+}): Promise<PortalNotificationsCheckResult> {
+  const response = await fetch('/api/portal/notifications-check', {
+    method: 'POST',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ reuseRecentSnapshots: options?.reuseRecentSnapshots === true }),
+  })
+  try {
+    const body = (await response.json()) as PortalNotificationsCheckResult
+    if (typeof (body as { ok?: unknown }).ok === 'boolean') return body
+  } catch {
+    // Sin cuerpo JSON: se trata abajo.
+  }
+  return { ok: false, error: response.status === 403 ? 'forbidden' : 'odoo_unavailable' }
 }

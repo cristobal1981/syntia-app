@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
-import { fetchNewsSignal } from '@/src/modules/portal/ui/portal-read-api'
+import { fetchNewsSignal, fetchNotificationsCheck } from '@/src/modules/portal/ui/portal-read-api'
 import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
 import {
   acknowledgeEventsSeenInAppAction,
-  checkPortalNotificationsAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
   mergeAccumulatedPortalNotifications,
@@ -14,6 +13,7 @@ import {
 import type {
   ChatterReadStateMap,
   PortalNotification,
+  PortalNotificationsCheckResult,
   PortalNotificationsStats,
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
@@ -155,7 +155,7 @@ export function usePortalNotificationsSync({
   const applyPollResult = useCallback(
     (
       result: Extract<
-        Awaited<ReturnType<typeof checkPortalNotificationsAction>>,
+        PortalNotificationsCheckResult,
         { ok: true }
       >,
       options?: { fromBroadcast?: boolean; refreshPages?: boolean }
@@ -266,7 +266,7 @@ export function usePortalNotificationsSync({
           }
         }
 
-        const result = await checkPortalNotificationsAction(
+        const result = await fetchNotificationsCheck(
           options?.afterPageLoad ? { reuseRecentSnapshots: true } : undefined
         )
         // Llegó respuesta del servidor (aunque sea un error): hay red.
