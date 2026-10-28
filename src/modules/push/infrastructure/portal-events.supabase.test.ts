@@ -33,7 +33,7 @@ const event: PortalEventInput = {
 function chain(result: { data?: unknown; error?: { message: string } | null }) {
   const resolved = { data: result.data ?? null, error: result.error ?? null }
   const c: Record<string, ReturnType<typeof vi.fn>> = {}
-  for (const name of ['select', 'upsert', 'order', 'gt', 'lte', 'eq']) c[name] = vi.fn(() => c)
+  for (const name of ['select', 'upsert', 'order', 'gt', 'gte', 'lte', 'eq']) c[name] = vi.fn(() => c)
   c.limit = vi.fn(() => Promise.resolve(resolved))
   ;(c as { then?: unknown }).then = (resolve: (value: unknown) => unknown) =>
     Promise.resolve(resolved).then(resolve)
@@ -135,6 +135,19 @@ describe('listMaturePortalEvents', () => {
     expect(c.lte).toHaveBeenCalledWith('received_at', cutoff.toISOString())
     expect(c.order).toHaveBeenCalledWith('seq', { ascending: true })
     expect(c.limit).toHaveBeenCalledWith(500)
+  })
+
+  it('con partnerId pide solo los eventos de ese cliente; sin él no filtra por cliente', async () => {
+    const scoped = chain({ data: [] })
+    use(scoped)
+    await listMaturePortalEvents(0, new Date(), 10, new Date('2026-10-22T09:00:00Z'), 1233)
+    expect(scoped.eq).toHaveBeenCalledWith('partner_id', 1233)
+    expect(scoped.gte).toHaveBeenCalledWith('received_at', '2026-10-22T09:00:00.000Z')
+
+    const all = chain({ data: [] })
+    use(all)
+    await listMaturePortalEvents(0, new Date(), 10)
+    expect(all.eq).not.toHaveBeenCalled()
   })
 
   it('mapea las columnas al evento', async () => {

@@ -158,7 +158,9 @@ export async function listMaturePortalEvents(
   afterSeq: number,
   receivedBefore: Date,
   limit: number,
-  receivedAfter?: Date
+  receivedAfter?: Date,
+  /** Solo los eventos de ese cliente. */
+  partnerId?: number
 ): Promise<PortalEventRow[]> {
   const supabase = createSupabaseAdminClient()
   let query = supabase
@@ -168,6 +170,7 @@ export async function listMaturePortalEvents(
     .lte('received_at', receivedBefore.toISOString())
   // Lo más viejo ya no se envía: un dispositivo atascado con el cursor muy atrás no debe fijar la ventana.
   if (receivedAfter) query = query.gte('received_at', receivedAfter.toISOString())
+  if (partnerId !== undefined) query = query.eq('partner_id', partnerId)
   const { data, error } = await query
     .order('seq', { ascending: true })
     .limit(limit)

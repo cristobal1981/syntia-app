@@ -139,17 +139,23 @@ type DispatchRow = PushSubscriptionRow & {
 /** Filas por petición: PostgREST corta en 1000 sin avisar. */
 const LIST_PAGE_SIZE = 1000
 
-/** Todas las suscripciones, para el dispatcher (que corre sin sesión). */
-export async function listPushSubscriptions(): Promise<DispatchSubscription[]> {
+/**
+ * Las suscripciones de los usuarios dados (o todas si no se pasan), para el dispatcher (que corre
+ * sin sesión).
+ */
+export async function listPushSubscriptions(userIds?: string[]): Promise<DispatchSubscription[]> {
+  if (userIds && userIds.length === 0) return []
   const supabase = createSupabaseAdminClient()
   const rows: DispatchRow[] = []
 
   for (let from = 0; ; from += LIST_PAGE_SIZE) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('push_subscriptions')
       .select(
         'id, user_id, endpoint, p256dh, auth, notify_chatter, notify_status, notify_firmas, sent_keys, baselined_at, failure_count, last_event_seq'
       )
+    if (userIds) query = query.in('user_id', userIds)
+    const { data, error } = await query
       .order('id')
       .range(from, from + LIST_PAGE_SIZE - 1)
 
@@ -328,6 +334,25 @@ export async function advanceUserPushCursor(userId: string, seq: number): Promis
     .lt('last_event_seq', seq)
 
   if (error) throw new Error(error.message)
+}
+
+/** Usuarios (titular y colaboradores) cuyo cliente de Odoo es `partnerId`. */
+export async function fetchUserIdsByPartnerId(partnerId: number): Promise<string[]> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('client_integrations')
+    .select('user_id')
+    .eq('odoo_partner_id', partnerId)
+
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as { user_id: string }[]).map((row) => row.user_id)
+}
+
+/** Suscripciones de los dispositivos de un cliente: lo único que necesita el envío de un evento suyo. */
+export async function listPushSubscriptionsForPartner(
+  partnerId: number
+): Promise<DispatchSubscription[]> {
+  return listPushSubscriptions(await fetchUserIdsByPartnerId(partnerId))
 }
 
 /** Cliente de Odoo de cada usuario (los colaboradores comparten el del titular). */

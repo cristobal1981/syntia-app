@@ -23,7 +23,11 @@ export type PushAfterEventDeps = {
   isConfigured: () => boolean
   sleep: (ms: number) => Promise<void>
   now: () => number
-  dispatch: (options: { quietMs: number; budgetMs: number }) => Promise<PushDispatchSummary>
+  dispatch: (options: {
+    quietMs: number
+    budgetMs: number
+    partnerId?: number
+  }) => Promise<PushDispatchSummary>
   record: (input: {
     startedAt: Date
     summary?: PushDispatchSummary
@@ -36,7 +40,11 @@ export type PushAfterEventDeps = {
  * segundos (agrupa ráfagas), envía lo pendiente y, si otro envío tiene el cerrojo, reintenta.
  * El pulso sigue como red de seguridad. Nunca lanza: corre dentro de `after()`.
  */
-export async function runPushAfterEvent(deps: PushAfterEventDeps): Promise<void> {
+export async function runPushAfterEvent(
+  deps: PushAfterEventDeps,
+  /** Cliente del evento: el envío solo mira sus dispositivos. Sin él, los de todos. */
+  partnerId?: number
+): Promise<void> {
   if (!deps.isConfigured()) return
 
   const taskStartedAt = deps.now()
@@ -48,7 +56,11 @@ export async function runPushAfterEvent(deps: PushAfterEventDeps): Promise<void>
 
     const startedAt = new Date(deps.now())
     try {
-      const summary = await deps.dispatch({ quietMs: WEBHOOK_PUSH_QUIET_MS, budgetMs: remaining })
+      const summary = await deps.dispatch({
+        quietMs: WEBHOOK_PUSH_QUIET_MS,
+        budgetMs: remaining,
+        ...(partnerId !== undefined ? { partnerId } : {}),
+      })
       // Un envío saltado por el cerrojo no es una ejecución: el otro lo registra.
       if (!summary.locked) {
         await deps.record({ startedAt, summary })
@@ -67,12 +79,15 @@ export async function runPushAfterEvent(deps: PushAfterEventDeps): Promise<void>
 }
 
 /** Lo que programa el webhook con `after()`. */
-export function runPushAfterEventInProduction(): Promise<void> {
-  return runPushAfterEvent({
-    isConfigured: isWebPushConfigured,
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    now: () => Date.now(),
-    dispatch: (options) => dispatchPushEvents(options),
-    record: (input) => recordPushRun({ source: 'events', ...input }),
-  })
+export function runPushAfterEventInProduction(partnerId?: number): Promise<void> {
+  return runPushAfterEvent(
+    {
+      isConfigured: isWebPushConfigured,
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+      dispatch: (options) => dispatchPushEvents(options),
+      record: (input) => recordPushRun({ source: 'events', ...input }),
+    },
+    partnerId
+  )
 }

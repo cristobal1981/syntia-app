@@ -23,6 +23,7 @@ import {
   fetchPartnerIdsByUserIds,
   fetchPushRecipients,
   listPushSubscriptions,
+  listPushSubscriptionsForPartner,
   releasePushDispatchLock,
   savePushDispatchState,
   savePushFailureCount,
@@ -96,7 +97,8 @@ export function dispatchPushNotifications(): Promise<PushDispatchSummary> {
 const eventDeps: EventPushDispatchDeps = {
   acquireLock: () => acquirePushDispatchLock(LOCK_TTL_SECONDS),
   releaseLock: releasePushDispatchLock,
-  listSubscriptions: listPushSubscriptions,
+  listSubscriptions: () => listPushSubscriptions(),
+  listSubscriptionsForPartner: listPushSubscriptionsForPartner,
   fetchRecipients: fetchPushRecipients,
   fetchPartnerIds: fetchPartnerIdsByUserIds,
   getMaxEventSeq: getMaxPortalEventSeq,
@@ -122,10 +124,11 @@ const eventDeps: EventPushDispatchDeps = {
 
 /** Variante con eventos de Odoo: no hace ninguna petición a Odoo. */
 export function dispatchPushEvents(
-  options: { quietMs?: number; budgetMs?: number } = {}
+  options: { quietMs?: number; budgetMs?: number; partnerId?: number } = {}
 ): Promise<PushDispatchSummary> {
   return runEventPushDispatch(eventDeps, {
     deadlineAt: Date.now() + (options.budgetMs ?? RUN_BUDGET_MS),
     ...(options.quietMs !== undefined ? { quietMs: options.quietMs } : {}),
+    ...(options.partnerId !== undefined ? { partnerId: options.partnerId } : {}),
   })
 }

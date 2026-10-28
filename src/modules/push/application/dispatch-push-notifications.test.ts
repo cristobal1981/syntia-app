@@ -10,6 +10,7 @@ const {
   fetchPartnerIdsByUserIds,
   getMaxPortalEventSeq,
   listMaturePortalEvents,
+  listPushSubscriptionsForPartner,
   savePushFailureCount,
   sendWebPush,
 } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const {
   fetchPartnerIdsByUserIds: vi.fn(),
   getMaxPortalEventSeq: vi.fn(),
   listMaturePortalEvents: vi.fn(),
+  listPushSubscriptionsForPartner: vi.fn(),
   savePushFailureCount: vi.fn(),
   sendWebPush: vi.fn(),
 }))
@@ -42,6 +44,7 @@ vi.mock('@/src/modules/push/infrastructure/push-subscriptions.supabase', () => (
   fetchPartnerIdsByUserIds,
   fetchPushRecipients: vi.fn(),
   listPushSubscriptions: vi.fn(),
+  listPushSubscriptionsForPartner,
   savePushDispatchState: vi.fn(),
   savePushFailureCount,
 }))
@@ -118,6 +121,15 @@ describe('dispatchPushEvents', () => {
     expect(runPushDispatch).not.toHaveBeenCalled()
   })
 
+  it('pasa el cliente del evento al ejecutor solo si se indica', async () => {
+    await dispatchPushEvents({ partnerId: 1233 })
+    expect(runEventPushDispatch.mock.calls[0]![1]).toMatchObject({ partnerId: 1233 })
+
+    runEventPushDispatch.mockClear()
+    await dispatchPushEvents()
+    expect(runEventPushDispatch.mock.calls[0]![1]).not.toHaveProperty('partnerId')
+  })
+
   it('usa el mismo cerrojo que el cálculo anterior (nunca dos a la vez)', async () => {
     const deps = await eventDeps()
     acquirePushDispatchLock.mockResolvedValue(true)
@@ -133,6 +145,7 @@ describe('dispatchPushEvents', () => {
     expect(deps.listMatureEvents).toBe(listMaturePortalEvents)
     expect(deps.getMaxEventSeq).toBe(getMaxPortalEventSeq)
     expect(deps.fetchPartnerIds).toBe(fetchPartnerIdsByUserIds)
+    expect(deps.listSubscriptionsForPartner).toBe(listPushSubscriptionsForPartner)
     expect(deps.advanceCursors).toBe(advancePushCursors)
     expect(deps.saveFailureCount).toBe(savePushFailureCount)
   })

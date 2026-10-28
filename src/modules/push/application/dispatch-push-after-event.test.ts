@@ -54,6 +54,18 @@ describe('runPushAfterEvent', () => {
     expect(deps.record).toHaveBeenCalledWith(expect.objectContaining({ summary: summary() }))
   })
 
+  it('con partnerId lo pasa al envío; sin él no lo añade', async () => {
+    const withPartner = setup()
+    await runPushAfterEvent(withPartner.deps, 1233)
+    expect(withPartner.deps.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ partnerId: 1233 })
+    )
+
+    const without = setup()
+    await runPushAfterEvent(without.deps)
+    expect(vi.mocked(without.deps.dispatch).mock.calls[0]![0]).not.toHaveProperty('partnerId')
+  })
+
   it('el envío sale después de la espera, no antes', async () => {
     const order: string[] = []
     const { deps } = setup({

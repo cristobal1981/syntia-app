@@ -18,6 +18,8 @@ import {
   advancePushCursors,
   advanceUserPushCursor,
   fetchPartnerIdsByUserIds,
+  fetchUserIdsByPartnerId,
+  listPushSubscriptionsForPartner,
   deletePushSubscription,
   fetchPushPreferences,
   listPushSubscriptions,
@@ -472,5 +474,54 @@ describe('fetchPartnerIdsByUserIds', () => {
     createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
 
     await expect(fetchPartnerIdsByUserIds(['u1'])).rejects.toThrow('boom')
+  })
+})
+
+describe('listPushSubscriptions con usuarios', () => {
+  it('filtra por esos usuarios y, si la lista viene vacía, no consulta', async () => {
+    const range = vi.fn().mockResolvedValue({ data: [row('s1')], error: null })
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {}
+    chain.select = vi.fn(() => chain)
+    chain.in = vi.fn(() => chain)
+    chain.order = vi.fn(() => chain)
+    chain.range = range
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    expect(await listPushSubscriptions(['u1', 'u2'])).toHaveLength(1)
+    expect(chain.in).toHaveBeenCalledWith('user_id', ['u1', 'u2'])
+
+    createSupabaseAdminClient.mockClear()
+    expect(await listPushSubscriptions([])).toEqual([])
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled()
+  })
+})
+
+describe('fetchUserIdsByPartnerId / listPushSubscriptionsForPartner', () => {
+  it('devuelve los usuarios de ese cliente de Odoo y propaga el error', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn().mockResolvedValue({ data: [{ user_id: 'u1' }, { user_id: 'u2' }], error: null }),
+    }
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    expect(await fetchUserIdsByPartnerId(1233)).toEqual(['u1', 'u2'])
+    expect(from).toHaveBeenCalledWith('client_integrations')
+    expect(chain.eq).toHaveBeenCalledWith('odoo_partner_id', 1233)
+
+    chain.eq.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    await expect(fetchUserIdsByPartnerId(1)).rejects.toThrow('boom')
+  })
+
+  it('un cliente sin usuarios no consulta las suscripciones', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+    }
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    expect(await listPushSubscriptionsForPartner(1233)).toEqual([])
+    expect(from).not.toHaveBeenCalledWith('push_subscriptions')
   })
 })
