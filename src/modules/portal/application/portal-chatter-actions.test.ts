@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import type { PortalSession } from '@/src/modules/auth/domain/types'
+import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import {
   listRecordMessagesAction,
   postRecordMessageAction,
@@ -117,6 +118,17 @@ describe('portal-chatter-actions (/tramites section gate, covers both trámites 
     expect(verifyClientRecordAccess).not.toHaveBeenCalled()
     expect(listPortalMessagesPage).not.toHaveBeenCalled()
     expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+  })
+
+  it('resuelve el actor una sola vez y se lo pasa al resolutor del partner', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    verifyClientRecordAccess.mockResolvedValue(true)
+    listPortalMessagesPage.mockResolvedValue({ messages: [], hasMore: false })
+
+    await listRecordMessagesAction({ kind: 'task', recordId: 1 })
+
+    expect(resolveDirectoryActorId).toHaveBeenCalledTimes(1)
+    expect(resolveClientOdooPartnerId).toHaveBeenCalledWith(expect.anything(), 'actor-1')
   })
 
   it('refuses a worker without /tramites even for a "ticket" (consulta) kind record', async () => {

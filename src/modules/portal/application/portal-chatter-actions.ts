@@ -93,7 +93,8 @@ async function resolveClientPartnerId(
     }
   }
 
-  const partnerId = await resolveClientOdooPartnerId(session.user)
+  const actorId = await resolveDirectoryActorId(session.user)
+  const partnerId = await resolveClientOdooPartnerId(session.user, actorId)
   if (!partnerId) {
     return { ok: false, error: 'not_linked' }
   }
@@ -102,7 +103,6 @@ async function resolveClientPartnerId(
     return { ok: false, error: 'odoo_unavailable' }
   }
 
-  const actorId = await resolveDirectoryActorId(session.user)
   return { ok: true, partnerId, actorId, workerSections }
 }
 

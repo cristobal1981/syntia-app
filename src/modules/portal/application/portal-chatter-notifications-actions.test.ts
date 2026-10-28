@@ -183,7 +183,16 @@ describe('resolveClientAccess gate (shared by all actions in this file)', () => 
     const result = await checkPortalNotificationsAction()
 
     expect(result).toMatchObject({ ok: false, error: 'odoo_unavailable' })
-    expect(resolveDirectoryActorId).not.toHaveBeenCalled()
+  })
+
+  it('resuelve el actor una sola vez y se lo pasa al resolutor del partner', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    loadClientPortalNotifications.mockResolvedValue(okNotificationsResult())
+
+    await checkPortalNotificationsAction()
+
+    expect(resolveDirectoryActorId).toHaveBeenCalledTimes(1)
+    expect(resolveClientOdooPartnerId).toHaveBeenCalledWith(expect.anything(), 'actor-1')
   })
 })
 

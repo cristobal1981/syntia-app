@@ -53,7 +53,8 @@ async function resolveClientAccess(): Promise<
     return { ok: false, error: 'forbidden' }
   }
 
-  const partnerId = await resolveClientOdooPartnerId(session.user)
+  const actorId = await resolveDirectoryActorId(session.user)
+  const partnerId = await resolveClientOdooPartnerId(session.user, actorId)
   if (!partnerId) {
     return { ok: false, error: 'not_linked' }
   }
@@ -62,7 +63,6 @@ async function resolveClientAccess(): Promise<
     return { ok: false, error: 'odoo_unavailable' }
   }
 
-  const actorId = await resolveDirectoryActorId(session.user)
   return { ok: true, partnerId, actorId, user: session.user }
 }
 
