@@ -96,27 +96,36 @@ export async function loadClientPortalNotifications(input: {
    * se lee siempre en fresco.
    */
   reuseRecentSnapshotMs?: number
+  /**
+   * Solo ha llegado algún mensaje nuevo (la señal de eventos lo garantiza): los trámites,
+   * obligaciones y firmas se toman de la caché de servidor y solo se relee el chatter de Odoo
+   * (de 14-16 peticiones a 1-2). No se calculan ni se guardan cambios de estado, responsable ni
+   * trámites nuevos: una caché más vieja que lo ya guardado los daría por revertidos.
+   */
+  chatterOnly?: boolean
 }): Promise<PortalNotificationsCheckResult> {
   try {
+    const chatterOnly = input.chatterOnly === true
     const useCache = input.cache !== false
     const persist = input.persist === true
+    const snapshotsFromCache = useCache || chatterOnly
 
     const reuseRecent = (name: 'tramites' | 'obligaciones' | 'firmas') =>
-      !useCache &&
+      !snapshotsFromCache &&
       input.reuseRecentSnapshotMs !== undefined &&
       isSnapshotLoadedWithin(name, input.partnerId, input.reuseRecentSnapshotMs)
     const reusedTramites = reuseRecent('tramites')
 
     const loadTramitesSnapshot =
-      useCache || reusedTramites ? getCachedTramitesSnapshotSafe : getFreshTramitesSnapshotSafe
+      snapshotsFromCache || reusedTramites ? getCachedTramitesSnapshotSafe : getFreshTramitesSnapshotSafe
 
     const loadObligacionSnapshot =
-      useCache || reuseRecent('obligaciones')
+      snapshotsFromCache || reuseRecent('obligaciones')
         ? getCachedObligacionNotificationSnapshotSafe
         : getFreshObligacionNotificationSnapshotSafe
 
     const loadFirmasSnapshot =
-      useCache || reuseRecent('firmas')
+      snapshotsFromCache || reuseRecent('firmas')
         ? getCachedPendingSignaturesSnapshotSafe
         : getFreshPendingSignaturesSnapshotSafe
 
@@ -146,7 +155,7 @@ export async function loadClientPortalNotifications(input: {
     const openItemKeys = getOpenTramiteListItemKeys(items)
 
     let tramitesBaselineInitialized = false
-    const seenState = persist
+    const seenState = persist && !chatterOnly
       ? await (async () => {
           const previous = await fetchTramitesListSeenState(input.actorId)
           const next = await ensureTramitesListSeenInitialized(
@@ -248,7 +257,9 @@ export async function loadClientPortalNotifications(input: {
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
 
-    const newTramiteKeys = new Set(computeNewTramiteListItemKeys(items, seenState))
+    const newTramiteKeys = chatterOnly
+      ? new Set<string>()
+      : new Set(computeNewTramiteListItemKeys(items, seenState))
 
     const newTramiteNotifications = items
       .filter(
@@ -262,17 +273,22 @@ export async function loadClientPortalNotifications(input: {
     const tramiteWatchables = items.map(watchableFromTramiteListItem)
     const obligWatchables = obligacionWatchables(obligSnap.leaves)
 
-    const recordDeltas = computeRecordWatchDeltas({
-      records: [...tramiteWatchables, ...obligWatchables],
-      watchState,
-      portalBaselineComplete,
-    })
+    const noDeltas = { notifications: [], watchUpdates: [] }
+    const recordDeltas = chatterOnly
+      ? noDeltas
+      : computeRecordWatchDeltas({
+          records: [...tramiteWatchables, ...obligWatchables],
+          watchState,
+          portalBaselineComplete,
+        })
 
-    const firmaDeltas = computeFirmaWatchDeltas({
-      requests: firmasSnap.requests,
-      watchState,
-      portalBaselineComplete,
-    })
+    const firmaDeltas = chatterOnly
+      ? noDeltas
+      : computeFirmaWatchDeltas({
+          requests: firmasSnap.requests,
+          watchState,
+          portalBaselineComplete,
+        })
 
     const watchUpdates = [...recordDeltas.watchUpdates, ...firmaDeltas.watchUpdates]
 

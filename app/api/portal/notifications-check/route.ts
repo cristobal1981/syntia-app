@@ -19,16 +19,26 @@ export async function POST(request: Request) {
   }
 
   let reuseRecentSnapshots = false
+  let chatterOnly = false
   try {
-    const body = (await request.json()) as { reuseRecentSnapshots?: unknown } | null
+    const body = (await request.json()) as {
+      reuseRecentSnapshots?: unknown
+      chatterOnly?: unknown
+    } | null
     reuseRecentSnapshots = body?.reuseRecentSnapshots === true
+    chatterOnly = body?.chatterOnly === true
   } catch {
     // Sin cuerpo o ilegible: comprobación normal.
   }
 
   try {
     const result = await checkPortalNotificationsAction(
-      reuseRecentSnapshots ? { reuseRecentSnapshots: true } : undefined
+      reuseRecentSnapshots || chatterOnly
+        ? {
+            ...(reuseRecentSnapshots ? { reuseRecentSnapshots: true } : {}),
+            ...(chatterOnly ? { chatterOnly: true } : {}),
+          }
+        : undefined
     )
     return NextResponse.json(result, { headers: NO_STORE })
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   getMaxPortalEventSeqForPartner,
   insertPortalEvent,
   listMaturePortalEvents,
+  listPortalEventKindsAfter,
 } from '@/src/modules/push/infrastructure/portal-events.supabase'
 import type { PortalEventInput } from '@/src/modules/push/domain/portal-event'
 
@@ -210,5 +211,42 @@ describe('getMaxPortalEventSeqForPartner', () => {
 
     use(chain({ error: { message: 'boom' } }))
     await expect(getMaxPortalEventSeqForPartner(1)).rejects.toThrow('boom')
+  })
+})
+
+describe('listPortalEventKindsAfter', () => {
+  it('pide solo los tipos de ese cliente posteriores a afterSeq, con tope de 200 (+1 para detectar el exceso)', async () => {
+    const c = chain({ data: [{ kind: 'message' }, { kind: 'status' }] })
+    const from = use(c)
+
+    expect(await listPortalEventKindsAfter(1233, 40)).toEqual({
+      kinds: ['message', 'status'],
+      truncated: false,
+    })
+    expect(from).toHaveBeenCalledWith('portal_events')
+    expect(c.select).toHaveBeenCalledWith('kind')
+    expect(c.eq).toHaveBeenCalledWith('partner_id', 1233)
+    expect(c.gt).toHaveBeenCalledWith('seq', 40)
+    expect(c.limit).toHaveBeenCalledWith(201)
+  })
+
+  it('con más de 200 filas marca truncated y devuelve solo 200', async () => {
+    use(chain({ data: Array.from({ length: 201 }, () => ({ kind: 'message' })) }))
+
+    const result = await listPortalEventKindsAfter(1, 0)
+
+    expect(result.truncated).toBe(true)
+    expect(result.kinds).toHaveLength(200)
+  })
+
+  it('exactamente 200 no es truncado; sin filas, lista vacía; propaga el error', async () => {
+    use(chain({ data: Array.from({ length: 200 }, () => ({ kind: 'message' })) }))
+    expect((await listPortalEventKindsAfter(1, 0)).truncated).toBe(false)
+
+    use(chain({ data: null }))
+    expect(await listPortalEventKindsAfter(1, 0)).toEqual({ kinds: [], truncated: false })
+
+    use(chain({ error: { message: 'boom' } }))
+    await expect(listPortalEventKindsAfter(1, 0)).rejects.toThrow('boom')
   })
 })

@@ -71,6 +71,25 @@ export function shouldRunFullNotificationsCheck(input: {
   return input.now - input.lastFullCheckAt >= input.maxAgeMs
 }
 
+/**
+ * ¿Basta con releer el chatter? Solo si lo único que pasó desde la última comprobación son
+ * mensajes nuevos (la lista de tipos es completa y no vacía), la última comprobación completa es
+ * reciente (la red de seguridad de `maxAgeMs` sigue mandando) y hay un punto de partida.
+ */
+export function canRunChatterOnlyCheck(input: {
+  kinds: readonly string[]
+  truncated: boolean
+  lastSignalSeq: number | null
+  lastFullCheckAt: number | null
+  now: number
+  maxAgeMs: number
+}): boolean {
+  if (input.truncated || input.kinds.length === 0) return false
+  if (input.lastSignalSeq === null || input.lastFullCheckAt === null) return false
+  if (input.now - input.lastFullCheckAt >= input.maxAgeMs) return false
+  return input.kinds.every((kind) => kind === 'message')
+}
+
 /** Mínimo entre dos comprobaciones completas provocadas por volver a la pestaña. */
 export const MIN_VISIBLE_REFRESH_GAP_MS = 15_000
 

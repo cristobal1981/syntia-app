@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { fetchPortalNewsSignalContext, fetchPortalSessionContext, getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooApiConfigured, getMaxPortalEventSeqForPartner, advanceUserPushCursor } =
+const { fetchPortalNewsSignalContext, fetchPortalSessionContext, getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooApiConfigured, getMaxPortalEventSeqForPartner, listPortalEventKindsAfter, advanceUserPushCursor } =
   vi.hoisted(() => ({
     fetchPortalNewsSignalContext: vi.fn(),
     fetchPortalSessionContext: vi.fn(),
@@ -10,6 +10,7 @@ const { fetchPortalNewsSignalContext, fetchPortalSessionContext, getSession, res
     resolveClientOdooPartnerId: vi.fn(),
     isOdooApiConfigured: vi.fn(),
     getMaxPortalEventSeqForPartner: vi.fn(),
+    listPortalEventKindsAfter: vi.fn(),
   }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
@@ -17,7 +18,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-session-context.supabase', (
 vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({ resolveDirectoryActorId }))
 vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({ resolveClientOdooPartnerId }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({ isOdooApiConfigured }))
-vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({ getMaxPortalEventSeqForPartner }))
+vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({ getMaxPortalEventSeqForPartner, listPortalEventKindsAfter }))
 vi.mock('@/src/modules/push/infrastructure/push-subscriptions.supabase', () => ({ advanceUserPushCursor }))
 vi.mock('@/src/modules/portal/application/load-client-portal-notifications', () => ({ loadClientPortalNotifications: vi.fn() }))
 vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({ getAllowedSectionsForWorker: vi.fn() }))
@@ -50,6 +51,35 @@ afterEach(() => {
     if (value === undefined) delete process.env[key]
     else process.env[key] = value
   }
+})
+
+describe('checkPortalNewsSignalAction — tipos de evento', () => {
+  it('sin afterSeq no consulta los tipos', async () => {
+    const result = await checkPortalNewsSignalAction()
+    expect(result).not.toHaveProperty('eventKinds')
+    expect(listPortalEventKindsAfter).not.toHaveBeenCalled()
+  })
+
+  it('con afterSeq y novedades (seq > afterSeq) devuelve los tipos de ese cliente', async () => {
+    listPortalEventKindsAfter.mockResolvedValue({ kinds: ['message'], truncated: false })
+    const result = await checkPortalNewsSignalAction({ afterSeq: 40 })
+    expect(listPortalEventKindsAfter).toHaveBeenCalledWith(1233, 40)
+    expect(result).toMatchObject({ ok: true, mode: 'events', seq: 42, eventKinds: { kinds: ['message'], truncated: false } })
+  })
+
+  it('sin novedades (seq <= afterSeq) o con afterSeq inválido no consulta', async () => {
+    for (const afterSeq of [42, 50, -1, 1.5, Number.NaN]) {
+      const result = await checkPortalNewsSignalAction({ afterSeq })
+      expect(result).not.toHaveProperty('eventKinds')
+    }
+    expect(listPortalEventKindsAfter).not.toHaveBeenCalled()
+  })
+
+  it('si la consulta de tipos falla, responde igualmente con el seq (el cliente hará la completa)', async () => {
+    listPortalEventKindsAfter.mockRejectedValue(new Error('boom'))
+    const result = await checkPortalNewsSignalAction({ afterSeq: 1 })
+    expect(result).toEqual({ ok: true, mode: 'events', seq: 42, fullCheckMaxAgeMs: 300_000 })
+  })
 })
 
 describe('checkPortalNewsSignalAction', () => {

@@ -121,6 +121,34 @@ export async function getMaxPortalEventSeqForPartner(partnerId: number): Promise
   return (data?.[0] as { seq: number } | undefined)?.seq ?? 0
 }
 
+/** Tope de eventos que mira la señal para saber de qué tipo son: pasado esto, se asume que hay de todo. */
+const KINDS_AFTER_LIMIT = 200
+
+/**
+ * Tipos de los eventos de ese cliente posteriores a `afterSeq`. `truncated`: hay más de los que se
+ * miran (quien llama no debe dar por hecho que son solo de un tipo).
+ */
+export async function listPortalEventKindsAfter(
+  partnerId: number,
+  afterSeq: number
+): Promise<{ kinds: PortalEventKind[]; truncated: boolean }> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('portal_events')
+    .select('kind')
+    .eq('partner_id', partnerId)
+    .gt('seq', afterSeq)
+    .order('seq', { ascending: true })
+    .limit(KINDS_AFTER_LIMIT + 1)
+
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as Array<{ kind: PortalEventKind }>
+  return {
+    kinds: rows.slice(0, KINDS_AFTER_LIMIT).map((row) => row.kind),
+    truncated: rows.length > KINDS_AFTER_LIMIT,
+  }
+}
+
 /**
  * Eventos posteriores a `afterSeq` que ya llevan un rato guardados (los
  * recientes esperan a la siguiente ejecución para agruparse), de más antiguo a

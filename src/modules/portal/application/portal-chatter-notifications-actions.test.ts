@@ -150,6 +150,16 @@ describe('checkPortalNotificationsAction: reutilizar lo recién cargado', () => 
     expect(input).toMatchObject({ cache: false, persist: true, reuseRecentSnapshotMs: 20_000 })
   })
 
+  it('chatterOnly solo se pasa al cargador si es exactamente true', async () => {
+    expect(await callWith({ chatterOnly: true })).toMatchObject({ chatterOnly: true })
+
+    loadClientPortalNotifications.mockClear()
+    expect(await callWith({ chatterOnly: 'yes' as unknown as boolean })).not.toHaveProperty('chatterOnly')
+
+    loadClientPortalNotifications.mockClear()
+    expect(await callWith()).not.toHaveProperty('chatterOnly')
+  })
+
   it('un valor que no es exactamente true (viene del navegador) no activa la reutilización', async () => {
     const input = await callWith({ reuseRecentSnapshots: 'yes' as unknown as boolean })
 

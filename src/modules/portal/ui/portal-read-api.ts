@@ -26,8 +26,9 @@ async function readJson<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-export function fetchNewsSignal(): Promise<PortalNewsSignalResult> {
-  return readJson<PortalNewsSignalResult>('/api/portal/news-signal', {
+export function fetchNewsSignal(afterSeq?: number | null): Promise<PortalNewsSignalResult> {
+  const query = typeof afterSeq === 'number' && afterSeq >= 0 ? `?after=${afterSeq}` : ''
+  return readJson<PortalNewsSignalResult>(`/api/portal/news-signal${query}`, {
     ok: false,
     error: 'odoo_unavailable',
   })
@@ -40,13 +41,17 @@ export function fetchNewsSignal(): Promise<PortalNewsSignalResult> {
  */
 export async function fetchNotificationsCheck(options?: {
   reuseRecentSnapshots?: boolean
+  chatterOnly?: boolean
 }): Promise<PortalNotificationsCheckResult> {
   const response = await fetch('/api/portal/notifications-check', {
     method: 'POST',
     credentials: 'same-origin',
     cache: 'no-store',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ reuseRecentSnapshots: options?.reuseRecentSnapshots === true }),
+    body: JSON.stringify({
+      reuseRecentSnapshots: options?.reuseRecentSnapshots === true,
+      chatterOnly: options?.chatterOnly === true,
+    }),
   })
   try {
     const body = (await response.json()) as PortalNotificationsCheckResult

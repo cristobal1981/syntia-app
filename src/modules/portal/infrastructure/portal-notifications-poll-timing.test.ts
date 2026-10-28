@@ -4,6 +4,7 @@ import {
   DEFERRED_POLL_MS,
   initialPollDelayMs,
   SERVER_SEED_GRACE_MS,
+  canRunChatterOnlyCheck,
   shouldAcknowledgeEventsSeen,
   shouldRefreshOnVisible,
   shouldRunFullNotificationsCheck,
@@ -105,5 +106,41 @@ describe('shouldRefreshOnVisible', () => {
 
   it('con un 429 vigente no refresca aunque haya pasado el tiempo', () => {
     expect(shouldRefreshOnVisible({ lastFullCheckAt: 0, now: 999_999, rateLimited: true })).toBe(false)
+  })
+})
+
+describe('canRunChatterOnlyCheck', () => {
+  const ok = {
+    kinds: ['message', 'message'],
+    truncated: false,
+    lastSignalSeq: 10,
+    lastFullCheckAt: 1_000_000,
+    now: 1_030_000,
+    maxAgeMs: 300_000,
+  }
+
+  it('solo mensajes con una comprobación completa reciente: basta con el chatter', () => {
+    expect(canRunChatterOnlyCheck(ok)).toBe(true)
+  })
+
+  it('cualquier otro tipo de evento obliga a la comprobación completa', () => {
+    for (const other of ['status', 'new_record', 'new_firma', 'firma_due_soon', 'assignee_change']) {
+      expect(canRunChatterOnlyCheck({ ...ok, kinds: ['message', other] })).toBe(false)
+    }
+  })
+
+  it('sin tipos o con la lista truncada no se asume nada', () => {
+    expect(canRunChatterOnlyCheck({ ...ok, kinds: [] })).toBe(false)
+    expect(canRunChatterOnlyCheck({ ...ok, truncated: true })).toBe(false)
+  })
+
+  it('sin punto de partida (primera vez) hace la completa', () => {
+    expect(canRunChatterOnlyCheck({ ...ok, lastSignalSeq: null })).toBe(false)
+    expect(canRunChatterOnlyCheck({ ...ok, lastFullCheckAt: null })).toBe(false)
+  })
+
+  it('al cumplirse el máximo desde la última completa, la red de seguridad manda', () => {
+    expect(canRunChatterOnlyCheck({ ...ok, now: 1_299_999 })).toBe(true)
+    expect(canRunChatterOnlyCheck({ ...ok, now: 1_300_000 })).toBe(false)
   })
 })
