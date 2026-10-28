@@ -36,7 +36,8 @@ type OdooMailMessageBatchRow = OdooMailMessageRow & {
 function buildBatchMessageDomain(
   resModel: string,
   recordIds: number[],
-  afterId?: number
+  afterId?: number,
+  beforeId?: number
 ): unknown[] {
   const domain: unknown[] = [
     ['model', '=', resModel],
@@ -51,6 +52,10 @@ function buildBatchMessageDomain(
 
   if (typeof afterId === 'number' && afterId > 0) {
     domain.push(['id', '>', afterId])
+  }
+
+  if (typeof beforeId === 'number' && beforeId > 0) {
+    domain.push(['id', '<', beforeId])
   }
 
   return domain
@@ -368,6 +373,81 @@ export type ChatterReadStateBootstrap = {
   lastSeenMessageId: number
 }
 
+/** Rondas máximas por grupo cuando el límite de filas corta la lectura (cada una es una petición). */
+const MAX_BATCH_ROUNDS = 5
+
+/**
+ * Mensajes de los registros de un grupo que hacen falta para saber qué hay sin leer, del más nuevo
+ * al más antiguo. Una sola petición salvo que el límite de filas la corte: entonces todo lo posterior
+ * al id más bajo recibido está completo, y solo se vuelve a pedir (por debajo de ese id) lo de los
+ * registros que aún no se pueden dar por resueltos, para que un registro con mucho movimiento no
+ * tape a los demás. Un registro sin «visto» guardado necesita su último mensaje de gestor aunque sea
+ * antiguo, así que mientras haya alguno no se acota por id mínimo.
+ */
+async function fetchGroupMessageRows(input: {
+  group: {
+    resModel: string
+    recordKind: PortalRecordKind
+    records: Array<{ recordId: number }>
+  }
+  readState: Map<string, number>
+  clientPartnerId: number
+  excludedPartnerIds: number[]
+  batchLimit: number
+}): Promise<OdooMailMessageBatchRow[]> {
+  const { group, readState, clientPartnerId, excludedPartnerIds, batchLimit } = input
+  const lastSeenOf = (recordId: number) =>
+    readState.get(chatterReadStateKey(group.recordKind, recordId))
+
+  let pending = group.records.map((record) => record.recordId)
+  const collected: OdooMailMessageBatchRow[] = []
+  let beforeId: number | undefined
+
+  for (let round = 0; round < MAX_BATCH_ROUNDS && pending.length > 0; round += 1) {
+    const known = pending
+      .map(lastSeenOf)
+      .filter((value): value is number => typeof value === 'number')
+    const afterId =
+      known.length === pending.length && known.length > 0 ? Math.min(...known) : undefined
+
+    const rows = await odooSearchRead<OdooMailMessageBatchRow>('mail.message', {
+      domain: buildBatchMessageDomain(group.resModel, pending, afterId, beforeId),
+      fields: ['id', 'res_id', 'body', 'date', 'author_id', 'message_type', 'attachment_ids'],
+      order: 'id desc',
+      limit: batchLimit,
+    })
+    collected.push(...rows)
+    if (rows.length < batchLimit) break
+
+    const cutoff = Math.min(...rows.map((row) => row.id))
+    const withGestorMessage = new Set<number>()
+    const visibleIds = new Set(
+      filterOdooMailMessageRows(collected, { clientPartnerId, excludedPartnerIds }).map(
+        (row) => row.id
+      )
+    )
+    for (const row of collected) {
+      const resId = typeof row.res_id === 'number' ? row.res_id : null
+      if (
+        resId &&
+        visibleIds.has(row.id) &&
+        !isClientChatterAuthor(mapOdooMany2OneId(row.author_id), clientPartnerId)
+      ) {
+        withGestorMessage.add(resId)
+      }
+    }
+    pending = pending.filter((recordId) => {
+      const lastSeen = lastSeenOf(recordId)
+      // Todo lo posterior a su «visto» ya está dentro de lo recibido (ids ≥ corte), o ya tiene su último mensaje de gestor.
+      if (lastSeen !== undefined && lastSeen >= cutoff - 1) return false
+      return !withGestorMessage.has(recordId)
+    })
+    beforeId = cutoff
+  }
+
+  return collected
+}
+
 export async function findUnreadChatterCandidatesForRecords(input: {
   groups: Array<{
     resModel: string
@@ -389,20 +469,12 @@ export async function findUnreadChatterCandidatesForRecords(input: {
     const recordIds = group.records.map((record) => record.recordId)
     if (!recordIds.length) continue
 
-    const knownLastSeen = group.records
-      .map((record) =>
-        input.readState.get(chatterReadStateKey(group.recordKind, record.recordId))
-      )
-      .filter((value): value is number => typeof value === 'number')
-
-    const minKnownLastSeen =
-      knownLastSeen.length > 0 ? Math.min(...knownLastSeen) : undefined
-
-    const rows = await odooSearchRead<OdooMailMessageBatchRow>('mail.message', {
-      domain: buildBatchMessageDomain(group.resModel, recordIds, minKnownLastSeen),
-      fields: ['id', 'res_id', 'body', 'date', 'author_id', 'message_type'],
-      order: 'id desc',
-      limit: batchLimit,
+    const rows = await fetchGroupMessageRows({
+      group,
+      readState: input.readState,
+      clientPartnerId: input.clientPartnerId,
+      excludedPartnerIds,
+      batchLimit,
     })
 
     const filtered = filterOdooMailMessageRows(rows, {
