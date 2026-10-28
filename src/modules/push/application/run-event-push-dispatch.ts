@@ -61,7 +61,10 @@ function isMessageAlreadyRead(event: PortalEventRow, readState: Map<string, numb
   return (readState.get(chatterReadStateKey(kind, event.recordId)) ?? 0) >= event.messageId
 }
 
-/** Un evento espera este tiempo antes de enviarse, para agrupar los que llegan seguidos. */
+/**
+ * Un evento espera este tiempo antes de enviarse, para agrupar los que llegan seguidos.
+ * El envío disparado desde el webhook usa uno más corto (`options.quietMs`).
+ */
 export const EVENT_QUIET_MS = 30_000
 
 /** Un aviso que no se entrega en una hora deja de interesar (mismo plazo que el TTL del push). */
@@ -78,7 +81,7 @@ export const EVENT_BATCH_SIZE = 2000
  */
 export async function runEventPushDispatch(
   deps: EventPushDispatchDeps,
-  options: { deadlineAt: number }
+  options: { deadlineAt: number; quietMs?: number }
 ): Promise<PushDispatchSummary> {
   const summary: PushDispatchSummary = {
     users: 0,
@@ -104,7 +107,7 @@ export async function runEventPushDispatch(
 
 async function runLocked(
   deps: EventPushDispatchDeps,
-  options: { deadlineAt: number },
+  options: { deadlineAt: number; quietMs?: number },
   summary: PushDispatchSummary
 ): Promise<void> {
   const toDelete: string[] = []
@@ -169,7 +172,7 @@ async function runLocked(
 
 async function processEvents(
   deps: EventPushDispatchDeps,
-  options: { deadlineAt: number },
+  options: { deadlineAt: number; quietMs?: number },
   summary: PushDispatchSummary,
   active: Map<string, DispatchSubscription[]>,
   recipients: Map<string, PushRecipient>,
@@ -181,7 +184,7 @@ async function processEvents(
   const minCursor = Math.min(...ready.map((subscription) => subscription.lastEventSeq!))
   const events = await deps.listMatureEvents(
     minCursor,
-    new Date(startedAt - EVENT_QUIET_MS),
+    new Date(startedAt - (options.quietMs ?? EVENT_QUIET_MS)),
     EVENT_BATCH_SIZE,
     new Date(startedAt - EVENT_MAX_AGE_MS)
   )

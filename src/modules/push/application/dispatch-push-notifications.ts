@@ -121,8 +121,11 @@ const eventDeps: EventPushDispatchDeps = {
 }
 
 /** Variante con eventos de Odoo: no hace ninguna petición a Odoo. */
-export function dispatchPushEvents(): Promise<PushDispatchSummary> {
+export function dispatchPushEvents(
+  options: { quietMs?: number; budgetMs?: number } = {}
+): Promise<PushDispatchSummary> {
   return runEventPushDispatch(eventDeps, {
-    deadlineAt: Date.now() + RUN_BUDGET_MS,
+    deadlineAt: Date.now() + (options.budgetMs ?? RUN_BUDGET_MS),
+    ...(options.quietMs !== undefined ? { quietMs: options.quietMs } : {}),
   })
 }

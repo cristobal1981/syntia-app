@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooApiConfigured, getMaxPortalEventSeqForPartner, advanceUserPushCursor } =
+const { fetchPortalNewsSignalContext, fetchPortalSessionContext, getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooApiConfigured, getMaxPortalEventSeqForPartner, advanceUserPushCursor } =
   vi.hoisted(() => ({
+    fetchPortalNewsSignalContext: vi.fn(),
+    fetchPortalSessionContext: vi.fn(),
     advanceUserPushCursor: vi.fn(),
     getSession: vi.fn(),
     resolveDirectoryActorId: vi.fn(),
@@ -11,6 +13,7 @@ const { getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooA
   }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
+vi.mock('@/src/modules/portal/infrastructure/portal-session-context.supabase', () => ({ fetchPortalNewsSignalContext, fetchPortalSessionContext }))
 vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({ resolveDirectoryActorId }))
 vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({ resolveClientOdooPartnerId }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({ isOdooApiConfigured }))
@@ -38,6 +41,8 @@ beforeEach(() => {
   resolveClientOdooPartnerId.mockResolvedValue(1233)
   isOdooApiConfigured.mockReturnValue(true)
   getMaxPortalEventSeqForPartner.mockResolvedValue(42)
+  fetchPortalNewsSignalContext.mockResolvedValue(null)
+  fetchPortalSessionContext.mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -63,6 +68,46 @@ describe('checkPortalNewsSignalAction', () => {
       fullCheckMaxAgeMs: 300_000,
     })
     expect(getMaxPortalEventSeqForPartner).toHaveBeenCalledWith(1233)
+  })
+
+  it('con la función SQL disponible usa su actor, cliente y seq sin más consultas', async () => {
+    fetchPortalNewsSignalContext.mockResolvedValue({ actorId: 'actor-rpc', partnerId: 555, seq: 77 })
+
+    expect(await checkPortalNewsSignalAction()).toMatchObject({ ok: true, mode: 'events', seq: 77 })
+
+    expect(resolveDirectoryActorId).not.toHaveBeenCalled()
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+    expect(getMaxPortalEventSeqForPartner).not.toHaveBeenCalled()
+  })
+
+  it('con la función SQL y seq 0 (cliente sin eventos) devuelve 0 y no vuelve a preguntar', async () => {
+    fetchPortalNewsSignalContext.mockResolvedValue({ actorId: 'a', partnerId: 555, seq: 0 })
+
+    expect(await checkPortalNewsSignalAction()).toMatchObject({ seq: 0 })
+    expect(getMaxPortalEventSeqForPartner).not.toHaveBeenCalled()
+  })
+
+  it('con la función SQL y sin cliente enlazado responde not_linked', async () => {
+    fetchPortalNewsSignalContext.mockResolvedValue({ actorId: 'a', partnerId: null, seq: 0 })
+
+    expect(await checkPortalNewsSignalAction()).toEqual({ ok: false, error: 'not_linked' })
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+  })
+
+  it('si la señal SQL no está pero sí el contexto, usa el contexto y pide el seq aparte', async () => {
+    fetchPortalSessionContext.mockResolvedValue({ actorId: 'actor-ctx', partnerId: 888 })
+
+    expect(await checkPortalNewsSignalAction()).toMatchObject({ seq: 42 })
+
+    expect(resolveDirectoryActorId).not.toHaveBeenCalled()
+    expect(getMaxPortalEventSeqForPartner).toHaveBeenCalledWith(888)
+  })
+
+  it('sin función SQL usa el camino anterior', async () => {
+    await checkPortalNewsSignalAction()
+
+    expect(resolveDirectoryActorId).toHaveBeenCalledTimes(1)
+    expect(resolveClientOdooPartnerId).toHaveBeenCalledWith(expect.anything(), 'actor-1')
   })
 
   it('el máximo se puede configurar y un valor absurdo vuelve al de por defecto', async () => {

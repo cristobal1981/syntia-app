@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { insertPortalEvent, getLastStatusLabel, invalidatePortalCachesForEvent } = vi.hoisted(() => ({
+const { after, runPushAfterEventInProduction, insertPortalEvent, getLastStatusLabel, invalidatePortalCachesForEvent } = vi.hoisted(() => ({
+  after: vi.fn(),
+  runPushAfterEventInProduction: vi.fn(),
   insertPortalEvent: vi.fn(),
   getLastStatusLabel: vi.fn(),
   invalidatePortalCachesForEvent: vi.fn(),
+}))
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after,
+}))
+vi.mock('@/src/modules/push/application/dispatch-push-after-event', () => ({
+  runPushAfterEventInProduction,
 }))
 vi.mock('@/src/modules/portal/infrastructure/portal-cache-invalidation', () => ({
   invalidatePortalCachesForEvent,
@@ -165,5 +174,77 @@ describe('POST /api/webhooks/odoo-events', () => {
     await POST(req({ ...valid, kind: 'nope' }))
     await POST(req({ ...valid, event_id: 'task:1:1', kind: 'new_record', message_id: undefined, ancestor_names: ['Obligaciones Fiscales'], record_name: 'Obligaciones Fiscales 2026' }))
     expect(invalidatePortalCachesForEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/webhooks/odoo-events: push desde el webhook', () => {
+  const ENV_KEYS = ['PUSH_FROM_WEBHOOK', 'PUSH_SOURCE'] as const
+  const saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]))
+
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key]
+      else process.env[key] = saved[key]
+    }
+  })
+
+  function enable() {
+    process.env.PUSH_FROM_WEBHOOK = '1'
+    process.env.PUSH_SOURCE = 'events'
+  }
+
+  it('evento nuevo con el interruptor encendido programa el envío con after()', async () => {
+    enable()
+
+    const response = await POST(req(valid))
+
+    expect(response.status).toBe(200)
+    expect(after).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledWith(runPushAfterEventInProduction)
+  })
+
+  it('con el interruptor apagado no programa nada', async () => {
+    delete process.env.PUSH_FROM_WEBHOOK
+    process.env.PUSH_SOURCE = 'events'
+
+    await POST(req(valid))
+
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('con PUSH_SOURCE distinto de events no programa nada', async () => {
+    process.env.PUSH_FROM_WEBHOOK = '1'
+    process.env.PUSH_SOURCE = 'snapshots'
+
+    await POST(req(valid))
+
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('un duplicado no programa envío (su evento ya tiene el suyo)', async () => {
+    enable()
+    insertPortalEvent.mockResolvedValue('duplicate')
+
+    await POST(req(valid))
+
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('un evento ignorado, inválido o sin autorización no programa envío', async () => {
+    enable()
+
+    await POST(req({ ...valid, kind: 'nope' }))
+    await POST(req(valid, 'Bearer otro'))
+    await POST(req({ ...valid, event_id: 'task:1:1', kind: 'new_record', message_id: undefined, ancestor_names: ['Obligaciones Fiscales'], record_name: 'Obligaciones Fiscales 2026' }))
+
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('si no se puede guardar el evento no programa envío y responde 500', async () => {
+    enable()
+    insertPortalEvent.mockRejectedValue(new Error('bd'))
+
+    expect((await POST(req(valid))).status).toBe(500)
+    expect(after).not.toHaveBeenCalled()
   })
 })
