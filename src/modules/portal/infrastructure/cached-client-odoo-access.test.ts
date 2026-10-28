@@ -49,6 +49,7 @@ import {
   getCachedPendingSignaturesSnapshot,
   isSnapshotLoadedWithin,
   forgetRecentTramitesLoad,
+  expireClientPortalCaches,
 } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 
 const leaf = { id: 11, name: 'Modelo 420', modifiedAt: '2026-10-22', state: '01_in_progress' }
@@ -397,5 +398,54 @@ describe('carga única: las cargas simultáneas del mismo snapshot comparten una
     await Promise.all([a, b])
 
     expect(buildObligacionTaskIndex).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('expireClientPortalCaches («Actualizar» del usuario)', () => {
+  it('expira todas las cachés de lo que se ve de ese cliente, y solo de ese cliente', () => {
+    expect(expireClientPortalCaches(7)).toBe(true)
+
+    const tags = updateTag.mock.calls.map(([tag]) => tag).sort()
+    expect(tags).toEqual(
+      [
+        'tramites-snapshot:7',
+        'client-project-ids:7',
+        'obligacion-task-index:7',
+        'obligacion-tree:7',
+        'obligacion-notification-snapshot:7',
+        'pending-signatures-snapshot:7',
+        'signature-history-snapshot:7',
+        'chatter-unread-batch:7',
+      ].sort()
+    )
+    expect(tags.every((tag) => tag.endsWith(':7'))).toBe(true)
+  })
+
+  it('no toca la caché del cliente de Odoo del usuario (identidad)', () => {
+    expireClientPortalCaches(7)
+
+    expect(updateTag.mock.calls.some(([tag]) => String(tag).startsWith('client-odoo-partner'))).toBe(
+      false
+    )
+  })
+
+  it('olvida la última carga de trámites: si no, se reutilizaría 5 s y «Actualizar» no leería de Odoo', async () => {
+    const snapshot = { tasks: [], tickets: [], tagFilterActive: false }
+    fetchTramitesFromOdoo.mockReset()
+    fetchTramitesFromOdoo.mockResolvedValue(snapshot)
+
+    await getCachedTramitesSnapshot(8120)
+    expireClientPortalCaches(8120)
+    await getCachedTramitesSnapshot(8120)
+
+    expect(fetchTramitesFromOdoo).toHaveBeenCalledTimes(2)
+  })
+
+  it('fuera de una Server Action (updateTag lanza) devuelve false sin romper', () => {
+    updateTag.mockImplementation(() => {
+      throw new Error('fuera de una acción')
+    })
+
+    expect(expireClientPortalCaches(7)).toBe(false)
   })
 })

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 
 import { portal } from '@/content/portal'
+import { refreshPortalDataAction } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
   buildPortalShortcutTooltipCopy,
 } from '@/src/modules/portal/domain/portal-shortcut-platform'
@@ -12,6 +13,7 @@ import {
   formatPortalShortcutLabel,
   PORTAL_REFRESH_SHORTCUT,
 } from '@/src/modules/portal/domain/portal-shortcuts'
+import { runPortalRefresh } from '@/src/modules/portal/ui/run-portal-refresh'
 import { PortalActionButton } from '@/src/modules/portal/ui/portal-action-button'
 import { usePortalShortcutOverlay } from '@/src/modules/portal/ui/portal-shortcut-overlay-context'
 import { usePortalShortcut } from '@/src/modules/portal/ui/use-portal-shortcut'
@@ -39,9 +41,8 @@ export function PortalRefreshButton({
   const refresh = useCallback(() => {
     if (pending) return
 
-    startTransition(() => {
-      router.refresh()
-    })
+    // Dentro de la transición: el botón se queda «actualizando» hasta que acaba la acción y el repintado.
+    startTransition(() => runPortalRefresh(refreshPortalDataAction, () => router.refresh()))
   }, [pending, router])
 
   usePortalShortcut(PORTAL_REFRESH_SHORTCUT, refresh, { enabled: !pending })
