@@ -365,12 +365,18 @@ export type ChatterUnreadCandidate = {
   recordId: number
   latestMessageId: number
   latestDate: string
+  /** El último mensaje del gestor trae adjuntos: cambia el contador de documentos de la lista. */
+  hasAttachments: boolean
 }
 
 export type ChatterReadStateBootstrap = {
   recordKind: PortalRecordKind
   recordId: number
   lastSeenMessageId: number
+}
+
+function rowHasAttachmentIds(row: OdooMailMessageRow): boolean {
+  return mapOdooAttachmentIdList(row.attachment_ids).length > 0
 }
 
 /** Rondas máximas por grupo cuando el límite de filas corta la lectura (cada una es una petición). */
@@ -529,6 +535,7 @@ export async function findUnreadChatterCandidatesForRecords(input: {
             recordKind: group.recordKind,
             recordId: record.recordId,
             latestMessageId: latestFromGestorOnFirstSeen.id,
+            hasAttachments: rowHasAttachmentIds(latestFromGestorOnFirstSeen),
             latestDate:
               typeof latestFromGestorOnFirstSeen.date === 'string'
                 ? parseOdooDateTime(latestFromGestorOnFirstSeen.date) ||
@@ -564,6 +571,7 @@ export async function findUnreadChatterCandidatesForRecords(input: {
         recordId: record.recordId,
         latestMessageId: latestFromGestor.id,
         latestDate,
+        hasAttachments: rowHasAttachmentIds(latestFromGestor),
       })
     }
   }

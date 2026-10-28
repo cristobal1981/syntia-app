@@ -225,6 +225,13 @@ export async function loadClientPortalNotifications(input: {
       }
     }
 
+    // Con solo chatter el contador de documentos de la lista (que sale del snapshot de trámites)
+    // no se renovaría: un mensaje con adjuntos lo cambia. Solo entonces se relee ese snapshot, que
+    // además deja la caché al día para el repintado que sigue.
+    if (chatterOnly && chatterUnread.some((item) => item.hasAttachments)) {
+      await getFreshTramitesSnapshotSafe(input.partnerId)
+    }
+
     if (persist && bootstrapUpdates.length) {
       await upsertChatterReadStateBatch(input.actorId, bootstrapUpdates)
       for (const update of bootstrapUpdates) {

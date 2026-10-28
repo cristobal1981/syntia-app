@@ -1192,6 +1192,56 @@ describe('loadClientPortalNotifications — chatterOnly (solo han llegado mensaj
     expect(upsertChatterReadStateBatch).toHaveBeenCalledWith(ACTOR_ID, [update])
   })
 
+  it('si el mensaje nuevo trae adjuntos, relee el snapshot de trámites (el contador de documentos de la lista)', async () => {
+    getFreshUnreadChatterCandidates.mockResolvedValue({
+      unread: [{ ...chatter, hasAttachments: true }],
+      bootstrapUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalledWith(PARTNER_ID)
+  })
+
+  it('en la comprobación completa no relee trámites una segunda vez por los adjuntos', async () => {
+    getFreshUnreadChatterCandidates.mockResolvedValue({
+      unread: [{ ...chatter, hasAttachments: true }],
+      bootstrapUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalledTimes(1)
+  })
+
+  it('sin adjuntos en lo nuevo no relee trámites', async () => {
+    getFreshUnreadChatterCandidates.mockResolvedValue({
+      unread: [{ ...chatter, hasAttachments: false }],
+      bootstrapUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
   it('sin chatterOnly todo sigue igual (deltas calculados)', async () => {
     await loadClientPortalNotifications({
       partnerId: PARTNER_ID,

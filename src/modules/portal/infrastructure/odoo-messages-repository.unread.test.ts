@@ -125,7 +125,29 @@ describe('findUnreadChatterCandidatesForRecords', () => {
     const result = await find([1], state([[1, 5]]))
 
     expect(odooSearchRead.mock.calls[0]![1].fields).toContain('attachment_ids')
-    expect(result.unread).toEqual([expect.objectContaining({ recordId: 1, latestMessageId: 10 })])
+    expect(result.unread).toEqual([
+      expect.objectContaining({ recordId: 1, latestMessageId: 10, hasAttachments: true }),
+    ])
+  })
+
+  it('hasAttachments solo es true si el último mensaje del gestor trae adjuntos', async () => {
+    installOdoo([
+      { id: 10, res_id: 1, author: GESTOR },
+      { id: 20, res_id: 2, author: GESTOR, attachment_ids: [5] },
+    ])
+
+    const result = await find([1, 2], state([[1, 5], [2, 5]]))
+
+    expect(result.unread.find((entry) => entry.recordId === 1)!.hasAttachments).toBe(false)
+    expect(result.unread.find((entry) => entry.recordId === 2)!.hasAttachments).toBe(true)
+  })
+
+  it('un registro sin «visto» con un gestor pendiente también informa de sus adjuntos', async () => {
+    installOdoo([{ id: 3, res_id: 1, author: GESTOR, attachment_ids: [8] }])
+
+    const result = await find([1], new Map())
+
+    expect(result.unread).toEqual([expect.objectContaining({ recordId: 1, hasAttachments: true })])
   })
 
   it('un mensaje vacío y sin adjuntos no cuenta; uno del propio cliente tampoco', async () => {
