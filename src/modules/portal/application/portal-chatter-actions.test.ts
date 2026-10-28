@@ -20,6 +20,7 @@ const {
   postRecordComment,
   fetchChatterReplyLinks,
   checkRateLimit,
+  fetchPortalSessionContext,
   getCachedTramitesSnapshot,
   resolveTaskWorkerSection,
 } = vi.hoisted(() => ({
@@ -29,6 +30,7 @@ const {
   getAllowedSectionsForWorker: vi.fn(),
   getWorkerWriteSections: vi.fn(),
   resolveClientOdooPartnerId: vi.fn(),
+  fetchPortalSessionContext: vi.fn(),
   isOdooApiConfigured: vi.fn(),
   verifyClientRecordAccess: vi.fn(),
   listPortalMessagesPage: vi.fn(),
@@ -38,6 +40,9 @@ const {
 }))
 
 vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
+vi.mock('@/src/modules/portal/infrastructure/portal-session-context.supabase', () => ({
+  fetchPortalSessionContext,
+}))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({
   getAllowedSectionsForWorker,
@@ -102,6 +107,7 @@ function sessionFor(role: 'client' | 'worker'): PortalSession {
 beforeEach(() => {
   vi.clearAllMocks()
   resolveClientOdooPartnerId.mockResolvedValue(999)
+  fetchPortalSessionContext.mockResolvedValue(null)
   isOdooApiConfigured.mockReturnValue(true)
   fetchChatterReplyLinks.mockResolvedValue(new Map())
   checkRateLimit.mockResolvedValue(true)
@@ -129,6 +135,29 @@ describe('portal-chatter-actions (/tramites section gate, covers both trámites 
 
     expect(resolveDirectoryActorId).toHaveBeenCalledTimes(1)
     expect(resolveClientOdooPartnerId).toHaveBeenCalledWith(expect.anything(), 'actor-1')
+  })
+
+  it('con la función SQL disponible usa su actor y cliente sin más consultas', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    fetchPortalSessionContext.mockResolvedValue({ actorId: 'actor-rpc', partnerId: 555 })
+    verifyClientRecordAccess.mockResolvedValue(true)
+    listPortalMessagesPage.mockResolvedValue({ messages: [], hasMore: false })
+
+    await listRecordMessagesAction({ kind: 'task', recordId: 1 })
+
+    expect(resolveDirectoryActorId).not.toHaveBeenCalled()
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
+    expect(verifyClientRecordAccess).toHaveBeenCalledWith('task', 1, 555)
+  })
+
+  it('con la función SQL y sin cliente enlazado responde not_linked', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    fetchPortalSessionContext.mockResolvedValue({ actorId: 'actor-rpc', partnerId: null })
+
+    const result = await listRecordMessagesAction({ kind: 'task', recordId: 1 })
+
+    expect(result).toMatchObject({ ok: false, error: 'not_linked' })
+    expect(resolveClientOdooPartnerId).not.toHaveBeenCalled()
   })
 
   it('refuses a worker without /tramites even for a "ticket" (consulta) kind record', async () => {

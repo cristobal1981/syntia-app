@@ -23,6 +23,7 @@ import { isClientOrWorkerRole } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
 import { getWorkerWriteSections } from '@/src/modules/colaboradores/application/get-worker-write-sections'
 import type { WorkerAccessLevel, WorkerSectionHref } from '@/src/modules/colaboradores/domain/types'
+import { fetchPortalSessionContext } from '@/src/modules/portal/infrastructure/portal-session-context.supabase'
 import { resolveDirectoryActorId } from '@/src/modules/directory/application/resolve-actor-id'
 import { validateChatterUploadFiles } from '@/src/modules/portal/lib/chatter-attachment-validation'
 import { restrictNotifyPartnerIds } from '@/src/modules/portal/domain/notify-partner-ids'
@@ -93,8 +94,13 @@ async function resolveClientPartnerId(
     }
   }
 
-  const actorId = await resolveDirectoryActorId(session.user)
-  const partnerId = await resolveClientOdooPartnerId(session.user, actorId)
+  // Una sola consulta (función SQL) para el actor y el cliente de Odoo; si no está disponible,
+  // el camino anterior (varias consultas).
+  const context = await fetchPortalSessionContext(session.user)
+  const actorId = context?.actorId ?? (await resolveDirectoryActorId(session.user))
+  const partnerId = context
+    ? context.partnerId
+    : await resolveClientOdooPartnerId(session.user, actorId)
   if (!partnerId) {
     return { ok: false, error: 'not_linked' }
   }

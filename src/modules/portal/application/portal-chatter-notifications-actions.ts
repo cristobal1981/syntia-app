@@ -34,6 +34,10 @@ import {
   getPortalNewsFullCheckMaxAgeMs,
   isPortalNewsSignalEnabled,
 } from '@/src/modules/portal/infrastructure/portal-chatter-env'
+import {
+  fetchPortalNewsSignalContext,
+  fetchPortalSessionContext,
+} from '@/src/modules/portal/infrastructure/portal-session-context.supabase'
 import { getMaxPortalEventSeqForPartner } from '@/src/modules/push/infrastructure/portal-events.supabase'
 import { advanceUserPushCursor } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
 import {
@@ -44,8 +48,8 @@ import { resolveWatchableAckStateFromSnapshots } from '@/src/modules/portal/infr
 import { verifyClientRecordAccess } from '@/src/modules/portal/infrastructure/portal-record-access'
 import { resolveClientOdooPartnerId } from '@/src/modules/tramites/application/resolve-client-odoo-partner-id'
 
-async function resolveClientAccess(): Promise<
-  | { ok: true; partnerId: number; actorId: string; user: PortalUser }
+async function resolveClientAccess(options?: { withSeq?: boolean }): Promise<
+  | { ok: true; partnerId: number; actorId: string; user: PortalUser; seq?: number }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 > {
   const session = await getSession()
@@ -53,8 +57,14 @@ async function resolveClientAccess(): Promise<
     return { ok: false, error: 'forbidden' }
   }
 
-  const actorId = await resolveDirectoryActorId(session.user)
-  const partnerId = await resolveClientOdooPartnerId(session.user, actorId)
+  // Una sola consulta (función SQL) para el actor, el cliente de Odoo y, si se pide, el último
+  // evento; si no está disponible, el camino anterior (varias consultas).
+  const signalContext = options?.withSeq ? await fetchPortalNewsSignalContext(session.user) : null
+  const context = signalContext ?? (await fetchPortalSessionContext(session.user))
+  const actorId = context?.actorId ?? (await resolveDirectoryActorId(session.user))
+  const partnerId = context
+    ? context.partnerId
+    : await resolveClientOdooPartnerId(session.user, actorId)
   if (!partnerId) {
     return { ok: false, error: 'not_linked' }
   }
@@ -63,7 +73,13 @@ async function resolveClientAccess(): Promise<
     return { ok: false, error: 'odoo_unavailable' }
   }
 
-  return { ok: true, partnerId, actorId, user: session.user }
+  return {
+    ok: true,
+    partnerId,
+    actorId,
+    user: session.user,
+    ...(signalContext ? { seq: signalContext.seq } : {}),
+  }
 }
 
 function readStateMapToObject(map: Map<string, number>): ChatterReadStateMap {
@@ -118,11 +134,11 @@ export type PortalNewsSignalResult =
 export async function checkPortalNewsSignalAction(): Promise<PortalNewsSignalResult> {
   if (!isPortalNewsSignalEnabled()) return { ok: true, mode: 'full' }
 
-  const access = await resolveClientAccess()
+  const access = await resolveClientAccess({ withSeq: true })
   if (!access.ok) return { ok: false, error: access.error }
 
   try {
-    const seq = await getMaxPortalEventSeqForPartner(access.partnerId)
+    const seq = access.seq ?? (await getMaxPortalEventSeqForPartner(access.partnerId))
     return { ok: true, mode: 'events', seq, fullCheckMaxAgeMs: getPortalNewsFullCheckMaxAgeMs() }
   } catch (error) {
     console.error('[portal news] señal de eventos falló', error)
