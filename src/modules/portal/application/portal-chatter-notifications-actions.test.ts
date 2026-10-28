@@ -6,6 +6,7 @@ import {
   checkChatterNotificationsAction,
   checkPortalNotificationsAction,
   markChatterConversationSeenAction,
+  refreshPortalDataAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 
 const priorityRuns = vi.hoisted(() => ({ count: 0 }))
@@ -25,6 +26,8 @@ const {
   resolveWatchableAckStateFromSnapshots,
   verifyClientRecordAccess,
   resolveClientOdooPartnerId,
+  checkRateLimit,
+  expireClientPortalCaches,
 } = vi.hoisted(() => ({
   getSession: vi.fn(),
   getAllowedSectionsForWorker: vi.fn(),
@@ -40,8 +43,14 @@ const {
   resolveWatchableAckStateFromSnapshots: vi.fn(),
   verifyClientRecordAccess: vi.fn(),
   resolveClientOdooPartnerId: vi.fn(),
+  checkRateLimit: vi.fn(),
+  expireClientPortalCaches: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit/check-rate-limit', () => ({ checkRateLimit }))
+vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => ({
+  expireClientPortalCaches,
+}))
 vi.mock('@/src/modules/auth/application/get-session', () => ({ getSession }))
 vi.mock(
   '@/src/modules/colaboradores/application/get-allowed-sections-for-worker',
@@ -115,6 +124,7 @@ beforeEach(() => {
   resolveClientOdooPartnerId.mockResolvedValue(999)
   isOdooApiConfigured.mockReturnValue(true)
   resolveDirectoryActorId.mockResolvedValue('actor-1')
+  checkRateLimit.mockResolvedValue(true)
 })
 
 describe('checkPortalNotificationsAction: reutilizar lo recién cargado', () => {
@@ -689,5 +699,66 @@ describe('ackPortalNotificationAction', () => {
     })
 
     expect(result).toEqual({ ok: false, error: 'odoo_unavailable' })
+  })
+})
+
+describe('refreshPortalDataAction («Actualizar»)', () => {
+  it('caduca las cachés del cliente de la sesión y responde ok', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    expect(await refreshPortalDataAction()).toEqual({ ok: true })
+
+    expect(expireClientPortalCaches).toHaveBeenCalledTimes(1)
+    expect(expireClientPortalCaches).toHaveBeenCalledWith(999)
+  })
+
+  it('un colaborador caduca las cachés de su cliente (el del titular)', async () => {
+    getSession.mockResolvedValue(sessionFor('worker'))
+
+    expect(await refreshPortalDataAction()).toEqual({ ok: true })
+
+    expect(expireClientPortalCaches).toHaveBeenCalledWith(999)
+  })
+
+  it('el límite es por usuario y acción', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+
+    await refreshPortalDataAction()
+
+    expect(checkRateLimit).toHaveBeenCalledWith('portal-refresh:actor-1', {
+      limit: 6,
+      windowSeconds: 60,
+    })
+  })
+
+  it('superado el límite no caduca nada y lo dice', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    checkRateLimit.mockResolvedValue(false)
+
+    expect(await refreshPortalDataAction()).toEqual({ ok: false, error: 'rate_limited' })
+    expect(expireClientPortalCaches).not.toHaveBeenCalled()
+  })
+
+  it.each(['advisor', 'admin'] as const)('un %s no puede (solo cliente o colaborador)', async (role) => {
+    getSession.mockResolvedValue(sessionFor(role))
+
+    expect(await refreshPortalDataAction()).toEqual({ ok: false, error: 'forbidden' })
+    expect(expireClientPortalCaches).not.toHaveBeenCalled()
+    expect(checkRateLimit).not.toHaveBeenCalled()
+  })
+
+  it('sin sesión no caduca nada', async () => {
+    getSession.mockResolvedValue(null)
+
+    expect(await refreshPortalDataAction()).toEqual({ ok: false, error: 'forbidden' })
+    expect(expireClientPortalCaches).not.toHaveBeenCalled()
+  })
+
+  it('sin cliente de Odoo enlazado no caduca nada', async () => {
+    getSession.mockResolvedValue(sessionFor('client'))
+    resolveClientOdooPartnerId.mockResolvedValue(null)
+
+    expect(await refreshPortalDataAction()).toEqual({ ok: false, error: 'not_linked' })
+    expect(expireClientPortalCaches).not.toHaveBeenCalled()
   })
 })

@@ -407,6 +407,26 @@ function expireCacheTagsNow(tags: string[]): boolean {
   }
 }
 
+/**
+ * «Actualizar» del usuario: deja caducadas, para este cliente, todas las cachés de lo que se ve en
+ * trámites, obligaciones y firmas (y el chatter sin leer del aviso), de modo que el repintado
+ * siguiente relea de Odoo. Solo en una Server Action (`updateTag`); fuera devuelve `false`.
+ * El cliente de Odoo enlazado al usuario (identidad) no se toca.
+ */
+export function expireClientPortalCaches(partnerId: number): boolean {
+  forgetRecentTramitesLoad(partnerId)
+  return expireCacheTagsNow([
+    tramitesSnapshotCacheTag(partnerId),
+    clientProjectIdsCacheTag(partnerId),
+    obligacionTaskIndexCacheTag(partnerId),
+    obligacionTreeCacheTag(partnerId),
+    obligacionNotificationSnapshotCacheTag(partnerId),
+    pendingSignaturesSnapshotCacheTag(partnerId),
+    signatureHistorySnapshotCacheTag(partnerId),
+    chatterUnreadBatchCacheTag(partnerId),
+  ])
+}
+
 async function refreshSnapshotCache<T>(input: {
   tags: string[]
   cachedLoader: () => Promise<T>

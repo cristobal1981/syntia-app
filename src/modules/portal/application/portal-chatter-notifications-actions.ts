@@ -1,5 +1,6 @@
 'use server'
 
+import { checkRateLimit } from '@/lib/rate-limit/check-rate-limit'
 import { getSession } from '@/src/modules/auth/application/get-session'
 import { isClientOrWorkerRole, type PortalUser } from '@/src/modules/auth/domain/types'
 import { getAllowedSectionsForWorker } from '@/src/modules/colaboradores/application/get-allowed-sections-for-worker'
@@ -22,6 +23,7 @@ import {
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { loadClientPortalNotifications } from '@/src/modules/portal/application/load-client-portal-notifications'
+import { expireClientPortalCaches } from '@/src/modules/portal/infrastructure/cached-client-odoo-access'
 import {
   fetchChatterReadStateForUser,
   upsertChatterReadState,
@@ -178,6 +180,31 @@ export async function acknowledgeEventsSeenInAppAction(
     console.error('[push] marcar eventos vistos en la app falló', error)
     return { ok: false, error: 'unavailable' }
   }
+}
+
+export type RefreshPortalDataResult =
+  | { ok: true }
+  | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' | 'rate_limited' }
+
+/** «Actualizar» pulsado a mano: unas pocas veces por minuto bastan y protegen a Odoo. */
+const REFRESH_RATE_LIMIT = { limit: 6, windowSeconds: 60 }
+
+/**
+ * Botón «Actualizar» (y su atajo): deja caducadas las cachés del cliente (trámites, obligaciones,
+ * firmas, chatter sin leer) para que el repintado que sigue lea de Odoo en vez de servir hasta
+ * 5 minutos de caché. Un colaborador usa las del titular (mismo cliente de Odoo). Si falla o se
+ * supera el límite, el cliente repinta igualmente con lo que haya.
+ */
+export async function refreshPortalDataAction(): Promise<RefreshPortalDataResult> {
+  const access = await resolveClientAccess()
+  if (!access.ok) return { ok: false, error: access.error }
+
+  if (!(await checkRateLimit(`portal-refresh:${access.actorId}`, REFRESH_RATE_LIMIT))) {
+    return { ok: false, error: 'rate_limited' }
+  }
+
+  expireClientPortalCaches(access.partnerId)
+  return { ok: true }
 }
 
 export async function markChatterConversationSeenAction(input: {

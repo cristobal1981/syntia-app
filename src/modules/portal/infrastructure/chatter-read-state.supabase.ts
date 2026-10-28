@@ -1,5 +1,6 @@
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { chatterReadStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
+import { isMissingRpcError } from '@/src/modules/directory/infrastructure/is-missing-rpc-error'
 import { createSupabaseAdminClient } from '@/src/modules/directory/infrastructure/supabase-admin'
 import { resolvePortalAccountGroup } from '@/src/modules/colaboradores/application/get-portal-account-group'
 
@@ -89,6 +90,52 @@ export async function cloneChatterReadStateForUser(
   }
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Tras un fallo de la función SQL no se reintenta hasta pasado este tiempo (camino anterior). */
+const RPC_RETRY_AFTER_FAILURE_MS = 60_000
+let rpcUnavailableUntil = 0
+
+/** Solo para pruebas: olvida el último fallo de la función SQL. */
+export function resetChatterReadStateRpcFailure(): void {
+  rpcUnavailableUntil = 0
+}
+
+/**
+ * Guarda el «visto» con la función SQL `upsert_chatter_read_state` (un solo paso, con `greatest()`
+ * dentro de Postgres). Devuelve `false` si hay que usar el camino anterior: algún id no es un
+ * uuid, la función aún no existe o falla. Un fallo nunca pierde el «visto»: el camino anterior
+ * hace lo mismo con más consultas.
+ */
+async function upsertViaRpc(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  group: string[],
+  entries: Array<{ recordKind: PortalRecordKind; recordId: number; lastSeenMessageId: number }>,
+  now: number = Date.now()
+): Promise<boolean> {
+  if (rpcUnavailableUntil > now) return false
+  if (!group.every((id) => UUID_PATTERN.test(id))) return false
+
+  try {
+    const { error } = await supabase.rpc('upsert_chatter_read_state', {
+      p_user_ids: group,
+      p_entries: entries.map((entry) => ({
+        record_kind: entry.recordKind,
+        record_id: entry.recordId,
+        last_seen_message_id: entry.lastSeenMessageId,
+      })),
+    })
+    if (!error) return true
+    if (!isMissingRpcError(error)) {
+      console.error('[portal] upsert_chatter_read_state falló', error.message)
+    }
+  } catch (error) {
+    console.error('[portal] upsert_chatter_read_state falló', error)
+  }
+  rpcUnavailableUntil = now + RPC_RETRY_AFTER_FAILURE_MS
+  return false
+}
+
 /**
  * Titular y colaboradores comparten bandeja (ver `resolvePortalAccountGroup`):
  * el nuevo `last_seen_message_id` se propaga a todo el grupo, tomando el
@@ -107,6 +154,8 @@ export async function upsertChatterReadStateBatch(
 
   const group = await resolvePortalAccountGroup(userId)
   const supabase = createSupabaseAdminClient()
+
+  if (await upsertViaRpc(supabase, group, entries)) return
 
   const { data, error: fetchError } = await supabase
     .from('chatter_read_state')

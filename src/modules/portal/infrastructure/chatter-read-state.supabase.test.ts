@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   cloneChatterReadStateForUser,
   fetchChatterReadStateForUser,
+  resetChatterReadStateRpcFailure,
   upsertChatterReadState,
   upsertChatterReadStateBatch,
 } from '@/src/modules/portal/infrastructure/chatter-read-state.supabase'
@@ -51,6 +52,8 @@ function chainFor(
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.useRealTimers()
+  resetChatterReadStateRpcFailure()
   // Por defecto cada actorId forma su propio grupo de 1 (sin colaboradores).
   resolvePortalAccountGroup.mockImplementation((actorId: string) =>
     Promise.resolve([actorId])
@@ -251,5 +254,115 @@ describe('upsertChatterReadStateBatch — grupo titular + colaboradores', () => 
     ]
     expect(rows.find((r) => r.user_id === 'owner-1')?.last_seen_message_id).toBe(200)
     expect(rows.find((r) => r.user_id === 'worker-1')?.last_seen_message_id).toBe(50)
+  })
+})
+
+describe('upsertChatterReadStateBatch con la función SQL upsert_chatter_read_state', () => {
+  const OWNER = '3f2b8c1e-9d4a-4e7b-8a61-2c5d7e9f0a12'
+  const WORKER = '7a1d5c90-2b34-4c6e-9f10-8d3e4a5b6c7d'
+  const entries = [
+    { recordKind: 'task' as const, recordId: 10, lastSeenMessageId: 500 },
+    { recordKind: 'ticket' as const, recordId: 4664, lastSeenMessageId: 239376 },
+  ]
+
+  function setup(rpcResult: QueryResult | Error = { error: null }) {
+    const rpc = vi.fn(() =>
+      rpcResult instanceof Error ? Promise.reject(rpcResult) : Promise.resolve(rpcResult)
+    )
+    const legacy = chainFor({ data: [] })
+    const from = vi.fn(() => legacy)
+    createSupabaseAdminClient.mockReturnValue({ rpc, from })
+    return { rpc, from, legacy }
+  }
+
+  it('guarda el «visto» con una sola llamada y sin leer antes ni hacer upsert suelto', async () => {
+    resolvePortalAccountGroup.mockResolvedValue([OWNER, WORKER])
+    const { rpc, from } = setup()
+
+    await upsertChatterReadStateBatch(OWNER, entries)
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('upsert_chatter_read_state', {
+      p_user_ids: [OWNER, WORKER],
+      p_entries: [
+        { record_kind: 'task', record_id: 10, last_seen_message_id: 500 },
+        { record_kind: 'ticket', record_id: 4664, last_seen_message_id: 239376 },
+      ],
+    })
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('sin entradas no hace nada', async () => {
+    const { rpc, from } = setup()
+
+    await upsertChatterReadStateBatch(OWNER, [])
+
+    expect(rpc).not.toHaveBeenCalled()
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('si algún id del grupo no es un uuid usa el camino anterior sin llamar a la función', async () => {
+    resolvePortalAccountGroup.mockResolvedValue([OWNER, 'demo-worker'])
+    const { rpc, from, legacy } = setup()
+
+    await upsertChatterReadStateBatch(OWNER, entries)
+
+    expect(rpc).not.toHaveBeenCalled()
+    expect(from).toHaveBeenCalled()
+    expect(legacy.upsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('si la función no existe usa el camino anterior sin ruido y no reintenta durante 60 s', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T12:00:00Z'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolvePortalAccountGroup.mockResolvedValue([OWNER])
+    const { rpc, legacy } = setup({ error: { code: 'PGRST202', message: 'no existe' } as never })
+
+    await upsertChatterReadStateBatch(OWNER, entries)
+    expect(legacy.upsert).toHaveBeenCalledTimes(1)
+    expect(console.error).not.toHaveBeenCalled()
+
+    vi.setSystemTime(new Date('2026-10-28T12:00:59Z'))
+    await upsertChatterReadStateBatch(OWNER, entries)
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date('2026-10-28T12:01:01Z'))
+    await upsertChatterReadStateBatch(OWNER, entries)
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  it('cualquier otro error de la función se registra y el «visto» se guarda por el camino anterior', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolvePortalAccountGroup.mockResolvedValue([OWNER])
+    const { legacy } = setup({ error: { code: '42501', message: 'permission denied' } as never })
+
+    await upsertChatterReadStateBatch(OWNER, entries)
+
+    expect(console.error).toHaveBeenCalledTimes(1)
+    expect(legacy.upsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('si la llamada revienta el «visto» tampoco se pierde', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolvePortalAccountGroup.mockResolvedValue([OWNER])
+    const { legacy } = setup(new Error('red caída'))
+
+    await upsertChatterReadStateBatch(OWNER, entries)
+
+    expect(console.error).toHaveBeenCalledTimes(1)
+    expect(legacy.upsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('upsertChatterReadState (un solo registro) también usa la función', async () => {
+    resolvePortalAccountGroup.mockResolvedValue([OWNER])
+    const { rpc } = setup()
+
+    await upsertChatterReadState(OWNER, 'ticket', 4664, 239376)
+
+    expect(rpc).toHaveBeenCalledWith('upsert_chatter_read_state', {
+      p_user_ids: [OWNER],
+      p_entries: [{ record_kind: 'ticket', record_id: 4664, last_seen_message_id: 239376 }],
+    })
   })
 })
