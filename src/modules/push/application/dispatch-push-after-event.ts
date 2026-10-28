@@ -1,3 +1,7 @@
+import {
+  warmPortalCachesForEvent,
+  type CacheEvent,
+} from '@/src/modules/portal/infrastructure/portal-cache-invalidation'
 import { dispatchPushEvents } from '@/src/modules/push/application/dispatch-push-notifications'
 import type { PushDispatchSummary } from '@/src/modules/push/application/run-push-dispatch'
 import { recordPushRun } from '@/src/modules/push/infrastructure/push-runs.supabase'
@@ -19,6 +23,9 @@ export const WEBHOOK_PUSH_TOTAL_BUDGET_MS = 50_000
 /** Margen que debe quedar para empezar un envío (más corto no daría tiempo a nada útil). */
 const MIN_DISPATCH_BUDGET_MS = 10_000
 
+/** Margen que debe quedar para calentar las cachés tras el envío (8-13 peticiones a Odoo, 1-3 s). */
+export const MIN_WARM_BUDGET_MS = 8_000
+
 export type PushAfterEventDeps = {
   isConfigured: () => boolean
   sleep: (ms: number) => Promise<void>
@@ -33,6 +40,8 @@ export type PushAfterEventDeps = {
     summary?: PushDispatchSummary
     error?: string
   }) => Promise<void>
+  /** Deja calientes las cachés que el evento dejó caducadas. Nunca debe lanzar. */
+  warm?: () => Promise<void>
 }
 
 /**
@@ -45,11 +54,30 @@ export async function runPushAfterEvent(
   /** Cliente del evento: el envío solo mira sus dispositivos. Sin él, los de todos. */
   partnerId?: number
 ): Promise<void> {
-  if (!deps.isConfigured()) return
+  const canDispatch = deps.isConfigured()
+  if (!canDispatch && !deps.warm) return
 
   const taskStartedAt = deps.now()
   await deps.sleep(WEBHOOK_PUSH_DELAY_MS)
 
+  if (canDispatch) await dispatchWithRetries(deps, partnerId, taskStartedAt)
+
+  // Tras el envío (que es lo urgente) y solo si queda margen: deja al día las cachés que el evento
+  // caducó, para que la próxima visita no pague las 8-13 peticiones a Odoo en frío.
+  if (deps.warm && WEBHOOK_PUSH_TOTAL_BUDGET_MS - (deps.now() - taskStartedAt) >= MIN_WARM_BUDGET_MS) {
+    try {
+      await deps.warm()
+    } catch (error) {
+      console.error('[push webhook] calentar cachés falló', error)
+    }
+  }
+}
+
+async function dispatchWithRetries(
+  deps: PushAfterEventDeps,
+  partnerId: number | undefined,
+  taskStartedAt: number
+): Promise<void> {
   for (let attempt = 1; attempt <= WEBHOOK_PUSH_MAX_ATTEMPTS; attempt += 1) {
     const remaining = WEBHOOK_PUSH_TOTAL_BUDGET_MS - (deps.now() - taskStartedAt)
     if (remaining < MIN_DISPATCH_BUDGET_MS) return
@@ -79,7 +107,7 @@ export async function runPushAfterEvent(
 }
 
 /** Lo que programa el webhook con `after()`. */
-export function runPushAfterEventInProduction(partnerId?: number): Promise<void> {
+export function runPushAfterEventInProduction(event: CacheEvent): Promise<void> {
   return runPushAfterEvent(
     {
       isConfigured: isWebPushConfigured,
@@ -87,7 +115,8 @@ export function runPushAfterEventInProduction(partnerId?: number): Promise<void>
       now: () => Date.now(),
       dispatch: (options) => dispatchPushEvents(options),
       record: (input) => recordPushRun({ source: 'events', ...input }),
+      warm: () => warmPortalCachesForEvent(event),
     },
-    partnerId
+    event.partnerId
   )
 }

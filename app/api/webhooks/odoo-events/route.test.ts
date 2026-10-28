@@ -202,7 +202,9 @@ describe('POST /api/webhooks/odoo-events: push desde el webhook', () => {
     expect(after).toHaveBeenCalledTimes(1)
     const scheduled = after.mock.calls[0]![0] as () => unknown
     scheduled()
-    expect(runPushAfterEventInProduction).toHaveBeenCalledWith(5)
+    expect(runPushAfterEventInProduction).toHaveBeenCalledWith(
+      expect.objectContaining({ partnerId: 5, kind: 'message' })
+    )
   })
 
   it('con el interruptor apagado no programa nada', async () => {

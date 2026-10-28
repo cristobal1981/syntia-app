@@ -1,18 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { revalidateTag, forgetRecentTramitesLoad } = vi.hoisted(() => ({
+const {
+  revalidateTag,
+  forgetRecentTramitesLoad,
+  getCachedTramitesSnapshotSafe,
+  getCachedObligacionNotificationSnapshotSafe,
+  getCachedPendingSignaturesSnapshotSafe,
+} = vi.hoisted(() => ({
   revalidateTag: vi.fn(),
   forgetRecentTramitesLoad: vi.fn(),
+  getCachedTramitesSnapshotSafe: vi.fn(),
+  getCachedObligacionNotificationSnapshotSafe: vi.fn(),
+  getCachedPendingSignaturesSnapshotSafe: vi.fn(),
 }))
 vi.mock('next/cache', () => ({ revalidateTag, unstable_cache: (fn: () => unknown) => fn }))
 vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/src/modules/portal/infrastructure/cached-client-odoo-access')>()),
   forgetRecentTramitesLoad,
+  getCachedTramitesSnapshotSafe,
+  getCachedObligacionNotificationSnapshotSafe,
+  getCachedPendingSignaturesSnapshotSafe,
 }))
 
 import {
   invalidatePortalCachesForEvent,
   portalCacheTagsForEvent,
+  portalSnapshotsToWarmForEvent,
+  warmPortalCachesForEvent,
 } from '@/src/modules/portal/infrastructure/portal-cache-invalidation'
 
 const P = 1233
@@ -105,5 +119,83 @@ describe('invalidatePortalCachesForEvent', () => {
     expect(() =>
       invalidatePortalCachesForEvent({ kind: 'new_record', scope: 'tramite', partnerId: P })
     ).not.toThrow()
+  })
+})
+
+describe('portalSnapshotsToWarmForEvent', () => {
+  const warm = (kind: Parameters<typeof portalCacheTagsForEvent>[0]['kind'], scope: Parameters<typeof portalCacheTagsForEvent>[0]['scope']) =>
+    portalSnapshotsToWarmForEvent({ kind, scope, partnerId: P })
+
+  it('un mensaje o un vencimiento por fecha no calientan nada', () => {
+    expect(warm('message', 'tramite')).toEqual([])
+    expect(warm('firma_due_soon', 'firma')).toEqual([])
+  })
+
+  it('estado de trámite o consulta, trámite nuevo y cambio de responsable calientan trámites', () => {
+    expect(warm('status', 'tramite')).toEqual(['tramites'])
+    expect(warm('status', 'consulta')).toEqual(['tramites'])
+    expect(warm('new_record', 'consulta')).toEqual(['tramites'])
+    expect(warm('assignee_change', 'tramite')).toEqual(['tramites'])
+  })
+
+  it('estado de una obligación calienta obligaciones; firma nueva, firmas', () => {
+    expect(warm('status', 'obligacion')).toEqual(['obligaciones'])
+    expect(warm('new_firma', 'firma')).toEqual(['firmas'])
+  })
+})
+
+describe('warmPortalCachesForEvent', () => {
+  it('lee solo los snapshots que corresponden, de ese cliente', async () => {
+    getCachedTramitesSnapshotSafe.mockResolvedValue({ data: {} })
+
+    await warmPortalCachesForEvent({ kind: 'status', scope: 'tramite', partnerId: P })
+
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalledWith(P)
+    expect(getCachedObligacionNotificationSnapshotSafe).not.toHaveBeenCalled()
+    expect(getCachedPendingSignaturesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
+  it('un mensaje no lee nada de Odoo', async () => {
+    await warmPortalCachesForEvent({ kind: 'message', scope: 'tramite', partnerId: P })
+
+    expect(getCachedTramitesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
+  it('una ráfaga del mismo cliente comparte la lectura en marcha; otro cliente no', async () => {
+    const finishers: Array<() => void> = []
+    getCachedTramitesSnapshotSafe.mockImplementation(
+      () => new Promise<void>((resolve) => finishers.push(resolve))
+    )
+    const event = { kind: 'status', scope: 'tramite', partnerId: P } as const
+
+    const first = warmPortalCachesForEvent(event)
+    const second = warmPortalCachesForEvent(event)
+    const other = warmPortalCachesForEvent({ ...event, partnerId: P + 1 })
+
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalledTimes(2)
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalledWith(P)
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalledWith(P + 1)
+
+    finishers.forEach((finish) => finish())
+    await Promise.all([first, second, other])
+  })
+
+  it('terminada una lectura, un evento posterior vuelve a leer', async () => {
+    getCachedTramitesSnapshotSafe.mockResolvedValue({ data: {} })
+    const event = { kind: 'new_record', scope: 'consulta', partnerId: P } as const
+
+    await warmPortalCachesForEvent(event)
+    await warmPortalCachesForEvent(event)
+
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalledTimes(2)
+  })
+
+  it('si la lectura falla no lanza y lo registra', async () => {
+    getCachedTramitesSnapshotSafe.mockRejectedValue(new Error('odoo caído'))
+
+    await expect(
+      warmPortalCachesForEvent({ kind: 'status', scope: 'tramite', partnerId: P })
+    ).resolves.toBeUndefined()
+    expect(console.error).toHaveBeenCalled()
   })
 })
