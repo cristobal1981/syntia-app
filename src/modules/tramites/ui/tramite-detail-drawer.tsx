@@ -519,6 +519,10 @@ export function TramiteDetailDrawer({
                   recordId={tramite.id}
                   active={open && activeTab === 'documents'}
                   knownAttachmentCount={liveAttachmentCount}
+                  onCountResolved={(attachmentCount) => {
+                    setLiveAttachmentCount(attachmentCount)
+                    onAttachmentCountChange?.(tramite, attachmentCount)
+                  }}
                   refreshToken={attachmentsRefreshToken}
                   highlightAttachmentId={highlightAttachmentId}
                 />
