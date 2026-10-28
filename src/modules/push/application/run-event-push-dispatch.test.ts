@@ -109,6 +109,18 @@ describe('runEventPushDispatch: envío', () => {
     expect(summary).toMatchObject({ users: 1, sent: 1, skipped: 0, removed: 0, locked: false })
   })
 
+  it('con quietMs (envío desde el webhook) la espera es esa y no la de 30 s', async () => {
+    const deps = setup()
+    await runEventPushDispatch(deps, { ...options, quietMs: 5_000 })
+
+    expect(deps.listMatureEvents).toHaveBeenCalledWith(
+      5,
+      new Date(NOW - 5_000),
+      EVENT_BATCH_SIZE,
+      new Date(NOW - EVENT_MAX_AGE_MS)
+    )
+  })
+
   it('espera a que el evento lleve un rato guardado para agrupar los seguidos', async () => {
     const deps = setup()
     await runEventPushDispatch(deps, options)
