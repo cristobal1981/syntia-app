@@ -251,8 +251,8 @@ export async function savePushFailureCount(
 
 /**
  * Cerrojo de ejecución del dispatcher. Si no se puede ni comprobar (RPC sin
- * desplegar, Supabase caído) se deja pasar y se loguea: un cerrojo roto no debe
- * dejar sin avisos a nadie, igual que el limitador de `checkRateLimit`.
+ * desplegar, Supabase caído) NO se ejecuta y se loguea: sin cerrojo dos ejecuciones
+ * solapadas envían lo mismo dos veces, y el cron reintenta al minuto siguiente.
  */
 export async function acquirePushDispatchLock(ttlSeconds: number): Promise<boolean> {
   try {
@@ -261,13 +261,13 @@ export async function acquirePushDispatchLock(ttlSeconds: number): Promise<boole
       p_ttl_seconds: ttlSeconds,
     })
     if (error) {
-      console.error('[push] cerrojo del dispatcher falló, se ejecuta sin él', error.message)
-      return true
+      console.error('[push] cerrojo del dispatcher falló, se omite esta ejecución', error.message)
+      return false
     }
     return data === true
   } catch (error) {
-    console.error('[push] cerrojo del dispatcher falló, se ejecuta sin él', error)
-    return true
+    console.error('[push] cerrojo del dispatcher falló, se omite esta ejecución', error)
+    return false
   }
 }
 
@@ -291,7 +291,13 @@ export async function deletePushSubscriptionsByIds(ids: string[]): Promise<void>
 
 const CURSOR_UPDATE_CHUNK = 100
 
-/** Marca a varios dispositivos como procesados hasta el evento `seq`. */
+/**
+ * Marca a varios dispositivos como procesados hasta el evento `seq`. Solo avanza: un cursor nunca
+ * retrocede, así que una ejecución del cron que ya estaba en marcha no pisa lo que el usuario vio
+ * en la app mientras tanto (`advanceUserPushCursor`). Un cursor vacío (`null`, dispositivo sin foto
+ * inicial) cuenta como «por detrás de todo»: en SQL `null < n` no es verdadero, por eso se pide
+ * explícitamente; sin eso el dispositivo no se inicializaría nunca y nunca recibiría un push.
+ */
 export async function advancePushCursors(ids: string[], seq: number): Promise<void> {
   if (ids.length === 0) return
   const supabase = createSupabaseAdminClient()
@@ -300,10 +306,28 @@ export async function advancePushCursors(ids: string[], seq: number): Promise<vo
     const { error } = await supabase
       .from('push_subscriptions')
       .update({ last_event_seq: seq })
+      .or(`last_event_seq.is.null,last_event_seq.lt.${seq}`)
       .in('id', ids.slice(from, from + CURSOR_UPDATE_CHUNK))
 
     if (error) throw new Error(error.message)
   }
+}
+
+/**
+ * El usuario ya vio en la app los eventos hasta `seq`: sus dispositivos con push dejan de recibirlos.
+ * Solo avanza cursores ya inicializados (un dispositivo sin baseline sigue sin mandar nada) y nunca
+ * hacia atrás.
+ */
+export async function advanceUserPushCursor(userId: string, seq: number): Promise<void> {
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .update({ last_event_seq: seq })
+    .eq('user_id', userId)
+    .not('last_event_seq', 'is', null)
+    .lt('last_event_seq', seq)
+
+  if (error) throw new Error(error.message)
 }
 
 /** Cliente de Odoo de cada usuario (los colaboradores comparten el del titular). */

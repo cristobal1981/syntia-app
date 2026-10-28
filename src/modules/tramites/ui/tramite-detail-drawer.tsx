@@ -189,13 +189,9 @@ export function TramiteDetailDrawer({
   useEffect(() => {
     if (!open || !item || isSettling) return
 
-    if (chatterNotification?.latestMessageId) {
-      void markConversationSeen?.(
-        recordKind,
-        item.id,
-        chatterNotification.latestMessageId
-      )
-    }
+    // El chat NO se marca como visto aquí: lo marca RecordChatterPanel (`onConversationViewed`) cuando
+    // el mensaje se ha cargado de verdad y la pestaña de conversación está activa. Marcarlo al abrir
+    // daba por leído un mensaje que no se llegó a cargar (fallo de red) o que estaba en otra pestaña.
 
     if (notifications?.hasTramiteNotification(item, 'status_change')) {
       void ackStatusChangeSeen?.(item.kind, item.id)
@@ -208,10 +204,8 @@ export function TramiteDetailDrawer({
   }, [
     ackAssigneeChangeSeen,
     ackStatusChangeSeen,
-    chatterNotification,
     isSettling,
     item,
-    markConversationSeen,
     notifications,
     open,
     recordKind,

@@ -154,6 +154,16 @@ export class PortalNotificationsTabCoordinator {
 
     if (message.type === 'leader-resign' && message.tabId !== this.tabId) {
       this.tryBecomeLeader()
+      return
+    }
+
+    // Otra pestaña tomó el relevo: se deja de ser líder para no haber dos sondeando.
+    if (message.type === 'leader-claim' && message.tabId !== this.tabId && this.isLeader) {
+      this.isLeader = false
+      if (this.heartbeatTimer !== null) {
+        window.clearInterval(this.heartbeatTimer)
+        this.heartbeatTimer = null
+      }
     }
   }
 
@@ -233,6 +243,11 @@ export class PortalNotificationsTabCoordinator {
       type: 'record-mutated',
       payload,
     } satisfies CoordinatorMessage)
+  }
+
+  /** Una pestaña a la vista pide el relevo; solo lo consigue si el líder lleva rato sin dar señales. */
+  claimIfStale() {
+    this.tryBecomeLeader()
   }
 
   requestPollFromLeader() {

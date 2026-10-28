@@ -15,6 +15,7 @@ import type {
   ChatterReadStateMap,
   PortalNotification,
 } from '@/src/modules/portal/domain/portal-notifications-types'
+import { openPortalUrl } from '@/src/modules/portal/ui/shallow-url'
 import { chatterReadStateKey, openParamFromListKind } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import {
@@ -248,7 +249,8 @@ export function usePortalNotificationActions({
       }
 
       if (notification.scope === 'obligacion') {
-        router.push(
+        openPortalUrl(
+          router,
           `/obligaciones?open=${encodeURIComponent(`task-${notification.recordId}`)}&tab=documents`
         )
         return
@@ -259,7 +261,11 @@ export function usePortalNotificationActions({
           notification.listKind,
           notification.recordId
         )
-        router.push(`/tramites?open=${encodeURIComponent(openParam)}&tab=conversation`)
+        const url = `/tramites?open=${encodeURIComponent(openParam)}&tab=conversation`
+        // Un trámite o consulta NUEVO aún no está en la lista que tiene el navegador: hay que pedir
+        // la página. Los avisos de uno que ya existe se abren sin ir al servidor.
+        if (notification.reason === 'new_tramite') router.push(url)
+        else openPortalUrl(router, url)
       }
     },
     [removeAndAckNotification, router]

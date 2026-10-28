@@ -13,6 +13,8 @@ export type SappoMood =
   | "oops"
   // Staff viendo el portal de un cliente (banner de «vista como cliente»).
   | "incognito"
+  // Despegue de la vista como cliente: casco de astronauta.
+  | "astronaut"
 
 type ErrorAction = { label: string; href: string }
 

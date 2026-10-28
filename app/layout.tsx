@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Archivo, Host_Grotesk } from 'next/font/google'
 
 import { AccessibilityProvider } from '@/components/providers/accessibility-provider'
 import { AccessibilityScript } from '@/components/providers/accessibility-script'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { ViewAsLaunchHost } from '@/src/modules/auth/ui/view-as-launch-host'
 import './globals.css'
 
 const hostGrotesk = Host_Grotesk({
@@ -69,7 +71,13 @@ export default function RootLayout({
       <body className={`${archivo.className} antialiased`}>
         <AccessibilityScript />
         <ThemeProvider>
-          <AccessibilityProvider>{children}</AccessibilityProvider>
+          <AccessibilityProvider>
+            {children}
+            {/* `usePathname` es dinámico: sin Suspense impide prerrenderizar las rutas con parámetros. */}
+            <Suspense fallback={null}>
+              <ViewAsLaunchHost />
+            </Suspense>
+          </AccessibilityProvider>
         </ThemeProvider>
       </body>
     </html>

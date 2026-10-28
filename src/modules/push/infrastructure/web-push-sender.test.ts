@@ -27,7 +27,7 @@ describe('sendWebPush', () => {
     expect(sendNotification).toHaveBeenCalledWith(
       { endpoint: subscription.endpoint, keys: { p256dh: 'k', auth: 'a' } },
       JSON.stringify(payload),
-      { TTL: 3600 }
+      { TTL: 3600, timeout: 8000 }
     )
   })
 

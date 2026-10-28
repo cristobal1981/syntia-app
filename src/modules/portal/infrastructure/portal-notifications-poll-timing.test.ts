@@ -4,6 +4,8 @@ import {
   DEFERRED_POLL_MS,
   initialPollDelayMs,
   SERVER_SEED_GRACE_MS,
+  shouldAcknowledgeEventsSeen,
+  shouldRefreshOnVisible,
   shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
 
@@ -55,5 +57,53 @@ describe('initialPollDelayMs', () => {
     expect(
       initialPollDelayMs({ ...base, seededFromServer: true, serverWillSeed: true })
     ).toBe(30_000)
+  })
+})
+
+describe('shouldAcknowledgeEventsSeen', () => {
+  const ack = { signalSeq: 42, lastAcknowledgedSeq: 40, windowVisible: true, usedRecentSnapshots: false }
+
+  it('con la ventana a la vista y un evento más nuevo que el último avisado, avisa', () => {
+    expect(shouldAcknowledgeEventsSeen(ack)).toBe(true)
+  })
+
+  it('la primera vez (nada avisado todavía) avisa', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, lastAcknowledgedSeq: null })).toBe(true)
+  })
+
+  it('con la ventana oculta no avisa: el push debe llegar como siempre', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, windowVisible: false })).toBe(false)
+  })
+
+  it('tras una comprobación con snapshots reutilizados no avisa: pueden ir por detrás de los eventos', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, usedRecentSnapshots: true })).toBe(false)
+  })
+
+  it('sin evento nuevo no repite el aviso', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 40 })).toBe(false)
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 39 })).toBe(false)
+  })
+
+  it('sin seq (señal apagada) o con seq 0 no avisa', () => {
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: null })).toBe(false)
+    expect(shouldAcknowledgeEventsSeen({ ...ack, signalSeq: 0, lastAcknowledgedSeq: null })).toBe(false)
+  })
+})
+
+describe('shouldRefreshOnVisible', () => {
+  it('refresca si nunca se ha comprobado', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: null, now: 1000, rateLimited: false })).toBe(true)
+  })
+
+  it('no repite una comprobación hecha hace menos de 15 s', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: 10_000, now: 24_999, rateLimited: false })).toBe(false)
+  })
+
+  it('refresca pasados los 15 s', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: 10_000, now: 25_000, rateLimited: false })).toBe(true)
+  })
+
+  it('con un 429 vigente no refresca aunque haya pasado el tiempo', () => {
+    expect(shouldRefreshOnVisible({ lastFullCheckAt: 0, now: 999_999, rateLimited: true })).toBe(false)
   })
 })

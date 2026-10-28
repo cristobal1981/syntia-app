@@ -1,7 +1,8 @@
 'use client'
 
+import { replaceUrlShallow } from '@/src/modules/portal/ui/shallow-url'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { ChevronRight, ClipboardList, Paperclip, SearchX } from 'lucide-react'
 
 import { PortalEmptyState } from '@/components/ui/portal-empty-state'
@@ -386,7 +387,6 @@ export function TramitesPageView({
   seenState,
   canWriteTramites,
 }: TramitesPageViewProps) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const notifications = usePortalNotificationsOptional()
   const [filters, setFilters] = useState<TramitesListFilters>(
@@ -405,11 +405,11 @@ export function TramitesPageView({
     if (!q) return
 
     // Semilla única desde el query param de la URL, y limpia la URL con
-    // router.replace (efecto externo real, no puede hacerse en el render).
+    // la URL (efecto externo real, no puede hacerse en el render).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilters((prev) => ({ ...prev, query: q }))
-    router.replace('/tramites', { scroll: false })
-  }, [router, searchParams])
+    replaceUrlShallow('/tramites')
+  }, [searchParams])
 
   const allItems = useMemo(() => {
     const merged = mergeTramitesList(data.tasks, data.tickets)
@@ -507,7 +507,7 @@ export function TramitesPageView({
     pendingOpenUrlCleanupRef.current = true
     const tabParam = searchParams.get('tab')
     // Abre el drawer desde el query param `open`/`tab` de la URL; el efecto
-    // de abajo limpia esa URL (router.replace) — efecto externo real.
+    // de abajo limpia esa URL (sin ir al servidor) — efecto externo real.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrawerInitialTab(tabParam === 'documents' ? 'documents' : 'conversation')
     markItemSeen(item)
@@ -527,11 +527,11 @@ export function TramitesPageView({
 
     const timeoutId = window.setTimeout(() => {
       pendingOpenUrlCleanupRef.current = false
-      router.replace('/tramites', { scroll: false })
+      replaceUrlShallow('/tramites')
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [router, searchParams, selectedItem])
+  }, [searchParams, selectedItem])
 
   const handleSelectItem = (item: TramiteListItem | null) => {
     if (item) {

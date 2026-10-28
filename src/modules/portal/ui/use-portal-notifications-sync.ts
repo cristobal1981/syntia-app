@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { isNetworkFailure } from '@/src/modules/portal/domain/portal-connectivity'
+import { fetchNewsSignal, fetchNotificationsCheck } from '@/src/modules/portal/ui/portal-read-api'
 import { portalConnectivityStore } from '@/src/modules/portal/ui/portal-connectivity-store'
 import {
-  checkPortalNewsSignalAction,
-  checkPortalNotificationsAction,
+  acknowledgeEventsSeenInAppAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
   mergeAccumulatedPortalNotifications,
@@ -13,6 +13,7 @@ import {
 import type {
   ChatterReadStateMap,
   PortalNotification,
+  PortalNotificationsCheckResult,
   PortalNotificationsStats,
 } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
@@ -21,10 +22,13 @@ import {
   getMaxPollIntervalMs,
   nextPollIntervalMs,
   notificationsSignature,
+  SIGNAL_POLL_INTERVAL_MS,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-scheduler'
 import {
   initialPollDelayMs,
+  shouldAcknowledgeEventsSeen,
   shouldDeferInitialPoll,
+  shouldRefreshOnVisible,
   shouldRefreshPortalPageOnNotificationPoll,
   shouldRunFullNotificationsCheck,
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-timing'
@@ -88,6 +92,9 @@ export function usePortalNotificationsSync({
   // la comprobación completa y cuándo. `null` hasta la primera.
   const lastSignalSeqRef = useRef<number | null>(null)
   const lastFullCheckAtRef = useRef<number | null>(null)
+  // Último evento que se avisó al servidor como visto en pantalla (para que el push no lo repita).
+  const lastAcknowledgedSeqRef = useRef<number | null>(null)
+  const lastCheckUsedRecentSnapshotsRef = useRef(false)
   const signalModeRef = useRef(false)
 
   const resetPollInterval = useCallback(() => {
@@ -148,7 +155,7 @@ export function usePortalNotificationsSync({
   const applyPollResult = useCallback(
     (
       result: Extract<
-        Awaited<ReturnType<typeof checkPortalNotificationsAction>>,
+        PortalNotificationsCheckResult,
         { ok: true }
       >,
       options?: { fromBroadcast?: boolean; refreshPages?: boolean }
@@ -188,6 +195,29 @@ export function usePortalNotificationsSync({
     [applyReadState, commitUnread, pathnameRef, pendingFirmaIdsRef, refreshPortalPages, setStats, unreadRef]
   )
 
+  /** El portal acaba de enseñar los avisos hasta `seq` con la ventana a la vista: el push no los repite. */
+  const acknowledgeSeen = useCallback((seq: number | null, usedRecentSnapshots: boolean) => {
+    if (
+      !shouldAcknowledgeEventsSeen({
+        signalSeq: seq,
+        lastAcknowledgedSeq: lastAcknowledgedSeqRef.current,
+        windowVisible: document.visibilityState === 'visible',
+        usedRecentSnapshots,
+      })
+    ) {
+      return
+    }
+    const previous = lastAcknowledgedSeqRef.current
+    lastAcknowledgedSeqRef.current = seq
+    void acknowledgeEventsSeenInAppAction(seq)
+      .then((result) => {
+        if (!result.ok) lastAcknowledgedSeqRef.current = previous
+      })
+      .catch(() => {
+        lastAcknowledgedSeqRef.current = previous
+      })
+  }, [])
+
   const refreshNotifications = useCallback(
     async (options?: { force?: boolean; afterPageLoad?: boolean }) => {
       if (!enabled || pollingRef.current) return
@@ -200,7 +230,9 @@ export function usePortalNotificationsSync({
       const coordinator = coordinatorRef.current
       if (coordinator && !coordinator.getIsLeader() && !options?.force) {
         coordinator.requestPollFromLeader()
-        return
+        // Si el líder ya no responde (pestaña cerrada sin avisar), `requestPollFromLeader`
+        // nos hace líderes y seguimos nosotros con el sondeo.
+        if (!coordinator.getIsLeader()) return
       }
 
       pollingRef.current = true
@@ -211,7 +243,7 @@ export function usePortalNotificationsSync({
         let signalSeq: number | null = null
         signalModeRef.current = false
         if (!options?.force) {
-          const signal = await checkPortalNewsSignalAction()
+          const signal = await fetchNewsSignal()
           portalConnectivityStore.reportPollSuccess()
           if (signal.ok && signal.mode === 'events') {
             signalModeRef.current = true
@@ -226,32 +258,40 @@ export function usePortalNotificationsSync({
             if (!runFull) {
               pollIntervalRef.current = rateLimitedRef.current
                 ? getMaxPollIntervalMs()
-                : getInitialPollIntervalMs()
+                : SIGNAL_POLL_INTERVAL_MS
+              acknowledgeSeen(signal.seq, lastCheckUsedRecentSnapshotsRef.current)
               setNotificationsLoading(false)
               return
             }
           }
         }
 
-        const result = await checkPortalNotificationsAction(
+        const result = await fetchNotificationsCheck(
           options?.afterPageLoad ? { reuseRecentSnapshots: true } : undefined
         )
         // Llegó respuesta del servidor (aunque sea un error): hay red.
         portalConnectivityStore.reportPollSuccess()
         if (!result.ok) {
-          if (result.error === 'odoo_rate_limited') {
-            rateLimitedRef.current = true
-            pollIntervalRef.current = getMaxPollIntervalMs()
-          }
+          pollIntervalRef.current =
+            result.error === 'odoo_rate_limited'
+              ? getMaxPollIntervalMs()
+              : // Otros fallos (Odoo caído, sesión…): espaciar los reintentos en vez de insistir cada 10 s.
+                nextPollIntervalMs(pollIntervalRef.current, false)
+          if (result.error === 'odoo_rate_limited') rateLimitedRef.current = true
           return
         }
 
+        // Una comprobación completa que sale bien significa que el 429 ya pasó: sin esto el
+        // sondeo se quedaba en el máximo (5 min) hasta que llegara un cambio.
+        rateLimitedRef.current = false
         applyPollResult(result, { refreshPages: true })
         lastFullCheckAtRef.current = Date.now()
         if (signalSeq !== null) lastSignalSeqRef.current = signalSeq
-        // Con la señal, el sondeo es barato: no se espacia por falta de cambios.
+        lastCheckUsedRecentSnapshotsRef.current = Boolean(options?.afterPageLoad)
+        acknowledgeSeen(signalSeq, Boolean(options?.afterPageLoad))
+        // Con la señal, el sondeo es barato (solo Supabase): no se espacia por falta de cambios.
         if (signalModeRef.current && !rateLimitedRef.current) {
-          pollIntervalRef.current = getInitialPollIntervalMs()
+          pollIntervalRef.current = SIGNAL_POLL_INTERVAL_MS
         }
 
         coordinator?.broadcastPollResult({
@@ -266,12 +306,14 @@ export function usePortalNotificationsSync({
       } catch (error) {
         if (!isNetworkFailure(error)) throw error
         portalConnectivityStore.reportPollFailure()
+        // Sin red: no insistir cada 10 s; al volver la conexión se sondea de inmediato (`online`).
+        pollIntervalRef.current = nextPollIntervalMs(pollIntervalRef.current, false)
       } finally {
         pollingRef.current = false
         setNotificationsLoading(false)
       }
     },
-    [applyPollResult, enabled, setNotificationsLoading]
+    [acknowledgeSeen, applyPollResult, enabled, setNotificationsLoading]
   )
 
   const refreshNotificationsPublic = useCallback(
@@ -299,6 +341,9 @@ export function usePortalNotificationsSync({
       }
 
       const coordinator = coordinatorRef.current
+      // La pestaña a la vista toma el relevo si el líder está caído o en segundo plano (su latido
+      // se ralentiza): si no, con el líder oculto nadie sondeaba.
+      if (coordinator && !coordinator.getIsLeader()) coordinator.claimIfStale()
       if (coordinator && !coordinator.getIsLeader()) {
         scheduleNextPollRef.current()
         return
@@ -330,6 +375,7 @@ export function usePortalNotificationsSync({
     coordinator.start()
 
     const unsubscribePollResult = coordinator.onPollResult((payload) => {
+      lastFullCheckAtRef.current = Math.max(lastFullCheckAtRef.current ?? 0, payload.polledAt)
       applyPollResult(
         {
           ok: true,
@@ -389,12 +435,29 @@ export function usePortalNotificationsSync({
 
     function handleVisibilityChange() {
       if (document.visibilityState !== 'visible') return
+      // Cambiar de pestaña a menudo no debe lanzar una comprobación completa cada vez.
+      if (
+        !shouldRefreshOnVisible({
+          lastFullCheckAt: lastFullCheckAtRef.current,
+          now: Date.now(),
+          rateLimited: rateLimitedRef.current,
+        })
+      ) {
+        return
+      }
+      pollIntervalRef.current = getInitialPollIntervalMs()
+      void refreshNotifications({ force: true })
+    }
+
+    // Al volver la red se sondea ya, sin esperar al intervalo (que tras fallos habría crecido).
+    function handleOnline() {
       if (rateLimitedRef.current) return
       pollIntervalRef.current = getInitialPollIntervalMs()
       void refreshNotifications({ force: true })
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
 
     return () => {
       window.clearTimeout(initialTimer)
@@ -402,6 +465,7 @@ export function usePortalNotificationsSync({
         window.clearTimeout(pollTimerRef.current)
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
       unsubscribePollResult()
       unsubscribeStateSync()
       unsubscribeRecordMutated()

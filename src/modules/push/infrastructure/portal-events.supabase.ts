@@ -129,14 +129,18 @@ export async function getMaxPortalEventSeqForPartner(partnerId: number): Promise
 export async function listMaturePortalEvents(
   afterSeq: number,
   receivedBefore: Date,
-  limit: number
+  limit: number,
+  receivedAfter?: Date
 ): Promise<PortalEventRow[]> {
   const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('portal_events')
     .select(COLUMNS)
     .gt('seq', afterSeq)
     .lte('received_at', receivedBefore.toISOString())
+  // Lo más viejo ya no se envía: un dispositivo atascado con el cursor muy atrás no debe fijar la ventana.
+  if (receivedAfter) query = query.gte('received_at', receivedAfter.toISOString())
+  const { data, error } = await query
     .order('seq', { ascending: true })
     .limit(limit)
 

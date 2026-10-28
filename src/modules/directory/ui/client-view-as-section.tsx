@@ -8,6 +8,10 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { equipo } from '@/content/equipo'
 import { startViewAsClientAction } from '@/src/modules/auth/application/start-view-as-action'
+import {
+  beginViewAsLaunch,
+  endViewAsLaunch,
+} from '@/src/modules/auth/ui/view-as-launch-store'
 import type { ClientRecord } from '@/src/modules/directory/domain/types'
 
 /**
@@ -20,6 +24,8 @@ export function ClientViewAsButton({ client }: { client: ClientRecord }) {
   const [pending, startTransition] = useTransition()
 
   function open() {
+    // El cohete sale ya y se queda hasta que el portal del cliente está pintado.
+    beginViewAsLaunch()
     startTransition(async () => {
       const result = await startViewAsClientAction(client.id)
       if (result.ok) {
@@ -27,6 +33,7 @@ export function ClientViewAsButton({ client }: { client: ClientRecord }) {
         router.refresh()
         return
       }
+      endViewAsLaunch()
       toast.error(
         result.error === 'forbidden' ? copy.errors.forbidden : copy.errors.notFound
       )

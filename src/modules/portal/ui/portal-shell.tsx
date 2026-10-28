@@ -29,6 +29,8 @@ import {
   PortalQuickInvoiceProvider,
 } from '@/src/modules/portal/ui/portal-quick-invoice-context'
 import { PortalInviteProvider } from '@/src/modules/invitations/ui/portal-invite-context'
+import { ViewAsExitLink } from '@/src/modules/auth/ui/view-as-exit-link'
+import { ViewAsLaunchReady } from '@/src/modules/auth/ui/view-as-launch-ready'
 import { PushOpenListener } from '@/src/modules/push/ui/push-open-listener'
 import { PushSubscriptionGuard } from '@/src/modules/push/ui/push-subscription-guard'
 import { PortalOfflineBanner } from '@/src/modules/portal/ui/portal-offline-banner'
@@ -206,6 +208,7 @@ export function PortalShell({
           // a la derecha, flotando fuera del flujo): el texto queda centrado en el banner.
           className="relative flex min-h-11 shrink-0 items-center justify-center overflow-hidden border-b border-primary/25 bg-primary/10 px-[4.5rem] py-2 text-center text-sm text-foreground sm:px-44"
         >
+          <ViewAsLaunchReady />
           {/* Sappo asoma en diagonal por la esquina inferior izquierda; el banner lo recorta. Quieto: se anima el sombrero y las gafas. */}
           <Sappo
             mood="incognito"
@@ -216,9 +219,8 @@ export function PortalShell({
             <strong className="font-semibold">{viewingAs.clientName}</strong>
           </span>
           {/* Enlace normal (GET): el proxy bloquea cualquier otra petición durante la vista. */}
-          <a
-            href="/api/view-as/exit"
-            aria-label={portal.viewAs.exit}
+          <ViewAsExitLink
+            ariaLabel={portal.viewAs.exit}
             className="absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-sm font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:right-4"
           >
             <span className="sm:hidden" aria-hidden>
@@ -228,7 +230,7 @@ export function PortalShell({
               {portal.viewAs.exit}
             </span>
             <ArrowUpRight className="size-4 shrink-0" aria-hidden />
-          </a>
+          </ViewAsExitLink>
         </div>
       ) : null}
     <div className="flex min-h-0 flex-1 overflow-clip">

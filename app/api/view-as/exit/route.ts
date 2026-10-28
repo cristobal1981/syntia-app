@@ -9,13 +9,15 @@ import { getRealSession } from '@/src/modules/auth/application/get-session'
  * trae el host de escucha del servidor (`0.0.0.0` en desarrollo), no el que
  * escribió el usuario.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getRealSession()
   const target = session?.user.role === 'admin' ? '/equipo/clientes' : '/clientes'
-  const response = new NextResponse(null, {
-    status: 307,
-    headers: { Location: target },
-  })
+  // `?format=json`: lo usa el enlace de salida del portal para quitar la vista sin recargar la
+  // página (así la animación de aterrizaje sobrevive) y navegar él mismo al destino.
+  const wantsJson = new URL(request.url).searchParams.get('format') === 'json'
+  const response = wantsJson
+    ? NextResponse.json({ target }, { headers: { 'Cache-Control': 'private, no-store' } })
+    : new NextResponse(null, { status: 307, headers: { Location: target } })
   response.cookies.delete(VIEW_AS_COOKIE_NAME)
   return response
 }

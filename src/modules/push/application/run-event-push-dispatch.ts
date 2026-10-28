@@ -16,6 +16,7 @@ import type {
   DispatchSubscription,
   PushRecipient,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
+import { chatterReadStateKey } from '@/src/modules/portal/domain/portal-notifications-types'
 import type { PushPayload } from '@/src/modules/push/domain/push-dispatch'
 import type { PushSendResult } from '@/src/modules/push/infrastructure/web-push-sender'
 
@@ -31,10 +32,14 @@ export type EventPushDispatchDeps = {
   listMatureEvents: (
     afterSeq: number,
     receivedBefore: Date,
-    limit: number
+    limit: number,
+    /** Ignora lo recibido antes de esta fecha (ya caducado para avisar). */
+    receivedAfter: Date
   ) => Promise<PortalEventRow[]>
   /** Secciones de un colaborador, o `null` si no se pudieron leer. */
   loadAllowedSections: (recipient: PushRecipient) => Promise<Set<WorkerSectionHref> | null>
+  /** Hasta qué mensaje ha leído el usuario en cada registro (`chatterReadStateKey`). */
+  fetchReadState: (userId: string) => Promise<Map<string, number>>
   send: (subscription: DispatchSubscription, payload: PushPayload) => Promise<PushSendResult>
   saveFailureCount: (subscriptionId: string, failureCount: number) => Promise<void>
   advanceCursors: (subscriptionIds: string[], seq: number) => Promise<void>
@@ -45,6 +50,16 @@ export type EventPushDispatchDeps = {
 }
 
 const CONCURRENCY = 4
+
+/** Dispositivos procesados que se acumulan antes de guardar su cursor. */
+const ADVANCE_FLUSH_SIZE = 25
+
+/** Un mensaje que el usuario ya leyó en el portal (o en otro dispositivo) no vuelve a avisar. */
+function isMessageAlreadyRead(event: PortalEventRow, readState: Map<string, number>): boolean {
+  if (event.kind !== 'message' || event.messageId === null) return false
+  const kind = event.scope === 'consulta' ? 'ticket' : 'task'
+  return (readState.get(chatterReadStateKey(kind, event.recordId)) ?? 0) >= event.messageId
+}
 
 /** Un evento espera este tiempo antes de enviarse, para agrupar los que llegan seguidos. */
 export const EVENT_QUIET_MS = 30_000
@@ -167,7 +182,8 @@ async function processEvents(
   const events = await deps.listMatureEvents(
     minCursor,
     new Date(startedAt - EVENT_QUIET_MS),
-    EVENT_BATCH_SIZE
+    EVENT_BATCH_SIZE,
+    new Date(startedAt - EVENT_MAX_AGE_MS)
   )
   if (events.length === 0) return
 
@@ -188,12 +204,16 @@ async function processEvents(
   async function processSubscription(
     subscription: DispatchSubscription,
     partnerEvents: PortalEventRow[],
-    sections: Set<WorkerSectionHref> | null
+    sections: Set<WorkerSectionHref> | null,
+    readState: Map<string, number>
   ) {
     const cursor = subscription.lastEventSeq!
     const fresh = partnerEvents.filter(
       (event) =>
-        event.seq > cursor && !event.byClient && Date.parse(event.receivedAt) >= oldest
+        event.seq > cursor &&
+        !event.byClient &&
+        Date.parse(event.receivedAt) >= oldest &&
+        !isMessageAlreadyRead(event, readState)
     )
 
     const pairs = collapseEvents(fresh).map((event) => ({
@@ -246,6 +266,20 @@ async function processEvents(
     }
 
     advance.push(subscription.id)
+    if (advance.length >= ADVANCE_FLUSH_SIZE) await flushAdvance()
+  }
+
+  // El cursor avanza por lotes según se envía: si la función muere a mitad, lo ya entregado no se repite.
+  async function flushAdvance() {
+    if (advance.length === 0) return
+    const ids = advance.splice(0, advance.length)
+    try {
+      await deps.advanceCursors(ids, processedUpTo)
+    } catch (error) {
+      // Sin avanzar se reenviaría lo mismo en la siguiente ejecución: se registra
+      // y se deja que lo reintente el siguiente pulso.
+      console.error('[push] avanzar cursores falló', error)
+    }
   }
 
   async function processUser(userId: string, userSubscriptions: DispatchSubscription[]) {
@@ -272,10 +306,20 @@ async function processEvents(
       }
     }
 
+    // Solo si hay mensajes que comprobar; si falla, se avisa igualmente (mejor un aviso de más).
+    let readState = new Map<string, number>()
+    if (partnerEvents.some((event) => event.kind === 'message')) {
+      try {
+        readState = await deps.fetchReadState(userId)
+      } catch (error) {
+        console.error('[push] leer el estado de lectura falló', { userId, error })
+      }
+    }
+
     for (const subscription of pending) {
       // Un fallo en un dispositivo no debe tumbar la ejecución ni a los demás.
       try {
-        await processSubscription(subscription, partnerEvents, sections)
+        await processSubscription(subscription, partnerEvents, sections, readState)
       } catch (error) {
         console.error('[push] procesar dispositivo falló', {
           subscriptionId: subscription.id,
@@ -301,11 +345,5 @@ async function processEvents(
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
 
-  try {
-    await deps.advanceCursors(advance, processedUpTo)
-  } catch (error) {
-    // Sin avanzar se reenviaría lo mismo en la siguiente ejecución: se registra
-    // y se deja que lo reintente el siguiente pulso.
-    console.error('[push] avanzar cursores falló', error)
-  }
+  await flushAdvance()
 }

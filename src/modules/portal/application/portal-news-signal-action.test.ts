@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooApiConfigured, getMaxPortalEventSeqForPartner } =
+const { getSession, resolveDirectoryActorId, resolveClientOdooPartnerId, isOdooApiConfigured, getMaxPortalEventSeqForPartner, advanceUserPushCursor } =
   vi.hoisted(() => ({
+    advanceUserPushCursor: vi.fn(),
     getSession: vi.fn(),
     resolveDirectoryActorId: vi.fn(),
     resolveClientOdooPartnerId: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock('@/src/modules/directory/application/resolve-actor-id', () => ({ resolve
 vi.mock('@/src/modules/tramites/application/resolve-client-odoo-partner-id', () => ({ resolveClientOdooPartnerId }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({ isOdooApiConfigured }))
 vi.mock('@/src/modules/push/infrastructure/portal-events.supabase', () => ({ getMaxPortalEventSeqForPartner }))
+vi.mock('@/src/modules/push/infrastructure/push-subscriptions.supabase', () => ({ advanceUserPushCursor }))
 vi.mock('@/src/modules/portal/application/load-client-portal-notifications', () => ({ loadClientPortalNotifications: vi.fn() }))
 vi.mock('@/src/modules/colaboradores/application/get-allowed-sections-for-worker', () => ({ getAllowedSectionsForWorker: vi.fn() }))
 vi.mock('@/src/modules/colaboradores/application/mask-dashboard-for-worker', () => ({ filterNotificationsForWorker: vi.fn(), maskStatsForWorker: vi.fn() }))
@@ -22,7 +24,7 @@ vi.mock('@/src/modules/portal/infrastructure/portal-record-watch-state.supabase'
 vi.mock('@/src/modules/portal/infrastructure/resolve-watchable-ack-state', () => ({ resolveWatchableAckStateFromSnapshots: vi.fn() }))
 vi.mock('@/src/modules/portal/infrastructure/portal-record-access', () => ({ verifyClientRecordAccess: vi.fn() }))
 
-import { checkPortalNewsSignalAction } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
+import { acknowledgeEventsSeenInAppAction, checkPortalNewsSignalAction } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 
 const ENV = { signal: process.env.PORTAL_NEWS_SIGNAL, max: process.env.PORTAL_NEWS_FULL_CHECK_MAX_AGE_MS }
 
@@ -82,5 +84,43 @@ describe('checkPortalNewsSignalAction', () => {
   it('si la consulta a Supabase falla, cae a la comprobación completa en vez de dejar al cliente sin avisos', async () => {
     getMaxPortalEventSeqForPartner.mockRejectedValue(new Error('boom'))
     expect(await checkPortalNewsSignalAction()).toEqual({ ok: true, mode: 'full' })
+  })
+})
+
+describe('acknowledgeEventsSeenInAppAction', () => {
+  it('avanza el cursor del push del usuario hasta el evento que ya vio', async () => {
+    expect(await acknowledgeEventsSeenInAppAction(40)).toEqual({ ok: true })
+    expect(advanceUserPushCursor).toHaveBeenCalledWith('actor-1', 40)
+  })
+
+  it('nunca pasa del último evento del cliente: el navegador no puede adelantar el cursor y silenciar avisos futuros', async () => {
+    expect(await acknowledgeEventsSeenInAppAction(999_999)).toEqual({ ok: true })
+    expect(advanceUserPushCursor).toHaveBeenCalledWith('actor-1', 42)
+  })
+
+  it.each([[0], [-3], [1.5], ['40'], [null], [undefined], [Number.NaN], [Number.POSITIVE_INFINITY]])(
+    'rechaza un seq que no es un entero positivo (%s) sin tocar sesión ni base',
+    async (seq) => {
+      expect(await acknowledgeEventsSeenInAppAction(seq)).toEqual({ ok: false, error: 'invalid' })
+      expect(getSession).not.toHaveBeenCalled()
+      expect(advanceUserPushCursor).not.toHaveBeenCalled()
+    }
+  )
+
+  it('solo para clientes y colaboradores con Odoo vinculado', async () => {
+    getSession.mockResolvedValue({ user: { id: 'a', email: 'a@b.c', name: 'A', role: 'advisor' }, expiresAt: Date.now() + 1e5 })
+    expect(await acknowledgeEventsSeenInAppAction(10)).toEqual({ ok: false, error: 'forbidden' })
+    expect(advanceUserPushCursor).not.toHaveBeenCalled()
+  })
+
+  it('un cliente sin eventos no toca ningún cursor', async () => {
+    getMaxPortalEventSeqForPartner.mockResolvedValue(0)
+    expect(await acknowledgeEventsSeenInAppAction(10)).toEqual({ ok: true })
+    expect(advanceUserPushCursor).not.toHaveBeenCalled()
+  })
+
+  it('un fallo de base de datos se responde como no disponible, sin lanzar', async () => {
+    advanceUserPushCursor.mockRejectedValue(new Error('boom'))
+    expect(await acknowledgeEventsSeenInAppAction(10)).toEqual({ ok: false, error: 'unavailable' })
   })
 })

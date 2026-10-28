@@ -27,6 +27,7 @@ import {
   savePushDispatchState,
   savePushFailureCount,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
+import { fetchChatterReadStateForUser } from '@/src/modules/portal/infrastructure/chatter-read-state.supabase'
 import { fetchMessagePreview } from '@/src/modules/push/infrastructure/odoo-message-preview'
 import { sendWebPush } from '@/src/modules/push/infrastructure/web-push-sender'
 
@@ -110,6 +111,7 @@ const eventDeps: EventPushDispatchDeps = {
     }
     return getAllowedSectionsForWorker(user)
   },
+  fetchReadState: fetchChatterReadStateForUser,
   send: (subscription, payload) => sendWebPush(subscription, payload),
   saveFailureCount: savePushFailureCount,
   advanceCursors: advancePushCursors,

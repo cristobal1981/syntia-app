@@ -1,10 +1,10 @@
-import { getRecordDrawerBundleAction } from '@/src/modules/portal/application/portal-chatter-actions'
 import type {
   PortalChatterMessage,
   RecordDrawerBundleResult,
 } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import { dedupedServerAction } from '@/src/modules/portal/infrastructure/server-action-dedup'
+import { fetchRecordDrawerBundle } from '@/src/modules/portal/ui/portal-read-api'
 
 /**
  * Hasta cuándo se da por buena una conversación guardada sin preguntar nada a Odoo. Pasado ese
@@ -116,7 +116,7 @@ export function loadDrawerBundle(
 ): Promise<RecordDrawerBundleResult> {
   const key = drawerBundleKey(kind, recordId)
   return dedupedServerAction(`drawerBundle:${key}`, async () => {
-    const result = await getRecordDrawerBundleAction({ kind, recordId })
+    const result = await fetchRecordDrawerBundle(kind, recordId)
     if (result.ok) {
       storeDrawerBundle(key, {
         messages: result.messages,

@@ -1,7 +1,8 @@
 'use client'
 
+import { replaceUrlShallow } from '@/src/modules/portal/ui/shallow-url'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { AlarmClock, CalendarCheck, SearchX } from 'lucide-react'
 
 import { PortalEmptyState } from '@/components/ui/portal-empty-state'
@@ -31,7 +32,6 @@ type ObligacionesPageViewProps = {
 }
 
 export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [selectedTask, setSelectedTask] = useState<ObligacionTask | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -45,8 +45,8 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
     // router.replace (efecto externo real, no puede hacerse en el render).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery(q)
-    router.replace('/obligaciones', { scroll: false })
-  }, [router, searchParams])
+    replaceUrlShallow('/obligaciones')
+  }, [searchParams])
 
   const hasAnyData = data.years.some((year) => flattenObligacionesYear(year).length > 0)
 
@@ -101,8 +101,8 @@ export function ObligacionesPageView({ data }: ObligacionesPageViewProps) {
     // router.replace (efecto externo real, no puede hacerse en el render).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTask(task)
-    router.replace('/obligaciones', { scroll: false })
-  }, [allRows, router, searchParams])
+    replaceUrlShallow('/obligaciones')
+  }, [allRows, searchParams])
 
   // El drawer necesita periodo y plazo, que la lista ya calcula: se
   // resuelven por id desde las filas completas, no desde la tarea pulsada.

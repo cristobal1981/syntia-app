@@ -81,6 +81,7 @@ function setup(
     getMaxEventSeq: vi.fn().mockResolvedValue(50),
     listMatureEvents: vi.fn().mockResolvedValue(events),
     loadAllowedSections: vi.fn().mockResolvedValue(new Set(['/tramites'])),
+    fetchReadState: vi.fn().mockResolvedValue(new Map()),
     send: vi.fn().mockResolvedValue('ok'),
     saveFailureCount: vi.fn().mockResolvedValue(undefined),
     advanceCursors: vi.fn().mockResolvedValue(undefined),
@@ -115,7 +116,8 @@ describe('runEventPushDispatch: envío', () => {
     expect(deps.listMatureEvents).toHaveBeenCalledWith(
       5,
       new Date(NOW - EVENT_QUIET_MS),
-      EVENT_BATCH_SIZE
+      EVENT_BATCH_SIZE,
+      new Date(NOW - EVENT_MAX_AGE_MS)
     )
     expect(EVENT_QUIET_MS).toBe(30_000)
   })
@@ -127,7 +129,12 @@ describe('runEventPushDispatch: envío', () => {
     ])
     await runEventPushDispatch(deps, options)
 
-    expect(deps.listMatureEvents).toHaveBeenCalledWith(3, expect.any(Date), EVENT_BATCH_SIZE)
+    expect(deps.listMatureEvents).toHaveBeenCalledWith(
+      3,
+      expect.any(Date),
+      EVENT_BATCH_SIZE,
+      expect.any(Date)
+    )
   })
 
   it('varios mensajes del mismo trámite son un solo push, con el último extracto', async () => {
@@ -255,7 +262,7 @@ describe('runEventPushDispatch: a quién no se avisa (y el cursor avanza igual)'
     const summary = await runEventPushDispatch(deps, options)
 
     expect(deps.send).not.toHaveBeenCalled()
-    expect(deps.advanceCursors).toHaveBeenCalledWith([], 6)
+    expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(summary.users).toBe(0)
   })
 
@@ -331,7 +338,7 @@ describe('runEventPushDispatch: colaboradores', () => {
     const summary = await runEventPushDispatch(deps, options)
 
     expect(deps.send).not.toHaveBeenCalled()
-    expect(deps.advanceCursors).toHaveBeenCalledWith([], 6)
+    expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(summary.skipped).toBe(1)
   })
 
@@ -424,7 +431,7 @@ describe('runEventPushDispatch: resultado del envío', () => {
     const summary = await runEventPushDispatch(deps, options)
 
     expect(deps.deleteByIds).toHaveBeenCalledWith(['s1'])
-    expect(deps.advanceCursors).toHaveBeenCalledWith([], 6)
+    expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(summary.removed).toBe(1)
   })
 
@@ -432,7 +439,7 @@ describe('runEventPushDispatch: resultado del envío', () => {
     const deps = setup({ send: vi.fn().mockResolvedValue('error') })
     const summary = await runEventPushDispatch(deps, options)
 
-    expect(deps.advanceCursors).toHaveBeenCalledWith([], 6)
+    expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(deps.saveFailureCount).not.toHaveBeenCalled()
     expect(summary).toMatchObject({ sent: 0, skipped: 1 })
   })
@@ -442,7 +449,7 @@ describe('runEventPushDispatch: resultado del envío', () => {
     const summary = await runEventPushDispatch(deps, options)
 
     expect(deps.saveFailureCount).toHaveBeenCalledWith('s1', 3)
-    expect(deps.advanceCursors).toHaveBeenCalledWith([], 6)
+    expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(deps.deleteByIds).not.toHaveBeenCalled()
     expect(summary.skipped).toBe(1)
   })
@@ -520,7 +527,7 @@ describe('runEventPushDispatch: robustez', () => {
 
     expect(deps.send).not.toHaveBeenCalled()
     expect(summary.truncated).toBe(true)
-    expect(deps.advanceCursors).toHaveBeenCalledWith([], 6)
+    expect(deps.advanceCursors).not.toHaveBeenCalled()
   })
 
   it('si hay tantos eventos como el lote, lo indica para que siga la siguiente ejecución', async () => {
@@ -558,5 +565,111 @@ describe('runEventPushDispatch: cerrojo', () => {
     const failing = setup({ listSubscriptions: vi.fn().mockRejectedValue(new Error('bd')) })
     await expect(runEventPushDispatch(failing, options)).rejects.toThrow('bd')
     expect(failing.releaseLock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('runEventPushDispatch: mensajes ya leídos', () => {
+  it('no avisa de un mensaje que el usuario ya leyó y aun así avanza el cursor', async () => {
+    const deps = setup({ fetchReadState: vi.fn().mockResolvedValue(new Map([['task:99', 10]])) })
+    const summary = await runEventPushDispatch(deps, options)
+
+    expect(deps.send).not.toHaveBeenCalled()
+    expect(deps.advanceCursors).toHaveBeenCalledWith(['s1'], 6)
+    expect(summary.sent).toBe(0)
+  })
+
+  it('avisa si el mensaje es posterior a lo leído', async () => {
+    const deps = setup({ fetchReadState: vi.fn().mockResolvedValue(new Map([['task:99', 9]])) })
+    await runEventPushDispatch(deps, options)
+    expect(deps.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('una consulta se compara con el estado de los tickets, no de las tareas', async () => {
+    const readTask = setup(
+      { fetchReadState: vi.fn().mockResolvedValue(new Map([['task:99', 10]])) },
+      [sub()],
+      [event({ scope: 'consulta' })]
+    )
+    await runEventPushDispatch(readTask, options)
+    expect(readTask.send).toHaveBeenCalledTimes(1)
+
+    const readTicket = setup(
+      { fetchReadState: vi.fn().mockResolvedValue(new Map([['ticket:99', 10]])) },
+      [sub()],
+      [event({ scope: 'consulta' })]
+    )
+    await runEventPushDispatch(readTicket, options)
+    expect(readTicket.send).not.toHaveBeenCalled()
+  })
+
+  it('lo leído no tapa otros eventos del mismo registro', async () => {
+    const deps = setup(
+      { fetchReadState: vi.fn().mockResolvedValue(new Map([['task:99', 10]])) },
+      [sub()],
+      [
+        event(),
+        event({
+          seq: 7,
+          eventId: 'st:1',
+          kind: 'status',
+          messageId: null,
+          stateLabel: 'Hecho',
+          previousStateLabel: 'En curso',
+          excerpt: null,
+        }),
+      ]
+    )
+    await runEventPushDispatch(deps, options)
+    expect(deps.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('si no se puede leer el estado de lectura, avisa igualmente', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const deps = setup({ fetchReadState: vi.fn().mockRejectedValue(new Error('caído')) })
+    await runEventPushDispatch(deps, options)
+    expect(deps.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('no consulta el estado de lectura si no hay mensajes', async () => {
+    const deps = setup({}, [sub()], [event({ kind: 'new_record', messageId: null, excerpt: null })])
+    await runEventPushDispatch(deps, options)
+    expect(deps.fetchReadState).not.toHaveBeenCalled()
+  })
+})
+
+describe('runEventPushDispatch: cursor por lotes', () => {
+  function manyDevices(count: number) {
+    const subs = Array.from({ length: count }, (_, i) =>
+      sub({ id: `s${i}`, userId: `u${i}` })
+    )
+    const recipients = subs.map((entry) => recipient({ id: entry.userId }))
+    const partners = new Map(subs.map((entry) => [entry.userId, 12]))
+    return { subs, recipients, partners }
+  }
+
+  it('guarda el cursor cada 25 dispositivos, no solo al final', async () => {
+    const { subs, recipients, partners } = manyDevices(60)
+    const deps = setup({ fetchPartnerIds: vi.fn().mockResolvedValue(partners) }, subs, [event()], recipients)
+    await runEventPushDispatch(deps, options)
+
+    const batches = vi.mocked(deps.advanceCursors).mock.calls.map(([ids]) => ids.length)
+    expect(batches).toEqual([25, 25, 10])
+    expect(deps.send).toHaveBeenCalledTimes(60)
+  })
+
+  it('un fallo al guardar un lote no impide procesar el resto', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { subs, recipients, partners } = manyDevices(30)
+    const deps = setup(
+      {
+        fetchPartnerIds: vi.fn().mockResolvedValue(partners),
+        advanceCursors: vi.fn().mockRejectedValue(new Error('caído')),
+      },
+      subs,
+      [event()],
+      recipients
+    )
+    await runEventPushDispatch(deps, options)
+    expect(deps.send).toHaveBeenCalledTimes(30)
   })
 })
