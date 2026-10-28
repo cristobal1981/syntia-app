@@ -477,6 +477,7 @@ export function TramiteDetailDrawer({
               onConversationViewed={handleConversationViewed}
               onOpenAttachment={handleOpenAttachment}
               onAttachmentsChanged={handleAttachmentsChanged}
+              onIncomingAttachments={(count) => handleAttachmentsChanged(liveAttachmentCount + count)}
               latestKnownMessageId={chatterNotification?.latestMessageId}
               lastSeenMessageIdBeforeOpen={lastSeenMessageIdBeforeOpen}
             />

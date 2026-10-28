@@ -19,7 +19,10 @@ import {
   waitAtMost,
 } from '@/src/modules/portal/domain/chat-behind-known-message'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
-import { mergeChatterMessages } from '@/src/modules/portal/domain/merge-chatter-messages'
+import {
+  countAttachmentsInNewMessages,
+  mergeChatterMessages,
+} from '@/src/modules/portal/domain/merge-chatter-messages'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 import type { usePortalNotificationsOptional } from '@/src/modules/portal/ui/portal-notifications-context'
@@ -36,6 +39,8 @@ type UseChatterMessagesArgs = {
   onConversationViewed?: (latestMessageId: number) => void
   lastSeenMessageIdBeforeOpen: number
   latestKnownMessageId?: number
+  /** Llegan mensajes nuevos con adjuntos (p. ej. subidos desde Odoo): cuántos, para el contador de documentos. */
+  onIncomingAttachments?: (count: number) => void
   notifications: ReturnType<typeof usePortalNotificationsOptional>
   scrollRef: RefObject<HTMLDivElement | null>
   shouldStickToBottomRef: RefObject<boolean>
@@ -58,6 +63,7 @@ export function useChatterMessages({
   onConversationViewed,
   lastSeenMessageIdBeforeOpen,
   latestKnownMessageId,
+  onIncomingAttachments,
   notifications,
   scrollRef,
   shouldStickToBottomRef,
@@ -89,6 +95,14 @@ export function useChatterMessages({
   const [loadingNewer, setLoadingNewer] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dividerDismissed, setDividerDismissed] = useState(false)
+
+  // Lo último pintado y el aviso de adjuntos, por ref: `loadNewer` no debe cambiar con ellos.
+  const messagesRef = useRef(messages)
+  const onIncomingAttachmentsRef = useRef(onIncomingAttachments)
+  useEffect(() => {
+    messagesRef.current = messages
+    onIncomingAttachmentsRef.current = onIncomingAttachments
+  })
 
   const loadGenerationRef = useRef(0)
   const loadingOlderRef = useRef(false)
@@ -149,6 +163,11 @@ export function useChatterMessages({
           lastServerIdRef.current,
           ...result.messages.map((message) => message.id)
         )
+        const newAttachments = countAttachmentsInNewMessages(
+          result.messages,
+          new Set(messagesRef.current.map((message) => message.id))
+        )
+        if (newAttachments > 0) onIncomingAttachmentsRef.current?.(newAttachments)
         setMessages((current) => {
           const merged = mergeChatterMessages(current, result.messages)
           return merged === current ? current : enrichPortalChatterMessages(merged)
