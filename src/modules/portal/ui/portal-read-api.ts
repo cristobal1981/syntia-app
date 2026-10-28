@@ -1,5 +1,10 @@
 import type { PortalNewsSignalResult } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
+import type {
+  PortalChatterMessagesPageResult,
+  RecordDrawerBundleResult,
+} from '@/src/modules/portal/domain/portal-chatter-types'
 import type { PortalNotificationsCheckResult } from '@/src/modules/portal/domain/portal-notifications-types'
+import type { PortalRecordKind } from '@/src/modules/portal/domain/portal-record-types'
 
 /**
  * Lecturas del portal por HTTP (Route Handlers) en lugar de Server Actions: Next despacha las
@@ -50,4 +55,54 @@ export async function fetchNotificationsCheck(options?: {
     // Sin cuerpo JSON: se trata abajo.
   }
   return { ok: false, error: response.status === 403 ? 'forbidden' : 'odoo_unavailable' }
+}
+
+const CHAT_READ_FALLBACK = { ok: false, error: 'odoo_unavailable' } as const
+
+function recordMessagesUrl(
+  kind: PortalRecordKind,
+  recordId: number,
+  mode: 'bundle' | 'older' | 'newer',
+  extra: Record<string, number | undefined> = {}
+): string {
+  const params = new URLSearchParams({ kind, recordId: String(recordId), mode })
+  for (const [key, value] of Object.entries(extra)) {
+    if (value !== undefined) params.set(key, String(value))
+  }
+  return `/api/portal/record-messages?${params.toString()}`
+}
+
+/** Mensajes y descripción de un registro (primera carga del chat). */
+export function fetchRecordDrawerBundle(
+  kind: PortalRecordKind,
+  recordId: number
+): Promise<RecordDrawerBundleResult> {
+  return readJson<RecordDrawerBundleResult>(
+    recordMessagesUrl(kind, recordId, 'bundle'),
+    CHAT_READ_FALLBACK
+  )
+}
+
+/** Mensajes anteriores a `beforeId`. */
+export function fetchOlderRecordMessages(
+  kind: PortalRecordKind,
+  recordId: number,
+  beforeId: number | undefined
+): Promise<PortalChatterMessagesPageResult> {
+  return readJson<PortalChatterMessagesPageResult>(
+    recordMessagesUrl(kind, recordId, 'older', { beforeId }),
+    CHAT_READ_FALLBACK
+  )
+}
+
+/** Mensajes posteriores a `afterId` (0 si el chat está vacío). */
+export function fetchNewerRecordMessages(
+  kind: PortalRecordKind,
+  recordId: number,
+  afterId: number
+): Promise<PortalChatterMessagesPageResult> {
+  return readJson<PortalChatterMessagesPageResult>(
+    recordMessagesUrl(kind, recordId, 'newer', { afterId }),
+    CHAT_READ_FALLBACK
+  )
 }

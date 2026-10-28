@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
 
 const { getRecordDrawerBundleAction } = vi.hoisted(() => ({ getRecordDrawerBundleAction: vi.fn() }))
-vi.mock('@/src/modules/portal/application/portal-chatter-actions', () => ({
-  getRecordDrawerBundleAction,
+vi.mock('@/src/modules/portal/ui/portal-read-api', () => ({
+  fetchRecordDrawerBundle: getRecordDrawerBundleAction,
 }))
 
 import {

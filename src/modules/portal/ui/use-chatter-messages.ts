@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 
 import { portalChatter } from '@/content/portal-chatter'
 import {
-  listNewerRecordMessagesAction,
-  listRecordMessagesAction,
-} from '@/src/modules/portal/application/portal-chatter-actions'
+  fetchNewerRecordMessages,
+  fetchOlderRecordMessages,
+} from '@/src/modules/portal/ui/portal-read-api'
 import {
   drawerBundleKey,
   isDrawerBundleFresh,
@@ -121,7 +121,7 @@ export function useChatterMessages({
       loadingNewerRef.current = true
       if (!options.silent) setLoadingNewer(true)
       try {
-        const result = await listNewerRecordMessagesAction({ kind, recordId, afterId })
+        const result = await fetchNewerRecordMessages(kind, recordId, afterId)
         if (!result.ok) return
         if (!result.messages.length) {
           touchDrawerBundle(kind, recordId)
@@ -289,11 +289,7 @@ export function useChatterMessages({
     const scrollNode = scrollRef.current
     const previousHeight = scrollNode?.scrollHeight ?? 0
 
-    const result = await listRecordMessagesAction({
-      kind,
-      recordId,
-      beforeId: messages[0]?.id,
-    })
+    const result = await fetchOlderRecordMessages(kind, recordId, messages[0]?.id)
 
     loadingOlderRef.current = false
     setLoadingOlder(false)
