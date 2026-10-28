@@ -6,12 +6,14 @@ import type { PendingSignatureRequest } from '@/src/modules/firmas/domain/types'
 import {
   computeFirmaWatchDeltas,
   computeRecordWatchDeltas,
+  dropChatterNotificationsAlreadyRead,
   mergeAccumulatedPortalNotifications,
   mergeAndSortPortalNotifications,
   notificationMatchesTramiteRecord,
   portalNotificationFromTramiteListItem,
   portalNotificationKey,
   pruneResolvedFirmaNotifications,
+  reconcilePollNotifications,
   removeNotificationFromList,
   removePortalNotificationsByRecord,
   removePortalNotificationsByScope,
@@ -703,5 +705,79 @@ describe('removeNotificationFromList', () => {
     }
     const toRemove = { ...target, reason: 'new_firma' as const }
     expect(removeNotificationFromList([target], toRemove)).toEqual([target])
+  })
+})
+
+describe('dropChatterNotificationsAlreadyRead / reconcilePollNotifications', () => {
+  function chatter(overrides: Partial<PortalNotification> = {}): PortalNotification {
+    return {
+      scope: 'consulta',
+      recordKind: 'ticket',
+      recordId: 4664,
+      name: 'Consulta',
+      reason: 'unread_chatter',
+      latestDate: '2026-10-28 10:50:00',
+      latestMessageId: 239376,
+      ...overrides,
+    }
+  }
+
+  it('descarta el aviso de mensaje cuyo último mensaje ya está visto en el cliente', () => {
+    const result = dropChatterNotificationsAlreadyRead([chatter()], { 'ticket:4664': 239376 })
+    expect(result).toEqual([])
+  })
+
+  it('un «visto» más reciente que el mensaje también lo descarta', () => {
+    expect(dropChatterNotificationsAlreadyRead([chatter()], { 'ticket:4664': 999999 })).toEqual([])
+  })
+
+  it('un mensaje posterior al visto sí sigue avisando', () => {
+    const items = [chatter({ latestMessageId: 239377 })]
+    expect(dropChatterNotificationsAlreadyRead(items, { 'ticket:4664': 239376 })).toEqual(items)
+  })
+
+  it('sin «visto» del registro, o de otro registro, el aviso se mantiene', () => {
+    const items = [chatter()]
+    expect(dropChatterNotificationsAlreadyRead(items, {})).toEqual(items)
+    expect(dropChatterNotificationsAlreadyRead(items, { 'ticket:1': 999999 })).toEqual(items)
+  })
+
+  it('distingue tarea de consulta con el mismo id', () => {
+    const items = [chatter()]
+    expect(dropChatterNotificationsAlreadyRead(items, { 'task:4664': 999999 })).toEqual(items)
+  })
+
+  it('sin latestMessageId o sin tipo de registro no se puede decidir: se mantiene', () => {
+    const noMessage = chatter({ latestMessageId: undefined })
+    const noKind = chatter({ recordKind: undefined })
+    const readState = { 'ticket:4664': 999999 }
+    expect(dropChatterNotificationsAlreadyRead([noMessage, noKind], readState)).toEqual([
+      noMessage,
+      noKind,
+    ])
+  })
+
+  it('no toca avisos que no son de mensajes, aunque haya otros de mensajes en la lista', () => {
+    const status = chatter({ reason: 'status_change' })
+    const result = dropChatterNotificationsAlreadyRead([status, chatter()], { 'ticket:4664': 999999 })
+    expect(result).toEqual([status])
+  })
+
+  it('si no hay avisos de mensajes devuelve la misma lista (sin copiarla)', () => {
+    const items = [chatter({ reason: 'status_change' })]
+    expect(dropChatterNotificationsAlreadyRead(items, { 'ticket:4664': 999999 })).toBe(items)
+  })
+
+  it('reconcilePollNotifications: una respuesta anterior al «visto» no resucita el aviso que se acaba de leer', () => {
+    // El caso real: la comprobación empezó antes de abrir el chat y devuelve el aviso.
+    const stale = [chatter()]
+    const result = reconcilePollNotifications([], stale, { 'ticket:4664': 239376 })
+    expect(result).toEqual([])
+  })
+
+  it('reconcilePollNotifications: conserva los avisos nuevos y los de otros registros', () => {
+    const other = chatter({ recordId: 7, latestMessageId: 50 })
+    const result = reconcilePollNotifications([], [chatter(), other], { 'ticket:4664': 239376 })
+    expect(result).toEqual([other])
   })
 })
