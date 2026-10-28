@@ -13,6 +13,11 @@ import {
   touchDrawerBundle,
   writeDrawerMessages,
 } from '@/src/modules/portal/ui/record-drawer-bundle'
+import {
+  BEHIND_KNOWN_MAX_WAIT_MS,
+  isChatBehindKnownMessage,
+  waitAtMost,
+} from '@/src/modules/portal/domain/chat-behind-known-message'
 import { enrichPortalChatterMessages } from '@/src/modules/portal/domain/enrich-portal-chatter-messages'
 import { mergeChatterMessages } from '@/src/modules/portal/domain/merge-chatter-messages'
 import type { PortalChatterMessage } from '@/src/modules/portal/domain/portal-chatter-types'
@@ -72,7 +77,14 @@ export function useChatterMessages({
   const [hasMore, setHasMore] = useState(initialCached?.hasMore ?? false)
   // Sin nada guardado, arranca ya en «cargando»: así el primer pintado es el esqueleto y no el
   // aviso de «no hay mensajes», que parpadeaba hasta que corría el efecto de carga.
-  const [loadingInitial, setLoadingInitial] = useState(() => active && recordId > 0 && !initialCached)
+  // También arranca en «cargando» si lo guardado va por detrás del mensaje del aviso que se acaba
+  // de abrir: enseñar la copia vieja y colar el mensaje nuevo 1-2 s después se ve como un salto.
+  const [loadingInitial, setLoadingInitial] = useState(
+    () =>
+      active &&
+      recordId > 0 &&
+      (!initialCached || isChatBehindKnownMessage(initialCached.messages, latestKnownMessageId))
+  )
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [loadingNewer, setLoadingNewer] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -87,10 +99,16 @@ export function useChatterMessages({
   // dejaría ese hueco para siempre, así que lo nuevo se pide siempre desde el último id del servidor.
   const lastServerIdRef = useRef(0)
   const onConversationViewedRef = useRef(onConversationViewed)
+  // Por ref: `loadInitial` no puede depender de él (cambia con cada sondeo y recargaría el chat).
+  const latestKnownMessageIdRef = useRef(latestKnownMessageId)
 
   useEffect(() => {
     onConversationViewedRef.current = onConversationViewed
   }, [onConversationViewed])
+
+  useEffect(() => {
+    latestKnownMessageIdRef.current = latestKnownMessageId
+  }, [latestKnownMessageId])
 
   useEffect(() => {
     lastNotifiedMessageIdRef.current = 0
@@ -157,13 +175,24 @@ export function useChatterMessages({
     const cached = readDrawerBundle(kind, recordId)
     if (cached) {
       const enriched = enrichPortalChatterMessages(cached.messages)
+      const lastId = enriched[enriched.length - 1]?.id
       setMessages(enriched)
       setHasMore(cached.hasMore)
-      setLoadingInitial(false)
       setLoadedKey(drawerBundleKey(kind, recordId))
-      notifyConversationViewed(enriched)
-      const lastId = enriched[enriched.length - 1]?.id
       lastServerIdRef.current = lastId ?? 0
+
+      // Se abrió un aviso de un mensaje que la copia guardada aún no tiene: el esqueleto espera
+      // (como mucho unos segundos) a pedir lo posterior, y el «visto» lo da el efecto de más abajo
+      // cuando ya está pintado.
+      if (lastId && isChatBehindKnownMessage(enriched, latestKnownMessageIdRef.current)) {
+        setLoadingInitial(true)
+        await waitAtMost(loadNewer(lastId, { silent: true }), BEHIND_KNOWN_MAX_WAIT_MS)
+        if (generation === loadGenerationRef.current) setLoadingInitial(false)
+        return
+      }
+
+      setLoadingInitial(false)
+      notifyConversationViewed(enriched)
       if (!isDrawerBundleFresh(cached) && lastId) void loadNewer(lastId, { silent: true }).catch(() => {})
       return
     }
