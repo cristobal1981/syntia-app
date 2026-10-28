@@ -6,7 +6,9 @@ import type {
   PortalNotification,
   PortalNotificationReason,
 } from '@/src/modules/portal/domain/portal-notifications-types'
+import type { ChatterReadStateMap } from '@/src/modules/portal/domain/portal-notifications-types'
 import {
+  chatterReadStateKey,
   listKindFromRecordKind,
   portalWatchStateKey,
 } from '@/src/modules/portal/domain/portal-notifications-types'
@@ -364,6 +366,38 @@ export function mergeAccumulatedPortalNotifications(
   }
 
   return mergeAndSortPortalNotifications([...byKey.values()])
+}
+
+/**
+ * Una comprobación completa tarda segundos y puede empezar ANTES de que el usuario abra el chat:
+ * su respuesta trae el aviso de mensaje que él acaba de marcar como visto (el servidor la calculó
+ * con el «visto» anterior) y, al sustituir los avisos de chatter, lo volvía a pintar hasta la
+ * siguiente comprobación completa. `readState` del cliente va por delante (nunca retrocede), así
+ * que un aviso cuyo último mensaje ya está visto ahí se descarta. Un mensaje posterior sí avisa.
+ */
+export function dropChatterNotificationsAlreadyRead(
+  items: PortalNotification[],
+  readState: ChatterReadStateMap
+): PortalNotification[] {
+  if (!items.some((item) => item.reason === 'unread_chatter')) return items
+
+  return items.filter((item) => {
+    if (item.reason !== 'unread_chatter') return true
+    if (!item.recordKind || !item.latestMessageId) return true
+    return (readState[chatterReadStateKey(item.recordKind, item.recordId)] ?? 0) < item.latestMessageId
+  })
+}
+
+/** Resultado de una comprobación completa sobre los avisos actuales, sin resucitar lo ya visto. */
+export function reconcilePollNotifications(
+  existing: PortalNotification[],
+  incoming: PortalNotification[],
+  readState: ChatterReadStateMap
+): PortalNotification[] {
+  return dropChatterNotificationsAlreadyRead(
+    mergeAccumulatedPortalNotifications(existing, incoming),
+    readState
+  )
 }
 
 export function pruneResolvedFirmaNotifications(

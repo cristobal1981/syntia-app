@@ -7,7 +7,7 @@ import {
   acknowledgeEventsSeenInAppAction,
 } from '@/src/modules/portal/application/portal-chatter-notifications-actions'
 import {
-  mergeAccumulatedPortalNotifications,
+  reconcilePollNotifications,
   pruneResolvedFirmaNotifications,
 } from '@/src/modules/portal/domain/compute-portal-notifications'
 import type {
@@ -165,9 +165,11 @@ export function usePortalNotificationsSync({
       const beforeSignature = notificationsSignature(unreadRef.current)
       applyReadState(result.readState)
 
-      const merged = mergeAccumulatedPortalNotifications(
+      // `applyReadState` ya fundió el «visto» del servidor con el local (el mayor de los dos).
+      const merged = reconcilePollNotifications(
         unreadRef.current,
-        result.unread
+        result.unread,
+        readStateRef.current
       )
       const hadChanges =
         result.hasChanges || beforeSignature !== notificationsSignature(merged)
@@ -192,7 +194,16 @@ export function usePortalNotificationsSync({
         refreshPortalPages()
       }
     },
-    [applyReadState, commitUnread, pathnameRef, pendingFirmaIdsRef, refreshPortalPages, setStats, unreadRef]
+    [
+      applyReadState,
+      commitUnread,
+      pathnameRef,
+      pendingFirmaIdsRef,
+      readStateRef,
+      refreshPortalPages,
+      setStats,
+      unreadRef,
+    ]
   )
 
   /** El portal acaba de enseñar los avisos hasta `seq` con la ventana a la vista: el push no los repite. */
