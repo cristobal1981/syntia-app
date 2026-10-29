@@ -30,10 +30,11 @@ export async function POST(request: Request) {
     await recordPushRun({
       source: 'sweep',
       startedAt,
-      // En un barrido, `sent` son los eventos recuperados.
+      // En un barrido, `sent` son los mensajes recuperados. Los avisos de firma que vence pronto
+      // no cuentan: se crean siempre por fecha, no son un evento perdido.
       summary: {
         users: 0,
-        sent: summary.created + (firmaDueSoon?.created ?? 0),
+        sent: summary.created,
         removed: 0,
         skipped: summary.skipped,
         truncated: summary.more,

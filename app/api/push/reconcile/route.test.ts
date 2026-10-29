@@ -64,13 +64,13 @@ describe('POST /api/push/reconcile', () => {
     expect(await response.json()).toEqual({ ok: true, ...summary, firmaDueSoon: dueSummary })
   })
 
-  it('registra el barrido: recuperados como enviados, pendiente como truncado', async () => {
+  it('registra el barrido: mensajes recuperados como enviados (sin las firmas que vencen), pendiente como truncado', async () => {
     await POST(req('Bearer test-secret'))
 
     expect(recordPushRun).toHaveBeenCalledWith({
       source: 'sweep',
       startedAt: expect.any(Date),
-      summary: { users: 0, sent: 3, removed: 0, skipped: 1, truncated: true, locked: false },
+      summary: { users: 0, sent: 1, removed: 0, skipped: 1, truncated: true, locked: false },
     })
   })
 
