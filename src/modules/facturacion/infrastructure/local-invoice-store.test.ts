@@ -157,6 +157,11 @@ describe('resetInvoicing', () => {
       ])
     })
 
+    it('una factura con la lista de líneas vacía también recibe la suya', () => {
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [makeInvoice({ id: 'v', lines: [], concept: 'Web', baseCents: 900 })] }))
+      expect(getInvoicingSnapshot().invoices[0].lines).toEqual([{ id: 'v-l1', description: 'Web', quantity: 1, unitPriceCents: 900 }])
+    })
+
     it('las líneas guardadas se conservan tal cual', () => {
       const lines = [{ id: 'a', description: 'Hora', quantity: 2, unitPriceCents: 4500 }]
       win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [makeInvoice({ lines })] }))

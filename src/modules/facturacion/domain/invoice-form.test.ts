@@ -4,6 +4,7 @@ import {
   draftFromForm,
   emptyInvoiceForm,
   formFromInvoice,
+  formLinesBaseCents,
   validateInvoiceForm,
   type InvoiceFormLine,
   type InvoiceFormValues,
@@ -205,6 +206,14 @@ describe('formFromInvoice', () => {
         paymentDate: invoice.paymentDate,
       })
     }
+  })
+})
+
+describe('formLinesBaseCents', () => {
+  it('suma las líneas escritas y nunca baja de cero', () => {
+    expect(formLinesBaseCents([line('10', { id: 'a', quantity: '2' }), line('5,50', { id: 'b' })])).toBe(2550)
+    expect(formLinesBaseCents([line('-5', { id: 'c' })])).toBe(0)
+    expect(formLinesBaseCents([line('abc', { id: 'd' })])).toBe(0)
   })
 })
 

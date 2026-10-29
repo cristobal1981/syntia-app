@@ -23,6 +23,11 @@ describe('lineTotalCents', () => {
     expect(lineTotalCents({ quantity: 0.005, unitPriceCents: 100 })).toBe(-lineTotalCents({ quantity: 0.005, unitPriceCents: -100 }))
   })
 
+  it('la cantidad con 3 decimales no pierde una milésima por coma flotante', () => {
+    expect(lineTotalCents({ quantity: 1.005, unitPriceCents: 1000 })).toBe(1005)
+    expect(lineTotalCents({ quantity: 4.35, unitPriceCents: 100 })).toBe(435)
+  })
+
   it('no arrastra errores de coma flotante', () => {
     expect(lineTotalCents({ quantity: 1.1, unitPriceCents: 1000 })).toBe(1100)
     expect(lineTotalCents({ quantity: 3, unitPriceCents: 3333 })).toBe(9999)
