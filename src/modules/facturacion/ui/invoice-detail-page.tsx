@@ -206,6 +206,24 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         </div>
       </div>
 
+      {!isDraft && canRectify(invoice) && !rectified ? (
+        <div
+          role="note"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm dark:border-border/60"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-foreground">{copy.actions.correctHint.title}</p>
+            <p className="mt-0.5 text-muted-foreground">{copy.actions.correctHint.body}</p>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`${invoicesHref}/${invoice.id}/rectificar`}>
+              <Undo2 aria-hidden />
+              {copy.actions.correctHint.action}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
       {emitIssues.length > 0 ? (
         <div
           ref={issuesRef}

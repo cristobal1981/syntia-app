@@ -292,6 +292,11 @@ export const facturacion = {
         edit: 'Editar',
         emit: 'Emitir factura',
         rectify: 'Corregir',
+        correctHint: {
+          title: '¿Hay algo mal en esta factura?',
+          body: 'Una factura emitida no se puede editar. Se corrige emitiendo una factura rectificativa que anula o ajusta el importe; la original queda como está.',
+          action: 'Corregir la factura',
+        },
         delete: 'Eliminar',
         markPaid: 'Marcar como cobrada',
         markUnpaid: 'Quitar el cobro',
