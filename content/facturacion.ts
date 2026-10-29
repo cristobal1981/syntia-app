@@ -337,7 +337,7 @@ export const facturacion = {
       emitted: (number: string) => `Factura ${number} emitida.`,
       emitIssues: {
         not_issuable: 'Esta factura no se puede emitir.',
-        issuer_incomplete: 'Completa antes tus datos fiscales.',
+        issuer_incomplete: 'Faltan datos fiscales del emisor. Revisa «Datos fiscales»: si vienen de tu perfil, pide el cambio con «Solicitar cambio de datos».',
         counterparty_name: 'Falta el nombre del cliente.',
         counterparty_tax_id: 'El NIF del cliente no es válido.',
         counterparty_address: 'Falta el domicilio del cliente.',
@@ -482,6 +482,21 @@ export const facturacion = {
     save: 'Guardar datos fiscales',
     saved: 'Datos fiscales guardados.',
     futureNote: 'Los cambios solo afectan a las facturas que expidas a partir de ahora.',
+    fromProfile: {
+      description:
+        'Estos son tus datos fiscales como emisor. Los tomamos de tu perfil y aparecen en todas las facturas que emites; no se cambian aquí.',
+      requestChange: 'Solicitar cambio de datos',
+      missing: 'Sin rellenar',
+      taxProfile: {
+        title: 'Cómo se calculan tus impuestos',
+        territory: 'Territorio',
+        territories: { canarias: 'Canarias (IGIC)', peninsula: 'Península y Baleares (IVA)', ue: 'Unión Europea', fuera_ue: 'Fuera de la UE' },
+        person: 'Tipo de contribuyente',
+        naturalPerson: 'Persona física',
+        entity: 'Sociedad o entidad',
+        hint: 'Con esto y los datos de cada cliente decidimos el impuesto y la retención de tus facturas.',
+      },
+    },
   },
   document: {
     invoice: 'FACTURA',

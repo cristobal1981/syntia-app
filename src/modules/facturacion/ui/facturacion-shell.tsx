@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { facturacion } from '@/content/facturacion'
 import { cn } from '@/lib/utils'
+import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
 import type { Quarter } from '@/src/modules/facturacion/domain/periods'
 import { sectionHref } from '@/src/modules/facturacion/domain/sections'
 import { resetInvoicing } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
@@ -170,11 +171,11 @@ function Header() {
 }
 
 /** Marco común de todas las secciones: cabecera, menú, periodo y cifras clave. */
-export function FacturacionShell({ children }: { children: ReactNode }) {
+export function FacturacionShell({ children, odooIssuer = null }: { children: ReactNode; odooIssuer?: Issuer | null }) {
   const hydrated = useHydrated()
 
   return (
-    <FacturacionProvider>
+    <FacturacionProvider odooIssuer={odooIssuer}>
       <div className="flex flex-col gap-6">
         <Header />
         {hydrated ? (

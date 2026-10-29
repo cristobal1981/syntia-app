@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
 }))
 
+import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FacturacionProvider } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { FacturacionShell, PeriodBar } from '@/src/modules/facturacion/ui/facturacion-shell'
@@ -24,14 +25,15 @@ import {
   NewPartySection,
   PanelSection,
   PartiesSection,
+  ProductsSection,
   RectifyInvoiceSection,
   SettingsSection,
 } from '@/src/modules/facturacion/ui/section-views'
 
-function render(path: string, element: ReactElement, search = ''): string {
+function render(path: string, element: ReactElement, search = '', odooIssuer: Issuer | null = null): string {
   nav.pathname = path
   nav.search = search
-  return renderToString(createElement(TooltipProvider, null, createElement(FacturacionProvider, null, element)))
+  return renderToString(createElement(TooltipProvider, null, createElement(FacturacionProvider, { odooIssuer, children: element })))
 }
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ')
@@ -236,6 +238,56 @@ describe('formularios de factura', () => {
   })
 })
 
+describe('líneas, impuestos y aviso de corregir', () => {
+  it('el formulario pide líneas, no concepto ni base, y enseña el impuesto fijado por las reglas', () => {
+    const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))
+    expect(plain).toContain('Productos y servicios')
+    expect(plain).toContain('Añadir línea')
+    expect(plain).toContain('Añadir del catálogo')
+    expect(plain).toContain('Territorio del cliente')
+    expect(plain).toContain('Tipo de cliente')
+    expect(plain).toContain('Impuesto: IGIC 7 %')
+    expect(plain).not.toContain('Tipo de impuesto')
+    expect(plain).not.toContain('Retención de IRPF')
+    expect(plain).not.toContain('Base imponible (€)')
+  })
+
+  it('el formulario ofrece alta rápida de cliente', () => {
+    expect(text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))).toContain('Nuevo cliente')
+  })
+
+  it('una factura emitida sin corregir avisa de cómo corregirla; con corrección, no', () => {
+    const open = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(open).toContain('¿Hay algo mal en esta factura?')
+    expect(open).toContain('Corregir la factura')
+    const rectified = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
+    expect(rectified).not.toContain('¿Hay algo mal en esta factura?')
+    const draft = text(render('/facturacion/facturas/ejemplo-15', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-15' })))
+    expect(draft).not.toContain('¿Hay algo mal en esta factura?')
+  })
+
+  it('el documento lleva la tabla de líneas, la forma de cobro y la base', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(plain).toContain('Cant.')
+    expect(plain).toContain('Cartelería del festival')
+    expect(plain).toContain('Forma de cobro')
+    expect(plain).toContain('Transferencia')
+  })
+
+  it('el catálogo de productos lista los de ejemplo con su precio y permite crear', () => {
+    const plain = text(render('/facturacion/productos', createElement(ProductsSection)))
+    expect(plain).toContain('Diseño de identidad visual')
+    expect(plain).toContain('Nuevo producto')
+    expect(plain).toContain('Precio (sin impuestos)')
+  })
+
+  it('el cliente nuevo pide territorio y tipo, con sugerencia por NIF y domicilio', () => {
+    const plain = text(render('/facturacion/clientes/nuevo', createElement(NewPartySection)))
+    expect(plain).toContain('Territorio fiscal')
+    expect(plain).toContain('Tipo de cliente')
+  })
+})
+
 describe('rectificar', () => {
   it('una factura emitida muestra el formulario y la vista previa de la corrección', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-06/rectificar', createElement(RectifyInvoiceSection, { invoiceId: 'ejemplo-06' })))
@@ -297,6 +349,38 @@ describe('datos fiscales y panel', () => {
     const html = render('/facturacion/configuracion', createElement(SettingsSection))
     expect(html).toContain('Estudio Gráfico Tías (demo)')
     expect(text(html)).toContain('Guardar datos fiscales')
+  })
+
+  const ODOO_ISSUER: Issuer = {
+    name: 'Mar Betancor Díaz',
+    taxId: '12345678Z',
+    address: 'Calle Real, 5',
+    postalCode: '35500',
+    city: 'Arrecife',
+    province: 'Las Palmas',
+    email: 'mar@example.com',
+    phone: '',
+  }
+
+  it('con el emisor de Odoo, los datos fiscales son de solo lectura y se piden cambiar desde el perfil', () => {
+    const html = render('/facturacion/configuracion', createElement(SettingsSection), '', ODOO_ISSUER)
+    const plain = text(html)
+    expect(plain).toContain('Mar Betancor Díaz')
+    expect(plain).toContain('Calle Real, 5')
+    expect(plain).toContain('Sin rellenar')
+    expect(plain).toContain('Solicitar cambio de datos')
+    expect(html).toContain('href="/perfil"')
+    expect(plain).not.toContain('Guardar datos fiscales')
+    expect(html).not.toContain('<form')
+  })
+
+  it('con el emisor de Odoo se explica cómo se calculan sus impuestos', () => {
+    const plain = text(render('/facturacion/configuracion', createElement(SettingsSection), '', ODOO_ISSUER))
+    expect(plain).toContain('Canarias (IGIC)')
+    expect(plain).toContain('Persona física')
+    const peninsula = text(render('/facturacion/configuracion', createElement(SettingsSection), '', { ...ODOO_ISSUER, taxId: 'B35123454', postalCode: '28001', province: 'Madrid' }))
+    expect(peninsula).toContain('Península y Baleares (IVA)')
+    expect(peninsula).toContain('Sociedad o entidad')
   })
 
   it('el panel incluye la revisión de las facturas y avisa de lo que no incluye', () => {

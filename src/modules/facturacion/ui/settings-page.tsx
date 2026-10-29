@@ -1,12 +1,14 @@
 'use client'
 
 import { useId, useState, type FormEvent } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { facturacion } from '@/content/facturacion'
 import { validateIssuer, type Issuer } from '@/src/modules/facturacion/domain/issuer'
 import { saveIssuer } from '@/src/modules/facturacion/domain/invoicing-state'
+import { issuerTaxProfile } from '@/src/modules/facturacion/domain/tax-rules'
 import { normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
@@ -14,7 +16,64 @@ import { TramiteDrawerField } from '@/src/modules/tramites/ui/tramite-drawer-fie
 
 const copy = facturacion.settings
 
+/** Los datos fiscales del perfil de Odoo, solo para consultar: cambiarlos es una solicitud a la asesoría. */
+function IssuerFromProfile() {
+  const { issuer } = useFacturacion()
+  const profile = issuerTaxProfile(issuer)
+  const fromProfile = copy.fromProfile
+  const rows: Array<[string, string]> = [
+    [copy.fields.name, issuer.name],
+    [copy.fields.taxId, issuer.taxId],
+    [copy.fields.address, issuer.address],
+    [copy.fields.postalCode, issuer.postalCode],
+    [copy.fields.city, issuer.city],
+    [copy.fields.province, issuer.province],
+    [copy.fields.email, issuer.email],
+    [copy.fields.phone, issuer.phone],
+  ]
+
+  return (
+    <div className="flex max-w-2xl flex-col gap-5">
+      <p className="text-sm text-muted-foreground">{fromProfile.description}</p>
+      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="text-sm text-foreground [overflow-wrap:anywhere]">{value || fromProfile.missing}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="flex">
+        <Button asChild variant="outline">
+          <Link href="/perfil">{fromProfile.requestChange}</Link>
+        </Button>
+      </div>
+      <section className="rounded-lg border border-border bg-muted/40 px-4 py-3 dark:border-border/60" aria-label={fromProfile.taxProfile.title}>
+        <h2 className="text-sm font-semibold text-foreground">{fromProfile.taxProfile.title}</h2>
+        <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-muted-foreground">{fromProfile.taxProfile.territory}</dt>
+            <dd className="text-foreground">{fromProfile.taxProfile.territories[profile.territory]}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">{fromProfile.taxProfile.person}</dt>
+            <dd className="text-foreground">
+              {profile.isNaturalPerson ? fromProfile.taxProfile.naturalPerson : fromProfile.taxProfile.entity}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-xs text-muted-foreground">{fromProfile.taxProfile.hint}</p>
+      </section>
+    </div>
+  )
+}
+
 export function SettingsPage() {
+  const { issuerFromOdoo } = useFacturacion()
+  return issuerFromOdoo ? <IssuerFromProfile /> : <IssuerEditor />
+}
+
+function IssuerEditor() {
   const baseId = useId()
   const { issuer } = useFacturacion()
   const [values, setValues] = useState<Issuer>(issuer)
