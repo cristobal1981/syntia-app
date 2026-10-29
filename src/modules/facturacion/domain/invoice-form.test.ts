@@ -233,6 +233,7 @@ describe('impuestos del borrador', () => {
     expect(draft).toMatchObject({ taxRate: 0, taxCents: 0 })
     expect(draft.taxNote).toContain('no sujeta')
     expect(draft.counterpartyTerritory).toBe('peninsula')
+    expect(draftFromForm(validForm({ counterpartyKind: 'autonomo' }), DEMO_ISSUER).counterpartyKind).toBe('autonomo')
   })
 
   it('el territorio y el tipo del cliente vuelven al formulario al editar', () => {
