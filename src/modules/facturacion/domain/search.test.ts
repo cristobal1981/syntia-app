@@ -32,6 +32,18 @@ describe('invoiceMatchesQuery', () => {
     expect(invoiceMatchesQuery(invoice, invoice.counterpartyTaxId.toLowerCase())).toBe(true)
   })
 
+  it('busca también en la descripción de cada línea', () => {
+    const withLines = makeInvoice({
+      concept: 'Logo (+1 más)',
+      lines: [
+        { id: 'a', description: 'Logo', quantity: 1, unitPriceCents: 100 },
+        { id: 'b', description: 'Rotulación del escaparate', quantity: 1, unitPriceCents: 100 },
+      ],
+    })
+    expect(invoiceMatchesQuery(withLines, 'escaparate')).toBe(true)
+    expect(invoiceMatchesQuery(withLines, 'logo')).toBe(true)
+  })
+
   it('una consulta vacía o de espacios las deja pasar todas, y una ajena ninguna', () => {
     expect(invoiceMatchesQuery(invoice, '')).toBe(true)
     expect(invoiceMatchesQuery(invoice, '   ')).toBe(true)

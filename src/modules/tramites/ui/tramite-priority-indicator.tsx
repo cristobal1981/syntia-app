@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { getTramitePriorityMeta } from '@/src/modules/tramites/domain/tramite-priority'
 import type { TramitePriority } from '@/src/modules/tramites/domain/types'
 
-const BAR_HEIGHT_PX = [5, 8, 11, 14] as const
+const BAR_HEIGHT_PX = [6, 9, 12, 15] as const
 
 /**
  * Prioridad en barras de nivel (como la señal del móvil): siempre visible, de un
@@ -34,7 +34,7 @@ export function TramitePriorityIndicator({
           <span
             key={height}
             style={{ height }}
-            className={cn('w-[3px] rounded-[1px] bg-current', index >= meta.bars && 'opacity-25')}
+            className={cn('w-[4px] rounded-[1px] bg-current', index >= meta.bars && 'opacity-30')}
           />
         ))}
       </span>

@@ -167,6 +167,7 @@ function TramitesListSection({
   )
 
   const pageItems = useMemo(() => rows.map((row) => row.node.item), [rows])
+  const anyExpandable = rows.some((row) => row.node.children.length > 0)
 
   const pageNavIndex = selectedItem
     ? pageItems.findIndex(
@@ -198,7 +199,7 @@ function TramitesListSection({
             >
               {depth > 0 ? (
                 <span
-                  className="-mt-2 hidden h-3 w-3 shrink-0 rounded-bl-md border-b-2 border-l-2 border-border sm:block"
+                  className="-mt-2 hidden h-3 w-3 shrink-0 rounded-bl-md border-b-2 border-l-2 border-muted-foreground/40 sm:block"
                   aria-hidden
                 />
               ) : null}
@@ -224,6 +225,9 @@ function TramitesListSection({
                     aria-hidden
                   />
                 </button>
+              ) : anyExpandable ? (
+                // Mismo hueco que el botón de desplegar: los nombres de hermanos quedan alineados.
+                <span className="hidden size-8 shrink-0 sm:-ml-2 sm:block" aria-hidden />
               ) : null}
               <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
                 <span
@@ -301,6 +305,7 @@ function TramitesListSection({
       subtasksCopy,
       hasNews,
       isExpanded,
+      anyExpandable,
       newItemKeys,
       toggleNode,
       unread,

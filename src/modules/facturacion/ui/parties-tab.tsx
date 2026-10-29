@@ -16,6 +16,16 @@ import { InvoiceLink } from '@/src/modules/facturacion/ui/invoice-link'
 const copy = facturacion.partyPages
 const partiesHref = sectionHref(SECTIONS.find((section) => section.id === 'parties')!)
 
+/** Sin facturas no hay cifra que dar: un guion gris. */
+function Dash() {
+  return <span className="text-muted-foreground">—</span>
+}
+
+/** Con facturas pero sin nada pendiente, el cero se escribe, atenuado. */
+function Zero() {
+  return <span className="text-muted-foreground">{formatCents(0)}</span>
+}
+
 export function PartiesTab({ parties, invoices }: { parties: Party[]; invoices: Invoice[] }) {
   const rows = useMemo(
     () => partiesWithStats(parties, invoices).sort((a, b) => b.billedCents - a.billedCents || a.name.localeCompare(b.name)),
@@ -58,8 +68,8 @@ export function PartiesTab({ parties, invoices }: { parties: Party[]; invoices: 
               party.city || formatPartyAddress(party) || '—',
               party.email || party.phone || '—',
               party.invoiceCount,
-              party.billedCents ? formatCents(party.billedCents) : '',
-              party.pendingCents ? formatCents(party.pendingCents) : '',
+              party.invoiceCount === 0 ? <Dash key="b" /> : formatCents(party.billedCents),
+              party.invoiceCount === 0 ? <Dash key="p" /> : party.pendingCents ? formatCents(party.pendingCents) : <Zero key="p" />,
             ],
             mobile: (
               <>

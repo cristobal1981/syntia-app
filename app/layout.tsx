@@ -51,6 +51,9 @@ export const metadata: Metadata = {
 // Colores de --background de globals.css (claro y oscuro) para la barra del
 // navegador y la de estado al instalar.
 export const viewport: Viewport = {
+  // Con el teclado en pantalla (Android) el área útil se reduce en vez de taparse: los drawers
+  // de alto completo dejan el campo de escritura sobre el teclado.
+  interactiveWidget: 'resizes-content',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#fafcfc' },
     { media: '(prefers-color-scheme: dark)', color: '#001f20' },

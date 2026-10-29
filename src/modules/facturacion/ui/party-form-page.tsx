@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { facturacion } from '@/content/facturacion'
 import { formatIsoDateEs } from '@/lib/format/date'
+import { CLIENT_KINDS, TERRITORIES } from '@/src/modules/facturacion/domain/tax-profile'
 import { removeParty, saveParty } from '@/src/modules/facturacion/domain/invoicing-state'
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import {
@@ -16,6 +17,7 @@ import {
   emptyParty,
   findSimilarParties,
   partiesWithStats,
+  suggestedTaxProfile,
   type Party,
 } from '@/src/modules/facturacion/domain/party-directory'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
@@ -24,7 +26,8 @@ import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { LifecyclePills } from '@/src/modules/facturacion/ui/invoice-badges'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
-import { TramiteDrawerField } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { FormSection } from '@/src/modules/facturacion/ui/form-section'
 import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.partyPages
@@ -45,7 +48,23 @@ export function PartyFormPage(props: PartyFormPageProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof Party, string>>>({})
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const patch = (partial: Partial<Party>) => setValues((current) => ({ ...current, ...partial }))
+  // En un cliente nuevo, el NIF y el domicilio sugieren territorio y tipo hasta que se eligen a mano.
+  const [taxProfileTouched, setTaxProfileTouched] = useState(false)
+
+  const patch = (partial: Partial<Party>) =>
+    setValues((current) => {
+      const merged = { ...current, ...partial }
+      const affectsProfile = 'taxId' in partial || 'postalCode' in partial || 'province' in partial
+      if (existing || taxProfileTouched || !affectsProfile) return merged
+      const suggestion = suggestedTaxProfile(merged)
+      const hasAddress = Boolean(merged.postalCode.trim() || merged.province.trim())
+      return { ...merged, kind: suggestion.kind, territory: hasAddress ? suggestion.territory : merged.territory }
+    })
+
+  const pickTaxProfile = (partial: Partial<Pick<Party, 'territory' | 'kind'>>) => {
+    setTaxProfileTouched(true)
+    patch(partial)
+  }
 
   if (props.mode === 'edit' && !existing) {
     return (
@@ -119,10 +138,11 @@ export function PartyFormPage(props: PartyFormPageProps) {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <form className="flex min-w-0 flex-col gap-5" onSubmit={handleSubmit} noValidate>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.identity}</legend>
+          <FormSection title={copy.sections.identity}>
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <TramiteDrawerField id={`${baseId}-name`} name="name" label={copy.fields.name} value={values.name} error={errors.name} required onChange={(name) => patch({ name })} />
             <TramiteDrawerField id={`${baseId}-taxid`} name="taxId" label={copy.fields.taxId} value={values.taxId} error={errors.taxId} required onChange={(taxId) => patch({ taxId })} />
+            </div>
             {similar.length > 0 ? (
               <div role="status" className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm dark:border-border/60">
                 <p className="font-medium text-foreground">{copy.similar.title}</p>
@@ -141,36 +161,54 @@ export function PartyFormPage(props: PartyFormPageProps) {
                 </ul>
               </div>
             ) : null}
-          </fieldset>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.address}</legend>
+          </FormSection>
+          <FormSection title={copy.sections.address}>
             <TramiteDrawerField id={`${baseId}-address`} name="address" label={copy.fields.address} value={values.address} onChange={(address) => patch({ address })} />
             <div className="grid gap-4 sm:grid-cols-3">
               <TramiteDrawerField id={`${baseId}-postal`} name="postalCode" label={copy.fields.postalCode} value={values.postalCode} error={errors.postalCode} onChange={(postalCode) => patch({ postalCode })} />
               <TramiteDrawerField id={`${baseId}-city`} name="city" label={copy.fields.city} value={values.city} onChange={(city) => patch({ city })} />
               <TramiteDrawerField id={`${baseId}-province`} name="province" label={copy.fields.province} value={values.province} onChange={(province) => patch({ province })} />
             </div>
-          </fieldset>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.contact}</legend>
+          </FormSection>
+          <FormSection title={copy.sections.contact}>
             <div className="grid gap-4 sm:grid-cols-2">
               <TramiteDrawerField id={`${baseId}-email`} name="email" type="email" label={copy.fields.email} value={values.email} error={errors.email} onChange={(email) => patch({ email })} />
               <TramiteDrawerField id={`${baseId}-phone`} name="phone" label={copy.fields.phone} value={values.phone} onChange={(phone) => patch({ phone })} />
             </div>
-          </fieldset>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.billing}</legend>
-            <TramiteDrawerField
-              id={`${baseId}-term`}
-              name="paymentTermDays"
-              type="number"
-              label={copy.fields.paymentTermDays}
-              value={String(values.paymentTermDays)}
-              error={errors.paymentTermDays}
-              onChange={(paymentTermDays) => patch({ paymentTermDays: Number(paymentTermDays) })}
-            />
+          </FormSection>
+          <FormSection title={copy.sections.billing}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <TramiteDrawerField
+                id={`${baseId}-term`}
+                name="paymentTermDays"
+                type="number"
+                label={copy.fields.paymentTermDays}
+                value={String(values.paymentTermDays)}
+                error={errors.paymentTermDays}
+                onChange={(paymentTermDays) => patch({ paymentTermDays: Number(paymentTermDays) })}
+              />
+              <TramiteDrawerSelect
+                id={`${baseId}-territory`}
+                name="territory"
+                label={copy.fields.territory}
+                placeholder=""
+                value={values.territory}
+                options={Object.fromEntries(TERRITORIES.map((territory) => [territory, facturacion.editor.territories[territory]]))}
+                onChange={(territory) => pickTaxProfile({ territory: territory as Party['territory'] })}
+              />
+              <TramiteDrawerSelect
+                id={`${baseId}-kind`}
+                name="kind"
+                label={copy.fields.kind}
+                placeholder=""
+                value={values.kind}
+                options={Object.fromEntries(CLIENT_KINDS.map((kind) => [kind, facturacion.editor.clientKinds[kind]]))}
+                onChange={(kind) => pickTaxProfile({ kind: kind as Party['kind'] })}
+              />
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">{facturacion.editor.taxRules.clientHint}</p>
             <TramiteDrawerField id={`${baseId}-notes`} name="notes" label={copy.fields.notes} value={values.notes} onChange={(notes) => patch({ notes })} />
-          </fieldset>
+          </FormSection>
 
           {existing ? <p className="text-xs text-muted-foreground">{copy.snapshotNote}</p> : null}
 

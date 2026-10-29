@@ -16,6 +16,7 @@ import { emitDraft, removeInvoice, setPaymentDate, setReview } from '@/src/modul
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import { daysOverdue, paymentStatus } from '@/src/modules/facturacion/domain/payment-status'
 import { canRectify, netAmountsAfterRectification, rectificationsOf } from '@/src/modules/facturacion/domain/rectification'
+import { formatQuantity, linesFromLegacy, lineTotalCents } from '@/src/modules/facturacion/domain/invoice-lines'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
@@ -29,7 +30,8 @@ const copy = facturacion.page.detail
 const longDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeStyle: 'short' })
 const mediumDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
-const settingsHref = sectionHref(SECTIONS.find((section) => section.id === 'settings')!)
+/** Los datos fiscales del emisor son los del perfil: ahí se piden los cambios. */
+const PROFILE_HREF = '/perfil'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -130,6 +132,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
   const collectable = !isDraft && invoice.kind === 'ordinaria'
   const markPaidIsNext = collectable && !invoice.paymentDate
   const rectified = rectifications.length > 0
+  const showCorrectHint = !isDraft && canRectify(invoice) && !rectified
 
   // Una sola acción principal según el estado; lo demás, a la vista solo si es el siguiente paso probable.
   const menuActions: InvoiceMenuAction[] = [
@@ -205,6 +208,26 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         </div>
       </div>
 
+      {showCorrectHint ? (
+        <div
+          role="note"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm dark:border-border/60"
+        >
+          <p className="flex min-w-0 flex-1 items-start gap-2 text-muted-foreground">
+            <Lock className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
+            <span>
+              <span className="font-medium text-foreground">{copy.lockedTitle}.</span> {copy.actions.correctHint.body}
+            </span>
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`${invoicesHref}/${invoice.id}/rectificar`}>
+              <Undo2 aria-hidden />
+              {copy.actions.correctHint.action}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
       {emitIssues.length > 0 ? (
         <div
           ref={issuesRef}
@@ -219,7 +242,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
           </ul>
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
             {emitIssues.some((issue) => issue.code === 'issuer_incomplete') ? (
-              <Link href={settingsHref} className="font-medium text-foreground underline underline-offset-4">
+              <Link href={PROFILE_HREF} className="font-medium text-foreground underline underline-offset-4">
                 {copy.fixIssuer}
               </Link>
             ) : null}
@@ -232,7 +255,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         </div>
       ) : null}
 
-      {locked ? (
+      {locked && !showCorrectHint ? (
         <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
           <Lock className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
           <span>
@@ -277,6 +300,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                   <span className="ml-2 text-xs text-destructive">{facturacion.invoices.overdueDays(daysOverdue(invoice, today))}</span>
                 ) : null}
               </Field>
+              <Field label={facturacion.detail.fields.paymentMethod}>
+                {facturacion.editor.paymentMethods[invoice.paymentMethod]}
+              </Field>
+              {invoice.dateReason ? (
+                <Field label={facturacion.detail.fields.dateReason}>{invoice.dateReason}</Field>
+              ) : null}
               <Field label={facturacion.detail.fields.paymentDate}>
                 {invoice.paymentDate ? formatIsoDateEs(invoice.paymentDate) : facturacion.detail.fields.none}
               </Field>
@@ -288,7 +317,18 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 </Field>
               ) : null}
               <div className="sm:col-span-2">
-                <Field label={facturacion.detail.fields.concept}>{invoice.concept || facturacion.detail.fields.none}</Field>
+                <Field label={facturacion.detail.fields.concept}>
+                  <ul className="mt-0.5 flex flex-col gap-1">
+                    {(invoice.lines.length > 0 ? invoice.lines : linesFromLegacy(invoice)).map((line) => (
+                      <li key={line.id} className="flex flex-wrap justify-between gap-x-4 text-sm">
+                        <span className="min-w-0">{line.description}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatQuantity(line.quantity)} × {formatCents(line.unitPriceCents)} = {formatCents(lineTotalCents(line))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Field>
               </div>
             </dl>
           </Card>

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { makeInvoice } from '@/src/modules/facturacion/domain/test-fixtures'
 import { draftFromInvoice } from '@/src/modules/facturacion/domain/compute-invoice'
 import { initialInvoicingState, removeInvoice, saveInvoice, setPaymentDate } from '@/src/modules/facturacion/domain/invoicing-state'
 import {
@@ -125,5 +126,92 @@ describe('resetInvoicing', () => {
     resetInvoicing()
     expect(win.data.has(KEY)).toBe(false)
     expect(getInvoicingSnapshot().events).toEqual([])
+  })
+
+  describe('facturas guardadas antes de existir fecha con motivo y forma de cobro', () => {
+    const stored = (extra: Record<string, unknown>) => {
+      const legacy: Record<string, unknown> = { ...makeInvoice({ id: 'viejo' }) }
+      delete legacy.dateReason
+      delete legacy.paymentMethod
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [{ ...legacy, ...extra }] }))
+      return getInvoicingSnapshot().invoices[0]
+    }
+
+    it('se rellenan con motivo vacío y transferencia', () => {
+      expect(stored({})).toMatchObject({ dateReason: '', paymentMethod: 'transferencia' })
+    })
+
+    it('se conservan los valores válidos y se descartan los desconocidos', () => {
+      expect(stored({ dateReason: 'Entrega', paymentMethod: 'tarjeta' })).toMatchObject({ dateReason: 'Entrega', paymentMethod: 'tarjeta' })
+      expect(stored({ dateReason: 7, paymentMethod: 'bizum' })).toMatchObject({ dateReason: '', paymentMethod: 'transferencia' })
+    })
+  })
+
+  describe('facturas y catálogo guardados antes de existir las líneas y los productos', () => {
+    it('una factura sin líneas recibe una con su concepto y su base', () => {
+      const legacy: Record<string, unknown> = { ...makeInvoice({ id: 'viejo', concept: 'Diseño', baseCents: 5000 }) }
+      delete legacy.lines
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [legacy] }))
+      expect(getInvoicingSnapshot().invoices[0].lines).toEqual([
+        { id: 'viejo-l1', description: 'Diseño', quantity: 1, unitPriceCents: 5000 },
+      ])
+    })
+
+    it('una factura con la lista de líneas vacía también recibe la suya', () => {
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [makeInvoice({ id: 'v', lines: [], concept: 'Web', baseCents: 900 })] }))
+      expect(getInvoicingSnapshot().invoices[0].lines).toEqual([{ id: 'v-l1', description: 'Web', quantity: 1, unitPriceCents: 900 }])
+    })
+
+    it('las líneas guardadas se conservan tal cual', () => {
+      const lines = [{ id: 'a', description: 'Hora', quantity: 2, unitPriceCents: 4500 }]
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [makeInvoice({ lines })] }))
+      expect(getInvoicingSnapshot().invoices[0].lines).toEqual(lines)
+    })
+
+    it('sin catálogo guardado se parte del de ejemplo; con catálogo, el suyo (aunque esté vacío)', () => {
+      const legacy: Record<string, unknown> = { ...initialInvoicingState() }
+      delete legacy.products
+      win.data.set(KEY, JSON.stringify(legacy))
+      expect(getInvoicingSnapshot().products.length).toBeGreaterThan(0)
+
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), products: [] }))
+      expect(getInvoicingSnapshot().products).toEqual([])
+    })
+  })
+
+  describe('guardados antes de existir el territorio y el tipo del cliente', () => {
+    it('una factura sin ellos recibe Canarias y el tipo que sugiere su NIF', () => {
+      const legacy: Record<string, unknown> = { ...makeInvoice({ id: 'a', counterpartyTaxId: 'B35123454' }) }
+      delete legacy.counterpartyTerritory
+      delete legacy.counterpartyKind
+      delete legacy.taxNote
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [legacy] }))
+      expect(getInvoicingSnapshot().invoices[0]).toMatchObject({ counterpartyTerritory: 'canarias', counterpartyKind: 'empresa', taxNote: '' })
+    })
+
+    it('los valores guardados válidos se conservan y los desconocidos se sustituyen', () => {
+      win.data.set(
+        KEY,
+        JSON.stringify({
+          ...initialInvoicingState(),
+          invoices: [makeInvoice({ id: 'a', counterpartyTerritory: 'ue', counterpartyKind: 'autonomo', taxNote: 'Exenta' })],
+        })
+      )
+      expect(getInvoicingSnapshot().invoices[0]).toMatchObject({ counterpartyTerritory: 'ue', counterpartyKind: 'autonomo', taxNote: 'Exenta' })
+
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [{ ...makeInvoice({ id: 'b' }), counterpartyTerritory: 'marte', counterpartyKind: 'dios', taxNote: 5 }] }))
+      expect(getInvoicingSnapshot().invoices[0]).toMatchObject({ counterpartyTerritory: 'canarias', counterpartyKind: 'empresa', taxNote: '' })
+    })
+
+    it('un cliente sin ellos los recibe de su NIF y su domicilio; con ellos, se respetan', () => {
+      const base = initialInvoicingState()
+      const legacy: Record<string, unknown> = { ...base.parties[0], taxId: '12345678Z', postalCode: '28001', province: 'Madrid' }
+      delete legacy.territory
+      delete legacy.kind
+      win.data.set(KEY, JSON.stringify({ ...base, parties: [legacy, { ...base.parties[1], territory: 'ue', kind: 'autonomo' }] }))
+      const [first, second] = getInvoicingSnapshot().parties
+      expect(first).toMatchObject({ territory: 'peninsula', kind: 'particular' })
+      expect(second).toMatchObject({ territory: 'ue', kind: 'autonomo' })
+    })
   })
 })

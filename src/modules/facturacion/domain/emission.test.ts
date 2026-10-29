@@ -62,13 +62,45 @@ describe('validateEmission — fecha y orden cronológico', () => {
 
   it('no puede ser anterior a la última factura expedida de la serie', () => {
     const previous = makeInvoice({ issueDate: '2026-06-10' })
-    expect(codes(draft({ issueDate: '2026-06-09' }), [previous])).toEqual(['date_before_previous'])
-    expect(codes(draft({ issueDate: '2026-06-10' }), [previous])).toEqual([])
+    expect(codes(draft({ issueDate: '2026-06-09', dateReason: 'Trabajo de junio' }), [previous])).toEqual([
+      'date_before_previous',
+    ])
+    expect(codes(draft({ issueDate: '2026-06-10', dateReason: 'Trabajo de junio' }), [previous])).toEqual([])
   })
 
   it('la fecha de otra serie no condiciona', () => {
     const rectificativa = makeInvoice({ id: 'r', series: 'R', kind: 'rectificativa', issueDate: '2026-06-14' })
-    expect(codes(draft({ issueDate: '2026-06-01' }), [rectificativa])).toEqual([])
+    expect(codes(draft({ issueDate: '2026-06-01', dateReason: 'Trabajo de junio' }), [rectificativa])).toEqual([])
+  })
+
+  it('una fecha anterior a hoy exige motivo; la de hoy no', () => {
+    expect(codes(draft({ issueDate: '2026-06-14' }))).toEqual(['date_reason_missing'])
+    expect(codes(draft({ issueDate: '2026-06-14', dateReason: '   ' }))).toEqual(['date_reason_missing'])
+    expect(codes(draft({ issueDate: '2026-06-14', dateReason: 'Entrega del día 14' }))).toEqual([])
+    expect(codes(draft({ issueDate: TODAY }))).toEqual([])
+  })
+})
+
+describe('validateEmission — impuestos fijados por las reglas', () => {
+  it('un impuesto o una retención que no salen de las reglas impiden emitir', () => {
+    expect(codes(draft({ taxRate: 3 }))).toEqual(['tax_mismatch'])
+    expect(codes(draft({ withholdingRate: 15 }))).toEqual(['tax_mismatch'])
+    expect(codes(draft({ regime: 'iva' }))).toEqual(['tax_mismatch'])
+  })
+
+  it('la leyenda también debe coincidir', () => {
+    expect(codes(draft({ counterpartyTerritory: 'peninsula', taxRate: 0, taxNote: '' }))).toEqual(['tax_mismatch'])
+  })
+
+  it('un borrador que sigue las reglas pasa, también cuando no hay impuesto', () => {
+    const note = 'Operación no sujeta a IGIC por las reglas de localización del hecho imponible.'
+    expect(codes(draft({ counterpartyTerritory: 'peninsula', taxRate: 0, taxNote: note }))).toEqual([])
+    expect(codes(draft({ counterpartyKind: 'empresa', withholdingRate: 15 }))).toEqual([])
+  })
+
+  it('una rectificativa hereda los de la original y no se comprueba', () => {
+    const rectificativa = draft({ kind: 'rectificativa', rectifies: 'orig', rectificationReason: 'x', baseCents: -5000, taxRate: 3 })
+    expect(codes(rectificativa, [makeInvoice({ id: 'orig' })])).toEqual([])
   })
 })
 
@@ -79,6 +111,10 @@ describe('validateEmission — rectificativas', () => {
 
   it('una rectificativa completa pasa, y admite importe negativo', () => {
     expect(codes(rectificativa(), [original])).toEqual([])
+  })
+
+  it('una rectificativa con fecha anterior a hoy no necesita el motivo de la fecha', () => {
+    expect(codes(rectificativa({ issueDate: '2026-06-14' }), [original])).toEqual([])
   })
 
   it('exige motivo y que la factura rectificada exista y esté expedida', () => {
@@ -137,7 +173,7 @@ describe('emitInvoice', () => {
   })
 
   it('el número usa el año de la fecha de la factura', () => {
-    const previousYear = emitInvoice(draft({ issueDate: '2025-12-31' }), DEMO_ISSUER, [], NOW)
+    const previousYear = emitInvoice(draft({ issueDate: '2025-12-31', dateReason: 'Trabajo de diciembre' }), DEMO_ISSUER, [], NOW)
     expect(previousYear.ok && previousYear.invoice.invoiceNumber).toBe('F-2025-0001')
   })
 

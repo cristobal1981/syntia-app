@@ -19,11 +19,16 @@ import type { Invoice } from '@/src/modules/facturacion/domain/types'
 import { BookTable } from '@/src/modules/facturacion/ui/book-table'
 import { InvoiceStatusPill } from '@/src/modules/facturacion/ui/invoice-badges'
 import { InvoiceLink } from '@/src/modules/facturacion/ui/invoice-link'
-import { PortalFilterChip } from '@/src/modules/portal/ui/portal-filter-chip'
+import { cn } from '@/lib/utils'
 import { NO_AUTOFILL } from '@/components/ui/no-autofill'
 
 const copy = facturacion.invoices
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
+
+/** Solo una factura ordinaria expedida se cobra o vence: una corrección o un borrador no entran en los filtros de cobro. */
+function isCollectable(invoice: Invoice): boolean {
+  return invoice.status === 'definitiva' && invoice.kind === 'ordinaria'
+}
 
 type StatusFilter = 'all' | PaymentStatus
 
@@ -46,7 +51,7 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
       invoices
         .filter(
           (invoice) =>
-            (status === 'all' || (invoice.status === 'definitiva' && paymentStatus(invoice, today) === status)) &&
+            (status === 'all' || (isCollectable(invoice) && paymentStatus(invoice, today) === status)) &&
             invoiceMatchesQuery(invoice, query)
         )
         .sort((a, b) => compareInvoices(b, a)),
@@ -61,8 +66,18 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
       pendingCents: issued
         .filter((invoice) => invoice.kind === 'ordinaria' && !invoice.paymentDate)
         .reduce((sum, invoice) => sum + invoice.totalCents, 0),
+      overdue: issued.filter((invoice) => invoice.kind === 'ordinaria' && paymentStatus(invoice, today) === 'vencida'),
+      pendingCount: issued.filter((invoice) => invoice.kind === 'ordinaria' && !invoice.paymentDate).length,
     }
-  }, [visible])
+  }, [visible, today])
+
+  // Cuántas hay en cada estado con la búsqueda actual, para que cada filtro diga lo que va a enseñar.
+  const counts = useMemo(() => {
+    const matching = invoices.filter((invoice) => invoiceMatchesQuery(invoice, query))
+    const byStatus = (value: PaymentStatus) =>
+      matching.filter((invoice) => isCollectable(invoice) && paymentStatus(invoice, today) === value).length
+    return { all: matching.length, pendiente: byStatus('pendiente'), vencida: byStatus('vencida'), pagada: byStatus('pagada') }
+  }, [invoices, query, today])
 
   const actions = (
     <Button asChild>
@@ -86,14 +101,56 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
   }
 
   const columns = copy.columns
+  const overdueCents = totals.overdue.reduce((sum, invoice) => sum + invoice.totalCents, 0)
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+    <div className="flex flex-col gap-4">
+      <dl className="portal-home-card grid grid-cols-1 divide-y divide-border rounded-xl sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-border/50" aria-live="polite">
+        <div className="px-5 py-4">
+          <dt className="text-sm text-muted-foreground">{copy.summary.billed}</dt>
+          <dd className="mt-1 font-sans text-2xl font-semibold tabular-nums text-foreground">{formatCents(totals.billedCents)}</dd>
+          <p className="mt-0.5 text-xs text-muted-foreground">{copy.summary.count(visible.length)}</p>
+        </div>
+        <div className="px-5 py-4">
+          <dt className="text-sm text-muted-foreground">{copy.summary.pending}</dt>
+          <dd className="mt-1 font-sans text-2xl font-semibold tabular-nums text-foreground">{formatCents(totals.pendingCents)}</dd>
+          <p className="mt-0.5 text-xs text-muted-foreground">{copy.summary.pendingCount(totals.pendingCount)}</p>
+        </div>
+        <div className="px-5 py-4">
+          <dt className="text-sm text-muted-foreground">{copy.summary.overdue}</dt>
+          <dd
+            className={cn(
+              'mt-1 font-sans text-2xl font-semibold tabular-nums',
+              totals.overdue.length > 0 ? 'text-destructive' : 'text-foreground'
+            )}
+          >
+            {formatCents(overdueCents)}
+          </dd>
+          <p className="mt-0.5 text-xs text-muted-foreground">{copy.summary.overdueCount(totals.overdue.length)}</p>
+        </div>
+      </dl>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* En móvil los estados hacen scroll en una sola línea en vez de ocupar varias filas. */}
-        <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible">
+        <div
+          role="group"
+          aria-label={copy.statusLabel}
+          className="flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-lg bg-muted p-0.5"
+        >
           {STATUS_FILTERS.map((value) => (
-            <PortalFilterChip key={value} label={copy.statusFilters[value]} active={status === value} onClick={() => setStatus(value)} />
+            <button
+              key={value}
+              type="button"
+              aria-pressed={status === value}
+              onClick={() => setStatus(value)}
+              className={cn(
+                'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                status === value && 'bg-background font-medium text-foreground ring-1 ring-border'
+              )}
+            >
+              {copy.statusFilters[value]}
+              <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
+            </button>
           ))}
         </div>
         <Input
@@ -103,21 +160,9 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
           onChange={(event) => setQuery(event.target.value)}
           placeholder={copy.searchPlaceholder}
           aria-label={copy.searchLabel}
-          className="h-11 w-full text-base sm:ml-auto sm:h-9 sm:w-72 sm:text-sm"
+          className="h-11 w-full text-base sm:h-9 sm:w-72 sm:text-sm"
         />
       </div>
-
-      <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
-        {copy.summary.count(visible.length)}
-        {totals.billedCents > 0 || totals.pendingCents > 0 ? (
-          <>
-            {' · '}
-            {copy.summary.billed} <span className="font-medium text-foreground">{formatCents(totals.billedCents)}</span>
-            {' · '}
-            {copy.summary.pending} <span className="font-medium text-foreground">{formatCents(totals.pendingCents)}</span>
-          </>
-        ) : null}
-      </p>
 
       {visible.length === 0 ? (
         <PortalEmptyState
@@ -144,9 +189,8 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
           caption={facturacion.tabs.invoices}
           emptyMessage={copy.noResults}
           columns={[
-            { key: 'date', label: columns.date },
-            { key: 'number', label: columns.number },
             { key: 'counterparty', label: columns.counterparty },
+            { key: 'due', label: columns.due },
             { key: 'total', label: columns.total, align: 'right' },
             { key: 'status', label: columns.status },
           ]}
@@ -156,26 +200,30 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
             const rectified = rectificationsOf(invoice, allInvoices).length > 0
             const overdue = !isDraft && invoice.kind === 'ordinaria' && paymentStatus(invoice, today) === 'vencida'
             const collectable = !isDraft && invoice.kind === 'ordinaria' && !invoice.paymentDate
+            const number = invoice.invoiceNumber || facturacion.document.pendingNumber
             return {
               key: invoice.id,
               href,
               cells: [
-                <span key="d">
-                  {formatIsoDateEs(invoice.issueDate)}
-                  {overdue ? (
-                    <span className="block text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
-                  ) : collectable ? (
-                    <span className="block text-xs text-muted-foreground">{copy.dueOn(formatIsoDateEs(invoice.dueDate))}</span>
-                  ) : null}
+                <span key="c" className="block min-w-0">
+                  <InvoiceLink href={href}>{invoice.counterpartyName || '—'}</InvoiceLink>
+                  <span className="block text-xs text-muted-foreground">
+                    {number} · {formatIsoDateEs(invoice.issueDate)}
+                    {rectified ? ` · ${facturacion.lifecycle.rectified}` : ''}
+                  </span>
                 </span>,
-                <span key="n">
-                  <InvoiceLink href={href}>{invoice.invoiceNumber || facturacion.document.pendingNumber}</InvoiceLink>
-                  {rectified ? <span className="block text-xs text-muted-foreground">{facturacion.lifecycle.rectified}</span> : null}
-                </span>,
-                <span key="c">
-                  {invoice.counterpartyName || '—'}
-                  {invoice.counterpartyTaxId ? <span className="block text-xs text-muted-foreground">{invoice.counterpartyTaxId}</span> : null}
-                </span>,
+                collectable ? (
+                  <span key="d" className="block">
+                    {formatIsoDateEs(invoice.dueDate)}
+                    {overdue ? (
+                      <span className="block text-xs text-destructive">{copy.overdueDays(daysOverdue(invoice, today))}</span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span key="d" className="text-muted-foreground">
+                    —
+                  </span>
+                ),
                 formatCents(invoice.totalCents),
                 <InvoiceStatusPill key="s" invoice={invoice} today={today} />,
               ],
@@ -186,7 +234,7 @@ export function InvoicesTab({ invoices, allInvoices, today }: InvoicesTabProps) 
                     <span className="shrink-0 font-medium tabular-nums text-foreground">{formatCents(invoice.totalCents)}</span>
                   </span>
                   <span className="mt-0.5 block text-sm text-muted-foreground">
-                    {invoice.invoiceNumber || facturacion.document.pendingNumber} · {formatIsoDateEs(invoice.issueDate)}
+                    {number} · {formatIsoDateEs(invoice.issueDate)}
                   </span>
                   <span className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
                     <InvoiceStatusPill invoice={invoice} today={today} />

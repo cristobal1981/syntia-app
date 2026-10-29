@@ -1,5 +1,9 @@
 import { initialInvoicingState, type InvoicingState, type OperationContext } from '@/src/modules/facturacion/domain/invoicing-state'
-import type { Invoice } from '@/src/modules/facturacion/domain/types'
+import { suggestedTaxProfile, type Party } from '@/src/modules/facturacion/domain/party-directory'
+import { CLIENT_KINDS, clientKindFromTaxId, TERRITORIES, type ClientKind, type Territory } from '@/src/modules/facturacion/domain/tax-profile'
+import { linesFromLegacy } from '@/src/modules/facturacion/domain/invoice-lines'
+import { SAMPLE_PRODUCTS } from '@/src/modules/facturacion/domain/products'
+import { DEFAULT_PAYMENT_METHOD, PAYMENT_METHODS, type Invoice } from '@/src/modules/facturacion/domain/types'
 
 /**
  * Almacén MOCK de facturación: todo el estado vive en el `localStorage` de este
@@ -27,6 +31,33 @@ function isInvoice(value: unknown): value is Invoice {
   )
 }
 
+/** Facturas guardadas antes de existir estos campos: se rellenan con sus valores por defecto. */
+function withNewerFields(invoice: Invoice): Invoice {
+  const stored = invoice as Partial<Invoice>
+  return {
+    ...invoice,
+    counterpartyTerritory: TERRITORIES.includes(stored.counterpartyTerritory as Territory) ? stored.counterpartyTerritory! : 'canarias',
+    counterpartyKind: CLIENT_KINDS.includes(stored.counterpartyKind as ClientKind)
+      ? stored.counterpartyKind!
+      : clientKindFromTaxId(invoice.counterpartyTaxId),
+    taxNote: typeof stored.taxNote === 'string' ? stored.taxNote : '',
+    lines: Array.isArray(stored.lines) && stored.lines.length > 0 ? stored.lines : linesFromLegacy(invoice),
+    dateReason: typeof stored.dateReason === 'string' ? stored.dateReason : '',
+    paymentMethod:
+      stored.paymentMethod && PAYMENT_METHODS.includes(stored.paymentMethod) ? stored.paymentMethod : DEFAULT_PAYMENT_METHOD,
+  }
+}
+
+/** Clientes guardados antes de existir el territorio y el tipo: se sugieren por su NIF y su domicilio. */
+function partyWithTaxProfile(party: Party): Party {
+  const suggestion = suggestedTaxProfile(party)
+  return {
+    ...party,
+    territory: TERRITORIES.includes(party.territory) ? party.territory : suggestion.territory,
+    kind: CLIENT_KINDS.includes(party.kind) ? party.kind : suggestion.kind,
+  }
+}
+
 function parseState(raw: string): InvoicingState | null {
   try {
     const parsed: unknown = JSON.parse(raw)
@@ -36,8 +67,9 @@ function parseState(raw: string): InvoicingState | null {
     if (typeof value.issuer !== 'object' || value.issuer === null) return null
 
     return {
-      invoices: value.invoices.filter(isInvoice),
-      parties: value.parties as InvoicingState['parties'],
+      invoices: value.invoices.filter(isInvoice).map(withNewerFields),
+      parties: (value.parties as Party[]).map(partyWithTaxProfile),
+      products: Array.isArray(value.products) ? (value.products as InvoicingState['products']) : [...SAMPLE_PRODUCTS],
       issuer: value.issuer as InvoicingState['issuer'],
       events: value.events as InvoicingState['events'],
     }

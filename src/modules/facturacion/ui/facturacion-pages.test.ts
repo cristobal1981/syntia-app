@@ -1,4 +1,4 @@
-import { createElement, type ReactElement } from 'react'
+import { createElement, type ComponentType, type ReactElement, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
 }))
 
+import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FacturacionProvider } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { FacturacionShell, PeriodBar } from '@/src/modules/facturacion/ui/facturacion-shell'
@@ -24,14 +25,17 @@ import {
   NewPartySection,
   PanelSection,
   PartiesSection,
+  ProductsSection,
   RectifyInvoiceSection,
-  SettingsSection,
 } from '@/src/modules/facturacion/ui/section-views'
 
-function render(path: string, element: ReactElement, search = ''): string {
+// El proveedor exige `children` entre sus props; `createElement` los recibe como argumentos.
+const Provider = FacturacionProvider as ComponentType<{ odooIssuer?: Issuer | null; children?: ReactNode }>
+
+function render(path: string, element: ReactElement, search = '', odooIssuer: Issuer | null = null): string {
   nav.pathname = path
   nav.search = search
-  return renderToString(createElement(TooltipProvider, null, createElement(FacturacionProvider, null, element)))
+  return renderToString(createElement(TooltipProvider, null, createElement(Provider, { odooIssuer }, element)))
 }
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ')
@@ -72,9 +76,33 @@ describe('lista de facturas', () => {
     }
   })
 
-  it('resume lo filtrado: número de facturas, facturado y pendiente de cobro', () => {
+  it('resume lo filtrado en tres cifras: facturado, pendiente de cobro y vencido, cada una con su recuento', () => {
     const plain = text(html)
-    expect(plain).toMatch(/\d+ facturas · Facturado [\d.,]+ € · Pendiente de cobro [\d.,]+ €/)
+    expect(plain).toMatch(/Facturado [\d.,]+ € 8 facturas/)
+    expect(plain).toMatch(/Pendiente de cobro [\d.,]+ € \d+ sin cobrar/)
+    expect(plain).toMatch(/Vencido [\d.,]+ € \d+ vencidas?/)
+  })
+
+  it('el vencido no cuenta las correcciones y sale en rojo si hay algo', () => {
+    expect(html).toContain('text-destructive">')
+    expect(text(html)).not.toMatch(/Vencido [\d.,]*-/)
+  })
+
+  it('las correcciones no cuentan como vencidas en los filtros: solo se ven en «Todas»', () => {
+    const plain = text(html)
+    // Vencidas: F-2026-0005 y F-2026-0004; no R-2026-0001.
+    expect(plain).toMatch(/Vencidas 2/)
+    expect(plain).toMatch(/Pendientes 1/)
+    expect(plain).toMatch(/Cobradas 3/)
+    expect(plain).toMatch(/Todas 8/)
+  })
+
+  it('los filtros de estado dicen cuántas facturas enseñan', () => {
+    const plain = text(html)
+    expect(plain).toMatch(/Todas 8/)
+    expect(plain).toMatch(/Pendientes \d+/)
+    expect(plain).toMatch(/Vencidas \d+/)
+    expect(plain).toMatch(/Cobradas \d+/)
   })
 
   it('el vencimiento va bajo la fecha y no hay columna de acciones', () => {
@@ -103,8 +131,8 @@ describe('lista de facturas', () => {
   })
 
   it('móvil primero: los filtros de estado hacen scroll en una línea y desde sm pasan a la fila con el buscador', () => {
-    expect(html).toContain('flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible')
-    expect(html).toContain('flex flex-col gap-3 sm:flex-row sm:flex-wrap')
+    expect(html).toContain('overflow-x-auto')
+    expect(html).toContain('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between')
   })
 
   it('el buscador es táctil en móvil: alto de 44 px y 16 px de letra para que iOS no haga zoom', () => {
@@ -236,6 +264,94 @@ describe('formularios de factura', () => {
   })
 })
 
+describe('líneas, impuestos y aviso de corregir', () => {
+  it('el formulario pide líneas, no concepto ni base, y enseña el impuesto fijado por las reglas', () => {
+    const plain = text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))
+    expect(plain).toContain('Productos y servicios')
+    expect(plain).toContain('Añadir línea')
+    expect(plain).toContain('Añadir del catálogo')
+    expect(plain).toContain('Territorio del cliente')
+    expect(plain).toContain('Tipo de cliente')
+    expect(plain).toContain('IGIC (7 %)')
+    expect(plain).toContain('Retención (15 %)')
+    expect(plain).not.toContain('Tipo de impuesto')
+    expect(plain).not.toContain('Retención de IRPF')
+    expect(plain).not.toContain('Base imponible (€)')
+  })
+
+  it('el formulario ofrece alta rápida de cliente', () => {
+    expect(text(render('/facturacion/facturas/nueva', createElement(NewInvoiceSection)))).toContain('Nuevo cliente')
+  })
+
+  it('una factura emitida sin corregir avisa de cómo corregirla; con corrección, no', () => {
+    const open = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(open).toContain('Factura emitida: no se puede modificar')
+    expect(open).toContain('Si hay algo mal, se corrige emitiendo una factura rectificativa')
+    expect(open).toContain('Corregir la factura')
+    const rectified = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
+    expect(rectified).not.toContain('Si hay algo mal, se corrige')
+    const draft = text(render('/facturacion/facturas/ejemplo-15', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-15' })))
+    expect(draft).not.toContain('Si hay algo mal, se corrige')
+  })
+
+  it('el documento lleva la tabla de líneas, la forma de cobro y la base', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(plain).toContain('Cant.')
+    expect(plain).toContain('Cartelería del festival')
+    expect(plain).toContain('Forma de cobro')
+    expect(plain).toContain('Transferencia')
+  })
+
+  it('el catálogo de productos lista los de ejemplo con su precio y permite crear', () => {
+    const plain = text(render('/facturacion/productos', createElement(ProductsSection)))
+    expect(plain).toContain('Diseño de identidad visual')
+    expect(plain).toContain('Nuevo producto')
+    expect(plain).toContain('Precio (sin impuestos)')
+  })
+
+  it('el cliente nuevo pide territorio y tipo, con sugerencia por NIF y domicilio', () => {
+    const plain = text(render('/facturacion/clientes/nuevo', createElement(NewPartySection)))
+    expect(plain).toContain('Territorio fiscal')
+    expect(plain).toContain('Tipo de cliente')
+  })
+})
+
+describe('jerarquía y estados de las pantallas', () => {
+  it('el aviso de vista de prueba es una franja de una línea con un fondo tenue, no un recuadro alto', () => {
+    const html = render('/facturacion/panel', createElement(PanelSection))
+    const shell = renderToString(createElement(TooltipProvider, null, createElement(FacturacionShell, null, createElement(PanelSection))))
+    expect(text(shell)).toContain('Vista de prueba en tu ordenador')
+    expect(text(shell)).toContain('Restablecer datos de ejemplo')
+    expect(shell).toContain('bg-service-fiscal/10')
+    expect(shell).not.toContain('py-3')
+    expect(html).toBeTruthy()
+  })
+
+  it('una factura emitida sin corregir explica una sola vez que no se puede modificar', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(plain.match(/no se puede modificar/g)?.length).toBe(1)
+  })
+
+  it('una factura ya corregida mantiene el aviso de bloqueo, sin el de corregir', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
+    expect(plain).toContain('Factura emitida: no se puede modificar')
+    expect(plain).not.toContain('Corregir la factura')
+  })
+
+  it('el formulario de factura lleva las acciones en el resumen, con títulos de sección', () => {
+    const html = render('/facturacion/facturas/nueva', createElement(NewInvoiceSection))
+    expect(html).toContain('xl:grid-cols-[minmax(0,44rem)_minmax(0,22rem)]')
+    expect(text(html)).toContain('Importes')
+    expect(html).not.toContain('backdrop-blur')
+  })
+
+  it('un cliente sin facturas muestra guiones en facturado y pendiente; con facturas, el cero escrito', () => {
+    const html = render('/facturacion/clientes', createElement(PartiesSection))
+    expect(html).toContain('text-muted-foreground">—</span>')
+    expect(text(html)).toContain('0,00 €')
+  })
+})
+
 describe('rectificar', () => {
   it('una factura emitida muestra el formulario y la vista previa de la corrección', () => {
     const plain = text(render('/facturacion/facturas/ejemplo-06/rectificar', createElement(RectifyInvoiceSection, { invoiceId: 'ejemplo-06' })))
@@ -293,10 +409,27 @@ describe('clientes', () => {
 })
 
 describe('datos fiscales y panel', () => {
-  it('datos fiscales: formulario con el emisor cargado', () => {
-    const html = render('/facturacion/configuracion', createElement(SettingsSection))
-    expect(html).toContain('Estudio Gráfico Tías (demo)')
-    expect(text(html)).toContain('Guardar datos fiscales')
+  const ODOO_ISSUER: Issuer = {
+    name: 'Mar Betancor Díaz',
+    taxId: '12345678Z',
+    address: 'Calle Real, 5',
+    postalCode: '35500',
+    city: 'Arrecife',
+    province: 'Las Palmas',
+    email: 'mar@example.com',
+    phone: '',
+  }
+
+  it('Facturación ya no tiene pantalla de datos fiscales: son los del perfil', () => {
+    const shell = render('/facturacion/panel', createElement(PanelSection))
+    expect(shell).not.toContain('/facturacion/configuracion')
+    expect(text(render('/facturacion/panel', createElement(PanelSection), '', ODOO_ISSUER))).not.toContain('Guardar datos fiscales')
+  })
+
+  it('si faltan datos fiscales del emisor, el panel manda al perfil a completarlos', () => {
+    const html = render('/facturacion/panel', createElement(PanelSection), '', { ...ODOO_ISSUER, address: '' })
+    expect(text(html)).toContain('Faltan datos fiscales del emisor')
+    expect(html).toContain('href="/perfil"')
   })
 
   it('el panel incluye la revisión de las facturas y avisa de lo que no incluye', () => {
@@ -309,12 +442,12 @@ describe('datos fiscales y panel', () => {
     expect(plain).toContain('No incluye Veri*factu')
   })
 
-  it('el panel abre con lo pendiente de cobro y las vencidas, antes que el gráfico y la revisión', () => {
+  it('el panel abre con lo pendiente de cobro y las vencidas, junto a la revisión, antes que el gráfico', () => {
     const plain = text(render('/facturacion/panel', createElement(PanelSection)))
     expect(plain.indexOf('Pendiente de cobro')).toBeGreaterThanOrEqual(0)
     expect(plain.indexOf('Facturas vencidas')).toBeGreaterThan(plain.indexOf('Pendiente de cobro'))
-    expect(plain.indexOf('Facturado por mes')).toBeGreaterThan(plain.indexOf('Facturas vencidas'))
-    expect(plain.indexOf('Revisión de tus facturas')).toBeGreaterThan(plain.indexOf('Facturado por mes'))
+    expect(plain.indexOf('Revisión de tus facturas')).toBeGreaterThan(plain.indexOf('Pendiente de cobro'))
+    expect(plain.indexOf('Facturado por mes')).toBeGreaterThan(plain.indexOf('Revisión de tus facturas'))
   })
 
   it('la revisión de las facturas se despliega sola si hay algo que atender y se pliega si todo está bien', () => {
@@ -407,11 +540,11 @@ describe('filtro de periodo fijo', () => {
   it('la lista agrupa los filtros de estado y el buscador en una sola fila de herramientas', () => {
     const html = render('/facturacion/facturas', createElement(InvoicesSection))
     expect(html).toMatch(/aria-pressed="true"[^]*type="search"/)
-    expect(html).toContain('sm:ml-auto')
+    expect(html).toContain('sm:justify-between')
   })
 
-  it('Clientes y Datos fiscales no tienen filtro de periodo', () => {
-    for (const path of ['/facturacion/clientes', '/facturacion/configuracion']) {
+  it('Clientes y Productos no tienen filtro de periodo', () => {
+    for (const path of ['/facturacion/clientes', '/facturacion/productos']) {
       expect(bar(path), path).toBe('')
     }
   })

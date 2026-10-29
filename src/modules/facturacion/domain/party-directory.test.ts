@@ -61,6 +61,14 @@ describe('directorio de clientes', () => {
     expect(stats.pendingCents).toBe(second.totalCents)
   })
 
+  it('una corrección del cliente no cuenta como pendiente de cobro', () => {
+    const correction = makeInvoice({ id: 'r', kind: 'rectificativa', counterpartyName: 'Acme', counterpartyTaxId: taxId, totalCents: -2000, paymentDate: null })
+    const [directory] = partiesFromInvoices([first, second])
+    const [stats] = partiesWithStats([directory], [first, second, correction])
+    expect(stats.pendingCents).toBe(second.totalCents)
+    expect(stats.billedCents).toBe(first.totalCents + second.totalCents - 2000)
+  })
+
   it('no se puede borrar un cliente con facturas, ni siquiera con borradores', () => {
     const [directory] = partiesFromInvoices([first])
     expect(canDeleteParty(directory, [draft])).toBe(false)

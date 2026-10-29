@@ -1,12 +1,15 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 
 import { localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import type { InvoiceEvent } from '@/src/modules/facturacion/domain/invoice-events'
 import { accountedInvoices } from '@/src/modules/facturacion/domain/invoice-rules'
 import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
+import { isSameIssuer } from '@/src/modules/facturacion/domain/issuer-from-profile'
+import { saveIssuer } from '@/src/modules/facturacion/domain/invoicing-state'
+import type { Product } from '@/src/modules/facturacion/domain/products'
 import type { Party } from '@/src/modules/facturacion/domain/party-directory'
 import { availableYears, filterByPeriod, type InvoicePeriod, type Quarter } from '@/src/modules/facturacion/domain/periods'
 import { isNestedPath, sectionForPath, type SectionDefinition } from '@/src/modules/facturacion/domain/sections'
@@ -14,6 +17,7 @@ import type { Invoice } from '@/src/modules/facturacion/domain/types'
 import {
   getInvoicingServerSnapshot,
   getInvoicingSnapshot,
+  runInvoicingOperation,
   subscribeToInvoicing,
 } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 
@@ -27,6 +31,7 @@ type FacturacionContextValue = {
   /** Todas (borradores incluidos) las del periodo elegido, para la lista de facturas. */
   periodAllInvoices: Invoice[]
   parties: Party[]
+  products: Product[]
   issuer: Issuer
   events: InvoiceEvent[]
   today: string
@@ -52,7 +57,7 @@ export function useFacturacion(): FacturacionContextValue {
  * Estado compartido de todas las secciones de facturación. Vive en el layout, así
  * que el periodo elegido sobrevive al cambiar de pantalla.
  */
-export function FacturacionProvider({ children }: { children: ReactNode }) {
+export function FacturacionProvider({ children, odooIssuer = null }: { children: ReactNode; odooIssuer?: Issuer | null }) {
   const pathname = usePathname()
   const section = sectionForPath(pathname)
   const nested = isNestedPath(pathname)
@@ -61,6 +66,12 @@ export function FacturacionProvider({ children }: { children: ReactNode }) {
   const [today] = useState(() => localIsoDate())
   const [year, setYear] = useState(() => new Date().getFullYear())
   const [quarter, setQuarter] = useState<Quarter | null>(null)
+
+  // El emisor de Odoo manda: se guarda en el estado para que emitir congele esos datos en la factura.
+  useEffect(() => {
+    if (!odooIssuer || isSameIssuer(state.issuer, odooIssuer)) return
+    runInvoicingOperation((current, context) => ({ state: saveIssuer(current, odooIssuer, context) }))
+  }, [odooIssuer, state.issuer])
 
   const invoices = useMemo(() => accountedInvoices(state.invoices), [state.invoices])
   const years = useMemo(() => availableYears(state.invoices, new Date().getFullYear()), [state.invoices])
@@ -74,7 +85,8 @@ export function FacturacionProvider({ children }: { children: ReactNode }) {
     periodInvoices,
     periodAllInvoices,
     parties: state.parties,
-    issuer: state.issuer,
+    products: state.products,
+    issuer: odooIssuer ?? state.issuer,
     events: state.events,
     today,
     section,

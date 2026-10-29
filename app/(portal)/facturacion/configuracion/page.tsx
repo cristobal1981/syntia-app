@@ -1,8 +1,6 @@
-import { SettingsSection } from '@/src/modules/facturacion/ui/section-views'
+import { redirect } from 'next/navigation'
 
-// Mock local: la validación de navegación instantánea descarta este segmento (ver «Histórico de Errores» en Notion).
-export const instant = false
-
+/** Los datos fiscales del emisor son los del perfil: la antigua pantalla de Facturación lleva ahí. */
 export default function FacturacionConfiguracionPage() {
-  return <SettingsSection />
+  redirect('/perfil')
 }

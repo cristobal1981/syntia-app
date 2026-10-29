@@ -2,6 +2,7 @@ import { facturacion } from '@/content/facturacion'
 import { formatIsoDateEs } from '@/lib/format/date'
 import { getCategory } from '@/src/modules/facturacion/domain/categories'
 import { formatIssuerAddress, type Issuer } from '@/src/modules/facturacion/domain/issuer'
+import { formatQuantity, linesFromLegacy, lineTotalCents } from '@/src/modules/facturacion/domain/invoice-lines'
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
@@ -48,6 +49,8 @@ export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDoc
             <>
               <dt className="mt-2 text-neutral-500">{copy.due}</dt>
               <dd className="font-medium">{formatIsoDateEs(invoice.dueDate)}</dd>
+              <dt className="mt-2 text-neutral-500">{copy.paymentMethod}</dt>
+              <dd className="font-medium">{facturacion.editor.paymentMethods[invoice.paymentMethod]}</dd>
             </>
           ) : null}
         </dl>
@@ -93,21 +96,31 @@ export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDoc
         <thead>
           <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500 uppercase">
             <th className="py-2 font-semibold">{copy.description}</th>
-            <th className="py-2 text-right font-semibold">{copy.base}</th>
+            <th className="py-2 text-right font-semibold">{copy.quantity}</th>
+            <th className="py-2 text-right font-semibold">{copy.unitPrice}</th>
+            <th className="py-2 text-right font-semibold">{copy.amount}</th>
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-neutral-200 align-top">
-            <td className="py-3">
-              {invoice.concept || '—'}
-              <span className="block text-xs text-neutral-500">{category.label}</span>
-            </td>
-            <td className="py-3 text-right tabular-nums">{formatCents(invoice.baseCents)}</td>
-          </tr>
+          {(invoice.lines.length > 0 ? invoice.lines : linesFromLegacy(invoice)).map((line, index) => (
+            <tr key={line.id} className="border-b border-neutral-200 align-top">
+              <td className="py-3">
+                {line.description || '—'}
+                {index === 0 ? <span className="block text-xs text-neutral-500">{category.label}</span> : null}
+              </td>
+              <td className="py-3 text-right tabular-nums">{formatQuantity(line.quantity)}</td>
+              <td className="py-3 text-right tabular-nums">{formatCents(line.unitPriceCents)}</td>
+              <td className="py-3 text-right tabular-nums">{formatCents(lineTotalCents(line))}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
       <dl className="mt-4 ml-auto w-full max-w-xs space-y-1">
+        <div className="flex justify-between">
+          <dt>{copy.base}</dt>
+          <dd className="tabular-nums">{formatCents(invoice.baseCents)}</dd>
+        </div>
         <div className="flex justify-between">
           <dt>{`${taxName} (${rateLabel(invoice.taxRate)})`}</dt>
           <dd className="tabular-nums">{formatCents(invoice.taxCents)}</dd>
@@ -123,6 +136,8 @@ export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDoc
           <dd className="tabular-nums">{formatCents(invoice.totalCents)}</dd>
         </div>
       </dl>
+
+      {invoice.taxNote ? <p className="mt-4 text-xs text-neutral-600">{invoice.taxNote}</p> : null}
 
       <footer className="mt-12 border-t border-neutral-200 pt-3 text-center text-[11px] text-neutral-500">{copy.footer}</footer>
     </article>

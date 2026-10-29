@@ -19,9 +19,10 @@ describe('SECTIONS', () => {
     }
   })
 
-  it('los datos fiscales y los clientes no usan periodo; las facturas usan año y trimestre', () => {
+  it('los clientes y los productos no usan periodo; las facturas usan año y trimestre', () => {
     const byId = Object.fromEntries(SECTIONS.map((section) => [section.id, section]))
-    expect(byId.settings).toMatchObject({ usesPeriod: false, usesQuarter: false })
+    expect(byId.products).toMatchObject({ usesPeriod: false, usesQuarter: false })
+    expect(byId.settings).toBeUndefined()
     expect(byId.parties).toMatchObject({ usesPeriod: false, usesQuarter: false })
     expect(byId.panel).toMatchObject({ usesPeriod: true, usesQuarter: true })
     expect(byId.invoices).toMatchObject({ usesPeriod: true, usesQuarter: true })

@@ -2,6 +2,7 @@ import { normalizeForSearch } from '@/src/modules/facturacion/domain/search'
 import { isAccounted } from '@/src/modules/facturacion/domain/invoice-rules'
 import { DEFAULT_PAYMENT_TERM_DAYS } from '@/src/modules/facturacion/domain/payment-status'
 import { isValidTaxId, normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
+import { clientKindFromTaxId, territoryFromAddress, type ClientKind, type Territory } from '@/src/modules/facturacion/domain/tax-profile'
 import type { Invoice } from '@/src/modules/facturacion/domain/types'
 
 /** Un cliente del directorio. */
@@ -15,6 +16,10 @@ export type Party = {
   province: string
   email: string
   phone: string
+  /** Dónde está establecido a efectos de IGIC/IVA. */
+  territory: Territory
+  /** Si actúa como particular, autónomo o empresa (decide la retención). */
+  kind: ClientKind
   /** Días de plazo de pago por defecto en sus facturas. */
   paymentTermDays: number
   notes: string
@@ -38,6 +43,8 @@ export function emptyParty(): Omit<Party, 'id'> {
     province: '',
     email: '',
     phone: '',
+    territory: 'canarias',
+    kind: 'empresa',
     paymentTermDays: DEFAULT_PAYMENT_TERM_DAYS,
     notes: '',
   }
@@ -57,6 +64,11 @@ export function validateParty(party: Party): Partial<Record<keyof Party, PartyEr
     errors.paymentTermDays = 'paymentTermInvalid'
   }
   return errors
+}
+
+/** Territorio y tipo sugeridos por los datos del cliente; quien da el alta puede cambiarlos. */
+export function suggestedTaxProfile(party: Pick<Party, 'taxId' | 'postalCode' | 'province'>): Pick<Party, 'territory' | 'kind'> {
+  return { territory: territoryFromAddress(party), kind: clientKindFromTaxId(party.taxId) }
 }
 
 /** Domicilio en una línea, tal como se copia a la factura. */
@@ -110,7 +122,7 @@ export function partiesWithStats(parties: Party[], invoices: Invoice[]): PartyWi
       ...party,
       invoiceCount: own.length,
       billedCents: own.reduce((sum, invoice) => sum + invoice.totalCents, 0),
-      pendingCents: own.filter((invoice) => !invoice.paymentDate).reduce((sum, invoice) => sum + invoice.totalCents, 0),
+      pendingCents: own.filter((invoice) => invoice.kind === 'ordinaria' && !invoice.paymentDate).reduce((sum, invoice) => sum + invoice.totalCents, 0),
     }
   })
 }
@@ -134,6 +146,8 @@ export function partiesFromInvoices(invoices: Invoice[]): Party[] {
       name: invoice.counterpartyName,
       taxId: key,
       address: invoice.counterpartyAddress,
+      territory: invoice.counterpartyTerritory,
+      kind: invoice.counterpartyKind,
     })
   }
   return [...seen.values()]

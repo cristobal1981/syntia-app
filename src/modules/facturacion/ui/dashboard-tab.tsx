@@ -92,14 +92,14 @@ function TopClients({ invoices }: { invoices: Invoice[] }) {
   const parties = useMemo(() => buildParties(invoices).slice(0, TOP_PARTIES), [invoices])
 
   return (
-    <section className="portal-home-card rounded-xl p-4 sm:p-5" aria-label={title}>
+    <section className="portal-home-card flex flex-col rounded-xl p-4 sm:p-5" aria-label={title}>
       <h2 className="font-sans text-base font-semibold text-foreground">{title}</h2>
       {parties.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">{copy.noParties}</p>
       ) : (
-        <ol className="mt-3 flex flex-col divide-y divide-border dark:divide-border/50">
+        <ol className="mt-3 flex flex-1 flex-col divide-y divide-border dark:divide-border/50">
           {parties.map((party) => (
-            <li key={party.key} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <li key={party.key} className="flex flex-1 items-center justify-between gap-3 py-2 text-sm">
               <span className="min-w-0 truncate text-foreground">{party.name}</span>
               <span className="shrink-0 font-medium tabular-nums text-foreground">{formatCents(party.billedCents)}</span>
             </li>
@@ -115,14 +115,15 @@ export function DashboardTab({ invoices, periodInvoices, year, today, invoiceHre
 
   return (
     <div className="flex flex-col gap-4">
-      <PendingCard invoices={invoices} today={today} invoiceHref={invoiceHref} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <PendingCard invoices={invoices} today={today} invoiceHref={invoiceHref} />
+        <ComplianceCard />
+      </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <MonthlyChart series={series} />
         <TopClients invoices={periodInvoices} />
       </div>
-
-      <ComplianceCard />
     </div>
   )
 }

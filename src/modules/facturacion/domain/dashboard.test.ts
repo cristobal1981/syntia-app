@@ -42,7 +42,7 @@ describe('buildMonthlySeries', () => {
 describe('buildPendingSummary', () => {
   it('cuenta lo impagado y, de ello, lo vencido', () => {
     const summary = buildPendingSummary(invoices, TODAY)
-    const unpaid = accounted.filter((i) => !i.paymentDate)
+    const unpaid = accounted.filter((i) => i.kind === 'ordinaria' && !i.paymentDate)
     const overdue = unpaid.filter((i) => i.dueDate < TODAY)
 
     expect(summary.pendingCount).toBe(unpaid.length)
@@ -50,6 +50,13 @@ describe('buildPendingSummary', () => {
     expect(summary.overdueCount).toBe(overdue.length)
     expect(summary.overdueCents).toBe(overdue.reduce((t, i) => t + i.totalCents, 0))
     expect(summary.pendingCount).toBeGreaterThan(0)
+  })
+
+  it('una corrección no se cobra ni vence: ni cuenta como pendiente ni como vencida', () => {
+    const [sample] = accounted.filter((i) => i.kind === 'ordinaria')
+    const correction = { ...sample, id: 'c', kind: 'rectificativa' as const, paymentDate: null, dueDate: '2026-01-01', totalCents: -27600 }
+    expect(buildPendingSummary([correction], TODAY)).toEqual({ pendingCents: 0, pendingCount: 0, overdueCents: 0, overdueCount: 0 })
+    expect(listOverdueInvoices([correction], TODAY, 5)).toEqual([])
   })
 
   it('una factura que vence hoy está pendiente, no vencida', () => {
@@ -65,7 +72,7 @@ describe('listOverdueInvoices', () => {
     expect(list.length).toBeLessThanOrEqual(3)
     const dues = list.map((i) => i.dueDate)
     expect(dues).toEqual([...dues].sort())
-    expect(list.every((i) => !i.paymentDate && i.dueDate < TODAY)).toBe(true)
+    expect(list.every((i) => i.kind === 'ordinaria' && !i.paymentDate && i.dueDate < TODAY)).toBe(true)
   })
 })
 

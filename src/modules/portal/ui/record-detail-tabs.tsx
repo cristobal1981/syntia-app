@@ -60,7 +60,7 @@ export function RecordDetailTabs<T extends string>({
               {typeof tab.badge === 'number' && tab.badge > 0 ? (
                 <span
                   className={cn(
-                    'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                    'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums',
                     selected
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground'
@@ -71,7 +71,7 @@ export function RecordDetailTabs<T extends string>({
               ) : null}
               {selected ? (
                 <span
-                  className="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
+                  className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary"
                   aria-hidden
                 />
               ) : null}
