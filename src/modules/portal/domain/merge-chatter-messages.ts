@@ -14,3 +14,22 @@ export function mergeChatterMessages(
   if (!added.length) return current
   return [...current, ...added].sort((a, b) => a.id - b.id)
 }
+
+/**
+ * Adjuntos que traen los mensajes de `incoming` que el chat aún no tenía (`knownIds`): lo que
+ * cambia el contador de documentos cuando alguien sube un archivo con el chat abierto. Un mensaje
+ * ya presente (p. ej. el propio recién enviado, que ya se contó al subirlo) no suma.
+ */
+export function countAttachmentsInNewMessages(
+  incoming: readonly PortalChatterMessage[],
+  knownIds: ReadonlySet<number>
+): number {
+  let total = 0
+  const seen = new Set<number>()
+  for (const message of incoming) {
+    if (knownIds.has(message.id) || seen.has(message.id)) continue
+    seen.add(message.id)
+    total += message.attachments?.length ?? 0
+  }
+  return total
+}

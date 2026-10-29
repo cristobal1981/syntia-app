@@ -24,6 +24,8 @@ export type EventPushDispatchDeps = {
   acquireLock: () => Promise<boolean>
   releaseLock: () => Promise<void>
   listSubscriptions: () => Promise<DispatchSubscription[]>
+  /** Solo los dispositivos de los usuarios de un cliente de Odoo. */
+  listSubscriptionsForPartner: (partnerId: number) => Promise<DispatchSubscription[]>
   fetchRecipients: (userIds: string[]) => Promise<Map<string, PushRecipient>>
   /** Cliente de Odoo de cada usuario. */
   fetchPartnerIds: (userIds: string[]) => Promise<Map<string, number>>
@@ -34,7 +36,9 @@ export type EventPushDispatchDeps = {
     receivedBefore: Date,
     limit: number,
     /** Ignora lo recibido antes de esta fecha (ya caducado para avisar). */
-    receivedAfter: Date
+    receivedAfter: Date,
+    /** Solo los eventos de ese cliente. */
+    partnerId?: number
   ) => Promise<PortalEventRow[]>
   /** Secciones de un colaborador, o `null` si no se pudieron leer. */
   loadAllowedSections: (recipient: PushRecipient) => Promise<Set<WorkerSectionHref> | null>
@@ -47,6 +51,17 @@ export type EventPushDispatchDeps = {
   now: () => number
   /** Orden de proceso; aleatorio en producción para que, si no cabe todo, nadie se quede siempre al final. */
   order: <T>(items: T[]) => T[]
+}
+
+/**
+ * `partnerId`: el envío es por un evento de ese cliente (lo dispara el webhook) y solo procesa los
+ * dispositivos de sus usuarios y sus eventos; el pulso de pg_cron lo hace todo y cubre lo que un
+ * envío así no llegue a entregar.
+ */
+export type EventPushDispatchOptions = {
+  deadlineAt: number
+  quietMs?: number
+  partnerId?: number
 }
 
 const CONCURRENCY = 4
@@ -81,13 +96,15 @@ export const EVENT_BATCH_SIZE = 2000
  */
 export async function runEventPushDispatch(
   deps: EventPushDispatchDeps,
-  options: { deadlineAt: number; quietMs?: number }
+  options: EventPushDispatchOptions
 ): Promise<PushDispatchSummary> {
   const summary: PushDispatchSummary = {
     users: 0,
     sent: 0,
     removed: 0,
     skipped: 0,
+    rejected: 0,
+    failed: 0,
     truncated: false,
     locked: false,
   }
@@ -107,13 +124,16 @@ export async function runEventPushDispatch(
 
 async function runLocked(
   deps: EventPushDispatchDeps,
-  options: { deadlineAt: number; quietMs?: number },
+  options: EventPushDispatchOptions,
   summary: PushDispatchSummary
 ): Promise<void> {
   const toDelete: string[] = []
   const rejectedForGood: string[] = []
 
-  const subscriptions = await deps.listSubscriptions()
+  const subscriptions =
+    options.partnerId === undefined
+      ? await deps.listSubscriptions()
+      : await deps.listSubscriptionsForPartner(options.partnerId)
   const byUser = new Map<string, DispatchSubscription[]>()
   for (const subscription of subscriptions) {
     const list = byUser.get(subscription.userId) ?? []
@@ -172,7 +192,7 @@ async function runLocked(
 
 async function processEvents(
   deps: EventPushDispatchDeps,
-  options: { deadlineAt: number; quietMs?: number },
+  options: EventPushDispatchOptions,
   summary: PushDispatchSummary,
   active: Map<string, DispatchSubscription[]>,
   recipients: Map<string, PushRecipient>,
@@ -186,7 +206,8 @@ async function processEvents(
     minCursor,
     new Date(startedAt - (options.quietMs ?? EVENT_QUIET_MS)),
     EVENT_BATCH_SIZE,
-    new Date(startedAt - EVENT_MAX_AGE_MS)
+    new Date(startedAt - EVENT_MAX_AGE_MS),
+    ...(options.partnerId !== undefined ? [options.partnerId] : [])
   )
   if (events.length === 0) return
 
@@ -255,6 +276,7 @@ async function processEvents(
       if (result === 'rejected') {
         const failures = subscription.failureCount + 1
         summary.skipped += 1
+        summary.rejected += 1
         await deps.saveFailureCount(subscription.id, failures)
         if (failures >= MAX_CONSECUTIVE_REJECTIONS) rejectedForGood.push(subscription.id)
         return
@@ -262,6 +284,7 @@ async function processEvents(
       if (result === 'error') {
         // Sin avanzar: se reintenta en la siguiente ejecución.
         summary.skipped += 1
+        summary.failed += 1
         return
       }
       summary.sent += 1

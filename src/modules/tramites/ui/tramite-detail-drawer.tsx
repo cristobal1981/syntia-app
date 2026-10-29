@@ -477,6 +477,7 @@ export function TramiteDetailDrawer({
               onConversationViewed={handleConversationViewed}
               onOpenAttachment={handleOpenAttachment}
               onAttachmentsChanged={handleAttachmentsChanged}
+              onIncomingAttachments={(count) => handleAttachmentsChanged(liveAttachmentCount + count)}
               latestKnownMessageId={chatterNotification?.latestMessageId}
               lastSeenMessageIdBeforeOpen={lastSeenMessageIdBeforeOpen}
             />
@@ -519,6 +520,10 @@ export function TramiteDetailDrawer({
                   recordId={tramite.id}
                   active={open && activeTab === 'documents'}
                   knownAttachmentCount={liveAttachmentCount}
+                  onCountResolved={(attachmentCount) => {
+                    setLiveAttachmentCount(attachmentCount)
+                    onAttachmentCountChange?.(tramite, attachmentCount)
+                  }}
                   refreshToken={attachmentsRefreshToken}
                   highlightAttachmentId={highlightAttachmentId}
                 />

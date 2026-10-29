@@ -13,6 +13,8 @@ import {
 import {
   deletePushSubscription,
   fetchPushPreferences,
+  fetchPushSubscriptionOwner,
+  refreshPushSubscription,
   updatePushPreferences,
   upsertPushSubscription,
 } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
@@ -116,28 +118,55 @@ export async function updatePushPreferencesAction(
   }
 }
 
-/**
- * ¿Es esta suscripción del navegador de la sesión actual? Sin sesión de
- * cliente o colaborador (otro usuario, asesor o admin, vista como cliente) la
- * respuesta es «no»: el navegador debe darla de baja para no seguir recibiendo
- * avisos de quien lo usó antes. Un fallo de BD NO es un «no» (`ok: false`): no
- * se borra nada por no haber podido comprobar.
- */
-export async function reconcilePushSubscriptionAction(
-  endpoint: unknown
-): Promise<PushActionResult<{ owned: boolean }>> {
-  if (typeof endpoint !== 'string' || !endpoint) {
-    return { ok: false, error: 'invalid' }
-  }
+export type PushSyncStatus =
+  /** El servidor ya la tenía de este usuario: solo se renovaron las claves. */
+  | 'refreshed'
+  /** El servidor la había perdido (fila borrada): se ha vuelto a registrar. */
+  | 'restored'
+  /** Es de otra persona: el navegador debe darla de baja. */
+  | 'foreign'
+  /** Nada que hacer (un usuario que no puede tener push y no hay fila). */
+  | 'ignored'
 
-  const actorId = await resolveActor()
-  if (!actorId) return { ok: true, owned: false }
+/**
+ * Mantiene al día la suscripción de ESTE navegador con el servidor, como hacen las webs con push:
+ * al abrir el portal (y al mostrar el interruptor) el navegador manda su suscripción y el
+ * servidor la renueva, o la recupera si la perdió. Solo se da de baja cuando es de otra persona;
+ * ante cualquier duda (sin sesión, fallo de BD, límite) no se toca nada, porque dar de baja por
+ * error obliga al usuario a reactivar las notificaciones.
+ */
+export async function syncPushSubscriptionAction(
+  input: unknown
+): Promise<PushActionResult<{ status: PushSyncStatus; preferences?: PushPreferences }>> {
+  const parsed = parsePushSubscriptionInput(input)
+  if (!parsed) return { ok: false, error: 'invalid' }
+
+  const session = await getSession()
+  if (!session) return { ok: false, error: 'forbidden' }
 
   try {
-    const preferences = await fetchPushPreferences(actorId, endpoint)
-    return { ok: true, owned: preferences !== null }
+    const canOwn = isClientOrWorkerRole(session.user.role)
+    const actorId = canOwn ? await resolveDirectoryActorId(session.user) : null
+    const owner = await fetchPushSubscriptionOwner(parsed.endpoint)
+
+    if (owner !== null && owner !== actorId) return { ok: true, status: 'foreign' }
+
+    if (owner !== null && actorId) {
+      if (await refreshPushSubscription(actorId, parsed)) {
+        const preferences = (await fetchPushPreferences(actorId, parsed.endpoint)) ?? defaultPushPreferences
+        return { ok: true, status: 'refreshed', preferences }
+      }
+    }
+
+    // Sin fila (o desaparecida a mitad): se registra de nuevo con las preferencias por defecto.
+    if (!actorId) return { ok: true, status: 'ignored' }
+    if (!(await checkRateLimit(`push-subscribe:${actorId}`, SUBSCRIBE_RATE_LIMIT))) {
+      return { ok: false, error: 'rate_limited' }
+    }
+    await upsertPushSubscription(actorId, parsed, defaultPushPreferences)
+    return { ok: true, status: 'restored', preferences: defaultPushPreferences }
   } catch (error) {
-    console.error('[push] comprobar suscripción falló', error)
+    console.error('[push] sincronizar suscripción falló', error)
     return { ok: false, error: 'unavailable' }
   }
 }

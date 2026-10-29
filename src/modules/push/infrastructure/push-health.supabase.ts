@@ -3,6 +3,11 @@ import type { PushHealthInput, PushHealthRun } from '@/src/modules/push/domain/p
 
 const DISPATCH_RUNS_LIMIT = 20
 const SWEEP_RUNS_LIMIT = 5
+const SUBSCRIPTIONS_LIMIT = 1000
+/** Error por las columnas `rejected` o `failed` que aún no existen (migración sin aplicar). */
+const MISSING_COUNTER_COLUMN = /\b(rejected|failed)\b/
+/** `EVENT_MAX_AGE_MS` del dispatcher: pasado este plazo un evento ya no se envía. */
+const EVENT_MAX_AGE_MS = 3_600_000
 
 type RunRow = {
   source: 'events' | 'snapshots' | 'sweep'
@@ -11,6 +16,8 @@ type RunRow = {
   locked: boolean
   truncated: boolean
   sent: number
+  rejected?: number
+  failed?: number
 }
 
 function toRun(row: RunRow): PushHealthRun {
@@ -22,6 +29,8 @@ function toRun(row: RunRow): PushHealthRun {
     truncated: row.truncated,
     // En un barrido, `sent` son los eventos que ha recuperado.
     created: row.source === 'sweep' ? row.sent : 0,
+    rejected: row.rejected ?? 0,
+    failed: row.failed ?? 0,
   }
 }
 
@@ -31,30 +40,63 @@ export async function loadPushHealthInput(
   now: number
 ): Promise<PushHealthInput> {
   const supabase = createSupabaseAdminClient()
-  const columns = 'source, started_at, error, locked, truncated, sent'
+  const baseColumns = 'source, started_at, error, locked, truncated, sent'
 
-  const [dispatches, sweeps, lastEvent] = await Promise.all([
-    supabase
-      .from('push_runs')
-      .select(columns)
-      .in('source', ['events', 'snapshots'])
-      .order('started_at', { ascending: false })
-      .limit(DISPATCH_RUNS_LIMIT),
-    supabase
-      .from('push_runs')
-      .select(columns)
-      .eq('source', 'sweep')
-      .order('started_at', { ascending: false })
-      .limit(SWEEP_RUNS_LIMIT),
+  const loadRuns = (columns: string) =>
+    Promise.all([
+      supabase
+        .from('push_runs')
+        .select(columns)
+        .in('source', ['events', 'snapshots'])
+        .order('started_at', { ascending: false })
+        .limit(DISPATCH_RUNS_LIMIT),
+      supabase
+        .from('push_runs')
+        .select(columns)
+        .eq('source', 'sweep')
+        .order('started_at', { ascending: false })
+        .limit(SWEEP_RUNS_LIMIT),
+    ])
+
+  const [runs, lastEvent, subscriptions] = await Promise.all([
+    loadRuns(`${baseColumns}, rejected, failed`).then(async (result) =>
+      // Sin la migración de `rejected` y `failed` aplicada, se leen las ejecuciones sin ellas.
+      result.some((query) => query.error && MISSING_COUNTER_COLUMN.test(query.error.message))
+        ? loadRuns(baseColumns)
+        : result
+    ),
     supabase
       .from('portal_events')
       .select('received_at')
       .order('received_at', { ascending: false })
       .limit(1),
+    supabase.from('push_subscriptions').select('last_event_seq, updated_at').limit(SUBSCRIPTIONS_LIMIT),
   ])
+  const [dispatches, sweeps] = runs
 
-  for (const result of [dispatches, sweeps, lastEvent]) {
+  for (const result of [dispatches, sweeps, lastEvent, subscriptions]) {
     if (result.error) throw new Error(result.error.message)
+  }
+
+  const cursors = (subscriptions.data ?? []) as { last_event_seq: number | null; updated_at: string }[]
+  const set = cursors.flatMap((row) => (row.last_event_seq === null ? [] : [Number(row.last_event_seq)]))
+  const unsetSince = cursors
+    .filter((row) => row.last_event_seq === null)
+    .map((row) => Date.parse(row.updated_at))
+  const minCursor = set.length > 0 ? Math.min(...set) : null
+
+  let oldestPendingEventAt: number | null = null
+  if (minCursor !== null) {
+    const pending = await supabase
+      .from('portal_events')
+      .select('received_at')
+      .gt('seq', minCursor)
+      .gte('received_at', new Date(now - EVENT_MAX_AGE_MS).toISOString())
+      .order('received_at', { ascending: true })
+      .limit(1)
+    if (pending.error) throw new Error(pending.error.message)
+    const received = (pending.data?.[0] as { received_at: string } | undefined)?.received_at
+    oldestPendingEventAt = received ? Date.parse(received) : null
   }
 
   const received = (lastEvent.data?.[0] as { received_at: string } | undefined)?.received_at
@@ -63,11 +105,13 @@ export async function loadPushHealthInput(
     now,
     source,
     runs: [
-      ...((dispatches.data ?? []) as RunRow[]),
-      ...((sweeps.data ?? []) as RunRow[]),
+      ...((dispatches.data ?? []) as unknown as RunRow[]),
+      ...((sweeps.data ?? []) as unknown as RunRow[]),
     ]
       .map(toRun)
       .sort((a, b) => b.startedAt - a.startedAt),
     lastEventAt: received ? Date.parse(received) : null,
+    oldestPendingEventAt,
+    unsetCursorSince: unsetSince.length > 0 ? Math.min(...unsetSince) : null,
   }
 }

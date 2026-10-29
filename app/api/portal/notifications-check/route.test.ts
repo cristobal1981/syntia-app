@@ -49,6 +49,22 @@ describe('POST /api/portal/notifications-check', () => {
     expect(checkPortalNotificationsAction).toHaveBeenLastCalledWith(undefined)
   })
 
+  it('chatterOnly solo se respeta si es exactamente true, y se combina con reuseRecentSnapshots', async () => {
+    checkPortalNotificationsAction.mockResolvedValue({ ok: true })
+
+    await POST(post({ chatterOnly: true }))
+    expect(checkPortalNotificationsAction).toHaveBeenLastCalledWith({ chatterOnly: true })
+
+    await POST(post({ chatterOnly: 'true', reuseRecentSnapshots: false }))
+    expect(checkPortalNotificationsAction).toHaveBeenLastCalledWith(undefined)
+
+    await POST(post({ chatterOnly: true, reuseRecentSnapshots: true }))
+    expect(checkPortalNotificationsAction).toHaveBeenLastCalledWith({
+      reuseRecentSnapshots: true,
+      chatterOnly: true,
+    })
+  })
+
   it('un cuerpo ilegible es una comprobación normal', async () => {
     checkPortalNotificationsAction.mockResolvedValue({ ok: true })
 

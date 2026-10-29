@@ -1,3 +1,7 @@
+import {
+  warmPortalCachesForEvent,
+  type CacheEvent,
+} from '@/src/modules/portal/infrastructure/portal-cache-invalidation'
 import { dispatchPushEvents } from '@/src/modules/push/application/dispatch-push-notifications'
 import type { PushDispatchSummary } from '@/src/modules/push/application/run-push-dispatch'
 import { recordPushRun } from '@/src/modules/push/infrastructure/push-runs.supabase'
@@ -19,16 +23,25 @@ export const WEBHOOK_PUSH_TOTAL_BUDGET_MS = 50_000
 /** Margen que debe quedar para empezar un envío (más corto no daría tiempo a nada útil). */
 const MIN_DISPATCH_BUDGET_MS = 10_000
 
+/** Margen que debe quedar para calentar las cachés tras el envío (8-13 peticiones a Odoo, 1-3 s). */
+export const MIN_WARM_BUDGET_MS = 8_000
+
 export type PushAfterEventDeps = {
   isConfigured: () => boolean
   sleep: (ms: number) => Promise<void>
   now: () => number
-  dispatch: (options: { quietMs: number; budgetMs: number }) => Promise<PushDispatchSummary>
+  dispatch: (options: {
+    quietMs: number
+    budgetMs: number
+    partnerId?: number
+  }) => Promise<PushDispatchSummary>
   record: (input: {
     startedAt: Date
     summary?: PushDispatchSummary
     error?: string
   }) => Promise<void>
+  /** Deja calientes las cachés que el evento dejó caducadas. Nunca debe lanzar. */
+  warm?: () => Promise<void>
 }
 
 /**
@@ -36,19 +49,46 @@ export type PushAfterEventDeps = {
  * segundos (agrupa ráfagas), envía lo pendiente y, si otro envío tiene el cerrojo, reintenta.
  * El pulso sigue como red de seguridad. Nunca lanza: corre dentro de `after()`.
  */
-export async function runPushAfterEvent(deps: PushAfterEventDeps): Promise<void> {
-  if (!deps.isConfigured()) return
+export async function runPushAfterEvent(
+  deps: PushAfterEventDeps,
+  /** Cliente del evento: el envío solo mira sus dispositivos. Sin él, los de todos. */
+  partnerId?: number
+): Promise<void> {
+  const canDispatch = deps.isConfigured()
+  if (!canDispatch && !deps.warm) return
 
   const taskStartedAt = deps.now()
   await deps.sleep(WEBHOOK_PUSH_DELAY_MS)
 
+  if (canDispatch) await dispatchWithRetries(deps, partnerId, taskStartedAt)
+
+  // Tras el envío (que es lo urgente) y solo si queda margen: deja al día las cachés que el evento
+  // caducó, para que la próxima visita no pague las 8-13 peticiones a Odoo en frío.
+  if (deps.warm && WEBHOOK_PUSH_TOTAL_BUDGET_MS - (deps.now() - taskStartedAt) >= MIN_WARM_BUDGET_MS) {
+    try {
+      await deps.warm()
+    } catch (error) {
+      console.error('[push webhook] calentar cachés falló', error)
+    }
+  }
+}
+
+async function dispatchWithRetries(
+  deps: PushAfterEventDeps,
+  partnerId: number | undefined,
+  taskStartedAt: number
+): Promise<void> {
   for (let attempt = 1; attempt <= WEBHOOK_PUSH_MAX_ATTEMPTS; attempt += 1) {
     const remaining = WEBHOOK_PUSH_TOTAL_BUDGET_MS - (deps.now() - taskStartedAt)
     if (remaining < MIN_DISPATCH_BUDGET_MS) return
 
     const startedAt = new Date(deps.now())
     try {
-      const summary = await deps.dispatch({ quietMs: WEBHOOK_PUSH_QUIET_MS, budgetMs: remaining })
+      const summary = await deps.dispatch({
+        quietMs: WEBHOOK_PUSH_QUIET_MS,
+        budgetMs: remaining,
+        ...(partnerId !== undefined ? { partnerId } : {}),
+      })
       // Un envío saltado por el cerrojo no es una ejecución: el otro lo registra.
       if (!summary.locked) {
         await deps.record({ startedAt, summary })
@@ -67,12 +107,16 @@ export async function runPushAfterEvent(deps: PushAfterEventDeps): Promise<void>
 }
 
 /** Lo que programa el webhook con `after()`. */
-export function runPushAfterEventInProduction(): Promise<void> {
-  return runPushAfterEvent({
-    isConfigured: isWebPushConfigured,
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    now: () => Date.now(),
-    dispatch: (options) => dispatchPushEvents(options),
-    record: (input) => recordPushRun({ source: 'events', ...input }),
-  })
+export function runPushAfterEventInProduction(event: CacheEvent): Promise<void> {
+  return runPushAfterEvent(
+    {
+      isConfigured: isWebPushConfigured,
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+      dispatch: (options) => dispatchPushEvents(options),
+      record: (input) => recordPushRun({ source: 'events', ...input }),
+      warm: () => warmPortalCachesForEvent(event),
+    },
+    event.partnerId
+  )
 }

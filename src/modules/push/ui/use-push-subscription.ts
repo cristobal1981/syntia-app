@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   getPushPreferencesAction,
   subscribePushAction,
+  syncPushSubscriptionAction,
   unsubscribePushAction,
   updatePushPreferencesAction,
 } from '@/src/modules/push/application/push-subscription-actions'
@@ -14,6 +15,7 @@ import {
   type PushSupport,
 } from '@/src/modules/push/domain/push-support'
 import type { PushPreferences } from '@/src/modules/push/domain/push-subscription'
+import { subscriptionToInput } from '@/src/modules/push/ui/push-device'
 
 export type PushUiState =
   | { kind: 'loading' }
@@ -81,6 +83,21 @@ export function usePushSubscription() {
           preferences: result.preferences,
         } as const
       }
+
+      // El navegador sigue suscrito pero el servidor no la tiene: se recupera sin que el usuario
+      // tenga que reactivar nada (salvo que sea de otra persona, que entonces se da de baja).
+      if (!result.ok && result.error === 'not_found') {
+        const synced = await syncPushSubscriptionAction(subscriptionToInput(subscription))
+        if (synced.ok && synced.status === 'foreign') {
+          await subscription.unsubscribe()
+        } else if (synced.ok && synced.preferences) {
+          return {
+            kind: 'on',
+            endpoint: subscription.endpoint,
+            preferences: synced.preferences,
+          } as const
+        }
+      }
       return { kind: 'off' } as const
     }
 
@@ -110,19 +127,18 @@ export function usePushSubscription() {
       const registration = await getRegistration()
       // Siempre una suscripción nueva: una anterior puede haberse creado con
       // otra clave VAPID (o estar caducada) y el servicio de push la rechazaría.
-      await (await registration.pushManager.getSubscription())?.unsubscribe()
+      const previous = await registration.pushManager.getSubscription()
+      if (previous) {
+        // Su fila del servidor quedaría muerta hasta el siguiente envío (410): se borra ya.
+        await unsubscribePushAction(previous.endpoint).catch(() => undefined)
+        await previous.unsubscribe()
+      }
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       })
 
-      const json = subscription.toJSON()
-      const result = await subscribePushAction({
-        endpoint: subscription.endpoint,
-        p256dh: json.keys?.p256dh,
-        auth: json.keys?.auth,
-        userAgent: navigator.userAgent,
-      })
+      const result = await subscribePushAction(subscriptionToInput(subscription))
       if (!result.ok) {
         await subscription.unsubscribe()
         return result.error === 'rate_limited' ? 'rate_limited' : 'generic'

@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         PUSH_SOURCE: process.env.PUSH_SOURCE,
       })
     ) {
-      after(runPushAfterEventInProduction)
+      after(() => runPushAfterEventInProduction(event))
     }
     return NextResponse.json({ ok: true, status })
   } catch (error) {

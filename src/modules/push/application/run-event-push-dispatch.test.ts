@@ -74,6 +74,7 @@ function setup(
     acquireLock: vi.fn().mockResolvedValue(true),
     releaseLock: vi.fn().mockResolvedValue(undefined),
     listSubscriptions: vi.fn().mockResolvedValue(subs),
+    listSubscriptionsForPartner: vi.fn().mockResolvedValue(subs),
     fetchRecipients: vi
       .fn()
       .mockResolvedValue(new Map(recipients.map((entry) => [entry.id, entry]))),
@@ -119,6 +120,40 @@ describe('runEventPushDispatch: envío', () => {
       EVENT_BATCH_SIZE,
       new Date(NOW - EVENT_MAX_AGE_MS)
     )
+  })
+
+  it('sin partnerId lista los dispositivos de todos y lee los eventos de todos', async () => {
+    const deps = setup()
+    await runEventPushDispatch(deps, options)
+
+    expect(deps.listSubscriptions).toHaveBeenCalledTimes(1)
+    expect(deps.listSubscriptionsForPartner).not.toHaveBeenCalled()
+    expect(vi.mocked(deps.listMatureEvents).mock.calls[0]).toHaveLength(4)
+  })
+
+  it('con partnerId (envío desde el webhook) solo lista los dispositivos de ese cliente y sus eventos', async () => {
+    const deps = setup()
+    await runEventPushDispatch(deps, { ...options, partnerId: 12 })
+
+    expect(deps.listSubscriptionsForPartner).toHaveBeenCalledWith(12)
+    expect(deps.listSubscriptions).not.toHaveBeenCalled()
+    expect(deps.listMatureEvents).toHaveBeenCalledWith(
+      5,
+      expect.any(Date),
+      EVENT_BATCH_SIZE,
+      expect.any(Date),
+      12
+    )
+    expect(deps.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('con partnerId y ningún dispositivo del cliente no lee eventos ni envía', async () => {
+    const deps = setup({ listSubscriptionsForPartner: vi.fn().mockResolvedValue([]) })
+    const summary = await runEventPushDispatch(deps, { ...options, partnerId: 12 })
+
+    expect(deps.listMatureEvents).not.toHaveBeenCalled()
+    expect(deps.send).not.toHaveBeenCalled()
+    expect(summary).toMatchObject({ users: 0, sent: 0 })
   })
 
   it('espera a que el evento lleve un rato guardado para agrupar los seguidos', async () => {
@@ -421,6 +456,8 @@ describe('runEventPushDispatch: sin novedades', () => {
       sent: 0,
       removed: 0,
       skipped: 0,
+      rejected: 0,
+      failed: 0,
       truncated: false,
       locked: false,
     })
@@ -453,7 +490,7 @@ describe('runEventPushDispatch: resultado del envío', () => {
 
     expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(deps.saveFailureCount).not.toHaveBeenCalled()
-    expect(summary).toMatchObject({ sent: 0, skipped: 1 })
+    expect(summary).toMatchObject({ sent: 0, skipped: 1, failed: 1, rejected: 0 })
   })
 
   it('rechazo: cuenta el fallo y no avanza ni borra', async () => {
@@ -463,7 +500,14 @@ describe('runEventPushDispatch: resultado del envío', () => {
     expect(deps.saveFailureCount).toHaveBeenCalledWith('s1', 3)
     expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(deps.deleteByIds).not.toHaveBeenCalled()
-    expect(summary.skipped).toBe(1)
+    expect(summary).toMatchObject({ skipped: 1, rejected: 1, failed: 0 })
+  })
+
+  it('un envío correcto no suma a rechazados ni a fallidos', async () => {
+    const deps = setup({ send: vi.fn().mockResolvedValue('ok') })
+    const summary = await runEventPushDispatch(deps, options)
+
+    expect(summary).toMatchObject({ sent: 1, rejected: 0, failed: 0 })
   })
 
   it('tras el máximo de rechazos seguidos se da de baja si otros envíos funcionan', async () => {

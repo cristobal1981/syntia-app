@@ -11,6 +11,7 @@ import {
   getMaxPortalEventSeqForPartner,
   insertPortalEvent,
   listMaturePortalEvents,
+  listPortalEventKindsAfter,
 } from '@/src/modules/push/infrastructure/portal-events.supabase'
 import type { PortalEventInput } from '@/src/modules/push/domain/portal-event'
 
@@ -32,7 +33,7 @@ const event: PortalEventInput = {
 function chain(result: { data?: unknown; error?: { message: string } | null }) {
   const resolved = { data: result.data ?? null, error: result.error ?? null }
   const c: Record<string, ReturnType<typeof vi.fn>> = {}
-  for (const name of ['select', 'upsert', 'order', 'gt', 'lte', 'eq']) c[name] = vi.fn(() => c)
+  for (const name of ['select', 'upsert', 'order', 'gt', 'gte', 'lte', 'eq']) c[name] = vi.fn(() => c)
   c.limit = vi.fn(() => Promise.resolve(resolved))
   ;(c as { then?: unknown }).then = (resolve: (value: unknown) => unknown) =>
     Promise.resolve(resolved).then(resolve)
@@ -136,6 +137,19 @@ describe('listMaturePortalEvents', () => {
     expect(c.limit).toHaveBeenCalledWith(500)
   })
 
+  it('con partnerId pide solo los eventos de ese cliente; sin él no filtra por cliente', async () => {
+    const scoped = chain({ data: [] })
+    use(scoped)
+    await listMaturePortalEvents(0, new Date(), 10, new Date('2026-10-22T09:00:00Z'), 1233)
+    expect(scoped.eq).toHaveBeenCalledWith('partner_id', 1233)
+    expect(scoped.gte).toHaveBeenCalledWith('received_at', '2026-10-22T09:00:00.000Z')
+
+    const all = chain({ data: [] })
+    use(all)
+    await listMaturePortalEvents(0, new Date(), 10)
+    expect(all.eq).not.toHaveBeenCalled()
+  })
+
   it('mapea las columnas al evento', async () => {
     use(chain({ data: [dbRow] }))
 
@@ -210,5 +224,42 @@ describe('getMaxPortalEventSeqForPartner', () => {
 
     use(chain({ error: { message: 'boom' } }))
     await expect(getMaxPortalEventSeqForPartner(1)).rejects.toThrow('boom')
+  })
+})
+
+describe('listPortalEventKindsAfter', () => {
+  it('pide solo los tipos de ese cliente posteriores a afterSeq, con tope de 200 (+1 para detectar el exceso)', async () => {
+    const c = chain({ data: [{ kind: 'message' }, { kind: 'status' }] })
+    const from = use(c)
+
+    expect(await listPortalEventKindsAfter(1233, 40)).toEqual({
+      kinds: ['message', 'status'],
+      truncated: false,
+    })
+    expect(from).toHaveBeenCalledWith('portal_events')
+    expect(c.select).toHaveBeenCalledWith('kind')
+    expect(c.eq).toHaveBeenCalledWith('partner_id', 1233)
+    expect(c.gt).toHaveBeenCalledWith('seq', 40)
+    expect(c.limit).toHaveBeenCalledWith(201)
+  })
+
+  it('con más de 200 filas marca truncated y devuelve solo 200', async () => {
+    use(chain({ data: Array.from({ length: 201 }, () => ({ kind: 'message' })) }))
+
+    const result = await listPortalEventKindsAfter(1, 0)
+
+    expect(result.truncated).toBe(true)
+    expect(result.kinds).toHaveLength(200)
+  })
+
+  it('exactamente 200 no es truncado; sin filas, lista vacía; propaga el error', async () => {
+    use(chain({ data: Array.from({ length: 200 }, () => ({ kind: 'message' })) }))
+    expect((await listPortalEventKindsAfter(1, 0)).truncated).toBe(false)
+
+    use(chain({ data: null }))
+    expect(await listPortalEventKindsAfter(1, 0)).toEqual({ kinds: [], truncated: false })
+
+    use(chain({ error: { message: 'boom' } }))
+    await expect(listPortalEventKindsAfter(1, 0)).rejects.toThrow('boom')
   })
 })

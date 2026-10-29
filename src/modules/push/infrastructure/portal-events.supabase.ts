@@ -121,6 +121,34 @@ export async function getMaxPortalEventSeqForPartner(partnerId: number): Promise
   return (data?.[0] as { seq: number } | undefined)?.seq ?? 0
 }
 
+/** Tope de eventos que mira la señal para saber de qué tipo son: pasado esto, se asume que hay de todo. */
+const KINDS_AFTER_LIMIT = 200
+
+/**
+ * Tipos de los eventos de ese cliente posteriores a `afterSeq`. `truncated`: hay más de los que se
+ * miran (quien llama no debe dar por hecho que son solo de un tipo).
+ */
+export async function listPortalEventKindsAfter(
+  partnerId: number,
+  afterSeq: number
+): Promise<{ kinds: PortalEventKind[]; truncated: boolean }> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('portal_events')
+    .select('kind')
+    .eq('partner_id', partnerId)
+    .gt('seq', afterSeq)
+    .order('seq', { ascending: true })
+    .limit(KINDS_AFTER_LIMIT + 1)
+
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as Array<{ kind: PortalEventKind }>
+  return {
+    kinds: rows.slice(0, KINDS_AFTER_LIMIT).map((row) => row.kind),
+    truncated: rows.length > KINDS_AFTER_LIMIT,
+  }
+}
+
 /**
  * Eventos posteriores a `afterSeq` que ya llevan un rato guardados (los
  * recientes esperan a la siguiente ejecución para agruparse), de más antiguo a
@@ -130,7 +158,9 @@ export async function listMaturePortalEvents(
   afterSeq: number,
   receivedBefore: Date,
   limit: number,
-  receivedAfter?: Date
+  receivedAfter?: Date,
+  /** Solo los eventos de ese cliente. */
+  partnerId?: number
 ): Promise<PortalEventRow[]> {
   const supabase = createSupabaseAdminClient()
   let query = supabase
@@ -140,6 +170,7 @@ export async function listMaturePortalEvents(
     .lte('received_at', receivedBefore.toISOString())
   // Lo más viejo ya no se envía: un dispositivo atascado con el cursor muy atrás no debe fijar la ventana.
   if (receivedAfter) query = query.gte('received_at', receivedAfter.toISOString())
+  if (partnerId !== undefined) query = query.eq('partner_id', partnerId)
   const { data, error } = await query
     .order('seq', { ascending: true })
     .limit(limit)

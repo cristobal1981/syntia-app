@@ -53,6 +53,8 @@ type RecordChatterPanelProps = {
   onConversationViewed?: (latestMessageId: number) => void
   onOpenAttachment?: (attachment: PortalChatterAttachmentRef) => void
   onAttachmentsChanged?: (attachmentCount: number) => void
+  /** Llegan mensajes nuevos con adjuntos (subidos desde Odoo): cuántos, para sumarlos al contador. */
+  onIncomingAttachments?: (count: number) => void
   /**
    * Id del último mensaje que el poll de novedades ya sabe que existe para
    * este registro. Cuando sube por encima de lo que este panel tiene
@@ -101,6 +103,7 @@ export function RecordChatterPanel({
   onConversationViewed,
   onOpenAttachment,
   onAttachmentsChanged,
+  onIncomingAttachments,
   latestKnownMessageId,
   lastSeenMessageIdBeforeOpen = 0,
 }: RecordChatterPanelProps) {
@@ -162,6 +165,7 @@ export function RecordChatterPanel({
     onConversationViewed,
     lastSeenMessageIdBeforeOpen,
     latestKnownMessageId,
+    onIncomingAttachments,
     notifications,
     scrollRef,
     shouldStickToBottomRef,

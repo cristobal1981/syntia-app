@@ -31,8 +31,12 @@ async function PortalSessionShell({ children }: { children: React.ReactNode }) {
       ? [...(await getWorkerWriteSections(session.user))]
       : undefined
 
+  // `key` por usuario: con Cache Components el portal se conserva oculto al salir a /login, y sin
+  // ella el siguiente usuario hereda el estado de los proveedores del anterior (estadísticas,
+  // avisos, conversaciones) hasta recargar a mano.
   return (
     <PortalShell
+      key={session.user.id}
       user={session.user}
       navItems={navItems}
       workerWriteSections={workerWriteSections}

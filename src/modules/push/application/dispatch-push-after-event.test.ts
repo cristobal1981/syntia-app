@@ -1,7 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 
+const { dispatchPushEvents, recordPushRun, warmPortalCachesForEvent } = vi.hoisted(() => ({
+  dispatchPushEvents: vi.fn(),
+  recordPushRun: vi.fn(),
+  warmPortalCachesForEvent: vi.fn(),
+}))
+vi.mock('@/src/modules/push/application/dispatch-push-notifications', () => ({ dispatchPushEvents }))
+vi.mock('@/src/modules/push/infrastructure/push-runs.supabase', () => ({ recordPushRun }))
+vi.mock('@/src/modules/push/infrastructure/web-push-sender', () => ({ isWebPushConfigured: () => true }))
+vi.mock('@/src/modules/portal/infrastructure/portal-cache-invalidation', () => ({
+  warmPortalCachesForEvent,
+}))
+
 import {
+  MIN_WARM_BUDGET_MS,
   runPushAfterEvent,
+  runPushAfterEventInProduction,
   WEBHOOK_PUSH_DELAY_MS,
   WEBHOOK_PUSH_LOCK_RETRY_MS,
   WEBHOOK_PUSH_MAX_ATTEMPTS,
@@ -16,6 +30,8 @@ const summary = (partial: Partial<PushDispatchSummary> = {}): PushDispatchSummar
   sent: 1,
   removed: 0,
   skipped: 0,
+  rejected: 0,
+  failed: 0,
   truncated: false,
   locked: false,
   ...partial,
@@ -39,6 +55,101 @@ function setup(overrides: Partial<PushAfterEventDeps> = {}) {
   return { deps, sleeps, advance: (ms: number) => (clock += ms) }
 }
 
+describe('runPushAfterEvent: calentar cachés', () => {
+  it('calienta después del envío, no antes', async () => {
+    const order: string[] = []
+    const { deps } = setup({
+      dispatch: vi.fn(async () => {
+        order.push('dispatch')
+        return summary()
+      }),
+      warm: vi.fn(async () => {
+        order.push('warm')
+      }),
+    })
+
+    await runPushAfterEvent(deps, 5)
+
+    expect(order).toEqual(['dispatch', 'warm'])
+  })
+
+  it('calienta aunque el envío falle o no haya podido tomar el cerrojo', async () => {
+    const failing = setup({
+      dispatch: vi.fn().mockRejectedValue(new Error('boom')),
+      warm: vi.fn().mockResolvedValue(undefined),
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await runPushAfterEvent(failing.deps)
+    expect(failing.deps.warm).toHaveBeenCalledTimes(1)
+
+    const locked = setup({
+      dispatch: vi.fn().mockResolvedValue(summary({ locked: true })),
+      warm: vi.fn().mockResolvedValue(undefined),
+    })
+    await runPushAfterEvent(locked.deps)
+    expect(locked.deps.warm).toHaveBeenCalledTimes(1)
+  })
+
+  it('si ya no queda margen tras el envío, no calienta', async () => {
+    const { deps, advance } = setup({
+      dispatch: vi.fn(async () => {
+        advance(WEBHOOK_PUSH_TOTAL_BUDGET_MS)
+        return summary()
+      }),
+      warm: vi.fn().mockResolvedValue(undefined),
+    })
+
+    await runPushAfterEvent(deps)
+
+    expect(deps.warm).not.toHaveBeenCalled()
+  })
+
+  it('el margen mínimo para calentar es exactamente MIN_WARM_BUDGET_MS', async () => {
+    for (const [left, expected] of [
+      [MIN_WARM_BUDGET_MS - 1, 0],
+      [MIN_WARM_BUDGET_MS, 1],
+    ] as const) {
+      const { deps, advance } = setup({
+        dispatch: vi.fn(async () => {
+          advance(WEBHOOK_PUSH_TOTAL_BUDGET_MS - WEBHOOK_PUSH_DELAY_MS - left)
+          return summary()
+        }),
+        warm: vi.fn().mockResolvedValue(undefined),
+      })
+
+      await runPushAfterEvent(deps)
+
+      expect(deps.warm).toHaveBeenCalledTimes(expected)
+    }
+  })
+
+  it('un fallo al calentar no lanza', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { deps } = setup({ warm: vi.fn().mockRejectedValue(new Error('odoo')) })
+
+    await expect(runPushAfterEvent(deps)).resolves.toBeUndefined()
+  })
+
+  it('sin web push configurado pero con calentamiento, espera y calienta sin enviar', async () => {
+    const { deps, sleeps } = setup({
+      isConfigured: () => false,
+      warm: vi.fn().mockResolvedValue(undefined),
+    })
+
+    await runPushAfterEvent(deps)
+
+    expect(sleeps).toEqual([WEBHOOK_PUSH_DELAY_MS])
+    expect(deps.dispatch).not.toHaveBeenCalled()
+    expect(deps.warm).toHaveBeenCalledTimes(1)
+  })
+
+  it('sin calentamiento todo sigue igual', async () => {
+    const { deps } = setup()
+    await runPushAfterEvent(deps)
+    expect(deps.dispatch).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('runPushAfterEvent', () => {
   it('espera, envía con la espera corta y registra la ejecución', async () => {
     const { deps, sleeps } = setup()
@@ -52,6 +163,18 @@ describe('runPushAfterEvent', () => {
       budgetMs: WEBHOOK_PUSH_TOTAL_BUDGET_MS - WEBHOOK_PUSH_DELAY_MS,
     })
     expect(deps.record).toHaveBeenCalledWith(expect.objectContaining({ summary: summary() }))
+  })
+
+  it('con partnerId lo pasa al envío; sin él no lo añade', async () => {
+    const withPartner = setup()
+    await runPushAfterEvent(withPartner.deps, 1233)
+    expect(withPartner.deps.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ partnerId: 1233 })
+    )
+
+    const without = setup()
+    await runPushAfterEvent(without.deps)
+    expect(vi.mocked(without.deps.dispatch).mock.calls[0]![0]).not.toHaveProperty('partnerId')
   })
 
   it('el envío sale después de la espera, no antes', async () => {
@@ -133,5 +256,23 @@ describe('runPushAfterEvent', () => {
     // (envía por última vez) y tras el siguiente ya no queda nada, aunque se permitan 3 intentos.
     expect(dispatch).toHaveBeenCalledTimes(2)
     expect(deps.record).not.toHaveBeenCalled()
+  })
+})
+
+describe('runPushAfterEventInProduction', () => {
+  it('envía a los dispositivos del cliente del evento y calienta las cachés de ese evento', async () => {
+    vi.useFakeTimers()
+    dispatchPushEvents.mockResolvedValue(summary())
+    recordPushRun.mockResolvedValue(undefined)
+    warmPortalCachesForEvent.mockResolvedValue(undefined)
+    const event = { kind: 'status', scope: 'tramite', partnerId: 1233 } as const
+
+    const done = runPushAfterEventInProduction(event)
+    await vi.runAllTimersAsync()
+    await done
+    vi.useRealTimers()
+
+    expect(dispatchPushEvents).toHaveBeenCalledWith(expect.objectContaining({ partnerId: 1233 }))
+    expect(warmPortalCachesForEvent).toHaveBeenCalledWith(event)
   })
 })

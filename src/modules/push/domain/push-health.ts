@@ -6,6 +6,10 @@ export type PushHealthRun = {
   truncated: boolean
   /** En un barrido, eventos que faltaban y se han recuperado. */
   created: number
+  /** Envíos que el servicio de push rechazó en esta ejecución (400, 401, 403, 413). */
+  rejected: number
+  /** Envíos que fallaron por algo transitorio en esta ejecución (red, 429, 5xx). */
+  failed: number
 }
 
 export type PushHealthInput = {
@@ -16,6 +20,10 @@ export type PushHealthInput = {
   runs: PushHealthRun[]
   /** Último evento recibido de Odoo, o `null` si no hay. */
   lastEventAt: number | null
+  /** Recepción del evento más antiguo aún sin procesar por algún dispositivo (dentro de su plazo), o `null`. */
+  oldestPendingEventAt: number | null
+  /** Desde cuándo hay un dispositivo sin foto inicial (`last_event_seq` nulo), o `null` si no hay ninguno. */
+  unsetCursorSince: number | null
 }
 
 export type PushHealthProblem = {
@@ -27,6 +35,10 @@ export type PushHealthProblem = {
     | 'events_silent'
     | 'sweep_stalled'
     | 'events_lost'
+    | 'event_pending'
+    | 'cursor_unset'
+    | 'push_rejected'
+    | 'push_failing'
   severity: 'error' | 'warning'
   message: string
 }
@@ -42,7 +54,15 @@ export const PULSE_STALLED_MS = 15 * MINUTE
 export const SWEEP_STALLED_MS = 2 * HOUR
 /** En horario laboral, sin eventos en este tiempo se avisa de silencio. */
 export const EVENTS_SILENT_MS = 4 * HOUR
+/** Con el pulso cada minuto, un evento sin procesar más tiempo que este indica que no se está entregando. */
+export const EVENT_PENDING_MS = 10 * MINUTE
+/** La primera ejecución con eventos coloca el cursor: un dispositivo sin él tanto tiempo no se está atendiendo. */
+export const CURSOR_UNSET_MS = 10 * MINUTE
 export const RECENT_RUNS_WINDOW = 10
+/** Ejecuciones recién hechas que se miran para los rechazos y los fallos de envío. */
+export const SEND_PROBLEM_WINDOW = 5
+/** Con tantas ejecuciones de esa ventana con rechazos (o fallos), se avisa. */
+export const SEND_PROBLEM_RUNS = 3
 
 const BUSINESS_DAYS = new Set(['lun', 'mar', 'mié', 'jue', 'vie'])
 const BUSINESS_START_HOUR = 8
@@ -127,6 +147,24 @@ export function evaluatePushHealth(input: PushHealthInput): PushHealth {
     })
   }
 
+  // Un rechazo suelto es un dispositivo; repetido en ejecuciones seguidas suele ser configuración
+  // (claves VAPID) o el servicio de push caído. Las ejecuciones saltadas por el cerrojo no cuentan.
+  const sendRuns = recent.filter((run) => !run.locked).slice(0, SEND_PROBLEM_WINDOW)
+  if (sendRuns.filter((run) => run.rejected > 0).length >= SEND_PROBLEM_RUNS) {
+    problems.push({
+      code: 'push_rejected',
+      severity: 'warning',
+      message: `El servicio de push rechaza envíos en ${SEND_PROBLEM_RUNS} o más de las últimas ${sendRuns.length} ejecuciones: revisar las claves VAPID.`,
+    })
+  }
+  if (sendRuns.filter((run) => run.failed > 0).length >= SEND_PROBLEM_RUNS) {
+    problems.push({
+      code: 'push_failing',
+      severity: 'warning',
+      message: `Fallan envíos (red, límite o error del servicio) en ${SEND_PROBLEM_RUNS} o más de las últimas ${sendRuns.length} ejecuciones.`,
+    })
+  }
+
   const lastSweep = sweeps[0]
   if (lastSweep && input.now - lastSweep.startedAt > SWEEP_STALLED_MS) {
     problems.push({
@@ -143,6 +181,23 @@ export function evaluatePushHealth(input: PushHealthInput): PushHealth {
       severity: 'warning',
       message: `El barrido ha tenido que recuperar ${recovered} mensajes cuyo evento no llegó.`,
     })
+  }
+
+  if (input.source === 'events') {
+    if (input.oldestPendingEventAt !== null && input.now - input.oldestPendingEventAt > EVENT_PENDING_MS) {
+      problems.push({
+        code: 'event_pending',
+        severity: 'warning',
+        message: 'Hay un evento sin entregar desde hace más de 10 minutos.',
+      })
+    }
+    if (input.unsetCursorSince !== null && input.now - input.unsetCursorSince > CURSOR_UNSET_MS) {
+      problems.push({
+        code: 'cursor_unset',
+        severity: 'warning',
+        message: 'Hay un dispositivo sin cursor de eventos desde hace más de 10 minutos.',
+      })
+    }
   }
 
   return { ok: problems.every((problem) => problem.severity !== 'error'), problems }

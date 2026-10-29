@@ -1,5 +1,5 @@
 import {
-  reconcilePushSubscriptionAction,
+  syncPushSubscriptionAction,
   unsubscribePushAction,
 } from '@/src/modules/push/application/push-subscription-actions'
 
@@ -26,17 +26,29 @@ export async function removePushFromThisDevice(): Promise<void> {
   }
 }
 
+/** Lo que el servidor necesita de una suscripción del navegador (la forma de `subscribePushAction`). */
+export function subscriptionToInput(subscription: PushSubscription) {
+  const json = subscription.toJSON()
+  return {
+    endpoint: subscription.endpoint,
+    p256dh: json.keys?.p256dh,
+    auth: json.keys?.auth,
+    userAgent: navigator.userAgent,
+  }
+}
+
 /**
- * Al abrir el portal: si el navegador tiene una suscripción que no es de la
- * sesión actual (la dejó otro usuario), se da de baja en el navegador. Con un
- * error al comprobar no se hace nada.
+ * Al abrir el portal: el navegador manda su suscripción y el servidor la renueva, o la recupera si
+ * la había perdido. Solo si es de otra persona (la dejó otro usuario) se da de baja en el
+ * navegador. Con cualquier otra respuesta o error no se hace nada: dar de baja por error obliga a
+ * reactivar las notificaciones.
  */
-export async function dropForeignPushSubscription(): Promise<void> {
+export async function syncThisDevicePush(): Promise<void> {
   try {
     const subscription = await currentSubscription()
     if (!subscription) return
-    const result = await reconcilePushSubscriptionAction(subscription.endpoint)
-    if (result.ok && !result.owned) await subscription.unsubscribe()
+    const result = await syncPushSubscriptionAction(subscriptionToInput(subscription))
+    if (result.ok && result.status === 'foreign') await subscription.unsubscribe()
   } catch {
     // Sin conexión o sin permiso: se reintenta en la próxima carga.
   }

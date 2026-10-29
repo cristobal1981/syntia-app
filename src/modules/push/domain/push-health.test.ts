@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CURSOR_UNSET_MS,
+  EVENT_PENDING_MS,
   EVENTS_SILENT_MS,
   evaluatePushHealth,
   isBusinessHours,
   PULSE_STALLED_MS,
+  SEND_PROBLEM_RUNS,
+  SEND_PROBLEM_WINDOW,
   SWEEP_STALLED_MS,
   type PushHealthInput,
   type PushHealthRun,
@@ -22,6 +26,8 @@ function run(partial: Partial<PushHealthRun> = {}): PushHealthRun {
     locked: false,
     truncated: false,
     created: 0,
+    rejected: 0,
+    failed: 0,
     ...partial,
   }
 }
@@ -32,6 +38,8 @@ function input(partial: Partial<PushHealthInput> = {}): PushHealthInput {
     source: 'events',
     runs: [run()],
     lastEventAt: WORKDAY - 10 * MIN,
+    oldestPendingEventAt: null,
+    unsetCursorSince: null,
     ...partial,
   }
 }
@@ -209,5 +217,116 @@ describe('evaluatePushHealth', () => {
     const health = evaluatePushHealth(input({ runs: [run({ hadError: true, startedAt: WORKDAY - 20 * MIN })] }))
     expect(health.ok).toBe(false)
     expect(codes(health)).toEqual(expect.arrayContaining(['pulse_stalled', 'run_errors']))
+  })
+})
+
+describe('evaluatePushHealth: evento pendiente y cursor sin colocar', () => {
+  it('sin pendientes ni cursores sin colocar no avisa', () => {
+    expect(codes(evaluatePushHealth(input()))).toEqual([])
+  })
+
+  it('un evento pendiente más allá del plazo avisa, sin ser error', () => {
+    const health = evaluatePushHealth(input({ oldestPendingEventAt: WORKDAY - EVENT_PENDING_MS - 1 }))
+    expect(codes(health)).toEqual(['event_pending'])
+    expect(health.ok).toBe(true)
+  })
+
+  it('un evento pendiente justo en el plazo no avisa', () => {
+    expect(codes(evaluatePushHealth(input({ oldestPendingEventAt: WORKDAY - EVENT_PENDING_MS })))).toEqual([])
+  })
+
+  it('un dispositivo sin cursor más allá del plazo avisa, sin ser error', () => {
+    const health = evaluatePushHealth(input({ unsetCursorSince: WORKDAY - CURSOR_UNSET_MS - 1 }))
+    expect(codes(health)).toEqual(['cursor_unset'])
+    expect(health.ok).toBe(true)
+  })
+
+  it('un cursor sin colocar justo en el plazo no avisa', () => {
+    expect(codes(evaluatePushHealth(input({ unsetCursorSince: WORKDAY - CURSOR_UNSET_MS })))).toEqual([])
+  })
+
+  it('con el cálculo por snapshots no se miran los eventos', () => {
+    const health = evaluatePushHealth(
+      input({
+        source: 'snapshots',
+        oldestPendingEventAt: WORKDAY - 60 * MIN,
+        unsetCursorSince: WORKDAY - 60 * MIN,
+      })
+    )
+    expect(codes(health)).toEqual([])
+  })
+})
+
+describe('evaluatePushHealth: rechazos y fallos de envío repetidos', () => {
+  /** Ejecuciones de más nueva a más antigua, una por minuto. */
+  const runsWith = (partials: Partial<PushHealthRun>[]) =>
+    partials.map((partial, index) => run({ startedAt: WORKDAY - (index + 1) * MIN, ...partial }))
+
+  it('sin rechazos ni fallos no avisa', () => {
+    expect(codes(evaluatePushHealth(input({ runs: runsWith([{}, {}, {}, {}, {}]) })))).toEqual([])
+  })
+
+  it('rechazos en 3 de las últimas 5 ejecuciones avisan, sin ser error', () => {
+    const health = evaluatePushHealth(
+      input({ runs: runsWith([{ rejected: 1 }, {}, { rejected: 2 }, {}, { rejected: 1 }]) })
+    )
+    expect(codes(health)).toEqual(['push_rejected'])
+    expect(health.ok).toBe(true)
+  })
+
+  it('rechazos en solo 2 ejecuciones no avisan', () => {
+    const health = evaluatePushHealth(input({ runs: runsWith([{ rejected: 1 }, {}, { rejected: 1 }, {}, {}]) }))
+    expect(codes(health)).toEqual([])
+  })
+
+  it('fallos transitorios en 3 de las últimas 5 ejecuciones avisan aparte', () => {
+    const health = evaluatePushHealth(
+      input({ runs: runsWith([{ failed: 1 }, { failed: 3 }, {}, {}, { failed: 1 }]) })
+    )
+    expect(codes(health)).toEqual(['push_failing'])
+    expect(health.ok).toBe(true)
+  })
+
+  it('rechazos y fallos a la vez dan los dos avisos', () => {
+    const health = evaluatePushHealth(
+      input({
+        runs: runsWith([
+          { rejected: 1, failed: 1 },
+          { rejected: 1, failed: 1 },
+          { rejected: 1, failed: 1 },
+        ]),
+      })
+    )
+    expect(codes(health)).toEqual(['push_rejected', 'push_failing'])
+  })
+
+  it('solo miran las últimas 5: rechazos más antiguos no cuentan', () => {
+    const runs = runsWith([{}, {}, {}, {}, {}, { rejected: 1 }, { rejected: 1 }, { rejected: 1 }])
+    expect(SEND_PROBLEM_WINDOW).toBe(5)
+    expect(codes(evaluatePushHealth(input({ runs })))).toEqual([])
+  })
+
+  it('las ejecuciones saltadas por el cerrojo no cuentan en la ventana', () => {
+    // 3 saltadas delante y 3 con rechazos detrás: contándolas, la ventana de 5 solo vería 2 rechazos.
+    const runs = runsWith([
+      { locked: true },
+      { locked: true },
+      { locked: true },
+      { rejected: 1 },
+      { rejected: 1 },
+      { rejected: 1 },
+    ])
+    expect(codes(evaluatePushHealth(input({ runs })))).toEqual(['push_rejected'])
+  })
+
+  it('los barridos no cuentan para los rechazos', () => {
+    const runs = [
+      ...runsWith([{}]),
+      run({ source: 'sweep', startedAt: WORKDAY - 2 * MIN, rejected: 5 }),
+      run({ source: 'sweep', startedAt: WORKDAY - 3 * MIN, rejected: 5 }),
+      run({ source: 'sweep', startedAt: WORKDAY - 4 * MIN, rejected: 5 }),
+    ]
+    expect(codes(evaluatePushHealth(input({ runs })))).not.toContain('push_rejected')
+    expect(SEND_PROBLEM_RUNS).toBe(3)
   })
 })

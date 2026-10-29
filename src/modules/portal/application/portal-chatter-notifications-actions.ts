@@ -40,7 +40,11 @@ import {
   fetchPortalNewsSignalContext,
   fetchPortalSessionContext,
 } from '@/src/modules/portal/infrastructure/portal-session-context.supabase'
-import { getMaxPortalEventSeqForPartner } from '@/src/modules/push/infrastructure/portal-events.supabase'
+import type { PortalEventKind } from '@/src/modules/push/domain/portal-event'
+import {
+  getMaxPortalEventSeqForPartner,
+  listPortalEventKindsAfter,
+} from '@/src/modules/push/infrastructure/portal-events.supabase'
 import { advanceUserPushCursor } from '@/src/modules/push/infrastructure/push-subscriptions.supabase'
 import {
   fetchWatchStateForUser,
@@ -92,6 +96,8 @@ function readStateMapToObject(map: Map<string, number>): ChatterReadStateMap {
 const REUSE_RECENT_SNAPSHOT_MS = 20_000
 
 export async function checkPortalNotificationsAction(options?: {
+  /** Solo han llegado mensajes: se relee únicamente el chatter (ver `loadClientPortalNotifications`). */
+  chatterOnly?: boolean
   /** Primer sondeo tras cargar la página: no repite lo que el render acaba de leer de Odoo. */
   reuseRecentSnapshots?: boolean
 }): Promise<PortalNotificationsCheckResult> {
@@ -105,6 +111,7 @@ export async function checkPortalNotificationsAction(options?: {
     actorId: access.actorId,
     cache: false,
     persist: true,
+    ...(options?.chatterOnly === true ? { chatterOnly: true } : {}),
     ...(options?.reuseRecentSnapshots === true
       ? { reuseRecentSnapshotMs: REUSE_RECENT_SNAPSHOT_MS }
       : {}),
@@ -124,7 +131,14 @@ export async function checkPortalNotificationsAction(options?: {
 
 export type PortalNewsSignalResult =
   | { ok: true; mode: 'full' }
-  | { ok: true; mode: 'events'; seq: number; fullCheckMaxAgeMs: number }
+  | {
+      ok: true
+      mode: 'events'
+      seq: number
+      fullCheckMaxAgeMs: number
+      /** Tipos de los eventos posteriores a `afterSeq`; solo si el cliente lo pidió y hay novedades. */
+      eventKinds?: { kinds: PortalEventKind[]; truncated: boolean }
+    }
   | { ok: false; error: 'forbidden' | 'not_linked' | 'odoo_unavailable' }
 
 /**
@@ -133,7 +147,9 @@ export type PortalNewsSignalResult =
  * cliente hace la comprobación completa en cada sondeo; si la consulta falla,
  * también (nunca se queda sin avisos por culpa de la señal).
  */
-export async function checkPortalNewsSignalAction(): Promise<PortalNewsSignalResult> {
+export async function checkPortalNewsSignalAction(options?: {
+  afterSeq?: number
+}): Promise<PortalNewsSignalResult> {
   if (!isPortalNewsSignalEnabled()) return { ok: true, mode: 'full' }
 
   const access = await resolveClientAccess({ withSeq: true })
@@ -141,7 +157,18 @@ export async function checkPortalNewsSignalAction(): Promise<PortalNewsSignalRes
 
   try {
     const seq = access.seq ?? (await getMaxPortalEventSeqForPartner(access.partnerId))
-    return { ok: true, mode: 'events', seq, fullCheckMaxAgeMs: getPortalNewsFullCheckMaxAgeMs() }
+    const base = { ok: true, mode: 'events', seq, fullCheckMaxAgeMs: getPortalNewsFullCheckMaxAgeMs() } as const
+    const afterSeq = options?.afterSeq
+    if (afterSeq === undefined || !Number.isInteger(afterSeq) || afterSeq < 0 || seq <= afterSeq) {
+      return base
+    }
+    try {
+      return { ...base, eventKinds: await listPortalEventKindsAfter(access.partnerId, afterSeq) }
+    } catch (error) {
+      // Sin los tipos, el cliente hace la comprobación completa de siempre.
+      console.error('[portal news] tipos de eventos fallaron', error)
+      return base
+    }
   } catch (error) {
     console.error('[portal news] señal de eventos falló', error)
     return { ok: true, mode: 'full' }

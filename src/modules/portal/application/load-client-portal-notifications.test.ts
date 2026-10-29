@@ -1118,3 +1118,140 @@ describe('loadClientPortalNotifications — top-level error handling', () => {
     expect(resolveOdooErrorCode).toHaveBeenCalledWith(boom)
   })
 })
+
+describe('loadClientPortalNotifications — chatterOnly (solo han llegado mensajes)', () => {
+  const chatter = {
+    recordKind: 'task' as const,
+    recordId: 1,
+    latestDate: '2024-01-02T00:00:00Z',
+    latestMessageId: 7,
+  }
+
+  beforeEach(() => {
+    mergeTramitesList.mockReturnValue([tramiteItem()])
+    getFreshUnreadChatterCandidates.mockResolvedValue({ unread: [chatter], bootstrapUpdates: [] })
+  })
+
+  it('snapshots por la caché, chatter en fresco, sin tocar el seen-state', async () => {
+    const result = await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(getCachedTramitesSnapshotSafe).toHaveBeenCalled()
+    expect(getCachedObligacionNotificationSnapshotSafe).toHaveBeenCalled()
+    expect(getCachedPendingSignaturesSnapshotSafe).toHaveBeenCalled()
+    expect(getFreshTramitesSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshObligacionNotificationSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshPendingSignaturesSnapshotSafe).not.toHaveBeenCalled()
+    expect(getFreshUnreadChatterCandidates).toHaveBeenCalledTimes(1)
+    expect(getCachedUnreadChatterCandidates).not.toHaveBeenCalled()
+    expect(ensureTramitesListSeenInitialized).not.toHaveBeenCalled()
+  })
+
+  it('no calcula ni guarda cambios de estado, trámites nuevos ni firmas (una caché vieja los daría por revertidos)', async () => {
+    computeNewTramiteListItemKeys.mockReturnValue(['tramite-1'])
+    computeRecordWatchDeltas.mockReturnValue({
+      notifications: [{ scope: 'tramite', recordId: 1 }],
+      watchUpdates: [{ scope: 'tramite', recordId: 1 }],
+    })
+
+    const result = await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(computeRecordWatchDeltas).not.toHaveBeenCalled()
+    expect(computeFirmaWatchDeltas).not.toHaveBeenCalled()
+    expect(computeNewTramiteListItemKeys).not.toHaveBeenCalled()
+    expect(upsertWatchStateBatch).not.toHaveBeenCalled()
+    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(result.ok && result.unread).toHaveLength(1)
+    expect(result.ok && result.unread[0]).toMatchObject({ reason: 'unread_chatter', recordId: 1 })
+  })
+
+  it('el chatter sin leer sí se guarda como siempre (bootstrap)', async () => {
+    const update = { recordKind: 'task' as const, recordId: 1, lastSeenMessageId: 7 }
+    getFreshUnreadChatterCandidates.mockResolvedValue({ unread: [], bootstrapUpdates: [update] })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(upsertChatterReadStateBatch).toHaveBeenCalledWith(ACTOR_ID, [update])
+  })
+
+  it('si el mensaje nuevo trae adjuntos, relee el snapshot de trámites (el contador de documentos de la lista)', async () => {
+    getFreshUnreadChatterCandidates.mockResolvedValue({
+      unread: [{ ...chatter, hasAttachments: true }],
+      bootstrapUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalledWith(PARTNER_ID)
+  })
+
+  it('en la comprobación completa no relee trámites una segunda vez por los adjuntos', async () => {
+    getFreshUnreadChatterCandidates.mockResolvedValue({
+      unread: [{ ...chatter, hasAttachments: true }],
+      bootstrapUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalledTimes(1)
+  })
+
+  it('sin adjuntos en lo nuevo no relee trámites', async () => {
+    getFreshUnreadChatterCandidates.mockResolvedValue({
+      unread: [{ ...chatter, hasAttachments: false }],
+      bootstrapUpdates: [],
+    })
+
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+      chatterOnly: true,
+    })
+
+    expect(getFreshTramitesSnapshotSafe).not.toHaveBeenCalled()
+  })
+
+  it('sin chatterOnly todo sigue igual (deltas calculados)', async () => {
+    await loadClientPortalNotifications({
+      partnerId: PARTNER_ID,
+      actorId: ACTOR_ID,
+      cache: false,
+      persist: true,
+    })
+
+    expect(computeRecordWatchDeltas).toHaveBeenCalled()
+    expect(computeFirmaWatchDeltas).toHaveBeenCalled()
+    expect(getFreshTramitesSnapshotSafe).toHaveBeenCalled()
+  })
+})

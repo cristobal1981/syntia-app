@@ -26,6 +26,7 @@ import {
 } from '@/src/modules/portal/infrastructure/portal-notifications-poll-scheduler'
 import {
   initialPollDelayMs,
+  canRunChatterOnlyCheck,
   shouldAcknowledgeEventsSeen,
   shouldDeferInitialPoll,
   shouldRefreshOnVisible,
@@ -252,9 +253,10 @@ export function usePortalNotificationsSync({
         // Con la señal activa, un sondeo programado primero mira (solo Supabase) si hay
         // novedades; si no las hay, se salta la comprobación contra Odoo.
         let signalSeq: number | null = null
+        let chatterOnly = false
         signalModeRef.current = false
         if (!options?.force) {
-          const signal = await fetchNewsSignal()
+          const signal = await fetchNewsSignal(lastSignalSeqRef.current)
           portalConnectivityStore.reportPollSuccess()
           if (signal.ok && signal.mode === 'events') {
             signalModeRef.current = true
@@ -274,11 +276,25 @@ export function usePortalNotificationsSync({
               setNotificationsLoading(false)
               return
             }
+            // Solo mensajes nuevos: basta con releer el chatter (1-2 peticiones a Odoo en vez de 14-16).
+            chatterOnly =
+              signal.eventKinds !== undefined &&
+              canRunChatterOnlyCheck({
+                ...signal.eventKinds,
+                lastSignalSeq: lastSignalSeqRef.current,
+                lastFullCheckAt: lastFullCheckAtRef.current,
+                now: Date.now(),
+                maxAgeMs: signal.fullCheckMaxAgeMs,
+              })
           }
         }
 
         const result = await fetchNotificationsCheck(
-          options?.afterPageLoad ? { reuseRecentSnapshots: true } : undefined
+          options?.afterPageLoad
+            ? { reuseRecentSnapshots: true }
+            : chatterOnly
+              ? { chatterOnly: true }
+              : undefined
         )
         // Llegó respuesta del servidor (aunque sea un error): hay red.
         portalConnectivityStore.reportPollSuccess()
@@ -296,7 +312,8 @@ export function usePortalNotificationsSync({
         // sondeo se quedaba en el máximo (5 min) hasta que llegara un cambio.
         rateLimitedRef.current = false
         applyPollResult(result, { refreshPages: true })
-        lastFullCheckAtRef.current = Date.now()
+        // La comprobación solo de chatter no cuenta como completa: la red de seguridad sigue su reloj.
+        if (!chatterOnly) lastFullCheckAtRef.current = Date.now()
         if (signalSeq !== null) lastSignalSeqRef.current = signalSeq
         lastCheckUsedRecentSnapshotsRef.current = Boolean(options?.afterPageLoad)
         acknowledgeSeen(signalSeq, Boolean(options?.afterPageLoad))

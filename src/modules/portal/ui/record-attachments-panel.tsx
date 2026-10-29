@@ -66,6 +66,11 @@ type RecordAttachmentsPanelProps = {
   recordId: number
   active: boolean
   knownAttachmentCount?: number
+  /**
+   * La lista que acaba de traer el servidor tiene otro número de documentos que el contador
+   * conocido (p. ej. se añadió uno desde Odoo): quien pinta el contador debe ponerlo al día.
+   */
+  onCountResolved?: (attachmentCount: number) => void
   refreshToken?: number
   highlightAttachmentId?: number | null
 }
@@ -81,6 +86,14 @@ function attachmentsCacheKey(kind: PortalRecordKind, recordId: number): string {
   return `${kind}:${recordId}`
 }
 
+/** ¿La lista traída del servidor contradice el contador que se está enseñando? */
+export function shouldReportResolvedCount(
+  knownCount: number | undefined,
+  resolvedCount: number
+): boolean {
+  return knownCount !== undefined && knownCount !== resolvedCount
+}
+
 export function invalidateAttachmentsClientCache(
   kind: PortalRecordKind,
   recordId: number
@@ -93,9 +106,15 @@ export function RecordAttachmentsPanel({
   recordId,
   active,
   knownAttachmentCount,
+  onCountResolved,
   refreshToken = 0,
   highlightAttachmentId = null,
 }: RecordAttachmentsPanelProps) {
+  // Por ref: un cambio de la función no debe volver a lanzar la lectura.
+  const onCountResolvedRef = useRef(onCountResolved)
+  useEffect(() => {
+    onCountResolvedRef.current = onCountResolved
+  })
   const [attachments, setAttachments] = useState<PortalAttachment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -167,6 +186,9 @@ export function RecordAttachmentsPanel({
         attachments: result.attachments,
       })
       setAttachments(result.attachments)
+      if (shouldReportResolvedCount(knownAttachmentCount, result.attachments.length)) {
+        onCountResolvedRef.current?.(result.attachments.length)
+      }
     })
 
     return () => {

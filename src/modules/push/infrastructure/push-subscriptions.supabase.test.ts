@@ -18,9 +18,13 @@ import {
   advancePushCursors,
   advanceUserPushCursor,
   fetchPartnerIdsByUserIds,
+  fetchUserIdsByPartnerId,
+  listPushSubscriptionsForPartner,
   deletePushSubscription,
   fetchPushPreferences,
+  fetchPushSubscriptionOwner,
   listPushSubscriptions,
+  refreshPushSubscription,
   releasePushDispatchLock,
   savePushDispatchState,
   savePushFailureCount,
@@ -176,6 +180,52 @@ describe('updatePushPreferences', () => {
   it('false si no hay fila de ese usuario', async () => {
     useClient(chainFor({ data: [] }))
     expect(await updatePushPreferences('user-1', 'e', prefs)).toBe(false)
+  })
+})
+
+describe('fetchPushSubscriptionOwner', () => {
+  it('devuelve el dueño del endpoint, sin filtrar por usuario', async () => {
+    const chain = chainFor({ data: { user_id: 'user-9' } })
+    useClient(chain)
+
+    expect(await fetchPushSubscriptionOwner(input.endpoint)).toBe('user-9')
+    expect(chain.eq).toHaveBeenCalledTimes(1)
+    expect(chain.eq).toHaveBeenCalledWith('endpoint', input.endpoint)
+  })
+
+  it('null si el servidor no la tiene', async () => {
+    useClient(chainFor({ data: null }))
+    expect(await fetchPushSubscriptionOwner('e')).toBeNull()
+  })
+
+  it('propaga el error de BD', async () => {
+    useClient(chainFor({ error: { message: 'boom' } }))
+    await expect(fetchPushSubscriptionOwner('e')).rejects.toThrow('boom')
+  })
+})
+
+describe('refreshPushSubscription', () => {
+  it('renueva solo las claves y el agente, sin tocar preferencias, cursor ni lo enviado', async () => {
+    const chain = chainFor({ data: [{ id: 'row' }] })
+    useClient(chain)
+
+    expect(await refreshPushSubscription('user-1', input)).toBe(true)
+
+    const update = chain.update.mock.calls[0]![0] as Record<string, unknown>
+    expect(Object.keys(update).sort()).toEqual(['auth', 'p256dh', 'updated_at', 'user_agent'])
+    expect(update).toMatchObject({ p256dh: input.p256dh, auth: input.auth })
+    expect(chain.eq).toHaveBeenCalledWith('user_id', 'user-1')
+    expect(chain.eq).toHaveBeenCalledWith('endpoint', input.endpoint)
+  })
+
+  it('false si no hay fila de ese usuario', async () => {
+    useClient(chainFor({ data: [] }))
+    expect(await refreshPushSubscription('user-1', input)).toBe(false)
+  })
+
+  it('propaga el error de BD', async () => {
+    useClient(chainFor({ error: { message: 'boom' } }))
+    await expect(refreshPushSubscription('user-1', input)).rejects.toThrow('boom')
   })
 })
 
@@ -472,5 +522,54 @@ describe('fetchPartnerIdsByUserIds', () => {
     createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
 
     await expect(fetchPartnerIdsByUserIds(['u1'])).rejects.toThrow('boom')
+  })
+})
+
+describe('listPushSubscriptions con usuarios', () => {
+  it('filtra por esos usuarios y, si la lista viene vacía, no consulta', async () => {
+    const range = vi.fn().mockResolvedValue({ data: [row('s1')], error: null })
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {}
+    chain.select = vi.fn(() => chain)
+    chain.in = vi.fn(() => chain)
+    chain.order = vi.fn(() => chain)
+    chain.range = range
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => chain) })
+
+    expect(await listPushSubscriptions(['u1', 'u2'])).toHaveLength(1)
+    expect(chain.in).toHaveBeenCalledWith('user_id', ['u1', 'u2'])
+
+    createSupabaseAdminClient.mockClear()
+    expect(await listPushSubscriptions([])).toEqual([])
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled()
+  })
+})
+
+describe('fetchUserIdsByPartnerId / listPushSubscriptionsForPartner', () => {
+  it('devuelve los usuarios de ese cliente de Odoo y propaga el error', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn().mockResolvedValue({ data: [{ user_id: 'u1' }, { user_id: 'u2' }], error: null }),
+    }
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    expect(await fetchUserIdsByPartnerId(1233)).toEqual(['u1', 'u2'])
+    expect(from).toHaveBeenCalledWith('client_integrations')
+    expect(chain.eq).toHaveBeenCalledWith('odoo_partner_id', 1233)
+
+    chain.eq.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    await expect(fetchUserIdsByPartnerId(1)).rejects.toThrow('boom')
+  })
+
+  it('un cliente sin usuarios no consulta las suscripciones', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+    }
+    const from = vi.fn(() => chain)
+    createSupabaseAdminClient.mockReturnValue({ from })
+
+    expect(await listPushSubscriptionsForPartner(1233)).toEqual([])
+    expect(from).not.toHaveBeenCalledWith('push_subscriptions')
   })
 })
