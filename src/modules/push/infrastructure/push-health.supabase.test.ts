@@ -10,14 +10,20 @@ import { loadPushHealthInput } from '@/src/modules/push/infrastructure/push-heal
 type Result = { data?: unknown; error?: { message: string } | null }
 
 /** Un cliente que responde según la tabla y los filtros usados. */
-function useClient(results: { dispatches?: Result; sweeps?: Result; event?: Result }) {
+function useClient(results: {
+  dispatches?: Result
+  sweeps?: Result
+  event?: Result
+  subscriptions?: Result
+  pending?: Result
+}) {
   const calls: { table: string; ops: [string, unknown[]][] }[] = []
 
   const from = vi.fn((table: string) => {
     const call = { table, ops: [] as [string, unknown[]][] }
     calls.push(call)
     const chain: Record<string, unknown> = {}
-    for (const name of ['select', 'in', 'eq', 'order']) {
+    for (const name of ['select', 'in', 'eq', 'gt', 'gte', 'order']) {
       chain[name] = (...args: unknown[]) => {
         call.ops.push([name, args])
         return chain
@@ -26,7 +32,17 @@ function useClient(results: { dispatches?: Result; sweeps?: Result; event?: Resu
     chain.limit = (...args: unknown[]) => {
       call.ops.push(['limit', args])
       const isSweep = call.ops.some(([op, a]) => op === 'eq' && a[1] === 'sweep')
-      const pick = table === 'portal_events' ? results.event : isSweep ? results.sweeps : results.dispatches
+      const isPending = call.ops.some(([op]) => op === 'gt')
+      const pick =
+        table === 'push_subscriptions'
+          ? results.subscriptions
+          : table === 'portal_events'
+            ? isPending
+              ? results.pending
+              : results.event
+            : isSweep
+              ? results.sweeps
+              : results.dispatches
       return Promise.resolve({ data: pick?.data ?? [], error: pick?.error ?? null })
     }
     return chain
@@ -95,10 +111,51 @@ describe('loadPushHealthInput', () => {
     expect((await loadPushHealthInput('events', NOW)).lastEventAt).toBeNull()
   })
 
-  it.each([['dispatches'], ['sweeps'], ['event']] as const)(
+  it('mira el evento más antiguo posterior al cursor más atrasado y dentro del plazo de una hora', async () => {
+    const { calls } = useClient({
+      subscriptions: {
+        data: [
+          { last_event_seq: 40, updated_at: '2026-10-22T11:00:00Z' },
+          { last_event_seq: 30, updated_at: '2026-10-22T11:00:00Z' },
+          { last_event_seq: null, updated_at: '2026-10-22T11:40:00Z' },
+          { last_event_seq: null, updated_at: '2026-10-22T11:20:00Z' },
+        ],
+      },
+      pending: { data: [{ received_at: '2026-10-22T11:45:00Z' }] },
+    })
+    const input = await loadPushHealthInput('events', NOW)
+
+    const pending = calls.find((call) => call.ops.some(([op]) => op === 'gt'))!
+    expect(pending.ops).toContainEqual(['gt', ['seq', 30]])
+    expect(pending.ops).toContainEqual(['gte', ['received_at', '2026-10-22T11:00:00.000Z']])
+    expect(pending.ops).toContainEqual(['order', ['received_at', { ascending: true }]])
+    expect(input.oldestPendingEventAt).toBe(Date.parse('2026-10-22T11:45:00Z'))
+    expect(input.unsetCursorSince).toBe(Date.parse('2026-10-22T11:20:00Z'))
+  })
+
+  it('sin dispositivos con cursor no pregunta por eventos pendientes', async () => {
+    const { calls } = useClient({
+      subscriptions: { data: [{ last_event_seq: null, updated_at: '2026-10-22T11:20:00Z' }] },
+    })
+    const input = await loadPushHealthInput('events', NOW)
+
+    expect(calls.some((call) => call.ops.some(([op]) => op === 'gt'))).toBe(false)
+    expect(input.oldestPendingEventAt).toBeNull()
+  })
+
+  it('sin dispositivos no hay cursor sin colocar', async () => {
+    useClient({})
+    expect((await loadPushHealthInput('events', NOW)).unsetCursorSince).toBeNull()
+  })
+
+  it.each([['dispatches'], ['sweeps'], ['event'], ['subscriptions'], ['pending']] as const)(
     'propaga el error de BD en %s',
     async (which) => {
-      useClient({ [which]: { error: { message: 'boom' } } })
+      // Sin un dispositivo con cursor no se pregunta por pendientes.
+      useClient({
+        subscriptions: { data: [{ last_event_seq: 1, updated_at: '2026-10-22T11:00:00Z' }] },
+        [which]: { error: { message: 'boom' } },
+      })
       await expect(loadPushHealthInput('events', NOW)).rejects.toThrow('boom')
     }
   )

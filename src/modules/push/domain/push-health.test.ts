@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CURSOR_UNSET_MS,
+  EVENT_PENDING_MS,
   EVENTS_SILENT_MS,
   evaluatePushHealth,
   isBusinessHours,
@@ -32,6 +34,8 @@ function input(partial: Partial<PushHealthInput> = {}): PushHealthInput {
     source: 'events',
     runs: [run()],
     lastEventAt: WORKDAY - 10 * MIN,
+    oldestPendingEventAt: null,
+    unsetCursorSince: null,
     ...partial,
   }
 }
@@ -209,5 +213,42 @@ describe('evaluatePushHealth', () => {
     const health = evaluatePushHealth(input({ runs: [run({ hadError: true, startedAt: WORKDAY - 20 * MIN })] }))
     expect(health.ok).toBe(false)
     expect(codes(health)).toEqual(expect.arrayContaining(['pulse_stalled', 'run_errors']))
+  })
+})
+
+describe('evaluatePushHealth: evento pendiente y cursor sin colocar', () => {
+  it('sin pendientes ni cursores sin colocar no avisa', () => {
+    expect(codes(evaluatePushHealth(input()))).toEqual([])
+  })
+
+  it('un evento pendiente más allá del plazo avisa, sin ser error', () => {
+    const health = evaluatePushHealth(input({ oldestPendingEventAt: WORKDAY - EVENT_PENDING_MS - 1 }))
+    expect(codes(health)).toEqual(['event_pending'])
+    expect(health.ok).toBe(true)
+  })
+
+  it('un evento pendiente justo en el plazo no avisa', () => {
+    expect(codes(evaluatePushHealth(input({ oldestPendingEventAt: WORKDAY - EVENT_PENDING_MS })))).toEqual([])
+  })
+
+  it('un dispositivo sin cursor más allá del plazo avisa, sin ser error', () => {
+    const health = evaluatePushHealth(input({ unsetCursorSince: WORKDAY - CURSOR_UNSET_MS - 1 }))
+    expect(codes(health)).toEqual(['cursor_unset'])
+    expect(health.ok).toBe(true)
+  })
+
+  it('un cursor sin colocar justo en el plazo no avisa', () => {
+    expect(codes(evaluatePushHealth(input({ unsetCursorSince: WORKDAY - CURSOR_UNSET_MS })))).toEqual([])
+  })
+
+  it('con el cálculo por snapshots no se miran los eventos', () => {
+    const health = evaluatePushHealth(
+      input({
+        source: 'snapshots',
+        oldestPendingEventAt: WORKDAY - 60 * MIN,
+        unsetCursorSince: WORKDAY - 60 * MIN,
+      })
+    )
+    expect(codes(health)).toEqual([])
   })
 })
