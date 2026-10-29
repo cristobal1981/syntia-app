@@ -90,6 +90,10 @@ describe('validateEmission — rectificativas', () => {
     expect(codes(rectificativa(), [original])).toEqual([])
   })
 
+  it('una rectificativa con fecha anterior a hoy no necesita el motivo de la fecha', () => {
+    expect(codes(rectificativa({ issueDate: '2026-06-14' }), [original])).toEqual([])
+  })
+
   it('exige motivo y que la factura rectificada exista y esté expedida', () => {
     expect(codes(rectificativa({ rectificationReason: ' ' }), [original])).toEqual(['rectification_reason'])
     expect(codes(rectificativa(), [])).toEqual(['rectified_missing'])

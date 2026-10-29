@@ -130,7 +130,9 @@ describe('resetInvoicing', () => {
 
   describe('facturas guardadas antes de existir fecha con motivo y forma de cobro', () => {
     const stored = (extra: Record<string, unknown>) => {
-      const { dateReason: _a, paymentMethod: _b, ...legacy } = makeInvoice({ id: 'viejo' })
+      const legacy: Record<string, unknown> = { ...makeInvoice({ id: 'viejo' }) }
+      delete legacy.dateReason
+      delete legacy.paymentMethod
       win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [{ ...legacy, ...extra }] }))
       return getInvoicingSnapshot().invoices[0]
     }
