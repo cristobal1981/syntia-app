@@ -14,17 +14,18 @@ import {
   sumLinesCents,
 } from '@/src/modules/facturacion/domain/invoice-lines'
 import { isValidIsoDate } from '@/lib/validation'
-import { DEFAULT_TAX_RATE } from '@/src/modules/facturacion/domain/tax-rates'
+import { resolveTax, issuerTaxProfile } from '@/src/modules/facturacion/domain/tax-rules'
+import type { ClientKind, Territory } from '@/src/modules/facturacion/domain/tax-profile'
+import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
 import {
   DEFAULT_PAYMENT_METHOD,
   PAYMENT_METHODS,
   type Invoice,
-  InvoiceDraft,
-  InvoiceReviewStatus,
-  InvoiceLine,
-  InvoiceSource,
-  PaymentMethod,
-  TaxRegime,
+  type InvoiceDraft,
+  type InvoiceLine,
+  type InvoiceReviewStatus,
+  type InvoiceSource,
+  type PaymentMethod,
 } from '@/src/modules/facturacion/domain/types'
 
 /** Una línea del formulario: todo texto, tal como lo escribe la persona. */
@@ -51,11 +52,10 @@ export type InvoiceFormValues = {
   counterpartyName: string
   counterpartyTaxId: string
   counterpartyAddress: string
+  counterpartyTerritory: Territory
+  counterpartyKind: ClientKind
   lines: InvoiceFormLine[]
   categoryId: string
-  regime: TaxRegime
-  taxRate: string
-  withholdingRate: string
   paymentMethod: PaymentMethod
   paymentDate: string
   review: InvoiceReviewStatus
@@ -103,11 +103,10 @@ export function emptyInvoiceForm(): InvoiceFormValues {
     counterpartyName: '',
     counterpartyTaxId: '',
     counterpartyAddress: '',
+    counterpartyTerritory: 'canarias',
+    counterpartyKind: 'empresa',
     lines: [emptyFormLine()],
     categoryId: DEFAULT_CATEGORY_ID,
-    regime: 'igic',
-    taxRate: String(DEFAULT_TAX_RATE.igic),
-    withholdingRate: '0',
     paymentMethod: DEFAULT_PAYMENT_METHOD,
     paymentDate: '',
     review: 'pendiente',
@@ -126,6 +125,8 @@ export function formFromInvoice(invoice: Invoice): InvoiceFormValues {
     counterpartyName: invoice.counterpartyName,
     counterpartyTaxId: invoice.counterpartyTaxId,
     counterpartyAddress: invoice.counterpartyAddress,
+    counterpartyTerritory: invoice.counterpartyTerritory,
+    counterpartyKind: invoice.counterpartyKind,
     lines: (invoice.lines.length > 0 ? invoice.lines : linesFromLegacy(invoice)).map((line) => ({
       id: line.id,
       productId: '',
@@ -134,9 +135,6 @@ export function formFromInvoice(invoice: Invoice): InvoiceFormValues {
       unitPrice: centsToInput(line.unitPriceCents),
     })),
     categoryId: invoice.categoryId,
-    regime: invoice.regime,
-    taxRate: String(invoice.taxRate),
-    withholdingRate: String(invoice.withholdingRate),
     paymentMethod: invoice.paymentMethod,
     paymentDate: invoice.paymentDate ?? '',
     review: invoice.review,
@@ -213,10 +211,11 @@ export function validateInvoiceForm(
 }
 
 /** Construye el borrador a guardar; el formulario debe haber pasado `validateInvoiceForm`. */
-export function draftFromForm(values: InvoiceFormValues, source: InvoiceSource = 'manual'): InvoiceDraft {
+export function draftFromForm(values: InvoiceFormValues, issuer: Issuer, source: InvoiceSource = 'manual'): InvoiceDraft {
   const lines = parsedLines(values.lines)
   const baseCents = sumLinesCents(lines)
   const category = getCategory(values.categoryId)
+  const tax = resolveTax(issuerTaxProfile(issuer), { territory: values.counterpartyTerritory, kind: values.counterpartyKind })
 
   return {
     invoiceNumber: '',
@@ -230,11 +229,14 @@ export function draftFromForm(values: InvoiceFormValues, source: InvoiceSource =
     counterpartyName: values.counterpartyName.trim(),
     counterpartyTaxId: normalizeTaxId(values.counterpartyTaxId),
     counterpartyAddress: values.counterpartyAddress.trim(),
+    counterpartyTerritory: values.counterpartyTerritory,
+    counterpartyKind: values.counterpartyKind,
     concept: summarizeLines(lines),
     lines,
     categoryId: category.id,
-    regime: values.regime,
-    ...computeInvoiceAmounts(baseCents, Number(values.taxRate), Number(values.withholdingRate)),
+    regime: tax.regime,
+    ...computeInvoiceAmounts(baseCents, tax.taxRate, tax.withholdingRate),
+    taxNote: tax.note,
     paymentMethod: PAYMENT_METHODS.includes(values.paymentMethod) ? values.paymentMethod : DEFAULT_PAYMENT_METHOD,
     paymentDate: values.paymentDate || null,
     review: values.review,

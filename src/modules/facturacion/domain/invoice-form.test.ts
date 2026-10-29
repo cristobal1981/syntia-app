@@ -11,6 +11,7 @@ import {
 } from '@/src/modules/facturacion/domain/invoice-form'
 import { validateFormLines } from '@/src/modules/facturacion/domain/invoice-form'
 import { localIsoDate } from '@/src/modules/facturacion/domain/dates'
+import { DEMO_ISSUER } from '@/src/modules/facturacion/domain/issuer'
 import { completeCif } from '@/src/modules/facturacion/domain/tax-id'
 import { SAMPLE_INVOICES } from '@/src/modules/facturacion/domain/sample-invoices'
 
@@ -23,6 +24,7 @@ function validForm(overrides: Partial<InvoiceFormValues> = {}): InvoiceFormValue
     ...emptyInvoiceForm(),
     issueDate: '2026-05-07',
     dateReason: 'Trabajo entregado en mayo',
+    counterpartyKind: 'empresa',
     counterpartyName: 'Papelería Insular S.L.',
     counterpartyTaxId: completeCif('B3545678'),
     counterpartyAddress: 'Calle Triana, 12, Arrecife',
@@ -97,21 +99,21 @@ describe('fecha de la factura', () => {
   })
 
   it('el borrador solo guarda el motivo si la fecha es anterior a hoy', () => {
-    expect(draftFromForm(validForm({ dateReason: ' Entrega ' })).dateReason).toBe('Entrega')
-    expect(draftFromForm(validForm({ issueDate: localIsoDate(), dateReason: 'sobra' })).dateReason).toBe('')
+    expect(draftFromForm(validForm({ dateReason: ' Entrega ' }), DEMO_ISSUER).dateReason).toBe('Entrega')
+    expect(draftFromForm(validForm({ issueDate: localIsoDate(), dateReason: 'sobra' }), DEMO_ISSUER).dateReason).toBe('')
   })
 })
 
 describe('forma de cobro', () => {
   it('por defecto transferencia y se conserva en el borrador y al editar', () => {
     expect(emptyInvoiceForm().paymentMethod).toBe('transferencia')
-    const draft = draftFromForm(validForm({ paymentMethod: 'tarjeta' }))
+    const draft = draftFromForm(validForm({ paymentMethod: 'tarjeta' }), DEMO_ISSUER)
     expect(draft.paymentMethod).toBe('tarjeta')
     expect(formFromInvoice({ ...SAMPLE_INVOICES[0], paymentMethod: 'contado' }).paymentMethod).toBe('contado')
   })
 
   it('un valor desconocido vuelve a transferencia', () => {
-    expect(draftFromForm(validForm({ paymentMethod: 'bizum' as never })).paymentMethod).toBe('transferencia')
+    expect(draftFromForm(validForm({ paymentMethod: 'bizum' as never }), DEMO_ISSUER).paymentMethod).toBe('transferencia')
   })
 })
 
@@ -149,7 +151,8 @@ describe('límites de entrada', () => {
 describe('draftFromForm', () => {
   it('calcula cuota, retención y total y normaliza el NIF', () => {
     const draft = draftFromForm(
-      validForm({ lines: [line('1.000,00')], taxRate: '7', withholdingRate: '15', counterpartyTaxId: `${completeCif('B3545678').toLowerCase()}` })
+      validForm({ lines: [line('1.000,00')], counterpartyTaxId: `${completeCif('B3545678').toLowerCase()}` }),
+      DEMO_ISSUER
     )
 
     expect(draft).toMatchObject({
@@ -163,7 +166,7 @@ describe('draftFromForm', () => {
   })
 
   it('nace como borrador sin número, serie ni expedición', () => {
-    expect(draftFromForm(validForm())).toMatchObject({
+    expect(draftFromForm(validForm(), DEMO_ISSUER)).toMatchObject({
       status: 'borrador',
       invoiceNumber: '',
       kind: 'ordinaria',
@@ -174,38 +177,67 @@ describe('draftFromForm', () => {
   })
 
   it('una categoría desconocida se sustituye por la genérica', () => {
-    expect(draftFromForm(validForm({ categoryId: 'otros-servicios' })).categoryId).toBe('servicios')
+    expect(draftFromForm(validForm({ categoryId: 'otros-servicios' }), DEMO_ISSUER).categoryId).toBe('servicios')
   })
 
   it('sin vencimiento se aplica el plazo por defecto de 30 días', () => {
-    expect(draftFromForm(validForm({ issueDate: '2026-05-07', dueDate: '' })).dueDate).toBe('2026-06-06')
+    expect(draftFromForm(validForm({ issueDate: '2026-05-07', dueDate: '' }), DEMO_ISSUER).dueDate).toBe('2026-06-06')
   })
 
   it('con vencimiento se respeta', () => {
-    expect(draftFromForm(validForm({ dueDate: '2026-05-20' })).dueDate).toBe('2026-05-20')
+    expect(draftFromForm(validForm({ dueDate: '2026-05-20' }), DEMO_ISSUER).dueDate).toBe('2026-05-20')
   })
 
   it('sin fecha de cobro queda a null', () => {
-    expect(draftFromForm(validForm()).paymentDate).toBeNull()
+    expect(draftFromForm(validForm(), DEMO_ISSUER).paymentDate).toBeNull()
   })
 })
 
 describe('formFromInvoice', () => {
   it('ida y vuelta: una factura de ejemplo sobrevive a form → borrador', () => {
     for (const invoice of SAMPLE_INVOICES) {
-      const draft = draftFromForm(formFromInvoice(invoice), invoice.source)
+      const draft = draftFromForm(formFromInvoice(invoice), DEMO_ISSUER, invoice.source)
       expect(draft, invoice.invoiceNumber).toMatchObject({
         // El número lo asigna la expedición, no el formulario.
         invoiceNumber: '',
         issueDate: invoice.issueDate,
         dueDate: invoice.dueDate,
         baseCents: invoice.baseCents,
-        taxCents: invoice.taxCents,
-        withholdingCents: invoice.withholdingCents,
-        totalCents: invoice.totalCents,
         paymentDate: invoice.paymentDate,
+        lines: invoice.lines,
       })
     }
+  })
+
+  it('al volver a guardar, impuesto y retención salen de las reglas y no de lo guardado', () => {
+    const sample = { ...SAMPLE_INVOICES[0], taxRate: 3, withholdingRate: 0 }
+    const draft = draftFromForm(formFromInvoice(sample), DEMO_ISSUER)
+    expect(draft).toMatchObject({ regime: 'igic', taxRate: 7, withholdingRate: 15, taxNote: '' })
+    expect(draft.totalCents).toBe(draft.baseCents + draft.taxCents - draft.withholdingCents)
+  })
+})
+
+describe('impuestos del borrador', () => {
+  it('salen de las reglas según el emisor y el cliente', () => {
+    expect(draftFromForm(validForm({ counterpartyKind: 'empresa' }), DEMO_ISSUER)).toMatchObject({
+      regime: 'igic',
+      taxRate: 7,
+      withholdingRate: 15,
+      taxNote: '',
+    })
+    expect(draftFromForm(validForm({ counterpartyKind: 'particular' }), DEMO_ISSUER).withholdingRate).toBe(0)
+  })
+
+  it('un cliente de la península no lleva impuesto y la factura lo explica', () => {
+    const draft = draftFromForm(validForm({ counterpartyTerritory: 'peninsula' }), DEMO_ISSUER)
+    expect(draft).toMatchObject({ taxRate: 0, taxCents: 0 })
+    expect(draft.taxNote).toContain('no sujeta')
+    expect(draft.counterpartyTerritory).toBe('peninsula')
+  })
+
+  it('el territorio y el tipo del cliente vuelven al formulario al editar', () => {
+    const form = formFromInvoice({ ...SAMPLE_INVOICES[0], counterpartyTerritory: 'ue', counterpartyKind: 'autonomo' })
+    expect(form).toMatchObject({ counterpartyTerritory: 'ue', counterpartyKind: 'autonomo' })
   })
 })
 
@@ -236,7 +268,8 @@ describe('líneas de la factura', () => {
 
   it('la base es la suma de cantidad por precio de cada línea y el borrador guarda las líneas', () => {
     const draft = draftFromForm(
-      validForm({ lines: [line('100', { id: 'a', quantity: '2' }), line('10,50', { id: 'b', description: 'Dominio', quantity: '1,5' })] })
+      validForm({ lines: [line('100', { id: 'a', quantity: '2' }), line('10,50', { id: 'b', description: 'Dominio', quantity: '1,5' })] }),
+      DEMO_ISSUER
     )
     expect(draft.lines).toEqual([
       { id: 'a', description: 'Diseño de logotipo', quantity: 2, unitPriceCents: 10000 },

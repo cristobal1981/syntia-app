@@ -137,6 +137,8 @@ export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDoc
         </div>
       </dl>
 
+      {invoice.taxNote ? <p className="mt-4 text-xs text-neutral-600">{invoice.taxNote}</p> : null}
+
       <footer className="mt-12 border-t border-neutral-200 pt-3 text-center text-[11px] text-neutral-500">{copy.footer}</footer>
     </article>
   )

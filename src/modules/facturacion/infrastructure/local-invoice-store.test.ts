@@ -178,4 +178,40 @@ describe('resetInvoicing', () => {
       expect(getInvoicingSnapshot().products).toEqual([])
     })
   })
+
+  describe('guardados antes de existir el territorio y el tipo del cliente', () => {
+    it('una factura sin ellos recibe Canarias y el tipo que sugiere su NIF', () => {
+      const legacy: Record<string, unknown> = { ...makeInvoice({ id: 'a', counterpartyTaxId: 'B35123454' }) }
+      delete legacy.counterpartyTerritory
+      delete legacy.counterpartyKind
+      delete legacy.taxNote
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [legacy] }))
+      expect(getInvoicingSnapshot().invoices[0]).toMatchObject({ counterpartyTerritory: 'canarias', counterpartyKind: 'empresa', taxNote: '' })
+    })
+
+    it('los valores guardados válidos se conservan y los desconocidos se sustituyen', () => {
+      win.data.set(
+        KEY,
+        JSON.stringify({
+          ...initialInvoicingState(),
+          invoices: [makeInvoice({ id: 'a', counterpartyTerritory: 'ue', counterpartyKind: 'autonomo', taxNote: 'Exenta' })],
+        })
+      )
+      expect(getInvoicingSnapshot().invoices[0]).toMatchObject({ counterpartyTerritory: 'ue', counterpartyKind: 'autonomo', taxNote: 'Exenta' })
+
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [{ ...makeInvoice({ id: 'b' }), counterpartyTerritory: 'marte', counterpartyKind: 'dios', taxNote: 5 }] }))
+      expect(getInvoicingSnapshot().invoices[0]).toMatchObject({ counterpartyTerritory: 'canarias', counterpartyKind: 'empresa', taxNote: '' })
+    })
+
+    it('un cliente sin ellos los recibe de su NIF y su domicilio; con ellos, se respetan', () => {
+      const base = initialInvoicingState()
+      const legacy: Record<string, unknown> = { ...base.parties[0], taxId: '12345678Z', postalCode: '28001', province: 'Madrid' }
+      delete legacy.territory
+      delete legacy.kind
+      win.data.set(KEY, JSON.stringify({ ...base, parties: [legacy, { ...base.parties[1], territory: 'ue', kind: 'autonomo' }] }))
+      const [first, second] = getInvoicingSnapshot().parties
+      expect(first).toMatchObject({ territory: 'peninsula', kind: 'particular' })
+      expect(second).toMatchObject({ territory: 'ue', kind: 'autonomo' })
+    })
+  })
 })

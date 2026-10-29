@@ -81,6 +81,29 @@ describe('validateEmission — fecha y orden cronológico', () => {
   })
 })
 
+describe('validateEmission — impuestos fijados por las reglas', () => {
+  it('un impuesto o una retención que no salen de las reglas impiden emitir', () => {
+    expect(codes(draft({ taxRate: 3 }))).toEqual(['tax_mismatch'])
+    expect(codes(draft({ withholdingRate: 15 }))).toEqual(['tax_mismatch'])
+    expect(codes(draft({ regime: 'iva' }))).toEqual(['tax_mismatch'])
+  })
+
+  it('la leyenda también debe coincidir', () => {
+    expect(codes(draft({ counterpartyTerritory: 'peninsula', taxRate: 0, taxNote: '' }))).toEqual(['tax_mismatch'])
+  })
+
+  it('un borrador que sigue las reglas pasa, también cuando no hay impuesto', () => {
+    const note = 'Operación no sujeta a IGIC por las reglas de localización del hecho imponible.'
+    expect(codes(draft({ counterpartyTerritory: 'peninsula', taxRate: 0, taxNote: note }))).toEqual([])
+    expect(codes(draft({ counterpartyKind: 'empresa', withholdingRate: 15 }))).toEqual([])
+  })
+
+  it('una rectificativa hereda los de la original y no se comprueba', () => {
+    const rectificativa = draft({ kind: 'rectificativa', rectifies: 'orig', rectificationReason: 'x', baseCents: -5000, taxRate: 3 })
+    expect(codes(rectificativa, [makeInvoice({ id: 'orig' })])).toEqual([])
+  })
+})
+
 describe('validateEmission — rectificativas', () => {
   const original = makeInvoice({ id: 'orig' })
   const rectificativa = (overrides: Partial<Invoice> = {}) =>

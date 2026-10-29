@@ -61,6 +61,9 @@ function sample(spec: SampleSpec): Invoice {
     counterpartyName: spec.third.name,
     counterpartyTaxId: spec.third.taxId,
     counterpartyAddress: spec.third.address,
+    counterpartyTerritory: 'canarias',
+    counterpartyKind: 'empresa',
+    taxNote: '',
     concept: spec.concept,
     lines: [{ id: `${spec.id}-l1`, description: spec.concept, quantity: 1, unitPriceCents: amounts.baseCents }],
     categoryId: spec.categoryId,
@@ -93,5 +96,5 @@ export const SAMPLE_INVOICES: readonly Invoice[] = [
   sample({ id: 'ejemplo-09', sequence: 4, issueDate: '2026-06-25', third: T.restaurante, concept: 'Carta y señalética', categoryId: 'servicios', baseEuros: 950 }),
   sample({ id: 'ejemplo-11', sequence: 5, issueDate: '2026-09-09', third: T.agencia, concept: 'Campaña de verano', categoryId: 'servicios', baseEuros: 2750, withholdingRate: 15 }),
   sample({ id: 'ejemplo-14', sequence: 6, issueDate: '2026-10-08', third: T.hotel, concept: 'Mantenimiento de marca, 4T', categoryId: 'servicios', baseEuros: 600 }),
-  sample({ id: 'ejemplo-15', draft: true, issueDate: '2026-10-15', third: T.hotel, concept: 'Diseño de la web corporativa', categoryId: 'servicios', baseEuros: 1500 }),
+  sample({ id: 'ejemplo-15', draft: true, issueDate: '2026-10-15', third: T.hotel, concept: 'Diseño de la web corporativa', categoryId: 'servicios', baseEuros: 1500, withholdingRate: 15 }),
 ]

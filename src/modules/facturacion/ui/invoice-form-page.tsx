@@ -31,8 +31,9 @@ import { formatCents, parseAmountToCents } from '@/src/modules/facturacion/domai
 import { emptyParty, formatPartyAddress, type Party } from '@/src/modules/facturacion/domain/party-directory'
 import { normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
-import { DEFAULT_TAX_RATE, taxRatesFor, WITHHOLDING_RATES } from '@/src/modules/facturacion/domain/tax-rates'
-import { PAYMENT_METHODS, type PaymentMethod, type TaxRegime } from '@/src/modules/facturacion/domain/types'
+import { CLIENT_KINDS, clientKindFromTaxId, TERRITORIES, type ClientKind, type Territory } from '@/src/modules/facturacion/domain/tax-profile'
+import { issuerTaxProfile, resolveTax } from '@/src/modules/facturacion/domain/tax-rules'
+import { PAYMENT_METHODS, type PaymentMethod } from '@/src/modules/facturacion/domain/types'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
@@ -55,9 +56,6 @@ function rateLabel(rate: number): string {
   return `${String(rate).replace('.', ',')} %`
 }
 
-function rateOptions(rates: readonly number[]): Record<string, string> {
-  return Object.fromEntries(rates.map((rate) => [String(rate), rateLabel(rate)]))
-}
 
 type InvoiceFormPageProps = { mode: 'new' } | { mode: 'edit'; invoiceId: string }
 
@@ -65,7 +63,7 @@ type InvoiceFormPageProps = { mode: 'new' } | { mode: 'edit'; invoiceId: string 
 export function InvoiceFormPage(props: InvoiceFormPageProps) {
   const router = useRouter()
   const baseId = useId()
-  const { allInvoices, parties, products } = useFacturacion()
+  const { allInvoices, parties, products, issuer } = useFacturacion()
 
   const existing = props.mode === 'edit' ? (allInvoices.find((invoice) => invoice.id === props.invoiceId) ?? null) : null
   const [values, setValues] = useState<InvoiceFormValues>(() => (existing ? formFromInvoice(existing) : emptyInvoiceForm()))
@@ -110,12 +108,6 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
 
   const patch = (partial: Partial<InvoiceFormValues>) => setValues((current) => ({ ...current, ...partial }))
 
-  const changeRegime = (regime: string) => {
-    if (regime !== 'igic' && regime !== 'iva') return
-    const next: TaxRegime = regime
-    patch({ regime: next, taxRate: String(DEFAULT_TAX_RATE[next]) })
-  }
-
   const pickParty = (partyId: string, created?: Party) => {
     const party = created ?? parties.find((candidate) => candidate.id === partyId)
     if (!party) return
@@ -123,6 +115,8 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
       counterpartyName: party.name,
       counterpartyTaxId: party.taxId,
       counterpartyAddress: formatPartyAddress(party),
+      counterpartyTerritory: party.territory,
+      counterpartyKind: party.kind,
       dueDate: values.issueDate ? addDaysIso(values.issueDate, party.paymentTermDays) : values.dueDate,
     })
   }
@@ -162,6 +156,8 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
       name: quickParty.name.trim(),
       taxId: normalizeTaxId(quickParty.taxId),
       address: quickParty.address.trim(),
+      territory: issuerTaxProfile(issuer).territory,
+      kind: clientKindFromTaxId(quickParty.taxId),
     }
     const result = runInvoicingOperation((state, context) => saveParty(state, party, context))
     if (!result.ok) {
@@ -177,11 +173,8 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
   }
 
   const baseCents = formLinesBaseCents(values.lines)
-  const amounts = computeInvoiceAmounts(
-    baseCents,
-    Number(values.taxRate),
-    Number(values.withholdingRate)
-  )
+  const tax = resolveTax(issuerTaxProfile(issuer), { territory: values.counterpartyTerritory, kind: values.counterpartyKind })
+  const amounts = computeInvoiceAmounts(baseCents, tax.taxRate, tax.withholdingRate)
 
   const save = (andEmit: boolean) => {
     if (saving) return
@@ -196,7 +189,7 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
     setEmitIssues([])
     setSaving(true)
 
-    const draft = draftFromForm(values, existing?.source ?? 'manual')
+    const draft = draftFromForm(values, issuer, existing?.source ?? 'manual')
     const saved = runInvoicingOperation((state, context) => saveInvoice(state, draft, context, editingId ?? undefined))
     if (!saved.ok) {
       setSaving(false)
@@ -381,6 +374,27 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             value={values.counterpartyAddress}
             onChange={(counterpartyAddress) => patch({ counterpartyAddress })}
           />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TramiteDrawerSelect
+              id={`${baseId}-territory`}
+              name="counterpartyTerritory"
+              label={fields.territory}
+              placeholder=""
+              value={values.counterpartyTerritory}
+              options={Object.fromEntries(TERRITORIES.map((territory) => [territory, copy.territories[territory]]))}
+              onChange={(territory) => patch({ counterpartyTerritory: territory as Territory })}
+            />
+            <TramiteDrawerSelect
+              id={`${baseId}-kind`}
+              name="counterpartyKind"
+              label={fields.clientKind}
+              placeholder=""
+              value={values.counterpartyKind}
+              options={Object.fromEntries(CLIENT_KINDS.map((kind) => [kind, copy.clientKinds[kind]]))}
+              onChange={(kind) => patch({ counterpartyKind: kind as ClientKind })}
+            />
+          </div>
+          <p className="-mt-2 text-xs text-muted-foreground">{copy.taxRules.clientHint}</p>
           <TramiteDrawerSelect
             id={`${baseId}-category`}
             name="categoryId"
@@ -479,38 +493,14 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
 
         <fieldset className="flex flex-col gap-4 border-0 p-0">
           <legend className="text-sm font-semibold text-foreground">{copy.sections.amounts}</legend>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TramiteDrawerSelect
-              id={`${baseId}-regime`}
-              name="regime"
-              label={fields.regime}
-              placeholder=""
-              value={values.regime}
-              options={copy.regimes}
-              onChange={changeRegime}
-            />
-            <TramiteDrawerSelect
-              id={`${baseId}-rate`}
-              name="taxRate"
-              label={fields.taxRate}
-              placeholder=""
-              value={values.taxRate}
-              options={rateOptions(taxRatesFor(values.regime))}
-              onChange={(taxRate) => patch({ taxRate })}
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TramiteDrawerSelect
-              id={`${baseId}-withholding`}
-              name="withholdingRate"
-              label={fields.withholdingRate}
-              placeholder=""
-              value={values.withholdingRate}
-              options={rateOptions(WITHHOLDING_RATES)}
-              onChange={(withholdingRate) => patch({ withholdingRate })}
-            />
-          </div>
-          <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.withholding}</p>
+          <p className="text-sm text-foreground">
+            {copy.taxRules.summary(
+              copy.regimes[tax.regime],
+              rateLabel(tax.taxRate),
+              tax.withholdingRate > 0 ? rateLabel(tax.withholdingRate) : copy.taxRules.noWithholding
+            )}
+          </p>
+          <p className="-mt-2 text-xs text-muted-foreground">{tax.note || copy.taxRules.hint}</p>
           <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm sm:grid-cols-4">
             <div>
               <dt className="text-muted-foreground">{copy.lines.subtotal}</dt>

@@ -1,3 +1,4 @@
+import type { ClientKind, Territory } from '@/src/modules/facturacion/domain/tax-profile'
 import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
 
 /** Impuesto indirecto: IGIC en Canarias, IVA en el resto. */
@@ -51,6 +52,9 @@ export type Invoice = {
   counterpartyTaxId: string
   /** Domicilio del cliente tal como figura en la factura (obligatorio al expedir). */
   counterpartyAddress: string
+  /** Dónde está establecido el cliente y cómo actúa: de eso salen el impuesto y la retención. */
+  counterpartyTerritory: Territory
+  counterpartyKind: ClientKind
   /** Resumen de las líneas, para listas y búsquedas. */
   concept: string
   lines: InvoiceLine[]
@@ -64,6 +68,8 @@ export type Invoice = {
   /** Porcentaje de retención de IRPF (0 si no hay). */
   withholdingRate: number
   withholdingCents: number
+  /** Leyenda cuando no hay impuesto (no sujeta o exenta); vacía si la operación está sujeta. */
+  taxNote: string
   /** Base + impuesto − retención. */
   totalCents: number
   /** Motivo de una fecha anterior a hoy; vacío si la fecha no es pasada. */

@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { facturacion } from '@/content/facturacion'
 import { formatIsoDateEs } from '@/lib/format/date'
+import { CLIENT_KINDS, TERRITORIES } from '@/src/modules/facturacion/domain/tax-profile'
 import { removeParty, saveParty } from '@/src/modules/facturacion/domain/invoicing-state'
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import {
@@ -16,6 +17,7 @@ import {
   emptyParty,
   findSimilarParties,
   partiesWithStats,
+  suggestedTaxProfile,
   type Party,
 } from '@/src/modules/facturacion/domain/party-directory'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
@@ -24,7 +26,7 @@ import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { LifecyclePills } from '@/src/modules/facturacion/ui/invoice-badges'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
-import { TramiteDrawerField } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
 import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.partyPages
@@ -45,7 +47,23 @@ export function PartyFormPage(props: PartyFormPageProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof Party, string>>>({})
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const patch = (partial: Partial<Party>) => setValues((current) => ({ ...current, ...partial }))
+  // En un cliente nuevo, el NIF y el domicilio sugieren territorio y tipo hasta que se eligen a mano.
+  const [taxProfileTouched, setTaxProfileTouched] = useState(false)
+
+  const patch = (partial: Partial<Party>) =>
+    setValues((current) => {
+      const merged = { ...current, ...partial }
+      const affectsProfile = 'taxId' in partial || 'postalCode' in partial || 'province' in partial
+      if (existing || taxProfileTouched || !affectsProfile) return merged
+      const suggestion = suggestedTaxProfile(merged)
+      const hasAddress = Boolean(merged.postalCode.trim() || merged.province.trim())
+      return { ...merged, kind: suggestion.kind, territory: hasAddress ? suggestion.territory : merged.territory }
+    })
+
+  const pickTaxProfile = (partial: Partial<Pick<Party, 'territory' | 'kind'>>) => {
+    setTaxProfileTouched(true)
+    patch(partial)
+  }
 
   if (props.mode === 'edit' && !existing) {
     return (
@@ -169,6 +187,27 @@ export function PartyFormPage(props: PartyFormPageProps) {
               error={errors.paymentTermDays}
               onChange={(paymentTermDays) => patch({ paymentTermDays: Number(paymentTermDays) })}
             />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TramiteDrawerSelect
+                id={`${baseId}-territory`}
+                name="territory"
+                label={copy.fields.territory}
+                placeholder=""
+                value={values.territory}
+                options={Object.fromEntries(TERRITORIES.map((territory) => [territory, facturacion.editor.territories[territory]]))}
+                onChange={(territory) => pickTaxProfile({ territory: territory as Party['territory'] })}
+              />
+              <TramiteDrawerSelect
+                id={`${baseId}-kind`}
+                name="kind"
+                label={copy.fields.kind}
+                placeholder=""
+                value={values.kind}
+                options={Object.fromEntries(CLIENT_KINDS.map((kind) => [kind, facturacion.editor.clientKinds[kind]]))}
+                onChange={(kind) => pickTaxProfile({ kind: kind as Party['kind'] })}
+              />
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">{facturacion.editor.taxRules.clientHint}</p>
             <TramiteDrawerField id={`${baseId}-notes`} name="notes" label={copy.fields.notes} value={values.notes} onChange={(notes) => patch({ notes })} />
           </fieldset>
 
