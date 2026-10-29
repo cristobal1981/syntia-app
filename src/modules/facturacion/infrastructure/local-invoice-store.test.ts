@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { makeInvoice } from '@/src/modules/facturacion/domain/test-fixtures'
 import { draftFromInvoice } from '@/src/modules/facturacion/domain/compute-invoice'
 import { initialInvoicingState, removeInvoice, saveInvoice, setPaymentDate } from '@/src/modules/facturacion/domain/invoicing-state'
 import {
@@ -125,5 +126,22 @@ describe('resetInvoicing', () => {
     resetInvoicing()
     expect(win.data.has(KEY)).toBe(false)
     expect(getInvoicingSnapshot().events).toEqual([])
+  })
+
+  describe('facturas guardadas antes de existir fecha con motivo y forma de cobro', () => {
+    const stored = (extra: Record<string, unknown>) => {
+      const { dateReason: _a, paymentMethod: _b, ...legacy } = makeInvoice({ id: 'viejo' })
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [{ ...legacy, ...extra }] }))
+      return getInvoicingSnapshot().invoices[0]
+    }
+
+    it('se rellenan con motivo vacío y transferencia', () => {
+      expect(stored({})).toMatchObject({ dateReason: '', paymentMethod: 'transferencia' })
+    })
+
+    it('se conservan los valores válidos y se descartan los desconocidos', () => {
+      expect(stored({ dateReason: 'Entrega', paymentMethod: 'tarjeta' })).toMatchObject({ dateReason: 'Entrega', paymentMethod: 'tarjeta' })
+      expect(stored({ dateReason: 7, paymentMethod: 'bizum' })).toMatchObject({ dateReason: '', paymentMethod: 'transferencia' })
+    })
   })
 })

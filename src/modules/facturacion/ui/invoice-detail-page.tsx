@@ -277,6 +277,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                   <span className="ml-2 text-xs text-destructive">{facturacion.invoices.overdueDays(daysOverdue(invoice, today))}</span>
                 ) : null}
               </Field>
+              <Field label={facturacion.detail.fields.paymentMethod}>
+                {facturacion.editor.paymentMethods[invoice.paymentMethod]}
+              </Field>
+              {invoice.dateReason ? (
+                <Field label={facturacion.detail.fields.dateReason}>{invoice.dateReason}</Field>
+              ) : null}
               <Field label={facturacion.detail.fields.paymentDate}>
                 {invoice.paymentDate ? formatIsoDateEs(invoice.paymentDate) : facturacion.detail.fields.none}
               </Field>

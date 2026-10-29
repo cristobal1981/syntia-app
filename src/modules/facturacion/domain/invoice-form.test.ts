@@ -7,6 +7,7 @@ import {
   validateInvoiceForm,
   type InvoiceFormValues,
 } from '@/src/modules/facturacion/domain/invoice-form'
+import { localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import { completeCif } from '@/src/modules/facturacion/domain/tax-id'
 import { SAMPLE_INVOICES } from '@/src/modules/facturacion/domain/sample-invoices'
 
@@ -14,6 +15,7 @@ function validForm(overrides: Partial<InvoiceFormValues> = {}): InvoiceFormValue
   return {
     ...emptyInvoiceForm(),
     issueDate: '2026-05-07',
+    dateReason: 'Trabajo entregado en mayo',
     counterpartyName: 'Papelería Insular S.L.',
     counterpartyTaxId: completeCif('B3545678'),
     counterpartyAddress: 'Calle Triana, 12, Arrecife',
@@ -28,7 +30,7 @@ describe('validateInvoiceForm', () => {
   })
 
   it('el formulario vacío marca solo los campos obligatorios: el NIF puede esperar y el número lo asigna la expedición', () => {
-    expect(Object.keys(validateInvoiceForm(emptyInvoiceForm())).sort()).toEqual(['base', 'counterpartyName', 'issueDate'].sort())
+    expect(Object.keys(validateInvoiceForm(emptyInvoiceForm())).sort()).toEqual(['base', 'counterpartyName'].sort())
   })
 
   it('rechaza fechas imposibles', () => {
@@ -67,6 +69,42 @@ describe('validateInvoiceForm', () => {
     const wrongControl = `${cif.slice(0, -1)}${(Number(cif.slice(-1)) + 1) % 10}`
     expect(validateInvoiceForm(validForm({ counterpartyTaxId: wrongControl })).counterpartyTaxId).toBe('taxIdInvalid')
     expect(validateInvoiceForm(validForm({ counterpartyTaxId: '12' })).counterpartyTaxId).toBe('taxIdInvalid')
+  })
+})
+
+describe('fecha de la factura', () => {
+  it('por defecto es hoy', () => {
+    expect(emptyInvoiceForm().issueDate).toBe(localIsoDate())
+  })
+
+  it('una fecha anterior a hoy exige motivo; hoy y el futuro no', () => {
+    const today = '2026-06-15'
+    expect(validateInvoiceForm(validForm({ issueDate: '2026-06-14', dateReason: '' }), today).dateReason).toBe('dateReasonRequired')
+    expect(validateInvoiceForm(validForm({ issueDate: '2026-06-14', dateReason: '  ' }), today).dateReason).toBe('dateReasonRequired')
+    expect(validateInvoiceForm(validForm({ issueDate: '2026-06-14', dateReason: 'Entrega' }), today).dateReason).toBeUndefined()
+    expect(validateInvoiceForm(validForm({ issueDate: today, dateReason: '' }), today).dateReason).toBeUndefined()
+  })
+
+  it('el motivo tiene un máximo', () => {
+    expect(validateInvoiceForm(validForm({ dateReason: 'x'.repeat(301) })).dateReason).toBe('tooLong')
+  })
+
+  it('el borrador solo guarda el motivo si la fecha es anterior a hoy', () => {
+    expect(draftFromForm(validForm({ dateReason: ' Entrega ' })).dateReason).toBe('Entrega')
+    expect(draftFromForm(validForm({ issueDate: localIsoDate(), dateReason: 'sobra' })).dateReason).toBe('')
+  })
+})
+
+describe('forma de cobro', () => {
+  it('por defecto transferencia y se conserva en el borrador y al editar', () => {
+    expect(emptyInvoiceForm().paymentMethod).toBe('transferencia')
+    const draft = draftFromForm(validForm({ paymentMethod: 'tarjeta' }))
+    expect(draft.paymentMethod).toBe('tarjeta')
+    expect(formFromInvoice({ ...SAMPLE_INVOICES[0], paymentMethod: 'contado' }).paymentMethod).toBe('contado')
+  })
+
+  it('un valor desconocido vuelve a transferencia', () => {
+    expect(draftFromForm(validForm({ paymentMethod: 'bizum' as never })).paymentMethod).toBe('transferencia')
   })
 })
 

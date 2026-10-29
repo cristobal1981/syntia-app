@@ -69,6 +69,8 @@ function sample(spec: SampleSpec): Invoice {
     review: spec.review ?? 'pendiente',
     rectifies: spec.rectifies ?? null,
     rectificationReason: spec.rectificationReason ?? '',
+    dateReason: '',
+    paymentMethod: 'transferencia',
     issuedAt: issued ? `${spec.issueDate}T10:00:00.000Z` : null,
     issuer: issued ? DEMO_ISSUER : null,
     source: 'ejemplo',

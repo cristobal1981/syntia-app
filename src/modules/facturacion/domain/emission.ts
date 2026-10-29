@@ -13,6 +13,7 @@ type EmissionIssueCode =
   | 'concept'
   | 'amount'
   | 'date_in_future'
+  | 'date_reason_missing'
   | 'date_before_previous'
   | 'rectified_missing'
   | 'rectification_reason'
@@ -44,6 +45,9 @@ export function validateEmission(
   if (!validAmount) issues.push({ code: 'amount', field: 'base' })
 
   if (invoice.issueDate > today) issues.push({ code: 'date_in_future', field: 'issueDate' })
+  if (invoice.kind === 'ordinaria' && invoice.issueDate < today && !invoice.dateReason.trim()) {
+    issues.push({ code: 'date_reason_missing', field: 'dateReason' })
+  }
   const series = INVOICE_SERIES[invoice.kind]
   const previous = lastIssueDate(all, series)
   if (previous && invoice.issueDate < previous) issues.push({ code: 'date_before_previous', field: 'issueDate' })

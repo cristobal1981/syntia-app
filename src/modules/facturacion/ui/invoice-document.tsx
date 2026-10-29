@@ -48,6 +48,8 @@ export function InvoiceDocument({ invoice, currentIssuer, original }: InvoiceDoc
             <>
               <dt className="mt-2 text-neutral-500">{copy.due}</dt>
               <dd className="font-medium">{formatIsoDateEs(invoice.dueDate)}</dd>
+              <dt className="mt-2 text-neutral-500">{copy.paymentMethod}</dt>
+              <dd className="font-medium">{facturacion.editor.paymentMethods[invoice.paymentMethod]}</dd>
             </>
           ) : null}
         </dl>

@@ -8,6 +8,13 @@ export type InvoiceReviewStatus = 'pendiente' | 'revisada'
 
 export type InvoiceSource = 'manual' | 'ejemplo'
 
+/** Forma de cobro que figura en la factura. */
+export type PaymentMethod = 'transferencia' | 'contado' | 'tarjeta' | 'domiciliacion'
+
+export const PAYMENT_METHODS: readonly PaymentMethod[] = ['transferencia', 'contado', 'tarjeta', 'domiciliacion']
+
+export const DEFAULT_PAYMENT_METHOD: PaymentMethod = 'transferencia'
+
 /** Factura ordinaria o rectificativa de otra ya expedida (art. 15 del Reglamento de facturación). */
 export type InvoiceKind = 'ordinaria' | 'rectificativa'
 
@@ -48,6 +55,9 @@ export type Invoice = {
   withholdingCents: number
   /** Base + impuesto − retención. */
   totalCents: number
+  /** Motivo de una fecha anterior a hoy; vacío si la fecha no es pasada. */
+  dateReason: string
+  paymentMethod: PaymentMethod
   /** Fecha de cobro; `null` si sigue pendiente. */
   paymentDate: string | null
   review: InvoiceReviewStatus

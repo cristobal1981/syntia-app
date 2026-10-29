@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { facturacion } from '@/content/facturacion'
 import { categories } from '@/src/modules/facturacion/domain/categories'
 import { computeInvoiceAmounts } from '@/src/modules/facturacion/domain/compute-invoice'
-import { addDaysIso } from '@/src/modules/facturacion/domain/dates'
+import { addDaysIso, localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import type { EmissionIssue } from '@/src/modules/facturacion/domain/emission'
 import {
   draftFromForm,
@@ -20,12 +20,13 @@ import {
   type InvoiceFormValues,
 } from '@/src/modules/facturacion/domain/invoice-form'
 import { isLocked } from '@/src/modules/facturacion/domain/invoice-rules'
-import { emitDraft, saveInvoice } from '@/src/modules/facturacion/domain/invoicing-state'
+import { emitDraft, saveInvoice, saveParty } from '@/src/modules/facturacion/domain/invoicing-state'
 import { formatCents, parseAmountToCents } from '@/src/modules/facturacion/domain/money'
-import { formatPartyAddress } from '@/src/modules/facturacion/domain/party-directory'
+import { emptyParty, formatPartyAddress, type Party } from '@/src/modules/facturacion/domain/party-directory'
+import { normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { DEFAULT_TAX_RATE, taxRatesFor, WITHHOLDING_RATES } from '@/src/modules/facturacion/domain/tax-rates'
-import type { TaxRegime } from '@/src/modules/facturacion/domain/types'
+import { PAYMENT_METHODS, type PaymentMethod, type TaxRegime } from '@/src/modules/facturacion/domain/types'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
@@ -57,6 +58,8 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [emitIssues, setEmitIssues] = useState<EmissionIssue[]>([])
+  const [quickParty, setQuickParty] = useState<{ name: string; taxId: string; address: string } | null>(null)
+  const [quickErrors, setQuickErrors] = useState<Partial<Record<keyof Party, string>>>({})
 
   if (props.mode === 'edit' && !existing) {
     return (
@@ -97,8 +100,8 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
     patch({ regime: next, taxRate: String(DEFAULT_TAX_RATE[next]) })
   }
 
-  const pickParty = (partyId: string) => {
-    const party = parties.find((candidate) => candidate.id === partyId)
+  const pickParty = (partyId: string, created?: Party) => {
+    const party = created ?? parties.find((candidate) => candidate.id === partyId)
     if (!party) return
     patch({
       counterpartyName: party.name,
@@ -106,6 +109,28 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
       counterpartyAddress: formatPartyAddress(party),
       dueDate: values.issueDate ? addDaysIso(values.issueDate, party.paymentTermDays) : values.dueDate,
     })
+  }
+
+  const createQuickParty = () => {
+    if (!quickParty) return
+    const party: Party = {
+      ...emptyParty(),
+      id: `tercero-${Date.now().toString(36)}`,
+      name: quickParty.name.trim(),
+      taxId: normalizeTaxId(quickParty.taxId),
+      address: quickParty.address.trim(),
+    }
+    const result = runInvoicingOperation((state, context) => saveParty(state, party, context))
+    if (!result.ok) {
+      setQuickErrors(
+        Object.fromEntries(Object.entries(result.errors).map(([field, key]) => [field, facturacion.partyPages.errors[key]]))
+      )
+      return
+    }
+    setQuickErrors({})
+    setQuickParty(null)
+    pickParty(party.id, party)
+    toast.success(pageCopy.quickParty.created)
   }
 
   const amounts = computeInvoiceAmounts(
@@ -197,6 +222,20 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             required
             onChange={(issueDate) => patch({ issueDate })}
           />
+          {values.issueDate && values.issueDate < localIsoDate() ? (
+            <>
+              <TramiteDrawerField
+                id={`${baseId}-date-reason`}
+                name="dateReason"
+                label={fields.dateReason}
+                value={values.dateReason}
+                error={errors.dateReason}
+                required
+                onChange={(dateReason) => patch({ dateReason })}
+              />
+              <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.dateReason}</p>
+            </>
+          ) : null}
         </fieldset>
 
         <fieldset className="flex flex-col gap-4 border-0 p-0">
@@ -211,6 +250,65 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             onChange={pickParty}
           />
           <p className="-mt-2 text-xs text-muted-foreground">{pageCopy.pickPartyHint}</p>
+          {quickParty ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 dark:border-border/60">
+              <p className="text-sm font-medium text-foreground">{pageCopy.quickParty.title}</p>
+              <p className="-mt-2 text-xs text-muted-foreground">{pageCopy.quickParty.hint}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TramiteDrawerField
+                  id={`${baseId}-quick-name`}
+                  name="quickName"
+                  label={pageCopy.quickParty.name}
+                  value={quickParty.name}
+                  error={quickErrors.name}
+                  required
+                  onChange={(name) => setQuickParty({ ...quickParty, name })}
+                />
+                <TramiteDrawerField
+                  id={`${baseId}-quick-taxid`}
+                  name="quickTaxId"
+                  label={pageCopy.quickParty.taxId}
+                  value={quickParty.taxId}
+                  error={quickErrors.taxId}
+                  required
+                  onChange={(taxId) => setQuickParty({ ...quickParty, taxId })}
+                />
+              </div>
+              <TramiteDrawerField
+                id={`${baseId}-quick-address`}
+                name="quickAddress"
+                label={pageCopy.quickParty.address}
+                value={quickParty.address}
+                error={quickErrors.address}
+                onChange={(address) => setQuickParty({ ...quickParty, address })}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setQuickParty(null)
+                    setQuickErrors({})
+                  }}
+                >
+                  {pageCopy.quickParty.cancel}
+                </Button>
+                <Button type="button" onClick={createQuickParty}>
+                  {pageCopy.quickParty.save}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => setQuickParty({ name: '', taxId: '', address: '' })}
+            >
+              {pageCopy.quickParty.open}
+            </Button>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <TramiteDrawerField
               id={`${baseId}-name`}
@@ -316,6 +414,15 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
 
         <fieldset className="flex flex-col gap-4 border-0 p-0">
           <legend className="text-sm font-semibold text-foreground">{copy.sections.payment}</legend>
+          <TramiteDrawerSelect
+            id={`${baseId}-method`}
+            name="paymentMethod"
+            label={fields.paymentMethod}
+            placeholder=""
+            value={values.paymentMethod}
+            options={Object.fromEntries(PAYMENT_METHODS.map((method) => [method, copy.paymentMethods[method]]))}
+            onChange={(method) => patch({ paymentMethod: method as PaymentMethod })}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <TramiteDrawerField
               id={`${baseId}-due`}

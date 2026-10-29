@@ -62,13 +62,22 @@ describe('validateEmission — fecha y orden cronológico', () => {
 
   it('no puede ser anterior a la última factura expedida de la serie', () => {
     const previous = makeInvoice({ issueDate: '2026-06-10' })
-    expect(codes(draft({ issueDate: '2026-06-09' }), [previous])).toEqual(['date_before_previous'])
-    expect(codes(draft({ issueDate: '2026-06-10' }), [previous])).toEqual([])
+    expect(codes(draft({ issueDate: '2026-06-09', dateReason: 'Trabajo de junio' }), [previous])).toEqual([
+      'date_before_previous',
+    ])
+    expect(codes(draft({ issueDate: '2026-06-10', dateReason: 'Trabajo de junio' }), [previous])).toEqual([])
   })
 
   it('la fecha de otra serie no condiciona', () => {
     const rectificativa = makeInvoice({ id: 'r', series: 'R', kind: 'rectificativa', issueDate: '2026-06-14' })
-    expect(codes(draft({ issueDate: '2026-06-01' }), [rectificativa])).toEqual([])
+    expect(codes(draft({ issueDate: '2026-06-01', dateReason: 'Trabajo de junio' }), [rectificativa])).toEqual([])
+  })
+
+  it('una fecha anterior a hoy exige motivo; la de hoy no', () => {
+    expect(codes(draft({ issueDate: '2026-06-14' }))).toEqual(['date_reason_missing'])
+    expect(codes(draft({ issueDate: '2026-06-14', dateReason: '   ' }))).toEqual(['date_reason_missing'])
+    expect(codes(draft({ issueDate: '2026-06-14', dateReason: 'Entrega del día 14' }))).toEqual([])
+    expect(codes(draft({ issueDate: TODAY }))).toEqual([])
   })
 })
 
@@ -137,7 +146,7 @@ describe('emitInvoice', () => {
   })
 
   it('el número usa el año de la fecha de la factura', () => {
-    const previousYear = emitInvoice(draft({ issueDate: '2025-12-31' }), DEMO_ISSUER, [], NOW)
+    const previousYear = emitInvoice(draft({ issueDate: '2025-12-31', dateReason: 'Trabajo de diciembre' }), DEMO_ISSUER, [], NOW)
     expect(previousYear.ok && previousYear.invoice.invoiceNumber).toBe('F-2025-0001')
   })
 

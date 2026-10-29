@@ -1,5 +1,5 @@
 import { initialInvoicingState, type InvoicingState, type OperationContext } from '@/src/modules/facturacion/domain/invoicing-state'
-import type { Invoice } from '@/src/modules/facturacion/domain/types'
+import { DEFAULT_PAYMENT_METHOD, PAYMENT_METHODS, type Invoice } from '@/src/modules/facturacion/domain/types'
 
 /**
  * Almacén MOCK de facturación: todo el estado vive en el `localStorage` de este
@@ -27,6 +27,17 @@ function isInvoice(value: unknown): value is Invoice {
   )
 }
 
+/** Facturas guardadas antes de existir estos campos: se rellenan con sus valores por defecto. */
+function withNewerFields(invoice: Invoice): Invoice {
+  const stored = invoice as Partial<Invoice>
+  return {
+    ...invoice,
+    dateReason: typeof stored.dateReason === 'string' ? stored.dateReason : '',
+    paymentMethod:
+      stored.paymentMethod && PAYMENT_METHODS.includes(stored.paymentMethod) ? stored.paymentMethod : DEFAULT_PAYMENT_METHOD,
+  }
+}
+
 function parseState(raw: string): InvoicingState | null {
   try {
     const parsed: unknown = JSON.parse(raw)
@@ -36,7 +47,7 @@ function parseState(raw: string): InvoicingState | null {
     if (typeof value.issuer !== 'object' || value.issuer === null) return null
 
     return {
-      invoices: value.invoices.filter(isInvoice),
+      invoices: value.invoices.filter(isInvoice).map(withNewerFields),
       parties: value.parties as InvoicingState['parties'],
       issuer: value.issuer as InvoicingState['issuer'],
       events: value.events as InvoicingState['events'],

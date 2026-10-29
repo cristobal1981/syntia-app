@@ -24,6 +24,8 @@ export function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     review: 'pendiente',
     rectifies: null,
     rectificationReason: '',
+    dateReason: '',
+    paymentMethod: 'transferencia',
     issuedAt: '2026-01-10T10:00:00.000Z',
     issuer: DEMO_ISSUER,
     source: 'manual',

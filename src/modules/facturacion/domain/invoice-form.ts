@@ -1,4 +1,4 @@
-import { addDaysIso } from '@/src/modules/facturacion/domain/dates'
+import { addDaysIso, localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import { DEFAULT_PAYMENT_TERM_DAYS } from '@/src/modules/facturacion/domain/payment-status'
 import { computeInvoiceAmounts } from '@/src/modules/facturacion/domain/compute-invoice'
 import { isValidTaxId, normalizeTaxId } from '@/src/modules/facturacion/domain/tax-id'
@@ -6,17 +6,22 @@ import { DEFAULT_CATEGORY_ID, getCategory } from '@/src/modules/facturacion/doma
 import { parseAmountToCents } from '@/src/modules/facturacion/domain/money'
 import { isValidIsoDate } from '@/lib/validation'
 import { DEFAULT_TAX_RATE } from '@/src/modules/facturacion/domain/tax-rates'
-import type {
-  Invoice,
+import {
+  DEFAULT_PAYMENT_METHOD,
+  PAYMENT_METHODS,
+  type Invoice,
   InvoiceDraft,
   InvoiceReviewStatus,
   InvoiceSource,
+  PaymentMethod,
   TaxRegime,
 } from '@/src/modules/facturacion/domain/types'
 
 /** Valores del formulario de factura: todo texto, tal como lo escribe la persona. */
 export type InvoiceFormValues = {
   issueDate: string
+  /** Obligatorio si la fecha es anterior a hoy. */
+  dateReason: string
   /** Vacío: se usa el plazo por defecto (30 días). */
   dueDate: string
   counterpartyName: string
@@ -29,6 +34,7 @@ export type InvoiceFormValues = {
   base: string
   taxRate: string
   withholdingRate: string
+  paymentMethod: PaymentMethod
   paymentDate: string
   review: InvoiceReviewStatus
 }
@@ -41,6 +47,7 @@ const MAX_CONCEPT_LENGTH = 300
 
 export type InvoiceFormErrorKey =
   | 'issueDateInvalid'
+  | 'dateReasonRequired'
   | 'dueDateInvalid'
   | 'dueBeforeIssue'
   | 'counterpartyRequired'
@@ -53,7 +60,8 @@ export type InvoiceFormErrorKey =
 
 export function emptyInvoiceForm(): InvoiceFormValues {
   return {
-    issueDate: '',
+    issueDate: localIsoDate(),
+    dateReason: '',
     dueDate: '',
     counterpartyName: '',
     counterpartyTaxId: '',
@@ -64,6 +72,7 @@ export function emptyInvoiceForm(): InvoiceFormValues {
     base: '',
     taxRate: String(DEFAULT_TAX_RATE.igic),
     withholdingRate: '0',
+    paymentMethod: DEFAULT_PAYMENT_METHOD,
     paymentDate: '',
     review: 'pendiente',
   }
@@ -76,6 +85,7 @@ function centsToInput(cents: number): string {
 export function formFromInvoice(invoice: Invoice): InvoiceFormValues {
   return {
     issueDate: invoice.issueDate,
+    dateReason: invoice.dateReason,
     dueDate: invoice.dueDate,
     counterpartyName: invoice.counterpartyName,
     counterpartyTaxId: invoice.counterpartyTaxId,
@@ -86,16 +96,22 @@ export function formFromInvoice(invoice: Invoice): InvoiceFormValues {
     base: centsToInput(invoice.baseCents),
     taxRate: String(invoice.taxRate),
     withholdingRate: String(invoice.withholdingRate),
+    paymentMethod: invoice.paymentMethod,
     paymentDate: invoice.paymentDate ?? '',
     review: invoice.review,
   }
 }
 
-export function validateInvoiceForm(values: InvoiceFormValues): Partial<Record<keyof InvoiceFormValues, InvoiceFormErrorKey>> {
+export function validateInvoiceForm(
+  values: InvoiceFormValues,
+  today: string = localIsoDate()
+): Partial<Record<keyof InvoiceFormValues, InvoiceFormErrorKey>> {
   const errors: Partial<Record<keyof InvoiceFormValues, InvoiceFormErrorKey>> = {}
 
   // El número lo asigna la aplicación al expedir la factura.
   if (!isValidIsoDate(values.issueDate)) errors.issueDate = 'issueDateInvalid'
+  else if (values.issueDate < today && !values.dateReason.trim()) errors.dateReason = 'dateReasonRequired'
+  if (values.dateReason.trim().length > MAX_CONCEPT_LENGTH) errors.dateReason = 'tooLong'
   if (values.dueDate) {
     if (!isValidIsoDate(values.dueDate)) errors.dueDate = 'dueDateInvalid'
     else if (!errors.issueDate && values.dueDate < values.issueDate) errors.dueDate = 'dueBeforeIssue'
@@ -134,6 +150,7 @@ export function draftFromForm(values: InvoiceFormValues, source: InvoiceSource =
     series: '',
     sequence: null,
     issueDate: values.issueDate,
+    dateReason: values.issueDate < localIsoDate() ? values.dateReason.trim() : '',
     dueDate: values.dueDate || addDaysIso(values.issueDate, DEFAULT_PAYMENT_TERM_DAYS),
     counterpartyName: values.counterpartyName.trim(),
     counterpartyTaxId: normalizeTaxId(values.counterpartyTaxId),
@@ -142,6 +159,7 @@ export function draftFromForm(values: InvoiceFormValues, source: InvoiceSource =
     categoryId: category.id,
     regime: values.regime,
     ...computeInvoiceAmounts(baseCents, Number(values.taxRate), Number(values.withholdingRate)),
+    paymentMethod: PAYMENT_METHODS.includes(values.paymentMethod) ? values.paymentMethod : DEFAULT_PAYMENT_METHOD,
     paymentDate: values.paymentDate || null,
     review: values.review,
     rectifies: null,

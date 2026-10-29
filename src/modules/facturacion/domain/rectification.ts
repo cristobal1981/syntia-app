@@ -96,6 +96,8 @@ export function buildRectificationDraft(original: Invoice, all: Invoice[], input
     review: 'pendiente',
     rectifies: original.id,
     rectificationReason: input.reason.trim(),
+    dateReason: '',
+    paymentMethod: original.paymentMethod,
     issuedAt: null,
     issuer: null,
     source: 'manual',
