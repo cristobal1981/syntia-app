@@ -77,9 +77,33 @@ describe('lista de facturas', () => {
     }
   })
 
-  it('resume lo filtrado: número de facturas, facturado y pendiente de cobro', () => {
+  it('resume lo filtrado en tres cifras: facturado, pendiente de cobro y vencido, cada una con su recuento', () => {
     const plain = text(html)
-    expect(plain).toMatch(/\d+ facturas · Facturado [\d.,]+ € · Pendiente de cobro [\d.,]+ €/)
+    expect(plain).toMatch(/Facturado [\d.,]+ € 8 facturas/)
+    expect(plain).toMatch(/Pendiente de cobro [\d.,]+ € \d+ sin cobrar/)
+    expect(plain).toMatch(/Vencido [\d.,]+ € \d+ vencidas?/)
+  })
+
+  it('el vencido no cuenta las correcciones y sale en rojo si hay algo', () => {
+    expect(html).toContain('text-destructive">')
+    expect(text(html)).not.toMatch(/Vencido [\d.,]*-/)
+  })
+
+  it('las correcciones no cuentan como vencidas en los filtros: solo se ven en «Todas»', () => {
+    const plain = text(html)
+    // Vencidas: F-2026-0005 y F-2026-0004; no R-2026-0001.
+    expect(plain).toMatch(/Vencidas 2/)
+    expect(plain).toMatch(/Pendientes 1/)
+    expect(plain).toMatch(/Cobradas 3/)
+    expect(plain).toMatch(/Todas 8/)
+  })
+
+  it('los filtros de estado dicen cuántas facturas enseñan', () => {
+    const plain = text(html)
+    expect(plain).toMatch(/Todas 8/)
+    expect(plain).toMatch(/Pendientes \d+/)
+    expect(plain).toMatch(/Vencidas \d+/)
+    expect(plain).toMatch(/Cobradas \d+/)
   })
 
   it('el vencimiento va bajo la fecha y no hay columna de acciones', () => {
@@ -108,8 +132,8 @@ describe('lista de facturas', () => {
   })
 
   it('móvil primero: los filtros de estado hacen scroll en una línea y desde sm pasan a la fila con el buscador', () => {
-    expect(html).toContain('flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible')
-    expect(html).toContain('flex flex-col gap-3 sm:flex-row sm:flex-wrap')
+    expect(html).toContain('overflow-x-auto')
+    expect(html).toContain('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between')
   })
 
   it('el buscador es táctil en móvil: alto de 44 px y 16 px de letra para que iOS no haga zoom', () => {
@@ -434,12 +458,12 @@ describe('datos fiscales y panel', () => {
     expect(plain).toContain('No incluye Veri*factu')
   })
 
-  it('el panel abre con lo pendiente de cobro y las vencidas, antes que el gráfico y la revisión', () => {
+  it('el panel abre con lo pendiente de cobro y las vencidas, junto a la revisión, antes que el gráfico', () => {
     const plain = text(render('/facturacion/panel', createElement(PanelSection)))
     expect(plain.indexOf('Pendiente de cobro')).toBeGreaterThanOrEqual(0)
     expect(plain.indexOf('Facturas vencidas')).toBeGreaterThan(plain.indexOf('Pendiente de cobro'))
-    expect(plain.indexOf('Facturado por mes')).toBeGreaterThan(plain.indexOf('Facturas vencidas'))
-    expect(plain.indexOf('Revisión de tus facturas')).toBeGreaterThan(plain.indexOf('Facturado por mes'))
+    expect(plain.indexOf('Revisión de tus facturas')).toBeGreaterThan(plain.indexOf('Pendiente de cobro'))
+    expect(plain.indexOf('Facturado por mes')).toBeGreaterThan(plain.indexOf('Revisión de tus facturas'))
   })
 
   it('la revisión de las facturas se despliega sola si hay algo que atender y se pliega si todo está bien', () => {
@@ -532,7 +556,7 @@ describe('filtro de periodo fijo', () => {
   it('la lista agrupa los filtros de estado y el buscador en una sola fila de herramientas', () => {
     const html = render('/facturacion/facturas', createElement(InvoicesSection))
     expect(html).toMatch(/aria-pressed="true"[^]*type="search"/)
-    expect(html).toContain('sm:ml-auto')
+    expect(html).toContain('sm:justify-between')
   })
 
   it('Clientes y Datos fiscales no tienen filtro de periodo', () => {

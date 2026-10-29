@@ -268,20 +268,40 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
         ) : null}
 
         <FormSection title={copy.sections.identification}>
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <p className="-mt-2 flex items-center gap-2 text-xs text-muted-foreground">
             <Lock className="size-3.5 shrink-0" aria-hidden />
             {pageCopy.lockedFields}
           </p>
-          <TramiteDrawerField
-            id={`${baseId}-date`}
-            name="issueDate"
-            type="date"
-            label={fields.issueDate}
-            value={values.issueDate}
-            error={errors.issueDate}
-            required
-            onChange={(issueDate) => patch({ issueDate })}
-          />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <TramiteDrawerField
+              id={`${baseId}-date`}
+              name="issueDate"
+              type="date"
+              label={fields.issueDate}
+              value={values.issueDate}
+              error={errors.issueDate}
+              required
+              onChange={(issueDate) => patch({ issueDate })}
+            />
+            <TramiteDrawerField
+              id={`${baseId}-due`}
+              name="dueDate"
+              type="date"
+              label={fields.dueDate}
+              value={values.dueDate}
+              error={errors.dueDate}
+              onChange={(dueDate) => patch({ dueDate })}
+            />
+            <TramiteDrawerSelect
+              id={`${baseId}-method`}
+              name="paymentMethod"
+              label={fields.paymentMethod}
+              placeholder=""
+              value={values.paymentMethod}
+              options={Object.fromEntries(PAYMENT_METHODS.map((method) => [method, copy.paymentMethods[method]]))}
+              onChange={(method) => patch({ paymentMethod: method as PaymentMethod })}
+            />
+          </div>
           {values.issueDate && values.issueDate < localIsoDate() ? (
             <>
               <TramiteDrawerField
@@ -296,18 +316,48 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
               <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.dateReason}</p>
             </>
           ) : null}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <TramiteDrawerSelect
+              id={`${baseId}-category`}
+              name="categoryId"
+              label={fields.category}
+              placeholder=""
+              value={values.categoryId}
+              options={Object.fromEntries(categories().map((category) => [category.id, category.label]))}
+              onChange={(categoryId) => patch({ categoryId })}
+            />
+            <TramiteDrawerField
+              id={`${baseId}-payment`}
+              name="paymentDate"
+              type="date"
+              label={fields.paymentDate}
+              value={values.paymentDate}
+              error={errors.paymentDate}
+              onChange={(paymentDate) => patch({ paymentDate })}
+            />
+          </div>
+          <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.dueDate} {copy.hints.paymentDate}</p>
         </FormSection>
 
         <FormSection title={copy.sections.counterparty}>
-          <TramiteDrawerSelect
-            id={`${baseId}-party`}
-            name="party"
-            label={pageCopy.pickParty}
-            placeholder={pageCopy.pickPartyPlaceholder}
-            value=""
-            options={Object.fromEntries(parties.map((party) => [party.id, party.name]))}
-            onChange={pickParty}
-          />
+          <div className="flex flex-wrap items-end gap-3">
+            <TramiteDrawerSelect
+              id={`${baseId}-party`}
+              name="party"
+              label={pageCopy.pickParty}
+              placeholder={pageCopy.pickPartyPlaceholder}
+              value=""
+              className="min-w-0 flex-1 basis-64"
+              options={Object.fromEntries(parties.map((party) => [party.id, party.name]))}
+              onChange={pickParty}
+            />
+            {quickParty ? null : (
+              <Button type="button" variant="outline" className="h-10" onClick={() => setQuickParty({ name: '', taxId: '', address: '' })}>
+                <Plus aria-hidden />
+                {pageCopy.quickParty.open}
+              </Button>
+            )}
+          </div>
           <p className="-mt-2 text-xs text-muted-foreground">{pageCopy.pickPartyHint}</p>
           {quickParty ? (
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 dark:border-border/60">
@@ -357,17 +407,7 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
                 </Button>
               </div>
             </div>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => setQuickParty({ name: '', taxId: '', address: '' })}
-            >
-              {pageCopy.quickParty.open}
-            </Button>
-          )}
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <TramiteDrawerField
               id={`${baseId}-name`}
@@ -415,29 +455,9 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             />
           </div>
           <p className="-mt-2 text-xs text-muted-foreground">{copy.taxRules.clientHint}</p>
-          <TramiteDrawerSelect
-            id={`${baseId}-category`}
-            name="categoryId"
-            label={fields.category}
-            placeholder=""
-            value={values.categoryId}
-            options={Object.fromEntries(categories().map((category) => [category.id, category.label]))}
-            onChange={(categoryId) => patch({ categoryId })}
-          />
         </FormSection>
 
         <FormSection title={copy.sections.lines}>
-          {products.length > 0 ? (
-            <TramiteDrawerSelect
-              id={`${baseId}-product`}
-              name="product"
-              label={copy.lines.pickProduct}
-              placeholder={copy.lines.pickProductPlaceholder}
-              value=""
-              options={Object.fromEntries(products.map((product) => [product.id, product.name]))}
-              onChange={addProductLine}
-            />
-          ) : null}
           <div className="hidden grid-cols-[minmax(0,1fr)_5.5rem_8rem_7rem_2.5rem] gap-3 text-sm font-medium text-foreground sm:grid" aria-hidden>
             <span>{copy.lines.description}</span>
             <span>{copy.lines.quantity}</span>
@@ -511,44 +531,26 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
               {errors.lines}
             </p>
           ) : null}
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addBlankLine}>
-            <Plus aria-hidden />
-            {copy.lines.add}
-          </Button>
-          <p className="-mt-2 text-xs text-muted-foreground">{copy.lines.hint}</p>
-        </FormSection>
-
-        <FormSection title={copy.sections.payment}>
-          <TramiteDrawerSelect
-            id={`${baseId}-method`}
-            name="paymentMethod"
-            label={fields.paymentMethod}
-            placeholder=""
-            value={values.paymentMethod}
-            options={Object.fromEntries(PAYMENT_METHODS.map((method) => [method, copy.paymentMethods[method]]))}
-            onChange={(method) => patch({ paymentMethod: method as PaymentMethod })}
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TramiteDrawerField
-              id={`${baseId}-due`}
-              name="dueDate"
-              type="date"
-              label={fields.dueDate}
-              value={values.dueDate}
-              error={errors.dueDate}
-              onChange={(dueDate) => patch({ dueDate })}
-            />
-            <TramiteDrawerField
-              id={`${baseId}-payment`}
-              name="paymentDate"
-              type="date"
-              label={fields.paymentDate}
-              value={values.paymentDate}
-              error={errors.paymentDate}
-              onChange={(paymentDate) => patch({ paymentDate })}
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" onClick={addBlankLine}>
+              <Plus aria-hidden />
+              {copy.lines.add}
+            </Button>
+            {products.length > 0 ? (
+              <TramiteDrawerSelect
+                id={`${baseId}-product`}
+                name="product"
+                label={copy.lines.pickProduct}
+                labelClassName="sr-only"
+                placeholder={copy.lines.pickProductPlaceholder}
+                value=""
+                className="w-full sm:w-72"
+                options={Object.fromEntries(products.map((product) => [product.id, product.name]))}
+                onChange={addProductLine}
+              />
+            ) : null}
           </div>
-          <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.dueDate} {copy.hints.paymentDate}</p>
+          <p className="-mt-2 text-xs text-muted-foreground">{copy.lines.hint}</p>
         </FormSection>
 
         </div>

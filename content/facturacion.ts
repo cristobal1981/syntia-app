@@ -104,10 +104,10 @@ export const facturacion = {
   invoices: {
     searchPlaceholder: 'Buscar por cliente, número o concepto',
     searchLabel: 'Buscar facturas',
-    statusFilters: { all: 'Cualquier estado', pendiente: 'Pendientes', vencida: 'Vencidas', pagada: 'Pagadas' },
+    statusLabel: 'Estado de cobro',
+    statusFilters: { all: 'Todas', pendiente: 'Pendientes', vencida: 'Vencidas', pagada: 'Cobradas' },
     columns: {
-      date: 'Fecha',
-      number: 'Número',
+      due: 'Vencimiento',
       counterparty: 'Cliente',
       total: 'Total',
       status: 'Estado',
@@ -120,6 +120,9 @@ export const facturacion = {
       count: (count: number) => (count === 1 ? '1 factura' : `${count} facturas`),
       billed: 'Facturado',
       pending: 'Pendiente de cobro',
+      overdue: 'Vencido',
+      pendingCount: (count: number) => (count === 1 ? '1 sin cobrar' : `${count} sin cobrar`),
+      overdueCount: (count: number) => (count === 1 ? '1 vencida' : `${count} vencidas`),
     },
     empty: {
       title: 'Todavía no hay facturas en este periodo',

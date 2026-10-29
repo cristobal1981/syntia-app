@@ -49,7 +49,7 @@ function TramiteFieldLabel({
   children: React.ReactNode
 }) {
   return (
-    <label htmlFor={htmlFor} className={cn('text-sm font-medium text-foreground', className)}>
+    <label htmlFor={htmlFor} className={cn('text-sm leading-5 font-medium text-foreground', className)}>
       {children}
       {required ? <TramiteRequiredMark /> : null}
     </label>
@@ -126,6 +126,7 @@ export function TramiteDrawerSelect({
   required,
   options,
   className,
+  labelClassName,
   onChange,
 }: {
   id: string
@@ -138,13 +139,14 @@ export function TramiteDrawerSelect({
   required?: boolean
   options: Record<string, string>
   className?: string
+  labelClassName?: string
   onChange: (value: string) => void
 }) {
   const errorId = error ? `${id}-error` : undefined
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <TramiteFieldLabel htmlFor={id} required={required}>
+      <TramiteFieldLabel htmlFor={id} required={required} className={labelClassName}>
         {label}
       </TramiteFieldLabel>
       <Select

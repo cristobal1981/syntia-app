@@ -139,8 +139,10 @@ export function PartyFormPage(props: PartyFormPageProps) {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <form className="flex min-w-0 flex-col gap-5" onSubmit={handleSubmit} noValidate>
           <FormSection title={copy.sections.identity}>
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <TramiteDrawerField id={`${baseId}-name`} name="name" label={copy.fields.name} value={values.name} error={errors.name} required onChange={(name) => patch({ name })} />
             <TramiteDrawerField id={`${baseId}-taxid`} name="taxId" label={copy.fields.taxId} value={values.taxId} error={errors.taxId} required onChange={(taxId) => patch({ taxId })} />
+            </div>
             {similar.length > 0 ? (
               <div role="status" className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm dark:border-border/60">
                 <p className="font-medium text-foreground">{copy.similar.title}</p>
@@ -175,16 +177,16 @@ export function PartyFormPage(props: PartyFormPageProps) {
             </div>
           </FormSection>
           <FormSection title={copy.sections.billing}>
-            <TramiteDrawerField
-              id={`${baseId}-term`}
-              name="paymentTermDays"
-              type="number"
-              label={copy.fields.paymentTermDays}
-              value={String(values.paymentTermDays)}
-              error={errors.paymentTermDays}
-              onChange={(paymentTermDays) => patch({ paymentTermDays: Number(paymentTermDays) })}
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <TramiteDrawerField
+                id={`${baseId}-term`}
+                name="paymentTermDays"
+                type="number"
+                label={copy.fields.paymentTermDays}
+                value={String(values.paymentTermDays)}
+                error={errors.paymentTermDays}
+                onChange={(paymentTermDays) => patch({ paymentTermDays: Number(paymentTermDays) })}
+              />
               <TramiteDrawerSelect
                 id={`${baseId}-territory`}
                 name="territory"

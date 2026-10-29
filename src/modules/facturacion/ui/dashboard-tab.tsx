@@ -115,14 +115,15 @@ export function DashboardTab({ invoices, periodInvoices, year, today, invoiceHre
 
   return (
     <div className="flex flex-col gap-4">
-      <PendingCard invoices={invoices} today={today} invoiceHref={invoiceHref} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <PendingCard invoices={invoices} today={today} invoiceHref={invoiceHref} />
+        <ComplianceCard />
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <MonthlyChart series={series} />
         <TopClients invoices={periodInvoices} />
       </div>
-
-      <ComplianceCard />
     </div>
   )
 }
