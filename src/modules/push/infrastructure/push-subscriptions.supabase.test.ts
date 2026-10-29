@@ -22,7 +22,9 @@ import {
   listPushSubscriptionsForPartner,
   deletePushSubscription,
   fetchPushPreferences,
+  fetchPushSubscriptionOwner,
   listPushSubscriptions,
+  refreshPushSubscription,
   releasePushDispatchLock,
   savePushDispatchState,
   savePushFailureCount,
@@ -178,6 +180,52 @@ describe('updatePushPreferences', () => {
   it('false si no hay fila de ese usuario', async () => {
     useClient(chainFor({ data: [] }))
     expect(await updatePushPreferences('user-1', 'e', prefs)).toBe(false)
+  })
+})
+
+describe('fetchPushSubscriptionOwner', () => {
+  it('devuelve el dueño del endpoint, sin filtrar por usuario', async () => {
+    const chain = chainFor({ data: { user_id: 'user-9' } })
+    useClient(chain)
+
+    expect(await fetchPushSubscriptionOwner(input.endpoint)).toBe('user-9')
+    expect(chain.eq).toHaveBeenCalledTimes(1)
+    expect(chain.eq).toHaveBeenCalledWith('endpoint', input.endpoint)
+  })
+
+  it('null si el servidor no la tiene', async () => {
+    useClient(chainFor({ data: null }))
+    expect(await fetchPushSubscriptionOwner('e')).toBeNull()
+  })
+
+  it('propaga el error de BD', async () => {
+    useClient(chainFor({ error: { message: 'boom' } }))
+    await expect(fetchPushSubscriptionOwner('e')).rejects.toThrow('boom')
+  })
+})
+
+describe('refreshPushSubscription', () => {
+  it('renueva solo las claves y el agente, sin tocar preferencias, cursor ni lo enviado', async () => {
+    const chain = chainFor({ data: [{ id: 'row' }] })
+    useClient(chain)
+
+    expect(await refreshPushSubscription('user-1', input)).toBe(true)
+
+    const update = chain.update.mock.calls[0]![0] as Record<string, unknown>
+    expect(Object.keys(update).sort()).toEqual(['auth', 'p256dh', 'updated_at', 'user_agent'])
+    expect(update).toMatchObject({ p256dh: input.p256dh, auth: input.auth })
+    expect(chain.eq).toHaveBeenCalledWith('user_id', 'user-1')
+    expect(chain.eq).toHaveBeenCalledWith('endpoint', input.endpoint)
+  })
+
+  it('false si no hay fila de ese usuario', async () => {
+    useClient(chainFor({ data: [] }))
+    expect(await refreshPushSubscription('user-1', input)).toBe(false)
+  })
+
+  it('propaga el error de BD', async () => {
+    useClient(chainFor({ error: { message: 'boom' } }))
+    await expect(refreshPushSubscription('user-1', input)).rejects.toThrow('boom')
   })
 })
 

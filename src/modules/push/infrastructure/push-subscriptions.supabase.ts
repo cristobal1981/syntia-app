@@ -56,6 +56,45 @@ export async function upsertPushSubscription(
   if (error) throw new Error(error.message)
 }
 
+/** Dueño de la suscripción de un endpoint, o `null` si el servidor no la tiene. */
+export async function fetchPushSubscriptionOwner(endpoint: string): Promise<string | null> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('user_id')
+    .eq('endpoint', endpoint)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data as { user_id: string } | null)?.user_id ?? null
+}
+
+/**
+ * Renueva las claves de una suscripción que el servidor ya tiene del usuario, sin tocar sus
+ * preferencias, su cursor de eventos ni lo ya enviado (a diferencia de `upsertPushSubscription`,
+ * que lo reinicia). `true` si la fila existía.
+ */
+export async function refreshPushSubscription(
+  userId: string,
+  input: PushSubscriptionInput
+): Promise<boolean> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .update({
+      p256dh: input.p256dh,
+      auth: input.auth,
+      user_agent: input.userAgent ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .eq('endpoint', input.endpoint)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  return (data?.length ?? 0) > 0
+}
+
 export async function deletePushSubscription(
   userId: string,
   endpoint: string

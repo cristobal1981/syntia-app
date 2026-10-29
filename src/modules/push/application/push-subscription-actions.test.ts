@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   deletePushSubscription: vi.fn(),
   fetchPushPreferences: vi.fn(),
   updatePushPreferences: vi.fn(),
+  fetchPushSubscriptionOwner: vi.fn(),
+  refreshPushSubscription: vi.fn(),
 }))
 
 vi.mock('@/src/modules/auth/application/get-session', () => ({
@@ -24,12 +26,14 @@ vi.mock('@/src/modules/push/infrastructure/push-subscriptions.supabase', () => (
   deletePushSubscription: mocks.deletePushSubscription,
   fetchPushPreferences: mocks.fetchPushPreferences,
   updatePushPreferences: mocks.updatePushPreferences,
+  fetchPushSubscriptionOwner: mocks.fetchPushSubscriptionOwner,
+  refreshPushSubscription: mocks.refreshPushSubscription,
 }))
 
 import {
   getPushPreferencesAction,
-  reconcilePushSubscriptionAction,
   subscribePushAction,
+  syncPushSubscriptionAction,
   unsubscribePushAction,
   updatePushPreferencesAction,
 } from '@/src/modules/push/application/push-subscription-actions'
@@ -191,53 +195,107 @@ describe('updatePushPreferencesAction', () => {
   })
 })
 
-describe('reconcilePushSubscriptionAction', () => {
-  it('owned: true si el dispositivo es de la sesión actual', async () => {
+describe('syncPushSubscriptionAction', () => {
+  const defaults = { chatter: true, status: true, firmas: true }
+
+  beforeEach(() => {
+    mocks.fetchPushSubscriptionOwner.mockResolvedValue('actor-1')
+    mocks.refreshPushSubscription.mockResolvedValue(true)
     mocks.fetchPushPreferences.mockResolvedValue(prefs)
-    expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
-      ok: true,
-      owned: true,
-    })
-    expect(mocks.fetchPushPreferences).toHaveBeenCalledWith(
-      'actor-1',
-      validInput.endpoint
-    )
   })
 
-  it('owned: false si la suscripción es de otro usuario', async () => {
-    mocks.fetchPushPreferences.mockResolvedValue(null)
-    expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
+  it('si el servidor ya la tiene del usuario, renueva las claves y devuelve sus preferencias', async () => {
+    expect(await syncPushSubscriptionAction(validInput)).toEqual({
       ok: true,
-      owned: false,
+      status: 'refreshed',
+      preferences: prefs,
     })
+    expect(mocks.refreshPushSubscription).toHaveBeenCalledWith('actor-1', validInput)
+    // Renovar no reinicia nada: no pasa por el upsert que borra cursor y preferencias.
+    expect(mocks.upsertPushSubscription).not.toHaveBeenCalled()
   })
 
-  it.each([['sin sesión', null], ['asesor', 'advisor'], ['admin', 'admin']])(
-    '%s: owned false sin consultar la BD',
+  it('si es de otra persona, el navegador debe darla de baja y no se toca el servidor', async () => {
+    mocks.fetchPushSubscriptionOwner.mockResolvedValue('actor-2')
+
+    expect(await syncPushSubscriptionAction(validInput)).toEqual({ ok: true, status: 'foreign' })
+    expect(mocks.refreshPushSubscription).not.toHaveBeenCalled()
+    expect(mocks.upsertPushSubscription).not.toHaveBeenCalled()
+  })
+
+  it('si el servidor la perdió, la registra de nuevo con las preferencias por defecto', async () => {
+    mocks.fetchPushSubscriptionOwner.mockResolvedValue(null)
+
+    expect(await syncPushSubscriptionAction(validInput)).toEqual({
+      ok: true,
+      status: 'restored',
+      preferences: defaults,
+    })
+    expect(mocks.upsertPushSubscription).toHaveBeenCalledWith('actor-1', validInput, defaults)
+  })
+
+  it('si la fila desaparece entre la lectura y la renovación, la registra de nuevo', async () => {
+    mocks.refreshPushSubscription.mockResolvedValue(false)
+
+    expect(await syncPushSubscriptionAction(validInput)).toMatchObject({ ok: true, status: 'restored' })
+    expect(mocks.upsertPushSubscription).toHaveBeenCalled()
+  })
+
+  it('un colaborador también puede recuperarla', async () => {
+    session('worker')
+    mocks.fetchPushSubscriptionOwner.mockResolvedValue(null)
+
+    expect(await syncPushSubscriptionAction(validInput)).toMatchObject({ status: 'restored' })
+  })
+
+  it.each([['asesor', 'advisor'], ['admin', 'admin']])(
+    '%s: si la suscripción es de otra persona se da de baja, si no hay fila se ignora',
     async (_name, role) => {
-      if (role) session(role)
-      else mocks.getSession.mockResolvedValue(null)
-      expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
-        ok: true,
-        owned: false,
-      })
-      expect(mocks.fetchPushPreferences).not.toHaveBeenCalled()
+      session(role)
+      mocks.fetchPushSubscriptionOwner.mockResolvedValue('actor-1')
+      expect(await syncPushSubscriptionAction(validInput)).toEqual({ ok: true, status: 'foreign' })
+
+      mocks.fetchPushSubscriptionOwner.mockResolvedValue(null)
+      expect(await syncPushSubscriptionAction(validInput)).toEqual({ ok: true, status: 'ignored' })
+      expect(mocks.upsertPushSubscription).not.toHaveBeenCalled()
+      expect(mocks.resolveDirectoryActorId).not.toHaveBeenCalled()
     }
   )
 
-  it('un fallo de BD no se interpreta como «no es tuyo»', async () => {
-    mocks.fetchPushPreferences.mockRejectedValue(new Error('boom'))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(await reconcilePushSubscriptionAction(validInput.endpoint)).toEqual({
-      ok: false,
-      error: 'unavailable',
-    })
+  it('sin sesión no se hace nada ni se consulta la BD (no es un «no es tuyo»)', async () => {
+    mocks.getSession.mockResolvedValue(null)
+
+    expect(await syncPushSubscriptionAction(validInput)).toEqual({ ok: false, error: 'forbidden' })
+    expect(mocks.fetchPushSubscriptionOwner).not.toHaveBeenCalled()
   })
 
-  it('un endpoint vacío es inválido', async () => {
-    expect(await reconcilePushSubscriptionAction('')).toEqual({
-      ok: false,
-      error: 'invalid',
-    })
+  it('con el límite de suscripciones no la recupera', async () => {
+    mocks.fetchPushSubscriptionOwner.mockResolvedValue(null)
+    mocks.checkRateLimit.mockResolvedValue(false)
+
+    expect(await syncPushSubscriptionAction(validInput)).toEqual({ ok: false, error: 'rate_limited' })
+    expect(mocks.upsertPushSubscription).not.toHaveBeenCalled()
+  })
+
+  it('renovar no consume el límite de suscripciones', async () => {
+    await syncPushSubscriptionAction(validInput)
+
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled()
+  })
+
+  it('un fallo de BD no se interpreta como «no es tuyo»', async () => {
+    mocks.fetchPushSubscriptionOwner.mockRejectedValue(new Error('boom'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(await syncPushSubscriptionAction(validInput)).toEqual({ ok: false, error: 'unavailable' })
+  })
+
+  it.each([
+    ['sin cuerpo', undefined],
+    ['sin claves', { endpoint: validInput.endpoint }],
+    ['endpoint no https', { ...validInput, endpoint: 'http://x.test/a' }],
+  ])('una suscripción inválida (%s) se rechaza antes de consultar nada', async (_name, input) => {
+    expect(await syncPushSubscriptionAction(input)).toEqual({ ok: false, error: 'invalid' })
+    expect(mocks.getSession).not.toHaveBeenCalled()
   })
 })
