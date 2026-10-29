@@ -136,10 +136,10 @@ function Header() {
     <header className="flex flex-col gap-4">
       <div
         role="note"
-        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm text-muted-foreground"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-service-fiscal/30 bg-service-fiscal/10 py-1.5 pr-1.5 pl-3 text-sm text-muted-foreground"
       >
         <p className="flex min-w-0 items-center gap-2">
-          <FlaskConical className="size-4 shrink-0" aria-hidden />
+          <FlaskConical className="size-4 shrink-0 text-foreground" aria-hidden />
           <span>
             <span className="font-medium text-foreground">{copy.mockNotice.title}.</span> {copy.mockNotice.description}
           </span>

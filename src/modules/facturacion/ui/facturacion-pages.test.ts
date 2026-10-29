@@ -294,12 +294,13 @@ describe('líneas, impuestos y aviso de corregir', () => {
 })
 
 describe('jerarquía y estados de las pantallas', () => {
-  it('el aviso de vista de prueba es una línea discreta, no un recuadro', () => {
+  it('el aviso de vista de prueba es una franja de una línea con un fondo tenue, no un recuadro alto', () => {
     const html = render('/facturacion/panel', createElement(PanelSection))
     const shell = renderToString(createElement(TooltipProvider, null, createElement(FacturacionShell, null, createElement(PanelSection))))
     expect(text(shell)).toContain('Vista de prueba en tu ordenador')
     expect(text(shell)).toContain('Restablecer datos de ejemplo')
-    expect(shell).not.toContain('bg-service-fiscal')
+    expect(shell).toContain('bg-service-fiscal/10')
+    expect(shell).not.toContain('py-3')
     expect(html).toBeTruthy()
   })
 
