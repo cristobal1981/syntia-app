@@ -36,6 +36,13 @@ describe('applyInvoiceChanges — factura expedida', () => {
     expect(result).toEqual({ ok: false, error: 'locked', fields: ['baseCents', 'counterpartyName', 'concept'] })
   })
 
+  it('cambiar las líneas se rechaza, pero volver a guardar las mismas (otra copia) no', () => {
+    const same = issued.lines.map((line) => ({ ...line }))
+    expect(applyInvoiceChanges(issued, { lines: same }).ok).toBe(true)
+    const changed = same.map((line) => ({ ...line, quantity: line.quantity + 1 }))
+    expect(applyInvoiceChanges(issued, { lines: changed })).toEqual({ ok: false, error: 'locked', fields: ['lines'] })
+  })
+
   it.each([
     ['la fecha', { issueDate: '2026-02-01' }],
     ['el número', { invoiceNumber: 'F-2026-0099' }],

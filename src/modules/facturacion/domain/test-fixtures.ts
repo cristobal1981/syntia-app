@@ -17,6 +17,7 @@ export function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     counterpartyTaxId: 'B35123454',
     counterpartyAddress: 'Calle Cliente, 2, 35500 Arrecife',
     concept: 'Servicios de diseño',
+    lines: [{ id: 'inv-1-l1', description: 'Servicios de diseño', quantity: 1, unitPriceCents: 100000 }],
     categoryId: 'servicios',
     regime: 'igic',
     ...computeInvoiceAmounts(100000, 7, 0),

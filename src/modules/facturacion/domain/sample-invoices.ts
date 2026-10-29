@@ -62,6 +62,7 @@ function sample(spec: SampleSpec): Invoice {
     counterpartyTaxId: spec.third.taxId,
     counterpartyAddress: spec.third.address,
     concept: spec.concept,
+    lines: [{ id: `${spec.id}-l1`, description: spec.concept, quantity: 1, unitPriceCents: amounts.baseCents }],
     categoryId: spec.categoryId,
     regime: spec.regime ?? 'igic',
     ...amounts,

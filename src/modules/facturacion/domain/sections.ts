@@ -4,6 +4,7 @@ type SectionId =
   | 'panel'
   | 'invoices'
   | 'parties'
+  | 'products'
   | 'settings'
 
 export type SectionDefinition = {
@@ -30,6 +31,8 @@ export const SECTIONS: readonly SectionDefinition[] = [
   section('invoices', 'facturas', 'invoicing'),
   // El directorio de clientes no depende del periodo: lo facturado y lo pendiente son de siempre.
   section('parties', 'clientes', 'contacts', false, false),
+  // El catálogo tampoco depende del periodo.
+  section('products', 'productos', 'documents', false, false),
   // Datos fiscales del emisor: ajustes, sin periodo.
   section('settings', 'configuracion', 'settings', false, false),
 ]

@@ -5,11 +5,17 @@ import {
   emptyInvoiceForm,
   formFromInvoice,
   validateInvoiceForm,
+  type InvoiceFormLine,
   type InvoiceFormValues,
 } from '@/src/modules/facturacion/domain/invoice-form'
+import { validateFormLines } from '@/src/modules/facturacion/domain/invoice-form'
 import { localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import { completeCif } from '@/src/modules/facturacion/domain/tax-id'
 import { SAMPLE_INVOICES } from '@/src/modules/facturacion/domain/sample-invoices'
+
+function line(unitPrice: string, overrides: Partial<InvoiceFormLine> = {}): InvoiceFormLine {
+  return { id: `l-${unitPrice}-${overrides.description ?? ''}`, productId: '', description: 'Diseño de logotipo', quantity: '1', unitPrice, ...overrides }
+}
 
 function validForm(overrides: Partial<InvoiceFormValues> = {}): InvoiceFormValues {
   return {
@@ -19,7 +25,7 @@ function validForm(overrides: Partial<InvoiceFormValues> = {}): InvoiceFormValue
     counterpartyName: 'Papelería Insular S.L.',
     counterpartyTaxId: completeCif('B3545678'),
     counterpartyAddress: 'Calle Triana, 12, Arrecife',
-    base: '210,50',
+    lines: [line('210,50')],
     ...overrides,
   }
 }
@@ -30,15 +36,15 @@ describe('validateInvoiceForm', () => {
   })
 
   it('el formulario vacío marca solo los campos obligatorios: el NIF puede esperar y el número lo asigna la expedición', () => {
-    expect(Object.keys(validateInvoiceForm(emptyInvoiceForm())).sort()).toEqual(['base', 'counterpartyName'].sort())
+    expect(Object.keys(validateInvoiceForm(emptyInvoiceForm())).sort()).toEqual(['lines', 'counterpartyName'].sort())
   })
 
   it('rechaza fechas imposibles', () => {
     expect(validateInvoiceForm(validForm({ issueDate: '2026-02-31' })).issueDate).toBe('issueDateInvalid')
   })
 
-  it.each(['0', '-5', 'abc', ''])('rechaza la base «%s»', (base) => {
-    expect(validateInvoiceForm(validForm({ base })).base).toBe('baseInvalid')
+  it.each(['0', '-5', 'abc', ''])('rechaza el precio «%s» de una línea', (price) => {
+    expect(validateInvoiceForm(validForm({ lines: [line(price)] })).lines).toBe('linesInvalid')
   })
 
   it('el vencimiento es opcional, válido y no anterior a la factura', () => {
@@ -109,29 +115,40 @@ describe('forma de cobro', () => {
 })
 
 describe('límites de entrada', () => {
-  it('el importe máximo se admite y uno más se rechaza', () => {
-    expect(validateInvoiceForm(validForm({ base: '9.999.999,99' })).base).toBeUndefined()
-    expect(validateInvoiceForm(validForm({ base: '10.000.000,00' })).base).toBe('baseTooLarge')
-    expect(validateInvoiceForm(validForm({ base: '999999999999999999' })).base).toBe('baseTooLarge')
+  it('la base máxima se admite y un céntimo más se rechaza', () => {
+    expect(validateInvoiceForm(validForm({ lines: [line('9.999.999,99')] })).lines).toBeUndefined()
+    expect(validateInvoiceForm(validForm({ lines: [line('9.999.999,99'), line('0,01')] })).lines).toBe('baseTooLarge')
+  })
+
+  it('el precio de una línea tiene un máximo', () => {
+    const over = line('10.000.000,00')
+    const huge = line('999999999999999999', { id: 'huge' })
+    expect(validateFormLines([over])[over.id].unitPrice).toBe('priceTooLarge')
+    expect(validateFormLines([huge]).huge.unitPrice).toBe('priceTooLarge')
   })
 
   it('el nombre, el domicilio y el concepto tienen un máximo', () => {
     expect(validateInvoiceForm(validForm({ counterpartyName: 'A'.repeat(120) })).counterpartyName).toBeUndefined()
     expect(validateInvoiceForm(validForm({ counterpartyName: 'A'.repeat(121) })).counterpartyName).toBe('tooLong')
     expect(validateInvoiceForm(validForm({ counterpartyAddress: 'C'.repeat(201) })).counterpartyAddress).toBe('tooLong')
-    expect(validateInvoiceForm(validForm({ concept: 'x'.repeat(300) })).concept).toBeUndefined()
-    expect(validateInvoiceForm(validForm({ concept: 'x'.repeat(301) })).concept).toBe('tooLong')
+  })
+
+  it('la descripción de una línea tiene un máximo', () => {
+    const ok = line('10', { description: 'x'.repeat(300) })
+    const long = line('10', { description: 'x'.repeat(301) })
+    expect(validateFormLines([ok])).toEqual({})
+    expect(validateFormLines([long])[long.id].description).toBe('descriptionTooLong')
   })
 
   it('emoji y caracteres no latinos no rompen la validación', () => {
-    expect(validateInvoiceForm(validForm({ counterpartyName: '🏨 Hotel 株式会社 مرحبا', concept: 'Diseño 🎨' }))).toEqual({})
+    expect(validateInvoiceForm(validForm({ counterpartyName: '🏨 Hotel 株式会社 مرحبا', lines: [line('10', { description: 'Diseño 🎨' })] }))).toEqual({})
   })
 })
 
 describe('draftFromForm', () => {
   it('calcula cuota, retención y total y normaliza el NIF', () => {
     const draft = draftFromForm(
-      validForm({ base: '1.000,00', taxRate: '7', withholdingRate: '15', counterpartyTaxId: `${completeCif('B3545678').toLowerCase()}` })
+      validForm({ lines: [line('1.000,00')], taxRate: '7', withholdingRate: '15', counterpartyTaxId: `${completeCif('B3545678').toLowerCase()}` })
     )
 
     expect(draft).toMatchObject({
@@ -188,5 +205,49 @@ describe('formFromInvoice', () => {
         paymentDate: invoice.paymentDate,
       })
     }
+  })
+})
+
+describe('líneas de la factura', () => {
+  it('sin líneas o con demasiadas se rechaza', () => {
+    expect(validateInvoiceForm(validForm({ lines: [] })).lines).toBe('linesRequired')
+    const many = Array.from({ length: 51 }, (_, index) => line('1', { id: `m${index}` }))
+    expect(validateInvoiceForm(validForm({ lines: many })).lines).toBe('tooManyLines')
+    expect(validateInvoiceForm(validForm({ lines: many.slice(0, 50) })).lines).toBeUndefined()
+  })
+
+  it('cada línea marca sus propios campos', () => {
+    const bad = line('abc', { id: 'x', description: ' ', quantity: '0' })
+    expect(validateFormLines([bad]).x).toEqual({
+      description: 'descriptionRequired',
+      quantity: 'quantityInvalid',
+      unitPrice: 'priceInvalid',
+    })
+  })
+
+  it('la base es la suma de cantidad por precio de cada línea y el borrador guarda las líneas', () => {
+    const draft = draftFromForm(
+      validForm({ lines: [line('100', { id: 'a', quantity: '2' }), line('10,50', { id: 'b', description: 'Dominio', quantity: '1,5' })] })
+    )
+    expect(draft.lines).toEqual([
+      { id: 'a', description: 'Diseño de logotipo', quantity: 2, unitPriceCents: 10000 },
+      { id: 'b', description: 'Dominio', quantity: 1.5, unitPriceCents: 1050 },
+    ])
+    expect(draft.baseCents).toBe(20000 + 1575)
+    expect(draft.concept).toBe('Diseño de logotipo (+1 más)')
+  })
+
+  it('al editar, las líneas vuelven al formulario como texto', () => {
+    const form = formFromInvoice({
+      ...SAMPLE_INVOICES[0],
+      lines: [{ id: 'a', description: 'Hora', quantity: 1.5, unitPriceCents: 4500 }],
+    })
+    expect(form.lines).toEqual([{ id: 'a', productId: '', description: 'Hora', quantity: '1,5', unitPrice: '45,00' }])
+  })
+
+  it('una factura antigua sin líneas se edita con una línea hecha de su concepto y su base', () => {
+    const form = formFromInvoice({ ...SAMPLE_INVOICES[0], lines: [] })
+    expect(form.lines).toHaveLength(1)
+    expect(form.lines[0].description).toBe(SAMPLE_INVOICES[0].concept)
   })
 })

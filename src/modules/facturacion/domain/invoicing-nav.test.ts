@@ -17,6 +17,7 @@ describe('buildInvoicingNavItems', () => {
       'Panel',
       'Facturas',
       'Clientes',
+      'Productos y servicios',
       'Datos fiscales',
     ])
   })

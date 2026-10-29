@@ -71,6 +71,13 @@ describe('buildRectificationDraft', () => {
     })
   })
 
+  it('la rectificativa lleva una única línea con el concepto y la base con signo', () => {
+    const draft = buildRectificationDraft(original, [original], { mode: 'parcial', reason: 'x', issueDate: '2026-03-01', deltaBaseCents: -30000 })
+    expect(draft.lines).toHaveLength(1)
+    expect(draft.lines[0]).toMatchObject({ description: draft.concept, quantity: 1, unitPriceCents: -30000 })
+    expect(draft.baseCents).toBe(-30000)
+  })
+
   it('copia los datos del tercero y el régimen de la factura rectificada', () => {
     const draft = buildRectificationDraft(original, [original], { mode: 'total', reason: 'x', issueDate: '2026-03-01' })
     expect(draft).toMatchObject({

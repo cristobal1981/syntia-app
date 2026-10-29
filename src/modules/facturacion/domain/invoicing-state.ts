@@ -2,6 +2,7 @@ import { emitInvoice, type EmissionIssue } from '@/src/modules/facturacion/domai
 import { applyInvoiceChanges, canDeleteInvoice } from '@/src/modules/facturacion/domain/invoice-rules'
 import type { InvoiceEvent, InvoiceEventType } from '@/src/modules/facturacion/domain/invoice-events'
 import { DEMO_ISSUER, type Issuer } from '@/src/modules/facturacion/domain/issuer'
+import { validateProduct, SAMPLE_PRODUCTS, type Product } from '@/src/modules/facturacion/domain/products'
 import { canDeleteParty, validateParty, type Party } from '@/src/modules/facturacion/domain/party-directory'
 import {
   buildRectificationDraft,
@@ -17,12 +18,13 @@ import type { PartyErrorKey } from '@/src/modules/facturacion/domain/party-direc
 export type InvoicingState = {
   invoices: Invoice[]
   parties: Party[]
+  products: Product[]
   issuer: Issuer
   events: InvoiceEvent[]
 }
 
 export function initialInvoicingState(): InvoicingState {
-  return { invoices: [...SAMPLE_INVOICES], parties: [...SAMPLE_PARTIES], issuer: DEMO_ISSUER, events: [] }
+  return { invoices: [...SAMPLE_INVOICES], parties: [...SAMPLE_PARTIES], products: [...SAMPLE_PRODUCTS], issuer: DEMO_ISSUER, events: [] }
 }
 
 /** Dependencias externas (reloj e identificadores) para que las operaciones sean deterministas. */
@@ -51,6 +53,7 @@ const CONTENT_KEYS = [
   'counterpartyTaxId',
   'counterpartyAddress',
   'concept',
+  'lines',
   'categoryId',
   'regime',
   'baseCents',
@@ -295,6 +298,37 @@ export function saveParty(state: InvoicingState, party: Party, context: Operatio
     party,
     state: withEvent({ ...state, parties }, context, 'modificada', null, `Tercero ${party.name} ${exists ? 'actualizado' : 'creado'}`),
   }
+}
+
+export type SaveProductResult =
+  | { ok: true; state: InvoicingState; product: Product }
+  | { ok: false; errors: ReturnType<typeof validateProduct>; state: InvoicingState }
+
+export function saveProduct(state: InvoicingState, product: Product, context: OperationContext): SaveProductResult {
+  const errors = validateProduct(product)
+  if (Object.keys(errors).length > 0) return { ok: false, errors, state }
+
+  const clean: Product = { ...product, name: product.name.trim() }
+  const exists = state.products.some((candidate) => candidate.id === clean.id)
+  const products = exists ? state.products.map((candidate) => (candidate.id === clean.id ? clean : candidate)) : [...state.products, clean]
+  return {
+    ok: true,
+    product: clean,
+    state: withEvent({ ...state, products }, context, 'modificada', null, `Producto ${clean.name} ${exists ? 'actualizado' : 'creado'}`),
+  }
+}
+
+/** Quitar un producto del catálogo no toca las facturas: cada línea guarda su propia descripción y precio. */
+export function removeProduct(state: InvoicingState, productId: string, context: OperationContext): InvoicingState {
+  const product = state.products.find((candidate) => candidate.id === productId)
+  if (!product) return state
+  return withEvent(
+    { ...state, products: state.products.filter((candidate) => candidate.id !== productId) },
+    context,
+    'eliminada',
+    null,
+    `Producto ${product.name} eliminado`
+  )
 }
 
 export function removeParty(

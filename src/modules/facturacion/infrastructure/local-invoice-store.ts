@@ -1,4 +1,6 @@
 import { initialInvoicingState, type InvoicingState, type OperationContext } from '@/src/modules/facturacion/domain/invoicing-state'
+import { linesFromLegacy } from '@/src/modules/facturacion/domain/invoice-lines'
+import { SAMPLE_PRODUCTS } from '@/src/modules/facturacion/domain/products'
 import { DEFAULT_PAYMENT_METHOD, PAYMENT_METHODS, type Invoice } from '@/src/modules/facturacion/domain/types'
 
 /**
@@ -32,6 +34,7 @@ function withNewerFields(invoice: Invoice): Invoice {
   const stored = invoice as Partial<Invoice>
   return {
     ...invoice,
+    lines: Array.isArray(stored.lines) && stored.lines.length > 0 ? stored.lines : linesFromLegacy(invoice),
     dateReason: typeof stored.dateReason === 'string' ? stored.dateReason : '',
     paymentMethod:
       stored.paymentMethod && PAYMENT_METHODS.includes(stored.paymentMethod) ? stored.paymentMethod : DEFAULT_PAYMENT_METHOD,
@@ -49,6 +52,7 @@ function parseState(raw: string): InvoicingState | null {
     return {
       invoices: value.invoices.filter(isInvoice).map(withNewerFields),
       parties: value.parties as InvoicingState['parties'],
+      products: Array.isArray(value.products) ? (value.products as InvoicingState['products']) : [...SAMPLE_PRODUCTS],
       issuer: value.issuer as InvoicingState['issuer'],
       events: value.events as InvoicingState['events'],
     }

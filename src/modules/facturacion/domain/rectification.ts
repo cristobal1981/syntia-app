@@ -77,6 +77,8 @@ export function buildRectificationDraft(original: Invoice, all: Invoice[], input
         }
       : computeInvoiceAmounts(input.deltaBaseCents, original.taxRate, original.withholdingRate)
 
+  const concept = `Rectificación de la factura ${original.invoiceNumber}`
+
   return {
     invoiceNumber: '',
     status: 'borrador',
@@ -88,7 +90,8 @@ export function buildRectificationDraft(original: Invoice, all: Invoice[], input
     counterpartyName: original.counterpartyName,
     counterpartyTaxId: original.counterpartyTaxId,
     counterpartyAddress: original.counterpartyAddress,
-    concept: `Rectificación de la factura ${original.invoiceNumber}`,
+    concept,
+    lines: [{ id: `${original.id}-rect`, description: concept, quantity: 1, unitPriceCents: amounts.baseCents }],
     categoryId: original.categoryId,
     regime: original.regime,
     ...amounts,

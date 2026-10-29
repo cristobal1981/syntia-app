@@ -14,6 +14,6 @@ export function invoiceMatchesQuery(invoice: Invoice, query: string): boolean {
   const needle = normalizeForSearch(query)
   if (!needle) return true
   return normalizeForSearch(
-    [invoice.counterpartyName, invoice.counterpartyTaxId, invoice.invoiceNumber, invoice.concept].join(' ')
+    [invoice.counterpartyName, invoice.counterpartyTaxId, invoice.invoiceNumber, invoice.concept, ...invoice.lines.map((line) => line.description)].join(' ')
   ).includes(needle)
 }

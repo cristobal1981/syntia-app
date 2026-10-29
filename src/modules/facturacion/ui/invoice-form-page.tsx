@@ -3,7 +3,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Lock } from 'lucide-react'
+import { ArrowLeft, Lock, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,18 @@ import { computeInvoiceAmounts } from '@/src/modules/facturacion/domain/compute-
 import { addDaysIso, localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import type { EmissionIssue } from '@/src/modules/facturacion/domain/emission'
 import {
+  centsToInput,
   draftFromForm,
+  emptyFormLine,
   emptyInvoiceForm,
   formFromInvoice,
+  formLinesBaseCents,
+  validateFormLines,
   validateInvoiceForm,
+  type InvoiceFormLine,
   type InvoiceFormValues,
 } from '@/src/modules/facturacion/domain/invoice-form'
+import { lineTotalCents, parseQuantity } from '@/src/modules/facturacion/domain/invoice-lines'
 import { isLocked } from '@/src/modules/facturacion/domain/invoice-rules'
 import { emitDraft, saveInvoice, saveParty } from '@/src/modules/facturacion/domain/invoicing-state'
 import { formatCents, parseAmountToCents } from '@/src/modules/facturacion/domain/money'
@@ -36,6 +42,15 @@ const copy = facturacion.editor
 const pageCopy = facturacion.page.form
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
 
+function mapLineErrors(lines: readonly InvoiceFormLine[]) {
+  return Object.fromEntries(
+    Object.entries(validateFormLines(lines)).map(([lineId, found]) => [
+      lineId,
+      Object.fromEntries(Object.entries(found).map(([field, key]) => [field, copy.lines.errors[key]])),
+    ])
+  )
+}
+
 function rateLabel(rate: number): string {
   return `${String(rate).replace('.', ',')} %`
 }
@@ -50,7 +65,7 @@ type InvoiceFormPageProps = { mode: 'new' } | { mode: 'edit'; invoiceId: string 
 export function InvoiceFormPage(props: InvoiceFormPageProps) {
   const router = useRouter()
   const baseId = useId()
-  const { allInvoices, parties } = useFacturacion()
+  const { allInvoices, parties, products } = useFacturacion()
 
   const existing = props.mode === 'edit' ? (allInvoices.find((invoice) => invoice.id === props.invoiceId) ?? null) : null
   const [values, setValues] = useState<InvoiceFormValues>(() => (existing ? formFromInvoice(existing) : emptyInvoiceForm()))
@@ -58,6 +73,7 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [emitIssues, setEmitIssues] = useState<EmissionIssue[]>([])
+  const [lineErrors, setLineErrors] = useState<Record<string, Partial<Record<'description' | 'quantity' | 'unitPrice', string>>>>({})
   const [quickParty, setQuickParty] = useState<{ name: string; taxId: string; address: string } | null>(null)
   const [quickErrors, setQuickErrors] = useState<Partial<Record<keyof Party, string>>>({})
 
@@ -111,6 +127,33 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
     })
   }
 
+  const patchLine = (lineId: string, partial: Partial<InvoiceFormLine>) =>
+    setValues((current) => ({
+      ...current,
+      lines: current.lines.map((line) => (line.id === lineId ? { ...line, ...partial } : line)),
+    }))
+
+  const removeLine = (lineId: string) =>
+    setValues((current) => ({ ...current, lines: current.lines.filter((line) => line.id !== lineId) }))
+
+  const addBlankLine = () => setValues((current) => ({ ...current, lines: [...current.lines, emptyFormLine()] }))
+
+  /** Añade una línea con el nombre y el precio del producto; si la única línea está vacía, la sustituye. */
+  const addProductLine = (productId: string) => {
+    const product = products.find((candidate) => candidate.id === productId)
+    if (!product) return
+    const line: InvoiceFormLine = {
+      ...emptyFormLine(),
+      productId: product.id,
+      description: product.name,
+      unitPrice: centsToInput(product.priceCents),
+    }
+    setValues((current) => {
+      const onlyBlank = current.lines.length === 1 && !current.lines[0].description.trim() && !current.lines[0].unitPrice.trim()
+      return { ...current, lines: onlyBlank ? [line] : [...current.lines, line] }
+    })
+  }
+
   const createQuickParty = () => {
     if (!quickParty) return
     const party: Party = {
@@ -133,8 +176,9 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
     toast.success(pageCopy.quickParty.created)
   }
 
+  const baseCents = formLinesBaseCents(values.lines)
   const amounts = computeInvoiceAmounts(
-    Math.max(parseAmountToCents(values.base) ?? 0, 0),
+    baseCents,
     Number(values.taxRate),
     Number(values.withholdingRate)
   )
@@ -144,9 +188,11 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
     const found = validateInvoiceForm(values)
     if (Object.keys(found).length > 0) {
       setErrors(Object.fromEntries(Object.entries(found).map(([field, key]) => [field, copy.errors[key]])))
+      setLineErrors(mapLineErrors(values.lines))
       return
     }
     setErrors({})
+    setLineErrors({})
     setEmitIssues([])
     setSaving(true)
 
@@ -335,13 +381,6 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             value={values.counterpartyAddress}
             onChange={(counterpartyAddress) => patch({ counterpartyAddress })}
           />
-          <TramiteDrawerField
-            id={`${baseId}-concept`}
-            name="concept"
-            label={fields.concept}
-            value={values.concept}
-            onChange={(concept) => patch({ concept })}
-          />
           <TramiteDrawerSelect
             id={`${baseId}-category`}
             name="categoryId"
@@ -351,6 +390,91 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             options={Object.fromEntries(categories().map((category) => [category.id, category.label]))}
             onChange={(categoryId) => patch({ categoryId })}
           />
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-4 border-0 p-0">
+          <legend className="text-sm font-semibold text-foreground">{copy.sections.lines}</legend>
+          {products.length > 0 ? (
+            <TramiteDrawerSelect
+              id={`${baseId}-product`}
+              name="product"
+              label={copy.lines.pickProduct}
+              placeholder={copy.lines.pickProductPlaceholder}
+              value=""
+              options={Object.fromEntries(products.map((product) => [product.id, product.name]))}
+              onChange={addProductLine}
+            />
+          ) : null}
+          <ul className="flex flex-col gap-3">
+            {values.lines.map((line, index) => {
+              const lineError = lineErrors[line.id] ?? {}
+              const amount = lineTotalCents({
+                quantity: parseQuantity(line.quantity) ?? 0,
+                unitPriceCents: parseAmountToCents(line.unitPrice) ?? 0,
+              })
+              return (
+                <li
+                  key={line.id}
+                  className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 dark:border-border/60"
+                >
+                  <TramiteDrawerField
+                    id={`${baseId}-line-${line.id}-description`}
+                    name={`lineDescription-${index}`}
+                    label={copy.lines.description}
+                    value={line.description}
+                    error={lineError.description}
+                    required
+                    onChange={(description) => patchLine(line.id, { description })}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-start">
+                    <TramiteDrawerField
+                      id={`${baseId}-line-${line.id}-quantity`}
+                      name={`lineQuantity-${index}`}
+                      label={copy.lines.quantity}
+                      value={line.quantity}
+                      error={lineError.quantity}
+                      required
+                      onChange={(quantity) => patchLine(line.id, { quantity })}
+                    />
+                    <TramiteDrawerField
+                      id={`${baseId}-line-${line.id}-price`}
+                      name={`lineUnitPrice-${index}`}
+                      label={copy.lines.unitPrice}
+                      value={line.unitPrice}
+                      error={lineError.unitPrice}
+                      required
+                      onChange={(unitPrice) => patchLine(line.id, { unitPrice })}
+                    />
+                    <div>
+                      <p className="text-xs text-muted-foreground">{copy.lines.amount}</p>
+                      <p className="mt-2 text-sm font-medium tabular-nums text-foreground">{formatCents(amount)}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="sm:mt-5"
+                      disabled={values.lines.length === 1}
+                      aria-label={copy.lines.remove(index + 1)}
+                      onClick={() => removeLine(line.id)}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+          {errors.lines ? (
+            <p role="alert" className="text-sm text-destructive">
+              {errors.lines}
+            </p>
+          ) : null}
+          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addBlankLine}>
+            <Plus aria-hidden />
+            {copy.lines.add}
+          </Button>
+          <p className="-mt-2 text-xs text-muted-foreground">{copy.lines.hint}</p>
         </fieldset>
 
         <fieldset className="flex flex-col gap-4 border-0 p-0">
@@ -376,15 +500,6 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <TramiteDrawerField
-              id={`${baseId}-base`}
-              name="base"
-              label={fields.base}
-              value={values.base}
-              error={errors.base}
-              required
-              onChange={(base) => patch({ base })}
-            />
             <TramiteDrawerSelect
               id={`${baseId}-withholding`}
               name="withholdingRate"
@@ -396,7 +511,11 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             />
           </div>
           <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.withholding}</p>
-          <dl className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+          <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm sm:grid-cols-4">
+            <div>
+              <dt className="text-muted-foreground">{copy.lines.subtotal}</dt>
+              <dd className="font-medium tabular-nums text-foreground">{formatCents(amounts.baseCents)}</dd>
+            </div>
             <div>
               <dt className="text-muted-foreground">{copy.computed.tax}</dt>
               <dd className="font-medium tabular-nums text-foreground">{formatCents(amounts.taxCents)}</dd>

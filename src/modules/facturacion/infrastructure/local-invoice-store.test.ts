@@ -146,4 +146,31 @@ describe('resetInvoicing', () => {
       expect(stored({ dateReason: 7, paymentMethod: 'bizum' })).toMatchObject({ dateReason: '', paymentMethod: 'transferencia' })
     })
   })
+
+  describe('facturas y catálogo guardados antes de existir las líneas y los productos', () => {
+    it('una factura sin líneas recibe una con su concepto y su base', () => {
+      const legacy: Record<string, unknown> = { ...makeInvoice({ id: 'viejo', concept: 'Diseño', baseCents: 5000 }) }
+      delete legacy.lines
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [legacy] }))
+      expect(getInvoicingSnapshot().invoices[0].lines).toEqual([
+        { id: 'viejo-l1', description: 'Diseño', quantity: 1, unitPriceCents: 5000 },
+      ])
+    })
+
+    it('las líneas guardadas se conservan tal cual', () => {
+      const lines = [{ id: 'a', description: 'Hora', quantity: 2, unitPriceCents: 4500 }]
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), invoices: [makeInvoice({ lines })] }))
+      expect(getInvoicingSnapshot().invoices[0].lines).toEqual(lines)
+    })
+
+    it('sin catálogo guardado se parte del de ejemplo; con catálogo, el suyo (aunque esté vacío)', () => {
+      const legacy: Record<string, unknown> = { ...initialInvoicingState() }
+      delete legacy.products
+      win.data.set(KEY, JSON.stringify(legacy))
+      expect(getInvoicingSnapshot().products.length).toBeGreaterThan(0)
+
+      win.data.set(KEY, JSON.stringify({ ...initialInvoicingState(), products: [] }))
+      expect(getInvoicingSnapshot().products).toEqual([])
+    })
+  })
 })

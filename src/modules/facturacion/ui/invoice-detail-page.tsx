@@ -16,6 +16,7 @@ import { emitDraft, removeInvoice, setPaymentDate, setReview } from '@/src/modul
 import { formatCents } from '@/src/modules/facturacion/domain/money'
 import { daysOverdue, paymentStatus } from '@/src/modules/facturacion/domain/payment-status'
 import { canRectify, netAmountsAfterRectification, rectificationsOf } from '@/src/modules/facturacion/domain/rectification'
+import { formatQuantity, linesFromLegacy, lineTotalCents } from '@/src/modules/facturacion/domain/invoice-lines'
 import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
@@ -294,7 +295,18 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
                 </Field>
               ) : null}
               <div className="sm:col-span-2">
-                <Field label={facturacion.detail.fields.concept}>{invoice.concept || facturacion.detail.fields.none}</Field>
+                <Field label={facturacion.detail.fields.concept}>
+                  <ul className="mt-0.5 flex flex-col gap-1">
+                    {(invoice.lines.length > 0 ? invoice.lines : linesFromLegacy(invoice)).map((line) => (
+                      <li key={line.id} className="flex flex-wrap justify-between gap-x-4 text-sm">
+                        <span className="min-w-0">{line.description}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatQuantity(line.quantity)} × {formatCents(line.unitPriceCents)} = {formatCents(lineTotalCents(line))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Field>
               </div>
             </dl>
           </Card>

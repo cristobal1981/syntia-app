@@ -24,6 +24,14 @@ export type InvoiceKind = 'ordinaria' | 'rectificativa'
  */
 type InvoiceStatus = 'borrador' | 'definitiva'
 
+/** Una línea de la factura: producto o servicio, cantidad y precio unitario sin impuestos. */
+export type InvoiceLine = {
+  id: string
+  description: string
+  quantity: number
+  unitPriceCents: number
+}
+
 /** Todos los importes en céntimos (enteros) para no arrastrar errores de coma flotante. */
 export type Invoice = {
   id: string
@@ -43,9 +51,12 @@ export type Invoice = {
   counterpartyTaxId: string
   /** Domicilio del cliente tal como figura en la factura (obligatorio al expedir). */
   counterpartyAddress: string
+  /** Resumen de las líneas, para listas y búsquedas. */
   concept: string
+  lines: InvoiceLine[]
   categoryId: string
   regime: TaxRegime
+  /** Suma de las líneas. */
   baseCents: number
   /** Porcentaje del impuesto (p. ej. 7 o 9.5). */
   taxRate: number

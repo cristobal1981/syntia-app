@@ -6,6 +6,7 @@ import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provide
 import { InvoiceDetailPage } from '@/src/modules/facturacion/ui/invoice-detail-page'
 import { InvoiceFormPage } from '@/src/modules/facturacion/ui/invoice-form-page'
 import { InvoicesTab } from '@/src/modules/facturacion/ui/invoices-tab'
+import { ProductsTab } from '@/src/modules/facturacion/ui/products-tab'
 import { PartiesTab } from '@/src/modules/facturacion/ui/parties-tab'
 import { PartyFormPage } from '@/src/modules/facturacion/ui/party-form-page'
 import { RectifyPage } from '@/src/modules/facturacion/ui/rectify-page'
@@ -53,6 +54,10 @@ export function NewPartySection() {
 
 export function EditPartySection({ partyId }: { partyId: string }) {
   return <PartyFormPage key={partyId} mode="edit" partyId={partyId} />
+}
+
+export function ProductsSection() {
+  return <ProductsTab />
 }
 
 export function SettingsSection() {

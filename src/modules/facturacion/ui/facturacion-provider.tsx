@@ -7,6 +7,7 @@ import { localIsoDate } from '@/src/modules/facturacion/domain/dates'
 import type { InvoiceEvent } from '@/src/modules/facturacion/domain/invoice-events'
 import { accountedInvoices } from '@/src/modules/facturacion/domain/invoice-rules'
 import type { Issuer } from '@/src/modules/facturacion/domain/issuer'
+import type { Product } from '@/src/modules/facturacion/domain/products'
 import type { Party } from '@/src/modules/facturacion/domain/party-directory'
 import { availableYears, filterByPeriod, type InvoicePeriod, type Quarter } from '@/src/modules/facturacion/domain/periods'
 import { isNestedPath, sectionForPath, type SectionDefinition } from '@/src/modules/facturacion/domain/sections'
@@ -27,6 +28,7 @@ type FacturacionContextValue = {
   /** Todas (borradores incluidos) las del periodo elegido, para la lista de facturas. */
   periodAllInvoices: Invoice[]
   parties: Party[]
+  products: Product[]
   issuer: Issuer
   events: InvoiceEvent[]
   today: string
@@ -74,6 +76,7 @@ export function FacturacionProvider({ children }: { children: ReactNode }) {
     periodInvoices,
     periodAllInvoices,
     parties: state.parties,
+    products: state.products,
     issuer: state.issuer,
     events: state.events,
     today,

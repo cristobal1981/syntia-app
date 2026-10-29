@@ -25,6 +25,11 @@ export function canDeleteInvoice(invoice: Pick<Invoice, 'status'>): boolean {
  */
 const EDITABLE_WHEN_LOCKED: ReadonlySet<keyof Invoice> = new Set(['paymentDate', 'review'])
 
+/** Igualdad por valor: las líneas son una lista y se comparan por su contenido. */
+function sameValue(a: unknown, b: unknown): boolean {
+  return a === b || (typeof a === 'object' && typeof b === 'object' && JSON.stringify(a) === JSON.stringify(b))
+}
+
 export type InvoiceChangeResult =
   | { ok: true; invoice: Invoice }
   | { ok: false; error: 'locked'; fields: string[] }
@@ -33,7 +38,7 @@ export type InvoiceChangeResult =
 export function applyInvoiceChanges(existing: Invoice, changes: Partial<Invoice>): InvoiceChangeResult {
   if (isLocked(existing)) {
     const forbidden = (Object.keys(changes) as Array<keyof Invoice>).filter(
-      (key) => !EDITABLE_WHEN_LOCKED.has(key) && changes[key] !== existing[key]
+      (key) => !EDITABLE_WHEN_LOCKED.has(key) && !sameValue(changes[key], existing[key])
     )
     if (forbidden.length > 0) return { ok: false, error: 'locked', fields: forbidden }
   }
