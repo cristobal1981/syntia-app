@@ -456,6 +456,8 @@ describe('runEventPushDispatch: sin novedades', () => {
       sent: 0,
       removed: 0,
       skipped: 0,
+      rejected: 0,
+      failed: 0,
       truncated: false,
       locked: false,
     })
@@ -488,7 +490,7 @@ describe('runEventPushDispatch: resultado del envío', () => {
 
     expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(deps.saveFailureCount).not.toHaveBeenCalled()
-    expect(summary).toMatchObject({ sent: 0, skipped: 1 })
+    expect(summary).toMatchObject({ sent: 0, skipped: 1, failed: 1, rejected: 0 })
   })
 
   it('rechazo: cuenta el fallo y no avanza ni borra', async () => {
@@ -498,7 +500,14 @@ describe('runEventPushDispatch: resultado del envío', () => {
     expect(deps.saveFailureCount).toHaveBeenCalledWith('s1', 3)
     expect(deps.advanceCursors).not.toHaveBeenCalled()
     expect(deps.deleteByIds).not.toHaveBeenCalled()
-    expect(summary.skipped).toBe(1)
+    expect(summary).toMatchObject({ skipped: 1, rejected: 1, failed: 0 })
+  })
+
+  it('un envío correcto no suma a rechazados ni a fallidos', async () => {
+    const deps = setup({ send: vi.fn().mockResolvedValue('ok') })
+    const summary = await runEventPushDispatch(deps, options)
+
+    expect(summary).toMatchObject({ sent: 1, rejected: 0, failed: 0 })
   })
 
   it('tras el máximo de rechazos seguidos se da de baja si otros envíos funcionan', async () => {

@@ -127,7 +127,7 @@ describe('runPushDispatch', () => {
 
     expect(deps.saveState).not.toHaveBeenCalled()
     expect(deps.deleteByIds).not.toHaveBeenCalled()
-    expect(summary).toMatchObject({ sent: 0, skipped: 1 })
+    expect(summary).toMatchObject({ sent: 0, skipped: 1, failed: 1, rejected: 0 })
   })
 
   it.each([
@@ -214,6 +214,8 @@ describe('runPushDispatch', () => {
       sent: 0,
       removed: 0,
       skipped: 0,
+      rejected: 0,
+      failed: 0,
       truncated: false,
       locked: false,
     })
@@ -378,14 +380,15 @@ describe('runPushDispatch: envíos rechazados', () => {
     expect(deps.saveFailureCount).toHaveBeenCalledWith('s1', 3)
     expect(deps.saveState).not.toHaveBeenCalled()
     expect(deps.deleteByIds).not.toHaveBeenCalled()
-    expect(summary).toMatchObject({ sent: 0, skipped: 1, removed: 0 })
+    expect(summary).toMatchObject({ sent: 0, skipped: 1, removed: 0, rejected: 1, failed: 0 })
   })
 
   it('un error transitorio no cuenta como rechazo', async () => {
     const deps = setup({ send: vi.fn().mockResolvedValue('error') })
-    await runPushDispatch(deps, options)
+    const summary = await runPushDispatch(deps, options)
 
     expect(deps.saveFailureCount).not.toHaveBeenCalled()
+    expect(summary).toMatchObject({ rejected: 0, failed: 1 })
   })
 
   it('al llegar al máximo de rechazos seguidos se da de baja si otros envíos funcionan', async () => {

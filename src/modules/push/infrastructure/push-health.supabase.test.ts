@@ -16,6 +16,8 @@ function useClient(results: {
   event?: Result
   subscriptions?: Result
   pending?: Result
+  /** La BD aún no tiene las columnas `rejected` y `failed`: pedirlas da error. */
+  withoutCounterColumns?: boolean
 }) {
   const calls: { table: string; ops: [string, unknown[]][] }[] = []
 
@@ -32,6 +34,15 @@ function useClient(results: {
     chain.limit = (...args: unknown[]) => {
       call.ops.push(['limit', args])
       const isSweep = call.ops.some(([op, a]) => op === 'eq' && a[1] === 'sweep')
+      const asksCounters = call.ops.some(
+        ([op, a]) => op === 'select' && typeof a[0] === 'string' && a[0].includes('rejected')
+      )
+      if (results.withoutCounterColumns && asksCounters) {
+        return Promise.resolve({
+          data: null,
+          error: { message: "Could not find the 'rejected' column of 'push_runs' in the schema cache" },
+        })
+      }
       const isPending = call.ops.some(([op]) => op === 'gt')
       const pick =
         table === 'push_subscriptions'
@@ -77,7 +88,7 @@ describe('loadPushHealthInput', () => {
     useClient({
       dispatches: {
         data: [
-          { source: 'events', started_at: '2026-10-22T11:59:00Z', error: null, locked: false, truncated: true, sent: 3 },
+          { source: 'events', started_at: '2026-10-22T11:59:00Z', error: null, locked: false, truncated: true, sent: 3, rejected: 2, failed: 1 },
           { source: 'events', started_at: '2026-10-22T11:50:00Z', error: 'boom', locked: true, truncated: false, sent: 0 },
         ],
       },
@@ -91,10 +102,45 @@ describe('loadPushHealthInput', () => {
 
     expect(input).toMatchObject({ now: NOW, source: 'events', lastEventAt: Date.parse('2026-10-22T11:30:00Z') })
     expect(input.runs).toEqual([
-      { source: 'events', startedAt: Date.parse('2026-10-22T11:59:00Z'), hadError: false, locked: false, truncated: true, created: 0 },
-      { source: 'sweep', startedAt: Date.parse('2026-10-22T11:55:00Z'), hadError: false, locked: false, truncated: false, created: 4 },
-      { source: 'events', startedAt: Date.parse('2026-10-22T11:50:00Z'), hadError: true, locked: true, truncated: false, created: 0 },
+      { source: 'events', startedAt: Date.parse('2026-10-22T11:59:00Z'), hadError: false, locked: false, truncated: true, created: 0, rejected: 2, failed: 1 },
+      { source: 'sweep', startedAt: Date.parse('2026-10-22T11:55:00Z'), hadError: false, locked: false, truncated: false, created: 4, rejected: 0, failed: 0 },
+      { source: 'events', startedAt: Date.parse('2026-10-22T11:50:00Z'), hadError: true, locked: true, truncated: false, created: 0, rejected: 0, failed: 0 },
     ])
+  })
+
+  it('pide los contadores de rechazados y fallidos junto con el resto de columnas', async () => {
+    const { calls } = useClient({})
+    await loadPushHealthInput('events', NOW)
+
+    const runs = calls.filter((call) => call.table === 'push_runs')
+    expect(runs).toHaveLength(2)
+    for (const run of runs) {
+      expect(run.ops[0]).toEqual(['select', ['source, started_at, error, locked, truncated, sent, rejected, failed']])
+    }
+  })
+
+  it('sin la migración aplicada, lee las ejecuciones sin esos contadores y los da por cero', async () => {
+    const { calls } = useClient({
+      withoutCounterColumns: true,
+      dispatches: {
+        data: [{ source: 'events', started_at: '2026-10-22T11:59:00Z', error: null, locked: false, truncated: false, sent: 1 }],
+      },
+    })
+
+    const input = await loadPushHealthInput('events', NOW)
+
+    expect(input.runs[0]).toMatchObject({ rejected: 0, failed: 0 })
+    const selects = calls
+      .filter((call) => call.table === 'push_runs')
+      .map((call) => call.ops.find(([op]) => op === 'select')![1][0])
+    expect(selects).toContain('source, started_at, error, locked, truncated, sent')
+  })
+
+  it('un error de BD que no es de esas columnas se propaga y no se reintenta', async () => {
+    const { calls } = useClient({ dispatches: { error: { message: 'boom' } } })
+
+    await expect(loadPushHealthInput('events', NOW)).rejects.toThrow('boom')
+    expect(calls.filter((call) => call.table === 'push_runs')).toHaveLength(2)
   })
 
   it('solo un barrido cuenta lo enviado como eventos recuperados', async () => {

@@ -37,6 +37,8 @@ export async function POST(request: Request) {
         sent: summary.created,
         removed: 0,
         skipped: summary.skipped,
+        rejected: 0,
+        failed: 0,
         truncated: summary.more,
         locked: false,
       },

@@ -40,6 +40,10 @@ export type PushDispatchSummary = {
   sent: number
   removed: number
   skipped: number
+  /** Envíos que el servicio de push rechazó (clave, petición o tamaño): suman también a `skipped`. */
+  rejected: number
+  /** Envíos que fallaron por algo transitorio (red, 429, 5xx): suman también a `skipped`. */
+  failed: number
   truncated: boolean
   /** Otra ejecución tenía el cerrojo: esta no ha hecho nada. */
   locked: boolean
@@ -67,6 +71,8 @@ export async function runPushDispatch(
     sent: 0,
     removed: 0,
     skipped: 0,
+    rejected: 0,
+    failed: 0,
     truncated: false,
     locked: false,
   }
@@ -185,6 +191,7 @@ async function runLocked(
       if (result === 'rejected') {
         const failures = subscription.failureCount + 1
         summary.skipped += 1
+        summary.rejected += 1
         await deps.saveFailureCount(subscription.id, failures)
         if (failures >= MAX_CONSECUTIVE_REJECTIONS) rejectedForGood.push(subscription.id)
         return
@@ -192,6 +199,7 @@ async function runLocked(
       if (result === 'error') {
         // Sin guardar lo enviado: se reintenta en la siguiente ejecución.
         summary.skipped += 1
+        summary.failed += 1
         return
       }
       summary.sent += 1

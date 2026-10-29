@@ -6,6 +6,10 @@ export type PushHealthRun = {
   truncated: boolean
   /** En un barrido, eventos que faltaban y se han recuperado. */
   created: number
+  /** Envíos que el servicio de push rechazó en esta ejecución (400, 401, 403, 413). */
+  rejected: number
+  /** Envíos que fallaron por algo transitorio en esta ejecución (red, 429, 5xx). */
+  failed: number
 }
 
 export type PushHealthInput = {
@@ -33,6 +37,8 @@ export type PushHealthProblem = {
     | 'events_lost'
     | 'event_pending'
     | 'cursor_unset'
+    | 'push_rejected'
+    | 'push_failing'
   severity: 'error' | 'warning'
   message: string
 }
@@ -53,6 +59,10 @@ export const EVENT_PENDING_MS = 10 * MINUTE
 /** La primera ejecución con eventos coloca el cursor: un dispositivo sin él tanto tiempo no se está atendiendo. */
 export const CURSOR_UNSET_MS = 10 * MINUTE
 export const RECENT_RUNS_WINDOW = 10
+/** Ejecuciones recién hechas que se miran para los rechazos y los fallos de envío. */
+export const SEND_PROBLEM_WINDOW = 5
+/** Con tantas ejecuciones de esa ventana con rechazos (o fallos), se avisa. */
+export const SEND_PROBLEM_RUNS = 3
 
 const BUSINESS_DAYS = new Set(['lun', 'mar', 'mié', 'jue', 'vie'])
 const BUSINESS_START_HOUR = 8
@@ -134,6 +144,24 @@ export function evaluatePushHealth(input: PushHealthInput): PushHealth {
       severity: 'warning',
       message:
         'Odoo no envía eventos desde hace más de 4 horas en horario laboral: puede haber dejado de enviar.',
+    })
+  }
+
+  // Un rechazo suelto es un dispositivo; repetido en ejecuciones seguidas suele ser configuración
+  // (claves VAPID) o el servicio de push caído. Las ejecuciones saltadas por el cerrojo no cuentan.
+  const sendRuns = recent.filter((run) => !run.locked).slice(0, SEND_PROBLEM_WINDOW)
+  if (sendRuns.filter((run) => run.rejected > 0).length >= SEND_PROBLEM_RUNS) {
+    problems.push({
+      code: 'push_rejected',
+      severity: 'warning',
+      message: `El servicio de push rechaza envíos en ${SEND_PROBLEM_RUNS} o más de las últimas ${sendRuns.length} ejecuciones: revisar las claves VAPID.`,
+    })
+  }
+  if (sendRuns.filter((run) => run.failed > 0).length >= SEND_PROBLEM_RUNS) {
+    problems.push({
+      code: 'push_failing',
+      severity: 'warning',
+      message: `Fallan envíos (red, límite o error del servicio) en ${SEND_PROBLEM_RUNS} o más de las últimas ${sendRuns.length} ejecuciones.`,
     })
   }
 

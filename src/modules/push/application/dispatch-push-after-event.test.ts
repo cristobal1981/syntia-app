@@ -30,6 +30,8 @@ const summary = (partial: Partial<PushDispatchSummary> = {}): PushDispatchSummar
   sent: 1,
   removed: 0,
   skipped: 0,
+  rejected: 0,
+  failed: 0,
   truncated: false,
   locked: false,
   ...partial,

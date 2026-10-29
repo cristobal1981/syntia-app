@@ -70,7 +70,7 @@ describe('POST /api/push/reconcile', () => {
     expect(recordPushRun).toHaveBeenCalledWith({
       source: 'sweep',
       startedAt: expect.any(Date),
-      summary: { users: 0, sent: 1, removed: 0, skipped: 1, truncated: true, locked: false },
+      summary: { users: 0, sent: 1, removed: 0, skipped: 1, rejected: 0, failed: 0, truncated: true, locked: false },
     })
   })
 

@@ -103,6 +103,8 @@ export async function runEventPushDispatch(
     sent: 0,
     removed: 0,
     skipped: 0,
+    rejected: 0,
+    failed: 0,
     truncated: false,
     locked: false,
   }
@@ -274,6 +276,7 @@ async function processEvents(
       if (result === 'rejected') {
         const failures = subscription.failureCount + 1
         summary.skipped += 1
+        summary.rejected += 1
         await deps.saveFailureCount(subscription.id, failures)
         if (failures >= MAX_CONSECUTIVE_REJECTIONS) rejectedForGood.push(subscription.id)
         return
@@ -281,6 +284,7 @@ async function processEvents(
       if (result === 'error') {
         // Sin avanzar: se reintenta en la siguiente ejecución.
         summary.skipped += 1
+        summary.failed += 1
         return
       }
       summary.sent += 1

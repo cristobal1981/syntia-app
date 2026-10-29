@@ -27,7 +27,7 @@ describe('recordPushRun', () => {
     await recordPushRun({
       source: 'events',
       startedAt,
-      summary: { users: 3, sent: 2, removed: 1, skipped: 4, truncated: true, locked: false },
+      summary: { users: 3, sent: 2, removed: 1, skipped: 4, rejected: 1, failed: 2, truncated: true, locked: false },
     })
 
     expect(from).toHaveBeenCalledWith('push_runs')
@@ -62,12 +62,55 @@ describe('recordPushRun', () => {
     )
   })
 
+  it('guarda también los rechazados y los fallidos', async () => {
+    const { insert } = useInsert({ error: null })
+    await recordPushRun({
+      source: 'events',
+      startedAt,
+      summary: { users: 1, sent: 0, removed: 0, skipped: 3, rejected: 2, failed: 1, truncated: false, locked: false },
+    })
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ rejected: 2, failed: 1 }))
+  })
+
+  it('sin la migración aplicada, guarda la ejecución igualmente sin esos contadores', async () => {
+    const insert = vi
+      .fn()
+      .mockResolvedValueOnce({
+        error: { message: "Could not find the 'rejected' column of 'push_runs' in the schema cache" },
+      })
+      .mockResolvedValueOnce({ error: null })
+    createSupabaseAdminClient.mockReturnValue({ from: vi.fn(() => ({ insert })) })
+
+    await recordPushRun({
+      source: 'events',
+      startedAt,
+      summary: { users: 1, sent: 1, removed: 0, skipped: 0, rejected: 0, failed: 0, truncated: false, locked: false },
+    })
+
+    expect(insert).toHaveBeenCalledTimes(2)
+    const retried = insert.mock.calls[1]![0] as Record<string, unknown>
+    expect(retried).not.toHaveProperty('rejected')
+    expect(retried).not.toHaveProperty('failed')
+    expect(retried).toMatchObject({ source: 'events', users: 1, sent: 1 })
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it('un error de BD que no es de esas columnas no se reintenta y se registra', async () => {
+    const { insert } = useInsert({ error: { message: 'boom' } })
+
+    await recordPushRun({ source: 'events', startedAt })
+
+    expect(insert).toHaveBeenCalledTimes(1)
+    expect(console.error).toHaveBeenCalled()
+  })
+
   it('una ejecución saltada por el cerrojo queda marcada', async () => {
     const { insert } = useInsert({ error: null })
     await recordPushRun({
       source: 'events',
       startedAt,
-      summary: { users: 0, sent: 0, removed: 0, skipped: 0, truncated: false, locked: true },
+      summary: { users: 0, sent: 0, removed: 0, skipped: 0, rejected: 0, failed: 0, truncated: false, locked: true },
     })
 
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ locked: true }))
