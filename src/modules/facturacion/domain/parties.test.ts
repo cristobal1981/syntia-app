@@ -16,7 +16,7 @@ describe('buildParties', () => {
     const hotelInvoices = accounted.filter((i) => i.counterpartyTaxId === HOTEL_TAX_ID)
     expect(hotel.invoiceCount).toBe(hotelInvoices.length)
     expect(hotel.billedCents).toBe(hotelInvoices.reduce((t, i) => t + i.totalCents, 0))
-    expect(hotel.pendingCents).toBe(hotelInvoices.filter((i) => !i.paymentDate).reduce((t, i) => t + i.totalCents, 0))
+    expect(hotel.pendingCents).toBe(hotelInvoices.filter((i) => i.kind === 'ordinaria' && !i.paymentDate).reduce((t, i) => t + i.totalCents, 0))
     expect(hotel.lastInvoiceDate).toBe(hotelInvoices.map((i) => i.issueDate).sort().at(-1))
   })
 

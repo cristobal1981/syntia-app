@@ -37,6 +37,7 @@ import { PAYMENT_METHODS, type PaymentMethod } from '@/src/modules/facturacion/d
 import { runInvoicingOperation } from '@/src/modules/facturacion/infrastructure/local-invoice-store'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
 import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { FormSection } from '@/src/modules/facturacion/ui/form-section'
 import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.editor
@@ -220,6 +221,21 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
   }
 
   const title = existing ? pageCopy.editTitle : facturacion.page.newInvoice
+  const cancelHref = existing ? `${invoicesHref}/${existing.id}` : invoicesHref
+  const withholdingLabel = tax.withholdingRate > 0 ? `${copy.computed.withholding} (${rateLabel(tax.withholdingRate)})` : copy.computed.withholding
+  const actions = (
+    <>
+      <Button type="button" disabled={saving} onClick={() => save(true)}>
+        {pageCopy.saveAndEmit}
+      </Button>
+      <Button type="submit" variant="outline" disabled={saving} aria-busy={saving}>
+        {saving ? copy.saving : pageCopy.saveDraft}
+      </Button>
+      <Button asChild variant="ghost" disabled={saving}>
+        <Link href={cancelHref}>{copy.cancel}</Link>
+      </Button>
+    </>
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -234,7 +250,13 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
         <p className="text-sm text-muted-foreground">{copy.description}</p>
       </div>
 
-      <form className="flex min-w-0 max-w-3xl flex-col gap-6" onSubmit={handleSubmit} noValidate aria-label={title}>
+      <form
+        className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,44rem)_minmax(0,22rem)] xl:items-start xl:gap-12"
+        onSubmit={handleSubmit}
+        noValidate
+        aria-label={title}
+      >
+        <div className="flex min-w-0 flex-col gap-8">
         {emitIssues.length > 0 ? (
           <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
             <ul className="list-disc space-y-0.5 pl-5 text-foreground">
@@ -245,8 +267,7 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
           </div>
         ) : null}
 
-        <fieldset className="flex flex-col gap-4 border-0 p-0">
-          <legend className="text-sm font-semibold text-foreground">{copy.sections.identification}</legend>
+        <FormSection title={copy.sections.identification}>
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <Lock className="size-3.5 shrink-0" aria-hidden />
             {pageCopy.lockedFields}
@@ -275,10 +296,9 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
               <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.dateReason}</p>
             </>
           ) : null}
-        </fieldset>
+        </FormSection>
 
-        <fieldset className="flex flex-col gap-4 border-0 p-0">
-          <legend className="text-sm font-semibold text-foreground">{copy.sections.counterparty}</legend>
+        <FormSection title={copy.sections.counterparty}>
           <TramiteDrawerSelect
             id={`${baseId}-party`}
             name="party"
@@ -404,10 +424,9 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             options={Object.fromEntries(categories().map((category) => [category.id, category.label]))}
             onChange={(categoryId) => patch({ categoryId })}
           />
-        </fieldset>
+        </FormSection>
 
-        <fieldset className="flex flex-col gap-4 border-0 p-0">
-          <legend className="text-sm font-semibold text-foreground">{copy.sections.lines}</legend>
+        <FormSection title={copy.sections.lines}>
           {products.length > 0 ? (
             <TramiteDrawerSelect
               id={`${baseId}-product`}
@@ -419,6 +438,13 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
               onChange={addProductLine}
             />
           ) : null}
+          <div className="hidden grid-cols-[minmax(0,1fr)_5.5rem_8rem_7rem_2.5rem] gap-3 text-sm font-medium text-foreground sm:grid" aria-hidden>
+            <span>{copy.lines.description}</span>
+            <span>{copy.lines.quantity}</span>
+            <span>{copy.lines.unitPrice}</span>
+            <span className="text-right">{copy.lines.amount}</span>
+            <span />
+          </div>
           <ul className="flex flex-col gap-3">
             {values.lines.map((line, index) => {
               const lineError = lineErrors[line.id] ?? {}
@@ -429,52 +455,53 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
               return (
                 <li
                   key={line.id}
-                  className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 dark:border-border/60"
+                  className="grid gap-3 max-sm:rounded-lg max-sm:border max-sm:border-border max-sm:p-3 sm:grid-cols-[minmax(0,1fr)_5.5rem_8rem_7rem_2.5rem] sm:items-start dark:max-sm:border-border/60"
                 >
                   <TramiteDrawerField
                     id={`${baseId}-line-${line.id}-description`}
                     name={`lineDescription-${index}`}
                     label={copy.lines.description}
+                    labelClassName="sm:sr-only"
                     value={line.description}
                     error={lineError.description}
                     required
                     onChange={(description) => patchLine(line.id, { description })}
                   />
-                  <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-start">
-                    <TramiteDrawerField
-                      id={`${baseId}-line-${line.id}-quantity`}
-                      name={`lineQuantity-${index}`}
-                      label={copy.lines.quantity}
-                      value={line.quantity}
-                      error={lineError.quantity}
-                      required
-                      onChange={(quantity) => patchLine(line.id, { quantity })}
-                    />
-                    <TramiteDrawerField
-                      id={`${baseId}-line-${line.id}-price`}
-                      name={`lineUnitPrice-${index}`}
-                      label={copy.lines.unitPrice}
-                      value={line.unitPrice}
-                      error={lineError.unitPrice}
-                      required
-                      onChange={(unitPrice) => patchLine(line.id, { unitPrice })}
-                    />
-                    <div>
-                      <p className="text-xs text-muted-foreground">{copy.lines.amount}</p>
-                      <p className="mt-2 text-sm font-medium tabular-nums text-foreground">{formatCents(amount)}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="sm:mt-5"
-                      disabled={values.lines.length === 1}
-                      aria-label={copy.lines.remove(index + 1)}
-                      onClick={() => removeLine(line.id)}
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
+                  <TramiteDrawerField
+                    id={`${baseId}-line-${line.id}-quantity`}
+                    name={`lineQuantity-${index}`}
+                    label={copy.lines.quantity}
+                    labelClassName="sm:sr-only"
+                    value={line.quantity}
+                    error={lineError.quantity}
+                    required
+                    onChange={(quantity) => patchLine(line.id, { quantity })}
+                  />
+                  <TramiteDrawerField
+                    id={`${baseId}-line-${line.id}-price`}
+                    name={`lineUnitPrice-${index}`}
+                    label={copy.lines.unitPrice}
+                    labelClassName="sm:sr-only"
+                    value={line.unitPrice}
+                    error={lineError.unitPrice}
+                    required
+                    onChange={(unitPrice) => patchLine(line.id, { unitPrice })}
+                  />
+                  <div className="flex items-center justify-between sm:h-10 sm:justify-end">
+                    <span className="text-sm text-muted-foreground sm:sr-only">{copy.lines.amount}</span>
+                    <span className="text-sm font-medium tabular-nums text-foreground">{formatCents(amount)}</span>
                   </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="justify-self-end"
+                    disabled={values.lines.length === 1}
+                    aria-label={copy.lines.remove(index + 1)}
+                    onClick={() => removeLine(line.id)}
+                  >
+                    <Trash2 aria-hidden />
+                  </Button>
                 </li>
               )
             })}
@@ -489,40 +516,9 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             {copy.lines.add}
           </Button>
           <p className="-mt-2 text-xs text-muted-foreground">{copy.lines.hint}</p>
-        </fieldset>
+        </FormSection>
 
-        <fieldset className="flex flex-col gap-4 border-0 p-0">
-          <legend className="text-sm font-semibold text-foreground">{copy.sections.amounts}</legend>
-          <p className="text-sm text-foreground">
-            {copy.taxRules.summary(
-              copy.regimes[tax.regime],
-              rateLabel(tax.taxRate),
-              tax.withholdingRate > 0 ? rateLabel(tax.withholdingRate) : copy.taxRules.noWithholding
-            )}
-          </p>
-          <p className="-mt-2 text-xs text-muted-foreground">{tax.note || copy.taxRules.hint}</p>
-          <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm sm:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">{copy.lines.subtotal}</dt>
-              <dd className="font-medium tabular-nums text-foreground">{formatCents(amounts.baseCents)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{copy.computed.tax}</dt>
-              <dd className="font-medium tabular-nums text-foreground">{formatCents(amounts.taxCents)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{copy.computed.withholding}</dt>
-              <dd className="font-medium tabular-nums text-foreground">{formatCents(amounts.withholdingCents)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{copy.computed.total}</dt>
-              <dd className="font-semibold tabular-nums text-foreground">{formatCents(amounts.totalCents)}</dd>
-            </div>
-          </dl>
-        </fieldset>
-
-        <fieldset className="flex flex-col gap-4 border-0 p-0">
-          <legend className="text-sm font-semibold text-foreground">{copy.sections.payment}</legend>
+        <FormSection title={copy.sections.payment}>
           <TramiteDrawerSelect
             id={`${baseId}-method`}
             name="paymentMethod"
@@ -553,18 +549,42 @@ export function InvoiceFormPage(props: InvoiceFormPageProps) {
             />
           </div>
           <p className="-mt-2 text-xs text-muted-foreground">{copy.hints.dueDate} {copy.hints.paymentDate}</p>
-        </fieldset>
+        </FormSection>
 
-        <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-1 py-3 backdrop-blur dark:border-border/60">
-          <Button asChild variant="outline" disabled={saving}>
-            <Link href={existing ? `${invoicesHref}/${existing.id}` : invoicesHref}>{copy.cancel}</Link>
-          </Button>
-          <Button type="submit" variant="outline" disabled={saving} aria-busy={saving}>
-            {saving ? copy.saving : pageCopy.saveDraft}
-          </Button>
-          <Button type="button" disabled={saving} onClick={() => save(true)}>
-            {pageCopy.saveAndEmit}
-          </Button>
+        </div>
+
+        <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-0" aria-label={copy.sections.amounts}>
+          <section className="portal-home-card flex flex-col gap-3 rounded-xl px-5 py-4">
+            <h2 className="font-sans text-base font-semibold text-foreground">{copy.sections.amounts}</h2>
+            <dl className="flex flex-col gap-2 text-sm">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">{copy.lines.subtotal}</dt>
+                <dd className="tabular-nums text-foreground">{formatCents(amounts.baseCents)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">{`${copy.regimes[tax.regime]} (${rateLabel(tax.taxRate)})`}</dt>
+                <dd className="tabular-nums text-foreground">{formatCents(amounts.taxCents)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground">{withholdingLabel}</dt>
+                <dd className="tabular-nums text-foreground">
+                  {tax.withholdingRate > 0 ? formatCents(-amounts.withholdingCents) : copy.taxRules.noWithholding}
+                </dd>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-border pt-3 dark:border-border/60">
+                <dt className="font-medium text-foreground">{copy.computed.total}</dt>
+                <dd className="font-sans text-2xl font-semibold tabular-nums text-foreground">{formatCents(amounts.totalCents)}</dd>
+              </div>
+            </dl>
+            <p className="text-xs leading-relaxed text-muted-foreground">{tax.note || copy.taxRules.hint}</p>
+          </section>
+          <div className="hidden flex-col gap-2 xl:flex">{actions}</div>
+        </aside>
+
+        {/* Por debajo de xl las acciones van en una barra fija al pie del área con desplazamiento. El área tiene un relleno
+            de 2,5 rem abajo (más hueco para la barra inferior en móvil): -bottom-10 la pega al borde (o sobre la barra inferior). */}
+        <div className="sticky bottom-[calc(env(safe-area-inset-bottom)-2.5rem)] z-10 -mx-4 flex flex-row-reverse flex-wrap items-center justify-start gap-2 border-t border-border bg-background px-4 py-3 sm:-mx-10 sm:px-10 md:-bottom-10 xl:hidden dark:border-border/60">
+          {actions}
         </div>
       </form>
     </div>

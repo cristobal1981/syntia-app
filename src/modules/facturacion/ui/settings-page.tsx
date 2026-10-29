@@ -33,7 +33,8 @@ function IssuerFromProfile() {
   ]
 
   return (
-    <div className="flex max-w-2xl flex-col gap-5">
+    <div className="grid max-w-5xl gap-x-12 gap-y-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
+      <div className="flex min-w-0 flex-col gap-5">
       <p className="text-sm text-muted-foreground">{fromProfile.description}</p>
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
         {rows.map(([label, value]) => (
@@ -48,9 +49,10 @@ function IssuerFromProfile() {
           <Link href="/perfil">{fromProfile.requestChange}</Link>
         </Button>
       </div>
-      <section className="rounded-lg border border-border bg-muted/40 px-4 py-3 dark:border-border/60" aria-label={fromProfile.taxProfile.title}>
-        <h2 className="text-sm font-semibold text-foreground">{fromProfile.taxProfile.title}</h2>
-        <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
+      </div>
+      <section className="portal-home-card rounded-xl p-5" aria-label={fromProfile.taxProfile.title}>
+        <h2 className="font-sans text-base font-semibold text-foreground">{fromProfile.taxProfile.title}</h2>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-xs text-muted-foreground">{fromProfile.taxProfile.territory}</dt>
             <dd className="text-foreground">{fromProfile.taxProfile.territories[profile.territory]}</dd>
@@ -62,7 +64,7 @@ function IssuerFromProfile() {
             </dd>
           </div>
         </dl>
-        <p className="mt-2 text-xs text-muted-foreground">{fromProfile.taxProfile.hint}</p>
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{fromProfile.taxProfile.hint}</p>
       </section>
     </div>
   )

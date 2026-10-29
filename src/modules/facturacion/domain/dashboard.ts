@@ -28,11 +28,12 @@ export type PendingSummary = {
   overdueCount: number
 }
 
-/** Lo pendiente de cobro a una fecha, y de ello lo ya vencido. */
+/** Lo pendiente de cobro a una fecha, y de ello lo ya vencido. Una corrección ni se cobra ni vence: no cuenta. */
 export function buildPendingSummary(invoices: Invoice[], today: string): PendingSummary {
   const summary: PendingSummary = { pendingCents: 0, pendingCount: 0, overdueCents: 0, overdueCount: 0 }
 
   for (const invoice of accountedInvoices(invoices)) {
+    if (invoice.kind !== 'ordinaria') continue
     const status = paymentStatus(invoice, today)
     if (status === 'pagada') continue
 
@@ -47,10 +48,10 @@ export function buildPendingSummary(invoices: Invoice[], today: string): Pending
   return summary
 }
 
-/** Facturas vencidas y sin cobrar, de las más atrasadas a las que menos. */
+/** Facturas vencidas y sin cobrar, de las más atrasadas a las que menos (las correcciones no vencen). */
 export function listOverdueInvoices(invoices: Invoice[], today: string, limit: number): Invoice[] {
   return accountedInvoices(invoices)
-    .filter((invoice) => paymentStatus(invoice, today) === 'vencida')
+    .filter((invoice) => invoice.kind === 'ordinaria' && paymentStatus(invoice, today) === 'vencida')
     .sort((a, b) => daysOverdue(b, today) - daysOverdue(a, today) || a.id.localeCompare(b.id))
     .slice(0, limit)
 }

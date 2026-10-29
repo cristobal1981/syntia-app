@@ -10,6 +10,8 @@ type BookColumn = {
   key: string
   label: string
   align?: 'left' | 'right'
+  /** Clases de la columna (p. ej. un ancho fijo para que las cifras no queden lejos de sus acciones). */
+  className?: string
 }
 
 type BookTableProps = {
@@ -69,7 +71,7 @@ export function BookTable({ caption, columns, rows, footer, emptyMessage }: Book
                 <th
                   key={column.key}
                   scope="col"
-                  className={cn('px-4 py-3 font-sans font-medium text-muted-foreground', alignClass(column.align))}
+                  className={cn('px-4 py-3 font-sans font-medium text-muted-foreground', alignClass(column.align), column.className)}
                 >
                   {column.label}
                 </th>
@@ -94,7 +96,7 @@ export function BookTable({ caption, columns, rows, footer, emptyMessage }: Book
                 }
               >
                 {row.cells.map((cell, index) => (
-                  <td key={index} className={cn('px-4 py-2.5 text-foreground', alignClass(columns[index]?.align))}>
+                  <td key={index} className={cn('px-4 py-2.5 text-foreground', alignClass(columns[index]?.align), columns[index]?.className)}>
                     {cell}
                   </td>
                 ))}

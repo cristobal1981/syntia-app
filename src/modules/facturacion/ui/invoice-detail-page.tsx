@@ -131,6 +131,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
   const collectable = !isDraft && invoice.kind === 'ordinaria'
   const markPaidIsNext = collectable && !invoice.paymentDate
   const rectified = rectifications.length > 0
+  const showCorrectHint = !isDraft && canRectify(invoice) && !rectified
 
   // Una sola acción principal según el estado; lo demás, a la vista solo si es el siguiente paso probable.
   const menuActions: InvoiceMenuAction[] = [
@@ -206,15 +207,17 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         </div>
       </div>
 
-      {!isDraft && canRectify(invoice) && !rectified ? (
+      {showCorrectHint ? (
         <div
           role="note"
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm dark:border-border/60"
         >
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-foreground">{copy.actions.correctHint.title}</p>
-            <p className="mt-0.5 text-muted-foreground">{copy.actions.correctHint.body}</p>
-          </div>
+          <p className="flex min-w-0 flex-1 items-start gap-2 text-muted-foreground">
+            <Lock className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
+            <span>
+              <span className="font-medium text-foreground">{copy.lockedTitle}.</span> {copy.actions.correctHint.body}
+            </span>
+          </p>
           <Button asChild variant="outline" size="sm">
             <Link href={`${invoicesHref}/${invoice.id}/rectificar`}>
               <Undo2 aria-hidden />
@@ -251,7 +254,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         </div>
       ) : null}
 
-      {locked ? (
+      {locked && !showCorrectHint ? (
         <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
           <Lock className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
           <span>

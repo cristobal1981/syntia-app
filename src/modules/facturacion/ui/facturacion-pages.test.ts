@@ -1,4 +1,4 @@
-import { createElement, type ReactElement } from 'react'
+import { createElement, type ComponentType, type ReactElement, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,10 +30,13 @@ import {
   SettingsSection,
 } from '@/src/modules/facturacion/ui/section-views'
 
+// El proveedor exige `children` entre sus props; `createElement` los recibe como argumentos.
+const Provider = FacturacionProvider as ComponentType<{ odooIssuer?: Issuer | null; children?: ReactNode }>
+
 function render(path: string, element: ReactElement, search = '', odooIssuer: Issuer | null = null): string {
   nav.pathname = path
   nav.search = search
-  return renderToString(createElement(TooltipProvider, null, createElement(FacturacionProvider, { odooIssuer, children: element })))
+  return renderToString(createElement(TooltipProvider, null, createElement(Provider, { odooIssuer }, element)))
 }
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ')
@@ -246,7 +249,8 @@ describe('líneas, impuestos y aviso de corregir', () => {
     expect(plain).toContain('Añadir del catálogo')
     expect(plain).toContain('Territorio del cliente')
     expect(plain).toContain('Tipo de cliente')
-    expect(plain).toContain('Impuesto: IGIC 7 %')
+    expect(plain).toContain('IGIC (7 %)')
+    expect(plain).toContain('Retención (15 %)')
     expect(plain).not.toContain('Tipo de impuesto')
     expect(plain).not.toContain('Retención de IRPF')
     expect(plain).not.toContain('Base imponible (€)')
@@ -258,12 +262,13 @@ describe('líneas, impuestos y aviso de corregir', () => {
 
   it('una factura emitida sin corregir avisa de cómo corregirla; con corrección, no', () => {
     const open = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
-    expect(open).toContain('¿Hay algo mal en esta factura?')
+    expect(open).toContain('Factura emitida: no se puede modificar')
+    expect(open).toContain('Si hay algo mal, se corrige emitiendo una factura rectificativa')
     expect(open).toContain('Corregir la factura')
     const rectified = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
-    expect(rectified).not.toContain('¿Hay algo mal en esta factura?')
+    expect(rectified).not.toContain('Si hay algo mal, se corrige')
     const draft = text(render('/facturacion/facturas/ejemplo-15', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-15' })))
-    expect(draft).not.toContain('¿Hay algo mal en esta factura?')
+    expect(draft).not.toContain('Si hay algo mal, se corrige')
   })
 
   it('el documento lleva la tabla de líneas, la forma de cobro y la base', () => {
@@ -285,6 +290,41 @@ describe('líneas, impuestos y aviso de corregir', () => {
     const plain = text(render('/facturacion/clientes/nuevo', createElement(NewPartySection)))
     expect(plain).toContain('Territorio fiscal')
     expect(plain).toContain('Tipo de cliente')
+  })
+})
+
+describe('jerarquía y estados de las pantallas', () => {
+  it('el aviso de vista de prueba es una línea discreta, no un recuadro', () => {
+    const html = render('/facturacion/panel', createElement(PanelSection))
+    const shell = renderToString(createElement(TooltipProvider, null, createElement(FacturacionShell, null, createElement(PanelSection))))
+    expect(text(shell)).toContain('Vista de prueba en tu ordenador')
+    expect(text(shell)).toContain('Restablecer datos de ejemplo')
+    expect(shell).not.toContain('bg-service-fiscal')
+    expect(html).toBeTruthy()
+  })
+
+  it('una factura emitida sin corregir explica una sola vez que no se puede modificar', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-06', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-06' })))
+    expect(plain.match(/no se puede modificar/g)?.length).toBe(1)
+  })
+
+  it('una factura ya corregida mantiene el aviso de bloqueo, sin el de corregir', () => {
+    const plain = text(render('/facturacion/facturas/ejemplo-02', createElement(InvoiceDetailSection, { invoiceId: 'ejemplo-02' })))
+    expect(plain).toContain('Factura emitida: no se puede modificar')
+    expect(plain).not.toContain('Corregir la factura')
+  })
+
+  it('el formulario de factura lleva las acciones en el resumen, con títulos de sección', () => {
+    const html = render('/facturacion/facturas/nueva', createElement(NewInvoiceSection))
+    expect(html).toContain('xl:grid-cols-[minmax(0,44rem)_minmax(0,22rem)]')
+    expect(text(html)).toContain('Importes')
+    expect(html).not.toContain('backdrop-blur')
+  })
+
+  it('un cliente sin facturas muestra guiones en facturado y pendiente; con facturas, el cero escrito', () => {
+    const html = render('/facturacion/clientes', createElement(PartiesSection))
+    expect(html).toContain('text-muted-foreground">—</span>')
+    expect(text(html)).toContain('0,00 €')
   })
 })
 

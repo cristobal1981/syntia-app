@@ -40,14 +40,16 @@ export function TramiteRequiredMark() {
 function TramiteFieldLabel({
   htmlFor,
   required,
+  className,
   children,
 }: {
   htmlFor?: string
   required?: boolean
+  className?: string
   children: React.ReactNode
 }) {
   return (
-    <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
+    <label htmlFor={htmlFor} className={cn('text-sm font-medium text-foreground', className)}>
       {children}
       {required ? <TramiteRequiredMark /> : null}
     </label>
@@ -67,6 +69,7 @@ export function TramiteDrawerField({
   min,
   max,
   className,
+  labelClassName,
   onChange,
 }: {
   id: string
@@ -81,13 +84,15 @@ export function TramiteDrawerField({
   min?: string
   max?: string
   className?: string
+  /** Clases de la etiqueta (p. ej. `sm:sr-only` cuando una cabecera de columna ya la nombra a la vista). */
+  labelClassName?: string
   onChange: (value: string) => void
 }) {
   const errorId = error ? `${id}-error` : undefined
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <TramiteFieldLabel htmlFor={id} required={required}>
+      <TramiteFieldLabel htmlFor={id} required={required} className={labelClassName}>
         {label}
       </TramiteFieldLabel>
       <Input

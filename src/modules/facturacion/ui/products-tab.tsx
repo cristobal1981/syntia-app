@@ -109,8 +109,8 @@ export function ProductsTab() {
         emptyMessage={copy.empty}
         columns={[
           { key: 'name', label: copy.columns.name },
-          { key: 'price', label: copy.columns.price, align: 'right' },
-          { key: 'actions', label: '', align: 'right' },
+          { key: 'price', label: copy.columns.price, align: 'right', className: 'w-56' },
+          { key: 'actions', label: copy.columns.actions, align: 'right', className: 'w-28' },
         ]}
         rows={rows.map((product) => ({
           key: product.id,

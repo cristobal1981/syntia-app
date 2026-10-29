@@ -4,8 +4,7 @@ export const facturacion = {
     'Emite facturas a tus clientes, consulta lo pendiente de cobro y mantén tu directorio de clientes.',
   mockNotice: {
     title: 'Vista de prueba en tu ordenador',
-    description:
-      'Esta sección es un borrador: solo existe en tu ordenador, los datos se guardan en este navegador y no se envían a la asesoría.',
+    description: 'Los datos se guardan solo en este navegador y no se envían a la asesoría.',
     reset: 'Restablecer datos de ejemplo',
     resetDone: 'Datos de ejemplo restaurados.',
   },
@@ -69,7 +68,7 @@ export const facturacion = {
     description:
       'Tu catálogo. Al facturar eliges un producto y su precio se copia a la línea; ahí puedes cambiarlo para esa factura sin tocar el catálogo.',
     empty: 'Todavía no hay productos ni servicios.',
-    columns: { name: 'Nombre', price: 'Precio (sin impuestos)' },
+    columns: { name: 'Nombre', price: 'Precio (sin impuestos)', actions: 'Acciones' },
     newButton: 'Nuevo producto',
     newTitle: 'Nuevo producto o servicio',
     editTitle: 'Editar producto o servicio',
@@ -186,7 +185,6 @@ export const facturacion = {
     },
     clientKinds: { particular: 'Particular', autonomo: 'Autónomo', empresa: 'Empresa' },
     taxRules: {
-      summary: (tax: string, rate: string, withholding: string) => `Impuesto: ${tax} ${rate} · Retención: ${withholding}`,
       noWithholding: 'sin retención',
       hint: 'El impuesto y la retención los fijan nuestras reglas según dónde estás tú y dónde está tu cliente; no se eligen a mano.',
       clientHint: 'Con el territorio y el tipo del cliente se decide el impuesto (IGIC o IVA) y si lleva retención.',
@@ -308,8 +306,7 @@ export const facturacion = {
         emit: 'Emitir factura',
         rectify: 'Corregir',
         correctHint: {
-          title: '¿Hay algo mal en esta factura?',
-          body: 'Una factura emitida no se puede editar. Se corrige emitiendo una factura rectificativa que anula o ajusta el importe; la original queda como está.',
+          body: 'Si hay algo mal, se corrige emitiendo una factura rectificativa que la cita. La original queda como está.',
           action: 'Corregir la factura',
         },
         delete: 'Eliminar',
@@ -419,7 +416,7 @@ export const facturacion = {
     fields: {
       name: 'Nombre o razón social',
       taxId: 'NIF / CIF',
-      address: 'Domicilio',
+      address: 'Calle y número',
       postalCode: 'Código postal',
       city: 'Población',
       province: 'Provincia',

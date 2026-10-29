@@ -134,6 +134,28 @@ function Header() {
 
   return (
     <header className="flex flex-col gap-4">
+      <div
+        role="note"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm text-muted-foreground"
+      >
+        <p className="flex min-w-0 items-center gap-2">
+          <FlaskConical className="size-4 shrink-0" aria-hidden />
+          <span>
+            <span className="font-medium text-foreground">{copy.mockNotice.title}.</span> {copy.mockNotice.description}
+          </span>
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            resetInvoicing()
+            toast.success(copy.mockNotice.resetDone)
+          }}
+        >
+          {copy.mockNotice.reset}
+        </Button>
+      </div>
       {nested ? null : (
         <div>
           <h1 className="font-sans text-2xl font-semibold text-foreground md:text-3xl">
@@ -144,28 +166,6 @@ function Header() {
           ) : null}
         </div>
       )}
-
-      <div
-        role="note"
-        className="flex flex-wrap items-start gap-3 rounded-lg border border-service-fiscal/40 bg-service-fiscal/10 px-4 py-3 text-sm"
-      >
-        <FlaskConical className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">{copy.mockNotice.title}</p>
-          <p className="mt-0.5 text-muted-foreground">{copy.mockNotice.description}</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            resetInvoicing()
-            toast.success(copy.mockNotice.resetDone)
-          }}
-        >
-          {copy.mockNotice.reset}
-        </Button>
-      </div>
     </header>
   )
 }

@@ -27,6 +27,7 @@ import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provide
 import { LifecyclePills } from '@/src/modules/facturacion/ui/invoice-badges'
 import { PortalConfirmDialog } from '@/src/modules/portal/ui/portal-confirm-dialog'
 import { TramiteDrawerField, TramiteDrawerSelect } from '@/src/modules/tramites/ui/tramite-drawer-field'
+import { FormSection } from '@/src/modules/facturacion/ui/form-section'
 import { NotFoundState } from '@/src/modules/facturacion/ui/not-found-state'
 
 const copy = facturacion.partyPages
@@ -137,8 +138,7 @@ export function PartyFormPage(props: PartyFormPageProps) {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <form className="flex min-w-0 flex-col gap-5" onSubmit={handleSubmit} noValidate>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.identity}</legend>
+          <FormSection title={copy.sections.identity}>
             <TramiteDrawerField id={`${baseId}-name`} name="name" label={copy.fields.name} value={values.name} error={errors.name} required onChange={(name) => patch({ name })} />
             <TramiteDrawerField id={`${baseId}-taxid`} name="taxId" label={copy.fields.taxId} value={values.taxId} error={errors.taxId} required onChange={(taxId) => patch({ taxId })} />
             {similar.length > 0 ? (
@@ -159,25 +159,22 @@ export function PartyFormPage(props: PartyFormPageProps) {
                 </ul>
               </div>
             ) : null}
-          </fieldset>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.address}</legend>
+          </FormSection>
+          <FormSection title={copy.sections.address}>
             <TramiteDrawerField id={`${baseId}-address`} name="address" label={copy.fields.address} value={values.address} onChange={(address) => patch({ address })} />
             <div className="grid gap-4 sm:grid-cols-3">
               <TramiteDrawerField id={`${baseId}-postal`} name="postalCode" label={copy.fields.postalCode} value={values.postalCode} error={errors.postalCode} onChange={(postalCode) => patch({ postalCode })} />
               <TramiteDrawerField id={`${baseId}-city`} name="city" label={copy.fields.city} value={values.city} onChange={(city) => patch({ city })} />
               <TramiteDrawerField id={`${baseId}-province`} name="province" label={copy.fields.province} value={values.province} onChange={(province) => patch({ province })} />
             </div>
-          </fieldset>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.contact}</legend>
+          </FormSection>
+          <FormSection title={copy.sections.contact}>
             <div className="grid gap-4 sm:grid-cols-2">
               <TramiteDrawerField id={`${baseId}-email`} name="email" type="email" label={copy.fields.email} value={values.email} error={errors.email} onChange={(email) => patch({ email })} />
               <TramiteDrawerField id={`${baseId}-phone`} name="phone" label={copy.fields.phone} value={values.phone} onChange={(phone) => patch({ phone })} />
             </div>
-          </fieldset>
-          <fieldset className="flex flex-col gap-4 border-0 p-0">
-            <legend className="text-sm font-semibold text-foreground">{copy.sections.billing}</legend>
+          </FormSection>
+          <FormSection title={copy.sections.billing}>
             <TramiteDrawerField
               id={`${baseId}-term`}
               name="paymentTermDays"
@@ -209,7 +206,7 @@ export function PartyFormPage(props: PartyFormPageProps) {
             </div>
             <p className="-mt-2 text-xs text-muted-foreground">{facturacion.editor.taxRules.clientHint}</p>
             <TramiteDrawerField id={`${baseId}-notes`} name="notes" label={copy.fields.notes} value={values.notes} onChange={(notes) => patch({ notes })} />
-          </fieldset>
+          </FormSection>
 
           {existing ? <p className="text-xs text-muted-foreground">{copy.snapshotNote}</p> : null}
 

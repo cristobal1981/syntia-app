@@ -122,7 +122,7 @@ export function partiesWithStats(parties: Party[], invoices: Invoice[]): PartyWi
       ...party,
       invoiceCount: own.length,
       billedCents: own.reduce((sum, invoice) => sum + invoice.totalCents, 0),
-      pendingCents: own.filter((invoice) => !invoice.paymentDate).reduce((sum, invoice) => sum + invoice.totalCents, 0),
+      pendingCents: own.filter((invoice) => invoice.kind === 'ordinaria' && !invoice.paymentDate).reduce((sum, invoice) => sum + invoice.totalCents, 0),
     }
   })
 }
