@@ -11,7 +11,10 @@ vi.mock('@/src/modules/portal/infrastructure/odoo-json-client', () => ({
   odooCall: vi.fn(),
 }))
 
-import { fetchAttachmentBinariesByIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import {
+  countAttachmentsByModels,
+  fetchAttachmentBinariesByIds,
+} from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 
 function rowFor(id: number, overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -110,5 +113,123 @@ describe('fetchAttachmentBinariesByIds', () => {
 
     await expect(fetchAttachmentBinariesByIds([1])).rejects.toThrow('ODOO_NOT_CONFIGURED')
     expect(odooSearchRead).not.toHaveBeenCalled()
+  })
+})
+
+describe('countAttachmentsByModels', () => {
+  it('con un solo modelo pide ese modelo y sus ids, sin operadores', async () => {
+    odooSearchRead.mockResolvedValue([{ res_id: 10, res_model: 'project.task' }])
+
+    await countAttachmentsByModels([{ resModel: 'project.task', resIds: [10, 11] }])
+
+    expect(odooSearchRead).toHaveBeenCalledTimes(1)
+    expect(odooSearchRead).toHaveBeenCalledWith('ir.attachment', {
+      domain: [
+        ['res_model', '=', 'project.task'],
+        ['res_id', 'in', [10, 11]],
+      ],
+      fields: ['res_id', 'res_model'],
+      limit: 500,
+    })
+  })
+
+  it('con dos modelos hace UNA consulta con un O exacto: cada modelo con sus ids', async () => {
+    odooSearchRead.mockResolvedValue([])
+
+    await countAttachmentsByModels([
+      { resModel: 'project.task', resIds: [5] },
+      { resModel: 'helpdesk.ticket', resIds: [5, 6] },
+    ])
+
+    expect(odooSearchRead).toHaveBeenCalledTimes(1)
+    expect(odooSearchRead).toHaveBeenCalledWith('ir.attachment', {
+      domain: [
+        '|',
+        '&',
+        ['res_model', '=', 'project.task'],
+        ['res_id', 'in', [5]],
+        '&',
+        ['res_model', '=', 'helpdesk.ticket'],
+        ['res_id', 'in', [5, 6]],
+      ],
+      fields: ['res_id', 'res_model'],
+      limit: 1000,
+    })
+  })
+
+  it('cuenta por modelo y por id: el mismo id en dos modelos no se mezcla', async () => {
+    odooSearchRead.mockResolvedValue([
+      { res_id: 5, res_model: 'project.task' },
+      { res_id: 5, res_model: 'project.task' },
+      { res_id: 5, res_model: 'helpdesk.ticket' },
+      { res_id: 6, res_model: 'helpdesk.ticket' },
+    ])
+
+    const counts = await countAttachmentsByModels([
+      { resModel: 'project.task', resIds: [5] },
+      { resModel: 'helpdesk.ticket', resIds: [5, 6] },
+    ])
+
+    expect(counts.get('project.task')).toEqual(new Map([[5, 2]]))
+    expect(counts.get('helpdesk.ticket')).toEqual(
+      new Map([
+        [5, 1],
+        [6, 1],
+      ])
+    )
+  })
+
+  it('un modelo sin ids se omite de la consulta y queda con el mapa vacío', async () => {
+    odooSearchRead.mockResolvedValue([{ res_id: 20, res_model: 'helpdesk.ticket' }])
+
+    const counts = await countAttachmentsByModels([
+      { resModel: 'project.task', resIds: [] },
+      { resModel: 'helpdesk.ticket', resIds: [20] },
+    ])
+
+    expect(odooSearchRead.mock.calls[0]![1].domain).toEqual([
+      ['res_model', '=', 'helpdesk.ticket'],
+      ['res_id', 'in', [20]],
+    ])
+    expect(counts.get('project.task')).toEqual(new Map())
+    expect(counts.get('helpdesk.ticket')).toEqual(new Map([[20, 1]]))
+  })
+
+  it('sin ningún id no llama a Odoo', async () => {
+    const counts = await countAttachmentsByModels([
+      { resModel: 'project.task', resIds: [] },
+      { resModel: 'helpdesk.ticket', resIds: [] },
+    ])
+
+    expect(odooSearchRead).not.toHaveBeenCalled()
+    expect(counts.size).toBe(2)
+  })
+
+  it('ignora filas sin id de registro, sin modelo o de un modelo que no se pidió', async () => {
+    odooSearchRead.mockResolvedValue([
+      { res_id: false, res_model: 'project.task' },
+      { res_id: 10, res_model: false },
+      { res_id: 10, res_model: 'otro.modelo' },
+      { res_id: 10, res_model: 'project.task' },
+    ])
+
+    const counts = await countAttachmentsByModels([{ resModel: 'project.task', resIds: [10] }])
+
+    expect(counts.get('project.task')).toEqual(new Map([[10, 1]]))
+    expect(counts.has('otro.modelo')).toBe(false)
+  })
+
+  it('el tope por modelo se aplica al total: 500 por cada modelo pedido', async () => {
+    odooSearchRead.mockResolvedValue([])
+
+    await countAttachmentsByModels([{ resModel: 'a', resIds: [1] }, { resModel: 'b', resIds: [1] }, { resModel: 'c', resIds: [1] }], 200)
+
+    expect(odooSearchRead.mock.calls[0]![1].limit).toBe(600)
+  })
+
+  it('propaga el error de Odoo', async () => {
+    odooSearchRead.mockRejectedValue(new Error('boom'))
+
+    await expect(countAttachmentsByModels([{ resModel: 'a', resIds: [1] }])).rejects.toThrow('boom')
   })
 })

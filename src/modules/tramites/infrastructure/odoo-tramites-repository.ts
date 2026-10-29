@@ -18,7 +18,7 @@ import {
   TRAMITES_FETCH_LIMIT,
   TRAMITES_SHOW_IN_SYNTIA_FIELD,
 } from '@/src/modules/tramites/infrastructure/tramites-env'
-import { countAttachmentsByRecordIds } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
+import { countAttachmentsByModels } from '@/src/modules/portal/infrastructure/odoo-attachments-repository'
 import {
   resolveOdooUsersByIds,
   type OdooUserSummary,
@@ -246,17 +246,16 @@ export async function fetchTramitesFromOdoo(
       .map((row) => mapOdooMany2OneId(row.user_id))
       .filter((id): id is number => typeof id === 'number' && id > 0),
   ]
-  const [users, taskAttachmentCounts, ticketAttachmentCounts] = await Promise.all([
+  // Los adjuntos de tareas y de tickets van en UNA consulta (cada modelo con sus ids).
+  const [users, attachmentCounts] = await Promise.all([
     resolveOdooUsersByIds(assigneeUserIds),
-    countAttachmentsByRecordIds(
-      'project.task',
-      taskRows.map((row) => row.id)
-    ),
-    countAttachmentsByRecordIds(
-      ticketsModel,
-      ticketRows.map((row) => row.id)
-    ),
+    countAttachmentsByModels([
+      { resModel: 'project.task', resIds: taskRows.map((row) => row.id) },
+      { resModel: ticketsModel, resIds: ticketRows.map((row) => row.id) },
+    ]),
   ])
+  const taskAttachmentCounts = attachmentCounts.get('project.task') ?? new Map<number, number>()
+  const ticketAttachmentCounts = attachmentCounts.get(ticketsModel) ?? new Map<number, number>()
 
   // La herencia se calcula con las propias asignaciones de todas las tareas, antes de heredar.
   const tasks = inheritAssignees(
