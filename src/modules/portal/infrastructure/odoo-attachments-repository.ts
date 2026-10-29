@@ -121,6 +121,54 @@ export async function countAttachmentsByRecordIds(
   return counts
 }
 
+/** Registros de un modelo del que se quieren contar los adjuntos. */
+export type AttachmentCountGroup = { resModel: string; resIds: number[] }
+
+/**
+ * Cuenta los adjuntos de registros de VARIOS modelos con una sola consulta a Odoo (`countAttachmentsByRecordIds`
+ * hace una por modelo). El dominio es exacto: cada modelo con sus propios ids, para que el id 5 de una tarea
+ * no cuente los adjuntos del ticket 5. Devuelve, por modelo pedido, los adjuntos por id de registro; los modelos
+ * sin ids no entran en la consulta (quedan con el mapa vacío) y, si no queda ninguno, no se llama a Odoo. El tope es de `limitPerGroup` por modelo.
+ */
+export async function countAttachmentsByModels(
+  groups: AttachmentCountGroup[],
+  limitPerGroup = 500
+): Promise<Map<string, Map<number, number>>> {
+  const counts = new Map<string, Map<number, number>>()
+  const active = groups.filter((group) => group.resIds.length > 0)
+  for (const group of groups) counts.set(group.resModel, new Map())
+  if (!active.length) return counts
+
+  const clauses = active.map((group) => [
+    ['res_model', '=', group.resModel],
+    ['res_id', 'in', group.resIds],
+  ])
+  const domain =
+    clauses.length === 1
+      ? clauses[0]!
+      : [
+          ...Array<string>(clauses.length - 1).fill('|'),
+          ...clauses.flatMap(([model, ids]) => ['&', model, ids]),
+        ]
+
+  const rows = await odooSearchRead<{
+    res_id?: number | false | null
+    res_model?: string | false | null
+  }>('ir.attachment', {
+    domain: domain as never,
+    fields: ['res_id', 'res_model'],
+    limit: limitPerGroup * active.length,
+  })
+
+  for (const row of rows) {
+    if (typeof row.res_id !== 'number' || typeof row.res_model !== 'string') continue
+    const byId = counts.get(row.res_model)
+    if (byId) byId.set(row.res_id, (byId.get(row.res_id) ?? 0) + 1)
+  }
+
+  return counts
+}
+
 export async function fetchAttachmentBinary(attachmentId: number): Promise<{
   filename: string
   mimetype: string

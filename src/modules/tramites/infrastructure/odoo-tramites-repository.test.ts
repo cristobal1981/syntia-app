@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   odooSearchRead,
-  countAttachmentsByRecordIds,
+  countAttachmentsByModels,
   getCachedClientProjectIds,
   getCachedObligacionTaskIndex,
 } = vi.hoisted(() => ({
   odooSearchRead: vi.fn(),
-  countAttachmentsByRecordIds: vi.fn(),
+  countAttachmentsByModels: vi.fn(),
   getCachedClientProjectIds: vi.fn(),
   getCachedObligacionTaskIndex: vi.fn(),
 }))
@@ -22,7 +22,7 @@ vi.mock('@/src/modules/portal/infrastructure/cached-client-odoo-access', () => (
   getCachedObligacionTaskIndex,
 }))
 vi.mock('@/src/modules/portal/infrastructure/odoo-attachments-repository', () => ({
-  countAttachmentsByRecordIds,
+  countAttachmentsByModels,
 }))
 
 import {
@@ -39,7 +39,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   getCachedClientProjectIds.mockResolvedValue([5])
   getCachedObligacionTaskIndex.mockResolvedValue({ excludedTaskIds: [] })
-  countAttachmentsByRecordIds.mockResolvedValue(new Map())
+  countAttachmentsByModels.mockResolvedValue(new Map())
   odooSearchRead.mockImplementation(async (model: string, options: { fields?: string[] }) => {
     if (model === 'project.task') {
       return options.fields?.length === 1
@@ -235,7 +235,7 @@ describe('fetchTramitesFromOdoo: lecturas a Odoo en paralelo y sin repetir', () 
       releaseCounts = resolve
     })
     stubOdoo()
-    countAttachmentsByRecordIds.mockImplementation(async () => {
+    countAttachmentsByModels.mockImplementation(async () => {
       await countsGate
       return new Map()
     })
@@ -243,7 +243,7 @@ describe('fetchTramitesFromOdoo: lecturas a Odoo en paralelo y sin repetir', () 
     const pending = fetchTramitesFromOdoo(1233)
     // Los recuentos están bloqueados y aun así se consultan los usuarios.
     await vi.waitFor(() => expect(callsTo('res.users')).toHaveLength(1))
-    expect(countAttachmentsByRecordIds).toHaveBeenCalledTimes(2)
+    expect(countAttachmentsByModels).toHaveBeenCalledTimes(1)
     releaseCounts()
 
     await pending
@@ -260,10 +260,10 @@ describe('fetchTramitesFromOdoo: lecturas a Odoo en paralelo y sin repetir', () 
         return userIds.map((id) => ({ id, name: `U${id}`, partner_id: false }))
       },
     })
-    countAttachmentsByRecordIds.mockResolvedValue(new Map())
+    countAttachmentsByModels.mockResolvedValue(new Map())
 
     const pending = fetchTramitesFromOdoo(1233)
-    await vi.waitFor(() => expect(countAttachmentsByRecordIds).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(countAttachmentsByModels).toHaveBeenCalledTimes(1))
     // Los usuarios siguen sin responder y los recuentos ya se han pedido.
     expect(callsTo('res.users')).toHaveLength(1)
     releaseUsers()
@@ -271,13 +271,42 @@ describe('fetchTramitesFromOdoo: lecturas a Odoo en paralelo y sin repetir', () 
     await pending
   })
 
-  it('cuenta los adjuntos de tareas y de tickets cada uno en su modelo, con sus ids', async () => {
+  it('cuenta los adjuntos de tareas y de tickets en UNA sola llamada, cada uno en su modelo y con sus ids', async () => {
     stubOdoo()
 
     await fetchTramitesFromOdoo(1233)
 
-    expect(countAttachmentsByRecordIds).toHaveBeenCalledWith('project.task', [10])
-    expect(countAttachmentsByRecordIds).toHaveBeenCalledWith('helpdesk.ticket', [20])
+    expect(countAttachmentsByModels).toHaveBeenCalledTimes(1)
+    expect(countAttachmentsByModels).toHaveBeenCalledWith([
+      { resModel: 'project.task', resIds: [10] },
+      { resModel: 'helpdesk.ticket', resIds: [20] },
+    ])
+  })
+
+  it('cada tarea y cada ticket lleva el recuento de adjuntos de su propio modelo', async () => {
+    stubOdoo()
+    // Mismo id en los dos modelos: no se mezclan.
+    countAttachmentsByModels.mockResolvedValue(
+      new Map([
+        ['project.task', new Map([[10, 3]])],
+        ['helpdesk.ticket', new Map([[20, 7]])],
+      ])
+    )
+
+    const snapshot = await fetchTramitesFromOdoo(1233)
+
+    expect(snapshot.tasks.find((task) => task.id === 10)?.attachmentCount).toBe(3)
+    expect(snapshot.tickets.find((ticket) => ticket.id === 20)?.attachmentCount).toBe(7)
+  })
+
+  it('si el recuento no devuelve un modelo, sus registros quedan a cero', async () => {
+    stubOdoo()
+    countAttachmentsByModels.mockResolvedValue(new Map())
+
+    const snapshot = await fetchTramitesFromOdoo(1233)
+
+    expect(snapshot.tasks.every((task) => task.attachmentCount === 0)).toBe(true)
+    expect(snapshot.tickets.every((ticket) => ticket.attachmentCount === 0)).toBe(true)
   })
 
   it('sin proyectos del cliente no se leen tareas y los tickets se devuelven igualmente', async () => {
