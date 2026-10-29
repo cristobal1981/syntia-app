@@ -30,7 +30,8 @@ const copy = facturacion.page.detail
 const longDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeStyle: 'short' })
 const mediumDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
 const invoicesHref = sectionHref(SECTIONS.find((section) => section.id === 'invoices')!)
-const settingsHref = sectionHref(SECTIONS.find((section) => section.id === 'settings')!)
+/** Los datos fiscales del emisor son los del perfil: ahí se piden los cambios. */
+const PROFILE_HREF = '/perfil'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -241,7 +242,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
           </ul>
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
             {emitIssues.some((issue) => issue.code === 'issuer_incomplete') ? (
-              <Link href={settingsHref} className="font-medium text-foreground underline underline-offset-4">
+              <Link href={PROFILE_HREF} className="font-medium text-foreground underline underline-offset-4">
                 {copy.fixIssuer}
               </Link>
             ) : null}

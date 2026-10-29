@@ -8,8 +8,10 @@ import { facturacion } from '@/content/facturacion'
 import { isIssuerComplete } from '@/src/modules/facturacion/domain/issuer'
 import { isLocked } from '@/src/modules/facturacion/domain/invoice-rules'
 import { verifyNumbering, type NumberingIssue } from '@/src/modules/facturacion/domain/numbering'
-import { sectionHref, SECTIONS } from '@/src/modules/facturacion/domain/sections'
 import { useFacturacion } from '@/src/modules/facturacion/ui/facturacion-provider'
+
+/** Los datos fiscales del emisor son los del perfil: ahí se completan. */
+const PROFILE_HREF = '/perfil'
 
 const copy = facturacion.compliance
 
@@ -39,7 +41,6 @@ export function ComplianceCard() {
   const rectifications = allInvoices.filter((invoice) => invoice.kind === 'rectificativa' && invoice.status === 'definitiva').length
   const drafts = allInvoices.filter((invoice) => invoice.status === 'borrador').length
   const issuerOk = isIssuerComplete(issuer)
-  const settings = SECTIONS.find((section) => section.id === 'settings')
 
   const allGood = issuerOk && numberingIssues.length === 0 && drafts === 0
 
@@ -48,8 +49,8 @@ export function ComplianceCard() {
       <Check
         ok={issuerOk}
         action={
-          !issuerOk && settings ? (
-            <Link href={sectionHref(settings)} className="shrink-0 text-sm font-medium text-foreground underline underline-offset-4">
+          !issuerOk ? (
+            <Link href={PROFILE_HREF} className="shrink-0 text-sm font-medium text-foreground underline underline-offset-4">
               {copy.fix}
             </Link>
           ) : undefined

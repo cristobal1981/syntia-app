@@ -33,8 +33,6 @@ type FacturacionContextValue = {
   parties: Party[]
   products: Product[]
   issuer: Issuer
-  /** `true` si el emisor viene del perfil de Odoo y no se edita aquí. */
-  issuerFromOdoo: boolean
   events: InvoiceEvent[]
   today: string
   section: SectionDefinition
@@ -89,7 +87,6 @@ export function FacturacionProvider({ children, odooIssuer = null }: { children:
     parties: state.parties,
     products: state.products,
     issuer: odooIssuer ?? state.issuer,
-    issuerFromOdoo: odooIssuer !== null,
     events: state.events,
     today,
     section,

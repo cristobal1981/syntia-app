@@ -27,7 +27,6 @@ import {
   PartiesSection,
   ProductsSection,
   RectifyInvoiceSection,
-  SettingsSection,
 } from '@/src/modules/facturacion/ui/section-views'
 
 // El proveedor exige `children` entre sus props; `createElement` los recibe como argumentos.
@@ -410,12 +409,6 @@ describe('clientes', () => {
 })
 
 describe('datos fiscales y panel', () => {
-  it('datos fiscales: formulario con el emisor cargado', () => {
-    const html = render('/facturacion/configuracion', createElement(SettingsSection))
-    expect(html).toContain('Estudio Gráfico Tías (demo)')
-    expect(text(html)).toContain('Guardar datos fiscales')
-  })
-
   const ODOO_ISSUER: Issuer = {
     name: 'Mar Betancor Díaz',
     taxId: '12345678Z',
@@ -427,25 +420,16 @@ describe('datos fiscales y panel', () => {
     phone: '',
   }
 
-  it('con el emisor de Odoo, los datos fiscales son de solo lectura y se piden cambiar desde el perfil', () => {
-    const html = render('/facturacion/configuracion', createElement(SettingsSection), '', ODOO_ISSUER)
-    const plain = text(html)
-    expect(plain).toContain('Mar Betancor Díaz')
-    expect(plain).toContain('Calle Real, 5')
-    expect(plain).toContain('Sin rellenar')
-    expect(plain).toContain('Solicitar cambio de datos')
-    expect(html).toContain('href="/perfil"')
-    expect(plain).not.toContain('Guardar datos fiscales')
-    expect(html).not.toContain('<form')
+  it('Facturación ya no tiene pantalla de datos fiscales: son los del perfil', () => {
+    const shell = render('/facturacion/panel', createElement(PanelSection))
+    expect(shell).not.toContain('/facturacion/configuracion')
+    expect(text(render('/facturacion/panel', createElement(PanelSection), '', ODOO_ISSUER))).not.toContain('Guardar datos fiscales')
   })
 
-  it('con el emisor de Odoo se explica cómo se calculan sus impuestos', () => {
-    const plain = text(render('/facturacion/configuracion', createElement(SettingsSection), '', ODOO_ISSUER))
-    expect(plain).toContain('Canarias (IGIC)')
-    expect(plain).toContain('Persona física')
-    const peninsula = text(render('/facturacion/configuracion', createElement(SettingsSection), '', { ...ODOO_ISSUER, taxId: 'B35123454', postalCode: '28001', province: 'Madrid' }))
-    expect(peninsula).toContain('Península y Baleares (IVA)')
-    expect(peninsula).toContain('Sociedad o entidad')
+  it('si faltan datos fiscales del emisor, el panel manda al perfil a completarlos', () => {
+    const html = render('/facturacion/panel', createElement(PanelSection), '', { ...ODOO_ISSUER, address: '' })
+    expect(text(html)).toContain('Faltan datos fiscales del emisor')
+    expect(html).toContain('href="/perfil"')
   })
 
   it('el panel incluye la revisión de las facturas y avisa de lo que no incluye', () => {
@@ -559,8 +543,8 @@ describe('filtro de periodo fijo', () => {
     expect(html).toContain('sm:justify-between')
   })
 
-  it('Clientes y Datos fiscales no tienen filtro de periodo', () => {
-    for (const path of ['/facturacion/clientes', '/facturacion/configuracion']) {
+  it('Clientes y Productos no tienen filtro de periodo', () => {
+    for (const path of ['/facturacion/clientes', '/facturacion/productos']) {
       expect(bar(path), path).toBe('')
     }
   })

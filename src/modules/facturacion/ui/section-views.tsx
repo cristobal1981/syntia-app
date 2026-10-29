@@ -10,7 +10,6 @@ import { ProductsTab } from '@/src/modules/facturacion/ui/products-tab'
 import { PartiesTab } from '@/src/modules/facturacion/ui/parties-tab'
 import { PartyFormPage } from '@/src/modules/facturacion/ui/party-form-page'
 import { RectifyPage } from '@/src/modules/facturacion/ui/rectify-page'
-import { SettingsPage } from '@/src/modules/facturacion/ui/settings-page'
 
 /** Una vista por ruta: cada una toma lo que necesita del estado compartido del layout. */
 
@@ -60,6 +59,3 @@ export function ProductsSection() {
   return <ProductsTab />
 }
 
-export function SettingsSection() {
-  return <SettingsPage />
-}

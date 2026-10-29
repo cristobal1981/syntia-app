@@ -23,7 +23,6 @@ export const facturacion = {
     invoices: 'Facturas',
     parties: 'Clientes',
     products: 'Productos y servicios',
-    settings: 'Datos fiscales',
   },
   dashboard: {
     issued: {
@@ -320,7 +319,7 @@ export const facturacion = {
         markPending: 'Marcar como sin revisar',
       },
       fixEmitIssues: 'Completar los datos de la factura',
-      fixIssuer: 'Completar mis datos fiscales',
+      fixIssuer: 'Revisar mis datos en el perfil',
       lockedTitle: 'Factura emitida: no se puede modificar',
       lockedBody:
         'Ya no se puede modificar ni borrar. Si hay un error, se corrige con una corrección (factura rectificativa) que la cita; la original se conserva tal cual.',
@@ -337,7 +336,7 @@ export const facturacion = {
       emitted: (number: string) => `Factura ${number} emitida.`,
       emitIssues: {
         not_issuable: 'Esta factura no se puede emitir.',
-        issuer_incomplete: 'Faltan datos fiscales del emisor. Revisa «Datos fiscales»: si vienen de tu perfil, pide el cambio con «Solicitar cambio de datos».',
+        issuer_incomplete: 'Faltan datos fiscales en tu perfil. Pide a tu asesor que los complete con «Solicitar cambio de datos».',
         counterparty_name: 'Falta el nombre del cliente.',
         counterparty_tax_id: 'El NIF del cliente no es válido.',
         counterparty_address: 'Falta el domicilio del cliente.',
@@ -456,47 +455,6 @@ export const facturacion = {
     },
     columns: { name: 'Nombre', taxId: 'NIF', city: 'Población', contact: 'Contacto', invoices: 'Facturas', billed: 'Facturado', pending: 'Pendiente' },
     open: 'Ver ficha',
-  },
-  settings: {
-    title: 'Datos fiscales',
-    description:
-      'Tus datos como emisor. Aparecen en todas las facturas que emites y son obligatorios para poder emitirlas.',
-    fields: {
-      name: 'Nombre o razón social',
-      taxId: 'NIF',
-      address: 'Domicilio',
-      postalCode: 'Código postal',
-      city: 'Población',
-      province: 'Provincia',
-      email: 'Correo electrónico',
-      phone: 'Teléfono',
-    },
-    errors: {
-      nameRequired: 'El nombre es obligatorio.',
-      taxIdInvalid: 'Introduce un NIF válido.',
-      addressRequired: 'El domicilio es obligatorio.',
-      postalCodeInvalid: 'Son cinco cifras.',
-      cityRequired: 'La población es obligatoria.',
-      emailInvalid: 'Introduce un correo válido.',
-    },
-    save: 'Guardar datos fiscales',
-    saved: 'Datos fiscales guardados.',
-    futureNote: 'Los cambios solo afectan a las facturas que expidas a partir de ahora.',
-    fromProfile: {
-      description:
-        'Estos son tus datos fiscales como emisor. Los tomamos de tu perfil y aparecen en todas las facturas que emites; no se cambian aquí.',
-      requestChange: 'Solicitar cambio de datos',
-      missing: 'Sin rellenar',
-      taxProfile: {
-        title: 'Cómo se calculan tus impuestos',
-        territory: 'Territorio',
-        territories: { canarias: 'Canarias (IGIC)', peninsula: 'Península y Baleares (IVA)', ue: 'Unión Europea', fuera_ue: 'Fuera de la UE' },
-        person: 'Tipo de contribuyente',
-        naturalPerson: 'Persona física',
-        entity: 'Sociedad o entidad',
-        hint: 'Con esto y los datos de cada cliente decidimos el impuesto y la retención de tus facturas.',
-      },
-    },
   },
   document: {
     invoice: 'FACTURA',
