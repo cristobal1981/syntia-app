@@ -107,6 +107,9 @@ export function TramiteDetailDrawer({
   const [zipPending, startZipTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<TramiteDetailTab>(initialTab)
   const [scrollPin, setScrollPin] = useState(0)
+  // Escribiendo con teclado en pantalla (táctil), la cabecera se queda en lo mínimo para que
+  // los mensajes tengan sitio: título en una línea y sin descripción, fechas, estado ni responsables.
+  const [compactHeader, setCompactHeader] = useState(false)
 
   const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(
     null
@@ -301,6 +304,24 @@ export function TramiteDetailDrawer({
     setActiveTab('documents')
   }
 
+  function handleComposerFocus(event: React.FocusEvent<HTMLElement>) {
+    const target = event.target
+    const editable =
+      target instanceof HTMLElement &&
+      (target.isContentEditable || target.matches('textarea, input')) &&
+      target.closest('form') !== null
+    if (editable && window.matchMedia('(pointer: coarse)').matches) {
+      setCompactHeader(true)
+    }
+  }
+
+  function handleComposerBlur(event: React.FocusEvent<HTMLElement>) {
+    // Pulsar un botón del propio formulario (negrita, adjuntar) no recoge la cabecera.
+    const next = event.relatedTarget
+    if (next instanceof HTMLElement && next.closest('form')) return
+    setCompactHeader(false)
+  }
+
   function handleTabChange(tab: TramiteDetailTab) {
     setActiveTab(tab)
     if (tab === 'conversation') {
@@ -340,7 +361,7 @@ export function TramiteDetailDrawer({
 
   return (
     <PortalSideDrawer open={open} onOpenChange={onOpenChange} size="wide">
-        <DialogHeader className="shrink-0 gap-0 border-b border-border px-6 pt-3 pb-5 text-left dark:border-border/50">
+        <DialogHeader data-compact={compactHeader} className="group/header shrink-0 gap-0 border-b border-border px-6 pt-3 pb-5 text-left dark:border-border/50">
           {/* Fila de arriba: la navegación entre trámites y, a la derecha, el botón de cerrar del
               marco (absoluto, a la altura de esta fila). El hueco es fijo aunque no haya
               navegación, para que nada se mueva entre un trámite y el siguiente. */}
@@ -373,7 +394,7 @@ export function TramiteDetailDrawer({
                   </Button>
                 </PortalActionTooltip>
                 <span
-                  className="min-w-[4.75rem] text-center text-xs tabular-nums text-muted-foreground"
+                  className="min-w-[4.75rem] text-center text-sm tabular-nums text-muted-foreground"
                   aria-hidden
                 >
                   {pageItemIndex + 1}/{pageTotal}
@@ -400,10 +421,10 @@ export function TramiteDetailDrawer({
               </div>
             ) : null}
           </div>
-          {/* Dos líneas como máximo; ocupa lo que necesite. La navegación va en la fila de
+          {/* Tres líneas como máximo; ocupa lo que necesite. La navegación va en la fila de
               arriba, así que no se mueve aunque cambie la altura del título. */}
           <DialogTitle
-            className="mt-2 line-clamp-2 text-pretty"
+            className="mt-3 line-clamp-3 text-xl leading-snug text-pretty group-data-[compact=true]/header:mt-1 group-data-[compact=true]/header:line-clamp-1 group-data-[compact=true]/header:text-base"
             title={tramite.name}
           >
             {tramite.name}
@@ -412,7 +433,7 @@ export function TramiteDetailDrawer({
             <button
               type="button"
               onClick={() => onNavigateItem?.(parentTramite)}
-              className="mt-1.5 flex max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="mt-1.5 flex max-w-full min-w-0 cursor-pointer group-data-[compact=true]/header:hidden items-center gap-1.5 rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <CornerLeftUp className="size-4 shrink-0" aria-hidden />
               <span className="shrink-0">{subtasksCopy.partOf}</span>
@@ -422,13 +443,17 @@ export function TramiteDetailDrawer({
             </button>
           ) : null}
           {tramite.kind === 'tramite' && !isSettling ? (
-            <TramiteDescription key={tramite.id} taskId={tramite.id} />
+            <div className="group-data-[compact=true]/header:hidden">
+              <TramiteDescription key={tramite.id} taskId={tramite.id} />
+            </div>
           ) : null}
           {datesLine ? (
-            <p className="mt-2 text-xs text-muted-foreground">{datesLine}</p>
+            <p className="mt-2 text-xs text-muted-foreground group-data-[compact=true]/header:hidden">
+              {datesLine}
+            </p>
           ) : null}
           <DialogDescription asChild>
-            <div className="mt-3 flex flex-col items-start gap-2">
+            <div className="mt-3 flex flex-col items-start gap-2 group-data-[compact=true]/header:hidden">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <TramiteTypeBadge kind={tramite.kind} />
@@ -444,6 +469,11 @@ export function TramiteDetailDrawer({
           </DialogDescription>
         </DialogHeader>
 
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          onFocus={handleComposerFocus}
+          onBlur={handleComposerBlur}
+        >
         <RecordDetailTabs
           tabs={[
             {
@@ -531,6 +561,7 @@ export function TramiteDetailDrawer({
             </section>
           )}
         </RecordDetailTabs>
+        </div>
 
         <DocumentPreviewDialog
           attachment={previewAttachment}
