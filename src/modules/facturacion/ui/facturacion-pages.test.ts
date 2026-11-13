@@ -40,6 +40,12 @@ function render(path: string, element: ReactElement, search = '', odooIssuer: Is
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ')
 
+// Los datos de muestra están fechados en octubre de 2026: con el reloj real, los vencimientos y
+// los recuentos de «Vencidas» cambian con el paso del tiempo. Solo se congela `Date`, y a nivel de
+// módulo porque algunos `describe` renderizan al definirse, antes de cualquier `beforeEach`.
+vi.useFakeTimers({ toFake: ['Date'] })
+vi.setSystemTime(new Date('2026-10-16T12:00:00'))
+
 beforeEach(() => {
   nav.pathname = '/facturacion/panel'
   nav.search = ''

@@ -20,6 +20,7 @@ import {
   SIDEBAR_OVERLAY_QUERY,
 } from '@/src/modules/portal/lib/sidebar-queries'
 import { PortalScrollFade } from '@/src/modules/portal/ui/portal-scroll-fade'
+import { ProgressiveReveal } from '@/src/modules/portal/ui/progressive-reveal/progressive-reveal'
 import { Sappo } from '@/components/errors/sappo'
 import { PortalBrandMark } from '@/src/modules/portal/ui/portal-brand-mark'
 import { PortalNotificationsProvider } from '@/src/modules/portal/ui/portal-notifications-context'
@@ -340,6 +341,7 @@ export function PortalShell({
           </AnimatePresence>
         </LazyMotion>
 
+        <ProgressiveReveal />
         <main
           className={cn(
             'min-h-0 flex-1 overflow-y-auto p-4 sm:p-10',
